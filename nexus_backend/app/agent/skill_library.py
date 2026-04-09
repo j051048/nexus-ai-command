@@ -127,9 +127,7 @@ class SkillLibrary:
 
         # ── 1. 尝试语义向量匹配 ──
         try:
-            semantic_result = await self._match_skill_semantic(
-                user_message, user_id, org_id, db
-            )
+            semantic_result = await self._match_skill_semantic(user_message, user_id, org_id, db)
             if semantic_result:
                 return semantic_result
         except Exception as e:
@@ -384,12 +382,7 @@ class SkillLibrary:
             if embedding is not None:
                 update_data["embedding"] = embedding
 
-            await (
-                db.table("conversation_memories")
-                .update(update_data)
-                .eq("id", existing.data[0]["id"])
-                .execute()
-            )
+            await db.table("conversation_memories").update(update_data).eq("id", existing.data[0]["id"]).execute()
         else:
             # 新技能 → 插入（先检查是否超限）
             count_result = (
@@ -426,11 +419,7 @@ class SkillLibrary:
             if embedding is not None:
                 insert_data["embedding"] = embedding
 
-            await (
-                db.table("conversation_memories")
-                .insert(insert_data)
-                .execute()
-            )
+            await db.table("conversation_memories").insert(insert_data).execute()
 
 
 # 全局单例

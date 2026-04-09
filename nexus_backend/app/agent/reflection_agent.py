@@ -128,8 +128,14 @@ class ReflectionAgent:
         elapsed = (datetime.now(UTC) - start_time).total_seconds() * 1000
         result.duration_ms = int(elapsed)
 
-        if any([result.strategy_evaluated, result.skill_extracted,
-                result.consolidation_triggered, result.pattern_discovered]):
+        if any(
+            [
+                result.strategy_evaluated,
+                result.skill_extracted,
+                result.consolidation_triggered,
+                result.pattern_discovered,
+            ]
+        ):
             logger.info(
                 f"[Reflection] Completed for session {session_id[:8]}: "
                 f"strategy={result.strategy_evaluated}, skill={result.skill_extracted}, "
@@ -181,9 +187,7 @@ class ReflectionAgent:
                 logger.debug(f"[Reflection] Failed to record failure pattern: {e}")
 
         # 检查冗余调用（同一工具连续调用 3+ 次）
-        tool_name_sequence = [
-            tc.get("tool_name") or tc.get("name", "") for tc in tool_calls
-        ]
+        tool_name_sequence = [tc.get("tool_name") or tc.get("name", "") for tc in tool_calls]
         consecutive_count = 1
         for i in range(1, len(tool_name_sequence)):
             if tool_name_sequence[i] == tool_name_sequence[i - 1]:
@@ -228,8 +232,7 @@ class ReflectionAgent:
 
             # 检查所有工具是否都成功
             all_success = all(
-                tc.get("status") == "success" or (not tc.get("error") and tc.get("result"))
-                for tc in tool_calls
+                tc.get("status") == "success" or (not tc.get("error") and tc.get("result")) for tc in tool_calls
             )
             if not all_success:
                 return False
@@ -257,6 +260,7 @@ class ReflectionAgent:
         client = db
         if not client:
             from app.core.database import supabase
+
             client = supabase
         if not client:
             return False
@@ -336,10 +340,7 @@ def schedule_reflection(
     由 persist_result 调用，不阻塞用户响应。
     """
     # 跳过太简单的对话（短响应 + 无工具调用）
-    if (
-        len(assistant_response or "") < _MIN_RESPONSE_LEN_FOR_REFLECTION
-        and not tool_calls
-    ):
+    if len(assistant_response or "") < _MIN_RESPONSE_LEN_FOR_REFLECTION and not tool_calls:
         return
 
     agent = ReflectionAgent()
@@ -363,8 +364,7 @@ def schedule_reflection(
             )
         except TimeoutError:
             logger.warning(
-                f"[Reflection] Timed out after {_MAX_REFLECTION_DURATION_SECONDS}s "
-                f"for session {session_id[:8]}"
+                f"[Reflection] Timed out after {_MAX_REFLECTION_DURATION_SECONDS}s " f"for session {session_id[:8]}"
             )
         except Exception as e:
             logger.error(f"[Reflection] Background reflection failed: {e}")

@@ -64,9 +64,7 @@ class QueryTransformer:
                 # Fallback chain: gateway → AgentConfig → global settings
                 api_key = api_key or self.config.api_key or settings.OPENAI_API_KEY
                 base_url = (
-                    base_url
-                    or self.config.base_url
-                    or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+                    base_url or self.config.base_url or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
                 )
 
                 if not api_key:
@@ -220,14 +218,8 @@ async def llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k:
     try:
         from app.core.config import settings
 
-        api_key = (
-            config.api_key
-            or settings.OPENAI_API_KEY
-        )
-        base_url = (
-            config.base_url
-            or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
-        )
+        api_key = config.api_key or settings.OPENAI_API_KEY
+        base_url = config.base_url or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
 
         if not api_key:
             logger.warning("[LLMRerank] No API key available, skipping rerank")

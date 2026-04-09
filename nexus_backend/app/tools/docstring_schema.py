@@ -180,9 +180,7 @@ def generate_tool_schemas_from_router(
         if schema:
             schemas.append(schema)
 
-    logger.info(
-        f"[DocstringSchema] Generated {len(schemas)} tool schemas from {router_module_path}"
-    )
+    logger.info(f"[DocstringSchema] Generated {len(schemas)} tool schemas from {router_module_path}")
     return schemas
 
 
@@ -205,9 +203,7 @@ def generate_all_router_schemas(
             package = importlib.import_module("app.routers")
             pkg_paths = getattr(package, "__path__", [])
             router_modules = []
-            for _importer, modname, ispkg in pkgutil.iter_modules(
-                pkg_paths, "app.routers."
-            ):
+            for _importer, modname, ispkg in pkgutil.iter_modules(pkg_paths, "app.routers."):
                 if not ispkg and not modname.endswith("__init__"):
                     router_modules.append(modname)
         except Exception as e:
@@ -224,7 +220,5 @@ def generate_all_router_schemas(
             logger.debug(f"[DocstringSchema] Skipped {mod_path}: {e}")
 
     total = sum(len(v) for v in results.values())
-    logger.info(
-        f"[DocstringSchema] Total: {total} schemas from {len(results)} routers"
-    )
+    logger.info(f"[DocstringSchema] Total: {total} schemas from {len(results)} routers")
     return results

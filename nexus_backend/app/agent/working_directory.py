@@ -69,27 +69,31 @@ class WorkingDirectory:
             if existing.data:
                 await (
                     db.table("conversation_memories")
-                    .update({
-                        "value": value_json,
-                        "metadata": meta,
-                        "organization_id": org_id,
-                        "updated_at": now.isoformat(),
-                    })
+                    .update(
+                        {
+                            "value": value_json,
+                            "metadata": meta,
+                            "organization_id": org_id,
+                            "updated_at": now.isoformat(),
+                        }
+                    )
                     .eq("id", existing.data[0]["id"])
                     .execute()
                 )
             else:
                 await (
                     db.table("conversation_memories")
-                    .insert({
-                        "user_id": user_id,
-                        "organization_id": org_id,
-                        "category": _CATEGORY,
-                        "key": full_key,
-                        "value": value_json,
-                        "metadata": meta,
-                        "importance": 0.3,
-                    })
+                    .insert(
+                        {
+                            "user_id": user_id,
+                            "organization_id": org_id,
+                            "category": _CATEGORY,
+                            "key": full_key,
+                            "value": value_json,
+                            "metadata": meta,
+                            "importance": 0.3,
+                        }
+                    )
                     .execute()
                 )
 
@@ -141,10 +145,12 @@ class WorkingDirectory:
             now = datetime.now(UTC)
             await (
                 db.table("conversation_memories")
-                .update({
-                    "access_count": (row.get("access_count") or 0) + 1,
-                    "last_accessed_at": now.isoformat(),
-                })
+                .update(
+                    {
+                        "access_count": (row.get("access_count") or 0) + 1,
+                        "last_accessed_at": now.isoformat(),
+                    }
+                )
                 .eq("id", row["id"])
                 .execute()
             )
@@ -198,21 +204,23 @@ class WorkingDirectory:
                         continue
 
                 raw_key = row.get("key", "")
-                user_key = raw_key[len(_KEY_PREFIX):] if raw_key.startswith(_KEY_PREFIX) else raw_key
+                user_key = raw_key[len(_KEY_PREFIX) :] if raw_key.startswith(_KEY_PREFIX) else raw_key
 
                 try:
                     value = json.loads(row.get("value", "null"))
                 except (json.JSONDecodeError, TypeError):
                     value = row.get("value")
 
-                active.append({
-                    "key": user_key,
-                    "value": value,
-                    "metadata": meta,
-                    "access_count": row.get("access_count", 0),
-                    "created_at": row.get("created_at"),
-                    "updated_at": row.get("updated_at"),
-                })
+                active.append(
+                    {
+                        "key": user_key,
+                        "value": value,
+                        "metadata": meta,
+                        "access_count": row.get("access_count", 0),
+                        "created_at": row.get("created_at"),
+                        "updated_at": row.get("updated_at"),
+                    }
+                )
 
             return active
 
@@ -287,12 +295,7 @@ class WorkingDirectory:
 
             # 批量删除
             for eid in expired_ids:
-                await (
-                    db.table("conversation_memories")
-                    .delete()
-                    .eq("id", eid)
-                    .execute()
-                )
+                await db.table("conversation_memories").delete().eq("id", eid).execute()
 
             logger.info(f"[WorkingDirectory] Cleaned up {len(expired_ids)} expired states for user={user_id}")
             return len(expired_ids)

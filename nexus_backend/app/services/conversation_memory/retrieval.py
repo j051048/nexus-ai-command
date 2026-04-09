@@ -1551,11 +1551,7 @@ async def get_l2_contextual(
         if relevant:
             # Exclude L1 items: high-importance directives and anti-patterns
             filtered = [
-                m for m in relevant
-                if not (
-                    (m.get("importance") or 0) >= 0.85
-                    or m.get("category") == "anti_pattern"
-                )
+                m for m in relevant if not ((m.get("importance") or 0) >= 0.85 or m.get("category") == "anti_pattern")
             ]
             for m in filtered:
                 parts.append(_format_by_temperature(m))
@@ -1573,8 +1569,7 @@ async def get_l2_contextual(
         if consolidations:
             for c in consolidations:
                 parts.append(
-                    f'  <insight type="{c["insight_type"]}" '
-                    f'title="{c["title"]}">{c["content"][:150]}</insight>'
+                    f'  <insight type="{c["insight_type"]}" ' f'title="{c["title"]}">{c["content"][:150]}</insight>'
                 )
     except Exception as e:
         logger.debug(f"[L2] Consolidation search failed: {e}")
@@ -1587,9 +1582,6 @@ async def get_l2_contextual(
     # Budget cap: ~300 tokens ≈ 900 chars
     _L2_MAX_CHARS = 900
     if len(context) > _L2_MAX_CHARS:
-        context = (
-            context[:_L2_MAX_CHARS]
-            + "\n... (更多记忆可用 search_long_term_memory 工具查看)"
-        )
+        context = context[:_L2_MAX_CHARS] + "\n... (更多记忆可用 search_long_term_memory 工具查看)"
 
     return context

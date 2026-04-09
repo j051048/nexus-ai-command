@@ -22,8 +22,20 @@ _MAX_REINFORCEMENT = 0.20  # 强化上限 20%
 
 # 业务关键词（用于静态评分）
 _BUSINESS_KEYWORDS = [
-    "合同", "付款", "客户", "订单", "审批", "重要", "紧急",
-    "关键", "必须", "deadline", "签约", "预算", "报价", "招标",
+    "合同",
+    "付款",
+    "客户",
+    "订单",
+    "审批",
+    "重要",
+    "紧急",
+    "关键",
+    "必须",
+    "deadline",
+    "签约",
+    "预算",
+    "报价",
+    "招标",
 ]
 
 # 高价值分类（这些分类的记忆衰减更慢）
@@ -75,11 +87,7 @@ class MemoryImportanceScorer:
         - 最低不低于 _MIN_RETENTION
         """
         # 优先使用 last_accessed_at（表示"最近一次被回忆"）
-        last_ts = (
-            memory.get("last_accessed_at")
-            or memory.get("updated_at")
-            or memory.get("created_at")
-        )
+        last_ts = memory.get("last_accessed_at") or memory.get("updated_at") or memory.get("created_at")
         if not last_ts:
             return 1.0
 

@@ -601,10 +601,7 @@ AI 回复:
         # Deep reflection (Tree of Thoughts): when COMPLEX/CRITICAL queries
         # fail multiple iterations, generate alternative approaches via LLM
         _deep_thinking_steps = []
-        if (
-            complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
-            and iteration >= 2
-        ):
+        if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and iteration >= 2:
             try:
                 from app.agent.deep_reflect import deep_reflector
 
@@ -628,13 +625,9 @@ AI 回复:
                 if alternatives:
                     best = deep_reflector.select_best(alternatives)
                     if best and best.get("approach"):
-                        guidance_parts.append(
-                            f"**深度反思推荐方案**: {best['approach']}"
-                        )
+                        guidance_parts.append(f"**深度反思推荐方案**: {best['approach']}")
                         if best.get("tools"):
-                            guidance_parts.append(
-                                f"**建议工具链**: {', '.join(str(t) for t in best['tools'][:5])}"
-                            )
+                            guidance_parts.append(f"**建议工具链**: {', '.join(str(t) for t in best['tools'][:5])}")
                         _deep_thinking_steps.append(
                             ThinkingStep(
                                 phase="reflecting",
@@ -687,7 +680,8 @@ AI 回复:
             bt_updates = execute_backtrack(state)
             if bt_updates:
                 _backtrack_extras = {
-                    k: v for k, v in bt_updates.items()
+                    k: v
+                    for k, v in bt_updates.items()
                     if k in ("backtrack_depth", "candidate_plans", "completed_tool_calls", "pending_tool_calls")
                 }
                 # Override reflection_guidance with backtrack-aware guidance
@@ -742,8 +736,11 @@ AI 回复:
                         content=f"置信度过低 ({confidence:.0%})，触发寻路回溯到替代方案",
                     )
                 ],
-                **{k: v for k, v in bt_updates.items()
-                   if k in ("backtrack_depth", "candidate_plans", "completed_tool_calls", "pending_tool_calls")},
+                **{
+                    k: v
+                    for k, v in bt_updates.items()
+                    if k in ("backtrack_depth", "candidate_plans", "completed_tool_calls", "pending_tool_calls")
+                },
             }
 
     return {

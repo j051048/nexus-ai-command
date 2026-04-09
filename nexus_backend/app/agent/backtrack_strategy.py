@@ -50,13 +50,9 @@ def should_backtrack(state: dict) -> bool:
     # Condition 2: Low confidence or total tool failure
     confidence = state.get("confidence_score", 1.0)
     completed_tools = state.get("completed_tool_calls", [])
-    all_tools_failed = (
-        len(completed_tools) > 0
-        and all(
-            (getattr(tc, "status", None) or (tc.get("status") if isinstance(tc, dict) else ""))
-            == "error"
-            for tc in completed_tools
-        )
+    all_tools_failed = len(completed_tools) > 0 and all(
+        (getattr(tc, "status", None) or (tc.get("status") if isinstance(tc, dict) else "")) == "error"
+        for tc in completed_tools
     )
 
     should_trigger = confidence < CONFIDENCE_BACKTRACK_THRESHOLD or all_tools_failed
@@ -72,9 +68,7 @@ def should_backtrack(state: dict) -> bool:
     # Check if there's an untried candidate with sufficient quality
     current_plan_sig = _plan_signature(state.get("plan", ""))
     alternatives = [
-        c for c in candidates
-        if c.get("sig") != current_plan_sig
-        and c.get("score", 0) >= MIN_ALTERNATIVE_SCORE
+        c for c in candidates if c.get("sig") != current_plan_sig and c.get("score", 0) >= MIN_ALTERNATIVE_SCORE
     ]
 
     if not alternatives:
@@ -82,9 +76,11 @@ def should_backtrack(state: dict) -> bool:
         return False
 
     logger.info(
-        "[Backtrack] Backtrack conditions met: confidence=%.2f, all_failed=%s, "
-        "alternatives=%d, depth=%d",
-        confidence, all_tools_failed, len(alternatives), backtrack_depth,
+        "[Backtrack] Backtrack conditions met: confidence=%.2f, all_failed=%s, " "alternatives=%d, depth=%d",
+        confidence,
+        all_tools_failed,
+        len(alternatives),
+        backtrack_depth,
     )
     return True
 
@@ -187,6 +183,7 @@ def _plan_signature(plan_text: str) -> str:
 
     # Normalize: lowercase, strip whitespace, remove punctuation
     import re
+
     clean = re.sub(r"[^\w\u4e00-\u9fff]", "", plan_text.lower())
     # Use first 200 chars for hash (plans shouldn't be longer)
     return hashlib.md5(clean[:200].encode()).hexdigest()[:12]

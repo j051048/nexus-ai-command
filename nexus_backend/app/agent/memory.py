@@ -723,7 +723,9 @@ async def prepare_initial_state(
                         target = (time_range or {}).get("start")
                         if target:
                             # Extract entity name: first 2-4 char Chinese name in query
-                            entity_match = re.search(r"([\u4e00-\u9fa5]{2,4})(?:之前|以前|过去|曾经|原来|去年)", last_user_msg)
+                            entity_match = re.search(
+                                r"([\u4e00-\u9fa5]{2,4})(?:之前|以前|过去|曾经|原来|去年)", last_user_msg
+                            )
                             entity = entity_match.group(1) if entity_match else None
                             if entity:
                                 temporal_triples = await query_entity_at_time(
@@ -803,12 +805,12 @@ async def prepare_initial_state(
         # Fire all 6 lookups concurrently (profile already fetched above)
         # L1/L2 replace the old monolithic _fetch_long_term_memory()
         results = await asyncio.gather(
-            _fetch_l1_critical(),        # [0] L1: directives — highest priority
-            _fetch_l2_contextual(),      # [1] L2: query-relevant memories
-            _fetch_org_memory(),         # [2] org memory
-            _fetch_kg_context(),         # [3] knowledge graph
+            _fetch_l1_critical(),  # [0] L1: directives — highest priority
+            _fetch_l2_contextual(),  # [1] L2: query-relevant memories
+            _fetch_org_memory(),  # [2] org memory
+            _fetch_kg_context(),  # [3] knowledge graph
             _fetch_pattern_suggestions(),  # [4] behavior patterns
-            _fetch_episodic_memory(),    # [5] episodic recall
+            _fetch_episodic_memory(),  # [5] episodic recall
             return_exceptions=True,
         )
 

@@ -4,12 +4,12 @@ import React from "react";
 import { Sidebar } from "../Sidebar";
 
 // ── Stub lucide-react icons ────────────────────────────────────────────
-// vi.mock is hoisted, so we CANNOT reference top-level variables.
-// All icon stubs must be built inline inside the factory function.
+// vi.mock is hoisted — factory can reference top-level imports (React)
+// but NOT top-level variable declarations.
 vi.mock("lucide-react", () => {
-  const R = require("react");
   const stub = (name: string) => {
-    const C = (p: Record<string, unknown>) => R.createElement("span", { "data-testid": `icon-${name}`, ...p });
+    const C = (p: Record<string, unknown>) =>
+      React.createElement("span", { "data-testid": `icon-${name}`, ...p });
     C.displayName = name;
     return C;
   };
@@ -30,21 +30,18 @@ vi.mock("lucide-react", () => {
 });
 
 // ── Stub sub-components & hooks ────────────────────────────────────────
-vi.mock("../SearchPanel", () => ({ default: () => <div>Search</div> }));
-vi.mock("../FavoriteAgents", () => ({ default: () => <div>Favorites</div> }));
-vi.mock("../RecentAgents", () => ({ default: () => <div>Recent</div> }));
-vi.mock("../ProfileSummary", () => ({ default: () => <div>Profile</div> }));
+vi.mock("../SearchPanel", () => ({ default: () => React.createElement("div", null, "Search") }));
+vi.mock("../FavoriteAgents", () => ({ default: () => React.createElement("div", null, "Favorites") }));
+vi.mock("../RecentAgents", () => ({ default: () => React.createElement("div", null, "Recent") }));
+vi.mock("../ProfileSummary", () => ({ default: () => React.createElement("div", null, "Profile") }));
 vi.mock("../../auth/AuthContext", () => ({ useAuth: () => ({ profile: {} }) }));
 vi.mock("../../../contexts/UserContext", () => ({ useUser: () => ({ user: {} }) }));
-vi.mock("react-router-dom", () => {
-  const R = require("react");
-  return {
-    Link: ({ children, ...props }: { children: React.ReactNode; to: string }) =>
-      R.createElement("a", { href: props.to }, children),
-    useLocation: () => ({ pathname: "/" }),
-    useNavigate: () => vi.fn(),
-  };
-});
+vi.mock("react-router-dom", () => ({
+  Link: ({ children, ...props }: { children: React.ReactNode; to: string }) =>
+    React.createElement("a", { href: props.to }, children),
+  useLocation: () => ({ pathname: "/" }),
+  useNavigate: () => vi.fn(),
+}));
 vi.mock("@/contexts/ThemeContext", () => ({
   useTheme: () => ({ theme: "light" }),
 }));
@@ -82,32 +79,29 @@ vi.mock("@/hooks/useNotificationCenter", () => ({
   useUnreadCount: () => 0,
 }));
 vi.mock("@/components/ui/collapsible", () => {
-  const R = require("react");
-  const F = ({ children }: { children: React.ReactNode }) => R.createElement("div", null, children);
+  const F = ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", null, children);
   return { Collapsible: F, CollapsibleTrigger: F, CollapsibleContent: F };
 });
 vi.mock("@/components/ui/dropdown-menu", () => {
-  const R = require("react");
-  const F = ({ children }: { children: React.ReactNode }) => R.createElement("div", null, children);
+  const F = ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", null, children);
   return {
     DropdownMenu: F, DropdownMenuContent: F, DropdownMenuItem: F,
     DropdownMenuLabel: F, DropdownMenuSeparator: () => null, DropdownMenuTrigger: F,
   };
 });
 vi.mock("@/components/ui/tooltip", () => {
-  const R = require("react");
-  const F = ({ children }: { children: React.ReactNode }) => R.createElement("div", null, children);
+  const F = ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", null, children);
   return { Tooltip: F, TooltipContent: F, TooltipProvider: F, TooltipTrigger: F };
 });
-vi.mock("@/components/ui/button", () => {
-  const R = require("react");
-  return {
-    Button: R.forwardRef(
-      ({ children, ...props }: { children?: React.ReactNode }, ref: React.Ref<HTMLButtonElement>) =>
-        R.createElement("button", { ...props, ref }, children)
-    ),
-  };
-});
+vi.mock("@/components/ui/button", () => ({
+  Button: React.forwardRef(
+    ({ children, ...props }: { children?: React.ReactNode }, ref: React.Ref<HTMLButtonElement>) =>
+      React.createElement("button", { ...props, ref }, children)
+  ),
+}));
 
 describe("Sidebar Accessibility", () => {
   it("should render with correct ARIA roles", () => {

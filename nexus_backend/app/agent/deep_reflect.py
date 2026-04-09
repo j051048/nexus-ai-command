@@ -102,10 +102,12 @@ class DeepReflector:
                 error_info=ctx.get("error_info", "无错误信息")[:500],
             )
 
-            resp = await llm.ainvoke([
-                SystemMessage(content="你是 Tree of Thoughts 决策引擎，负责生成多条候选解决路径。只返回 JSON。"),
-                HumanMessage(content=prompt),
-            ])
+            resp = await llm.ainvoke(
+                [
+                    SystemMessage(content="你是 Tree of Thoughts 决策引擎，负责生成多条候选解决路径。只返回 JSON。"),
+                    HumanMessage(content=prompt),
+                ]
+            )
 
             raw = resp.content.strip()
             # 提取 JSON 数组
@@ -120,12 +122,14 @@ class DeepReflector:
             valid = []
             for alt in alternatives:
                 if isinstance(alt, dict) and "approach" in alt:
-                    valid.append({
-                        "approach": alt.get("approach", ""),
-                        "tools": alt.get("tools", []) if isinstance(alt.get("tools"), list) else [],
-                        "risk": alt.get("risk", ""),
-                        "score": float(alt.get("score", 0.5)),
-                    })
+                    valid.append(
+                        {
+                            "approach": alt.get("approach", ""),
+                            "tools": alt.get("tools", []) if isinstance(alt.get("tools"), list) else [],
+                            "risk": alt.get("risk", ""),
+                            "score": float(alt.get("score", 0.5)),
+                        }
+                    )
             if valid:
                 logger.info(f"[DeepReflect] LLM 生成 {len(valid)} 个候选方案")
                 return valid
@@ -181,10 +185,12 @@ class DeepReflector:
                 tool_results=str(ctx.get("tool_results", "无工具结果"))[:500],
             )
 
-            resp = await llm.ainvoke([
-                SystemMessage(content="你是方案可行性评估专家。只返回 JSON。"),
-                HumanMessage(content=prompt),
-            ])
+            resp = await llm.ainvoke(
+                [
+                    SystemMessage(content="你是方案可行性评估专家。只返回 JSON。"),
+                    HumanMessage(content=prompt),
+                ]
+            )
 
             raw = resp.content.strip()
             match = re.search(r"\{.*\}", raw, re.DOTALL)

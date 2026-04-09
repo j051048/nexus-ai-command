@@ -159,8 +159,7 @@ BEHAVIOR_PREF_PATTERNS: list[tuple[re.Pattern, str, str]] = [
 # ── Mining Mode Detection ───────────────────────────────────────────────
 # Auto-detect conversation scene to select specialized extraction prompts.
 _ENTITY_HINT_PATTERN = re.compile(
-    r"[\u4e00-\u9fa5]{2,4}(?:的|负责|管理|在|属于|是)"
-    r"|(?:公司|部门|团队|项目|客户)[\u4e00-\u9fa5]{2,8}"
+    r"[\u4e00-\u9fa5]{2,4}(?:的|负责|管理|在|属于|是)" r"|(?:公司|部门|团队|项目|客户)[\u4e00-\u9fa5]{2,8}"
 )
 
 
@@ -589,8 +588,7 @@ async def extract_with_llm(
                 "正例（应该提取）：\n"
                 "- ✅ '我是华东区销售经理' → fact, confidence=1.0\n"
                 "- ✅ '我喜欢用表格展示数据' → opinion, confidence=0.8\n"
-                "- ✅ '张三的宠物叫什么' → entity_query, confidence=0.7（记录用户关心的实体）\n\n"
-                + _json_format
+                "- ✅ '张三的宠物叫什么' → entity_query, confidence=0.7（记录用户关心的实体）\n\n" + _json_format
             )
 
         result_text = await AIService.call_llm(prompt, system)

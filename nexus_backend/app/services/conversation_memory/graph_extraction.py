@@ -616,16 +616,11 @@ async def search_kg_hybrid(
         logger.error(f"[KG] Hybrid search RPC failed, falling back to ILIKE: {e}")
         try:
             pattern = f"%{query}%"
-            fallback_q = (
-                client.table("knowledge_graph_triples")
-                .select("*")
-                .eq("organization_id", org_id)
-            )
+            fallback_q = client.table("knowledge_graph_triples").select("*").eq("organization_id", org_id)
             if not include_historical:
                 fallback_q = fallback_q.is_("valid_to", "null")
             result = await (
-                fallback_q
-                .or_(
+                fallback_q.or_(
                     f"source_entity.ilike.{pattern},"
                     f"destination_entity.ilike.{pattern},"
                     f"relationship.ilike.{pattern}"

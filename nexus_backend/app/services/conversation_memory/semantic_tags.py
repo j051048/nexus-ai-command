@@ -24,20 +24,41 @@ logger = logging.getLogger(__name__)
 
 # ── Domain keyword → tag mapping ─────────────────────────────────────────
 _DOMAIN_KEYWORDS: dict[str, list[str]] = {
-    "crm": ["客户", "商机", "线索", "跟进", "合同", "销售", "成交", "订单",
-            "customer", "deal", "lead", "pipeline", "contract"],
-    "hr": ["员工", "请假", "考勤", "入职", "离职", "薪资", "绩效", "招聘",
-           "employee", "leave", "attendance", "salary", "onboarding"],
-    "finance": ["报销", "预算", "发票", "账款", "财务", "费用", "收入",
-                "expense", "budget", "invoice", "revenue"],
-    "project": ["项目", "排期", "里程碑", "迭代", "冲刺", "需求", "版本",
-                "project", "sprint", "milestone", "release"],
-    "approval": ["审批", "审核", "签字", "流程", "工单",
-                 "approval", "review", "workflow"],
-    "document": ["文档", "报告", "手册", "规范", "制度", "政策",
-                 "document", "report", "policy", "manual"],
-    "communication": ["邮件", "会议", "通知", "消息", "日程",
-                      "email", "meeting", "notification", "schedule"],
+    "crm": [
+        "客户",
+        "商机",
+        "线索",
+        "跟进",
+        "合同",
+        "销售",
+        "成交",
+        "订单",
+        "customer",
+        "deal",
+        "lead",
+        "pipeline",
+        "contract",
+    ],
+    "hr": [
+        "员工",
+        "请假",
+        "考勤",
+        "入职",
+        "离职",
+        "薪资",
+        "绩效",
+        "招聘",
+        "employee",
+        "leave",
+        "attendance",
+        "salary",
+        "onboarding",
+    ],
+    "finance": ["报销", "预算", "发票", "账款", "财务", "费用", "收入", "expense", "budget", "invoice", "revenue"],
+    "project": ["项目", "排期", "里程碑", "迭代", "冲刺", "需求", "版本", "project", "sprint", "milestone", "release"],
+    "approval": ["审批", "审核", "签字", "流程", "工单", "approval", "review", "workflow"],
+    "document": ["文档", "报告", "手册", "规范", "制度", "政策", "document", "report", "policy", "manual"],
+    "communication": ["邮件", "会议", "通知", "消息", "日程", "email", "meeting", "notification", "schedule"],
 }
 
 # ── Action tags inferred from category ────────────────────────────────────
@@ -56,15 +77,9 @@ _CATEGORY_ACTION_MAP: dict[str, str] = {
 }
 
 # ── Entity extraction patterns (lightweight, no LLM) ─────────────────────
-_PERSON_PATTERN = re.compile(
-    r"([\u4e00-\u9fff]{1,3}(?:总|经理|老师|先生|女士|主管|老板|组长|领导))"
-)
-_COMPANY_PATTERN = re.compile(
-    r"([\u4e00-\u9fff]{2,8}(?:公司|集团|企业|科技|有限|股份|控股))"
-)
-_PRODUCT_PATTERN = re.compile(
-    r"([\u4e00-\u9fff\w]{2,10}(?:系统|平台|产品|软件|工具|服务|方案))"
-)
+_PERSON_PATTERN = re.compile(r"([\u4e00-\u9fff]{1,3}(?:总|经理|老师|先生|女士|主管|老板|组长|领导))")
+_COMPANY_PATTERN = re.compile(r"([\u4e00-\u9fff]{2,8}(?:公司|集团|企业|科技|有限|股份|控股))")
+_PRODUCT_PATTERN = re.compile(r"([\u4e00-\u9fff\w]{2,10}(?:系统|平台|产品|软件|工具|服务|方案))")
 
 
 def generate_semantic_tags(

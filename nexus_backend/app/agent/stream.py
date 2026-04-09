@@ -598,11 +598,7 @@ async def run_agent_stream(
                                     )
                                     # P0 FIX: Also push the raw result for GenUI/Data visualization
                                     if rec.status == "success" and rec.result:
-                                        yield _sse_tool_result(
-                                            rec.tool_name,
-                                            rec.result,
-                                            rec.status
-                                        )
+                                        yield _sse_tool_result(rec.tool_name, rec.result, rec.status)
                         else:
                             accumulated_state[key] = value
 
@@ -803,11 +799,7 @@ async def run_agent_stream(
                                             )
                                             # P0 FIX: Also push results in retry path
                                             if rec.status == "success" and rec.result:
-                                                yield _sse_tool_result(
-                                                    rec.tool_name,
-                                                    rec.result,
-                                                    rec.status
-                                                )
+                                                yield _sse_tool_result(rec.tool_name, rec.result, rec.status)
                                 else:
                                     accumulated_state[key] = value
             except Exception as retry_err:

@@ -125,15 +125,11 @@ def apply_visibility_filter(
 
     # Team visibility: any org member can see team-shared memories
     if role_level >= get_role_level("employee"):
-        or_parts.append(
-            f"and(organization_id.eq.{org_id},visibility.eq.team)"
-        )
+        or_parts.append(f"and(organization_id.eq.{org_id},visibility.eq.team)")
 
     # Organization visibility: manager+ can see org-shared memories
     if role_level >= get_role_level("manager"):
-        or_parts.append(
-            f"and(organization_id.eq.{org_id},visibility.eq.organization)"
-        )
+        or_parts.append(f"and(organization_id.eq.{org_id},visibility.eq.organization)")
 
     query = query.or_(",".join(or_parts))
     return query

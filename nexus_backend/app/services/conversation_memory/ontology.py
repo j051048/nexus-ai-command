@@ -40,6 +40,7 @@ class DomainSchema:
 
 _DOMAIN_REGISTRY: dict[str, DomainSchema] = {}
 
+
 def _init_domains() -> None:
     """初始化核心业务域"""
     domains = [
@@ -48,8 +49,18 @@ def _init_domains() -> None:
             display_name="客户关系",
             entity_types=["customer", "contact", "deal", "competitor", "lead"],
             allowed_relationships=[
-                "属于", "负责", "合作", "竞争", "签约", "跟进",
-                "推荐", "转化", "流失", "关联", "报价", "成交",
+                "属于",
+                "负责",
+                "合作",
+                "竞争",
+                "签约",
+                "跟进",
+                "推荐",
+                "转化",
+                "流失",
+                "关联",
+                "报价",
+                "成交",
             ],
             canonical_attributes={
                 "customer": ["name", "industry", "stage", "region", "value"],
@@ -62,8 +73,16 @@ def _init_domains() -> None:
             display_name="人力资源",
             entity_types=["employee", "department", "position", "policy", "team"],
             allowed_relationships=[
-                "隶属", "管理", "汇报给", "担任", "适用", "违反",
-                "属于", "调动", "晋升", "带领",
+                "隶属",
+                "管理",
+                "汇报给",
+                "担任",
+                "适用",
+                "违反",
+                "属于",
+                "调动",
+                "晋升",
+                "带领",
             ],
             canonical_attributes={
                 "employee": ["name", "department", "position", "hire_date"],
@@ -75,8 +94,16 @@ def _init_domains() -> None:
             display_name="审批流程",
             entity_types=["approval_flow", "approval_node", "approver", "request"],
             allowed_relationships=[
-                "包含", "审批", "驳回", "转交", "催办", "提交",
-                "属于", "关联", "发起", "结束",
+                "包含",
+                "审批",
+                "驳回",
+                "转交",
+                "催办",
+                "提交",
+                "属于",
+                "关联",
+                "发起",
+                "结束",
             ],
         ),
         DomainSchema(
@@ -84,8 +111,15 @@ def _init_domains() -> None:
             display_name="财务",
             entity_types=["account", "budget", "expense", "invoice", "receipt"],
             allowed_relationships=[
-                "归属", "报销", "预算内", "超支", "关联",
-                "支付", "开票", "审核", "冲销",
+                "归属",
+                "报销",
+                "预算内",
+                "超支",
+                "关联",
+                "支付",
+                "开票",
+                "审核",
+                "冲销",
             ],
         ),
         DomainSchema(
@@ -93,8 +127,15 @@ def _init_domains() -> None:
             display_name="办公自动化",
             entity_types=["task", "meeting", "announcement", "document", "schedule"],
             allowed_relationships=[
-                "分配给", "参加", "创建", "关联", "通知",
-                "属于", "完成", "延期", "取消",
+                "分配给",
+                "参加",
+                "创建",
+                "关联",
+                "通知",
+                "属于",
+                "完成",
+                "延期",
+                "取消",
             ],
         ),
         DomainSchema(
@@ -102,19 +143,37 @@ def _init_domains() -> None:
             display_name="知识库",
             entity_types=["article", "category", "tag", "faq"],
             allowed_relationships=[
-                "属于", "引用", "补充", "替代", "关联", "解答",
+                "属于",
+                "引用",
+                "补充",
+                "替代",
+                "关联",
+                "解答",
             ],
         ),
         DomainSchema(
             name="general",
             display_name="通用知识",
             entity_types=[
-                "person", "organization", "project", "concept",
-                "product", "location", "event", "tool",
+                "person",
+                "organization",
+                "project",
+                "concept",
+                "product",
+                "location",
+                "event",
+                "tool",
             ],
             allowed_relationships=[
-                "属于", "使用", "创建", "相关", "因果",
-                "包含", "位于", "参与", "产生",
+                "属于",
+                "使用",
+                "创建",
+                "相关",
+                "因果",
+                "包含",
+                "位于",
+                "参与",
+                "产生",
             ],
         ),
     ]

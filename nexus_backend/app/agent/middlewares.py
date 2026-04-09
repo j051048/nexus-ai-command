@@ -106,9 +106,7 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
             try:
                 from app.agent.working_directory import working_directory
 
-                active_states = await working_directory.list_active(
-                    user_id=config.user_id, limit=20
-                )
+                active_states = await working_directory.list_active(user_id=config.user_id, limit=20)
                 if active_states:
                     key_names = ", ".join(s["key"] for s in active_states[:5])
                     if len(active_states) > 5:
@@ -270,15 +268,9 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                         or "unknown"
                     )
                     tc_status = (
-                        getattr(tc, "status", None)
-                        or (tc.get("status") if isinstance(tc, dict) else None)
-                        or "unknown"
+                        getattr(tc, "status", None) or (tc.get("status") if isinstance(tc, dict) else None) or "unknown"
                     )
-                    tc_args = (
-                        getattr(tc, "args", None)
-                        or (tc.get("args") if isinstance(tc, dict) else None)
-                        or {}
-                    )
+                    tc_args = getattr(tc, "args", None) or (tc.get("args") if isinstance(tc, dict) else None) or {}
                     param_keys = list(tc_args.keys()) if isinstance(tc_args, dict) else []
 
                     if tc_status == "success":

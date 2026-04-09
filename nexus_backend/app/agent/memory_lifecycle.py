@@ -40,7 +40,9 @@ async def run_lifecycle_maintenance(
     stats = {"level2_compressed": 0, "level3_expired": 0, "errors": 0}
 
     try:
-        l2 = await compress_semantic(days_start=_LEVEL2_START_DAYS, days_end=_LEVEL3_START_DAYS, batch_size=batch_size, db=db)
+        l2 = await compress_semantic(
+            days_start=_LEVEL2_START_DAYS, days_end=_LEVEL3_START_DAYS, batch_size=batch_size, db=db
+        )
         stats["level2_compressed"] = l2
     except Exception as e:
         logger.error(f"[Lifecycle] Level 2 compression failed: {e}")
@@ -141,12 +143,7 @@ async def compress_semantic(
                             meta["compressed_at"] = datetime.now(UTC).isoformat()
                             update_data["metadata"] = meta
 
-                        await (
-                            client.table("conversation_memories")
-                            .update(update_data)
-                            .eq("id", mem["id"])
-                            .execute()
-                        )
+                        await client.table("conversation_memories").update(update_data).eq("id", mem["id"]).execute()
                         compressed_count += 1
                     except Exception as e:
                         logger.error(f"[Lifecycle] Failed to update compressed memory {mem['id']}: {e}")
@@ -196,8 +193,10 @@ async def expire_low_value_memories(
     try:
         result = (
             await client.table("conversation_memories")
-            .select("id, content, value, category, importance, access_count, "
-                    "user_marked_important, last_accessed_at, created_at")
+            .select(
+                "id, content, value, category, importance, access_count, "
+                "user_marked_important, last_accessed_at, created_at"
+            )
             .lt("created_at", cutoff.isoformat())
             .neq("status", "expired")  # 已过期的跳过
             .order("importance", desc=False)
@@ -226,14 +225,16 @@ async def expire_low_value_memories(
         try:
             await (
                 client.table("conversation_memories")
-                .update({
-                    "status": "expired",
-                    "metadata": {
-                        **(mem.get("metadata") or {}),
-                        "expired_at": datetime.now(UTC).isoformat(),
-                        "expire_reason": "low_value_decay",
-                    },
-                })
+                .update(
+                    {
+                        "status": "expired",
+                        "metadata": {
+                            **(mem.get("metadata") or {}),
+                            "expired_at": datetime.now(UTC).isoformat(),
+                            "expire_reason": "low_value_decay",
+                        },
+                    }
+                )
                 .eq("id", mem["id"])
                 .execute()
             )
@@ -298,8 +299,7 @@ async def _llm_compress_batch(memories: list[dict]) -> list[str]:
 
     prompt = (
         f"以下是 {len(memories)} 条需要压缩的记忆条目。\n"
-        f"请将每条压缩为 1-2 句话的核心事实摘要。\n\n"
-        + "\n\n".join(mem_texts)
+        f"请将每条压缩为 1-2 句话的核心事实摘要。\n\n" + "\n\n".join(mem_texts)
     )
 
     system = (
@@ -336,7 +336,7 @@ def _parse_compressed_lines(text: str, expected_count: int) -> list[str]:
             try:
                 bracket_end = line.index("]")
                 idx = int(line[1:bracket_end])
-                content = line[bracket_end + 1:].strip().lstrip(":").lstrip()
+                content = line[bracket_end + 1 :].strip().lstrip(":").lstrip()
                 if 0 <= idx < expected_count and content:
                     results[idx] = content
             except (ValueError, IndexError):
