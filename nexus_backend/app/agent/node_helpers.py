@@ -258,6 +258,9 @@ _SCENE_TOOL_POLICY: dict[str, dict] = {
     "tender_analysis": {
         "allow_domains": ["tender", "knowledge", "analytics", "crm"],
     },
+    "proposal": {
+        "allow_domains": ["tender", "knowledge", "analytics", "crm"],
+    },
     # Finance scenes
     "expense_claim": {
         "allow_domains": ["finance", "approval"],
@@ -541,6 +544,7 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # Tender / Bidding
     "招标": ["tender"],
     "投标": ["tender"],
+    "招投标": ["tender"],
     "标书": ["tender"],
     "竞品": ["tender", "vmd_content"],
     "battlecard": ["tender"],
@@ -763,6 +767,7 @@ def _get_tool_schemas(
                 "hr",
                 "analytics",
                 "knowledge",
+                "tender",
             ]
             relevant_tools = _ALWAYS_INCLUDE_TOOLS.copy()
             for d in _FALLBACK_DOMAINS:

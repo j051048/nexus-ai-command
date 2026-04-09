@@ -262,6 +262,7 @@ _COMPLEX_KEYWORDS = {
     "竞品",
     "招标",
     "投标",
+    "招投标",
     "tender",
     "battlecard",
     "战报",
@@ -534,7 +535,7 @@ _AGENT_ROLE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
         "ad_compliance",
     ),
     # Tender / bidding (may overlap with sales)
-    (re.compile(r"标书|投标|招标|评标|中标|开标", re.IGNORECASE), "sales_agent", "proposal"),
+    (re.compile(r"标书|投标|招标|招投标|评标|中标|开标", re.IGNORECASE), "sales_agent", "tender_analysis"),
 ]
 
 # Patterns that suggest the query needs multi-agent orchestration (WBS decomposition)
