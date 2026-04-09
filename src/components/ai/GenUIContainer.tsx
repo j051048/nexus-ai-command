@@ -1,6 +1,6 @@
 import React, { Suspense, useRef, useEffect, useState, useCallback } from 'react';
 import * as Sentry from '@sentry/react';
-import { lazyWithRetry } from '@/lib/lazyPreload';
+import { lazyWithRetry, ChunkLoadError } from '@/lib/lazyPreload';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GenUIToolbar } from './genui/GenUIToolbar';
 import { AlertTriangle, ExternalLink, RotateCcw } from 'lucide-react';
@@ -121,7 +121,7 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
     if (this.state.hasError) {
       const fallbackRoute = CRUD_FALLBACK_ROUTES[this.props.componentName];
       const isChunkError = this.state.error?.message?.includes('fetch') || 
-                          (this.state.error as any)?.isChunkLoadError;
+                          (this.state.error as ChunkLoadError)?.isChunkLoadError;
 
       return (
         <div className="p-4 flex flex-col items-center gap-3 text-center">

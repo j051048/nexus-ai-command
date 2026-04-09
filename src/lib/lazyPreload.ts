@@ -1,6 +1,10 @@
 import React, { ComponentType, LazyExoticComponent, Suspense } from 'react';
 
 // Lazy component type with optional preload method
+export interface ChunkLoadError extends Error {
+    isChunkLoadError?: boolean;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PreloadableLazy<T extends ComponentType<any>> =
     LazyExoticComponent<T> & { preload: () => Promise<void> };
@@ -59,7 +63,7 @@ async function retryImport<T>(
         }
 
         // Attach a custom flag to the error to help ErrorBoundaries distinguish it
-        (error as any).isChunkLoadError = true;
+        (error as ChunkLoadError).isChunkLoadError = true;
         throw error;
     }
 }
