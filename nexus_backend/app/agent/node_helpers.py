@@ -922,10 +922,19 @@ def _get_llm(
     callbacks = _get_langfuse_callbacks(user_id=config.user_id)
 
     if resolved_config:
+        _resolved_model = resolved_config.get("model") or model or config.model
+        _resolved_base = resolved_config.get("base_url") or config.base_url
+        logger.info(
+            "[_get_llm] model=%s base_url=%s timeout=%s streaming=%s",
+            _resolved_model,
+            _resolved_base,
+            resolved_config.get("timeout") or 300.0,
+            streaming,
+        )
         return ChatOpenAI(
-            model=resolved_config.get("model") or model or config.model,
+            model=_resolved_model,
             api_key=resolved_config.get("api_key") or config.api_key,
-            base_url=resolved_config.get("base_url") or config.base_url,
+            base_url=_resolved_base,
             temperature=resolved_config.get("temperature", config.temperature),
             streaming=streaming,
             timeout=resolved_config.get("timeout") or 300.0,
@@ -1063,6 +1072,7 @@ async def invoke_with_fallback(
     streaming: bool = False,
     tool_schemas: list | None = None,
     complexity_tier: str | None = None,
+    invoke_timeout: float = 90.0,
 ):
     """Invoke LLM with cascade fallback on provider-level failures.
 
@@ -1077,6 +1087,7 @@ async def invoke_with_fallback(
       - rate_limit: short delay then retry once, then cascade
       - provider errors: cascade immediately
       - content errors: raise (not a provider issue)
+      - timeout: cascade to next candidate (prevents hanging on unresponsive proxies)
 
     Cooldown: failed providers are skipped for 60s to avoid hammering.
     """
@@ -1112,8 +1123,20 @@ async def invoke_with_fallback(
             continue
 
         try:
-            result = await candidate_llm.ainvoke(messages)
+            result = await asyncio.wait_for(
+                candidate_llm.ainvoke(messages),
+                timeout=invoke_timeout,
+            )
             return result
+        except TimeoutError:
+            logger.warning(
+                "[LLM Cascade] %s timed out after %.0fs, cascading to next candidate",
+                label,
+                invoke_timeout,
+            )
+            last_error = TimeoutError(f"LLM invoke timeout after {invoke_timeout}s")
+            all_auth_errors = False
+            _set_provider_cooldown(pkey)
         except Exception as err:
             last_error = err
             error_type = _classify_error(err)
@@ -1133,7 +1156,10 @@ async def invoke_with_fallback(
                 logger.info("[LLM Cascade] Rate-limited, waiting 2s before retry...")
                 await asyncio.sleep(2)
                 try:
-                    return await candidate_llm.ainvoke(messages)
+                    return await asyncio.wait_for(
+                        candidate_llm.ainvoke(messages),
+                        timeout=invoke_timeout,
+                    )
                 except Exception as retry_err:
                     logger.warning(f"[LLM Cascade] Retry after rate-limit also failed: {retry_err}")
                     last_error = retry_err
@@ -1154,9 +1180,15 @@ async def invoke_with_fallback(
                     downgrade_llm = _get_llm(config, streaming=streaming, resolved_config=downgrade_cfg)
                     if tool_schemas:
                         downgrade_llm = downgrade_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
-                    result = await downgrade_llm.ainvoke(messages)
+                    result = await asyncio.wait_for(
+                        downgrade_llm.ainvoke(messages),
+                        timeout=invoke_timeout,
+                    )
                     logger.info(f"[LLM Cascade] Model-tier downgrade to '{next_tier}' succeeded")
                     return result
+                except TimeoutError:
+                    logger.warning(f"[LLM Cascade] Downgrade to '{next_tier}' timed out after {invoke_timeout}s")
+                    last_error = TimeoutError(f"Downgrade to {next_tier} timed out")
                 except Exception as dg_err:
                     logger.warning(f"[LLM Cascade] Downgrade to '{next_tier}' also failed: {dg_err}")
                     last_error = dg_err
