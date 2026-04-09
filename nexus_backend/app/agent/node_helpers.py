@@ -1160,6 +1160,15 @@ async def invoke_with_fallback(
                         candidate_llm.ainvoke(messages),
                         timeout=invoke_timeout,
                     )
+                except TimeoutError:
+                    logger.warning(
+                        "[LLM Cascade] Rate-limit retry on %s timed out after %.0fs",
+                        label,
+                        invoke_timeout,
+                    )
+                    last_error = TimeoutError(f"Rate-limit retry timeout after {invoke_timeout}s")
+                    all_auth_errors = False
+                    _set_provider_cooldown(pkey)
                 except Exception as retry_err:
                     logger.warning(f"[LLM Cascade] Retry after rate-limit also failed: {retry_err}")
                     last_error = retry_err
