@@ -206,12 +206,14 @@ class AgentConfig(BaseModel):
             fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(
                 _settings, "AI_DEFAULT_MODEL", "gemini-3-flash-preview"
             )
-            logger.info(
-                "Weak model '%s' for %s tier, upgrading to '%s'",
-                model,
-                tier,
-                fallback,
-            )
+            # Guard: if fallback is the same model, skip the misleading log
+            if fallback != model:
+                logger.info(
+                    "Weak model '%s' for %s tier, upgrading to '%s'",
+                    model,
+                    tier,
+                    fallback,
+                )
             return fallback
         return model
 

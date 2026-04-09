@@ -42,6 +42,8 @@ class QueryTransformer:
             try:
                 from openai import AsyncOpenAI
 
+                from app.core.config import settings
+
                 # Try gateway resolution first
                 try:
                     from app.services.llm_helpers import resolve_model_config
@@ -49,16 +51,25 @@ class QueryTransformer:
                     resolved = await resolve_model_config(
                         org_id=getattr(self.config, "org_id", None) or "default",
                     )
+                    api_key = resolved.get("api_key") or self.config.api_key or settings.OPENAI_API_KEY
+                    base_url = resolved.get("base_url") or self.config.base_url or settings.AI_BASE_URL
+
+                    if not api_key:
+                        logger.warning("[QueryTransformer] No API key found in prompt resolution, config, or settings")
+
                     self._llm_client = AsyncOpenAI(
-                        api_key=resolved["api_key"],
-                        base_url=resolved["base_url"],
+                        api_key=api_key,
+                        base_url=base_url,
                     )
                     self._resolved_model = resolved.get("model", self.config.mini_model)
                     return self._llm_client
                 except Exception:
-                    logger.debug("LLM gateway model config unavailable, using default")
+                    logger.debug("LLM gateway model config unavailable, using default fallback")
 
-                self._llm_client = AsyncOpenAI(api_key=self.config.api_key, base_url=self.config.base_url)
+                # Fallback to config explicitly or global settings
+                api_key = self.config.api_key or settings.OPENAI_API_KEY
+                base_url = self.config.base_url or settings.AI_BASE_URL
+                self._llm_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
             except Exception as e:
                 logger.warning(f"Failed to init LLM for query transformation: {e}", exc_info=True)
         return self._llm_client
@@ -202,7 +213,10 @@ async def llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k:
     from openai import AsyncOpenAI
 
     try:
-        client = AsyncOpenAI(api_key=config.api_key, base_url=config.base_url)
+        from app.core.config import settings
+        api_key = config.api_key or settings.OPENAI_API_KEY
+        base_url = config.base_url or settings.AI_BASE_URL
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         doc_list = "\n".join(f"[{i}] {doc.get('content', '')[:200]}" for i, doc in enumerate(docs))
         prompt = (
             f"用户问题: {query}\n\n"

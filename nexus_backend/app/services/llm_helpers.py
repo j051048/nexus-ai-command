@@ -8,22 +8,43 @@ resolution, quota management, circuit breaking, and failover capabilities.
 
 import logging
 import os
+import re
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Model codes too weak for power/flagship complexity tasks
+# Model codes too weak for power/flagship complexity tasks.
+# Matched as whole "segments" delimited by `-` to avoid false positives
+# (e.g. "mini" must NOT match "ge-mini" in "gemini").
 _WEAK_MODEL_PATTERNS = {"mini", "flash", "turbo-mini", "haiku", "lite", "nano", "small", "instant"}
 _WEAK_MODEL_CODES = {"deepseek-chat", "qwen-plus-latest", "qwen-turbo", "glm-4-flash", "yi-lightning"}
 
-# Models that contain weak-sounding substrings but are actually capable
+# Models that contain weak-sounding substrings but are actually capable.
+# Exact matches checked first, then prefix patterns for version resilience.
 _STRONG_MODEL_OVERRIDES = {
     "gemini-3-flash-preview",
+    "gemini-3.1-flash-preview",
     "gemini-2.0-flash",
     "gemini-2.5-flash-preview-05-20",
     "claude-3.5-sonnet",  # contains no weak pattern but guard future renames
 }
+
+# Prefix patterns: any model starting with these is considered strong
+# despite containing weak substrings (e.g. "flash").
+# This avoids needing to update the whitelist for every new version.
+_STRONG_MODEL_PREFIXES = (
+    "gemini-2.0-flash",       # gemini-2.0-flash, gemini-2.0-flash-001, ...
+    "gemini-2.5-flash",       # gemini-2.5-flash-preview-*, ...
+    "gemini-3-flash",         # gemini-3-flash-preview, ...
+    "gemini-3.1-flash",       # gemini-3.1-flash-preview, ...
+)
+
+# Pre-compiled regex: match weak patterns as whole segments between `-` or
+# at string boundaries.  E.g. "mini" matches "gpt-4o-mini" but NOT "gemini".
+_WEAK_SEGMENT_RE = re.compile(
+    r"(?:^|-)(" + "|".join(re.escape(p) for p in _WEAK_MODEL_PATTERNS) + r")(?:-|$)"
+)
 
 
 def is_weak_model(model_name: str) -> bool:
@@ -31,15 +52,22 @@ def is_weak_model(model_name: str) -> bool:
 
     Covers common weak model families: mini, flash, turbo-mini, haiku,
     lite, nano, small, instant, and specific model codes known to be
-    economy-tier.  Strong model overrides are whitelisted to avoid
-    false positives (e.g. gemini-2.0-flash is capable despite 'flash').
+    economy-tier.  Strong model overrides (exact or prefix) are
+    whitelisted to avoid false positives (e.g. gemini-2.0-flash is
+    capable despite 'flash').
+
+    Weak patterns are matched as whole `-`-delimited segments to prevent
+    false positives like "gemini" matching "mini".
     """
     if not model_name:
         return True
     if model_name in _STRONG_MODEL_OVERRIDES:
         return False
+    # Prefix-based whitelist for version resilience
+    if any(model_name.startswith(p) for p in _STRONG_MODEL_PREFIXES):
+        return False
     lower = model_name.lower()
-    if any(p in lower for p in _WEAK_MODEL_PATTERNS):
+    if _WEAK_SEGMENT_RE.search(lower):
         return True
     return model_name in _WEAK_MODEL_CODES
 

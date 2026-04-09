@@ -6,6 +6,7 @@
 """
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.services import bidding_service
@@ -13,6 +14,8 @@ from app.tools._shared import safe_tool_error
 from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
+
+_CN_TZ = timezone(timedelta(hours=8))
 
 
 class BiddingSearchTool(BaseTool):
@@ -32,24 +35,37 @@ class BiddingSearchTool(BaseTool):
     related_tools = ["analyze_tender_document"]
     required_role = "all"
 
-    parameters = {
-        "type": "object",
-        "properties": {
-            "keyword": {
-                "type": "string",
-                "description": "搜索关键词，如 '人工智能', '软件开发', '服务器采购'",
+    @property
+    def parameters(self) -> dict:
+        """动态生成参数 schema，注入当前日期提示以避免 LLM 使用训练数据日期。"""
+        today = datetime.now(_CN_TZ).strftime("%Y-%m-%d")
+        thirty_days_ago = (datetime.now(_CN_TZ) - timedelta(days=30)).strftime("%Y-%m-%d")
+        return {
+            "type": "object",
+            "properties": {
+                "keyword": {
+                    "type": "string",
+                    "description": "搜索关键词，如 '人工智能', '软件开发', '服务器采购'",
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": (
+                        f"发布起始日期 (yyyy-MM-dd)。"
+                        f"当前日期是 {today}，不传则默认为 {thirty_days_ago}（30天前）。"
+                        f"请根据用户意图和当前日期推算，勿使用训练数据中的日期。"
+                    ),
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": (
+                        f"发布截止日期 (yyyy-MM-dd)。"
+                        f"当前日期是 {today}，不传则默认为 {today}。"
+                        f"请根据用户意图和当前日期推算，勿使用训练数据中的日期。"
+                    ),
+                },
             },
-            "start_date": {
-                "type": "string",
-                "description": "发布起始日期 (yyyy-MM-dd)，默认30天前",
-            },
-            "end_date": {
-                "type": "string",
-                "description": "发布截止日期 (yyyy-MM-dd)，默认今天",
-            },
-        },
-        "required": ["keyword"],
-    }
+            "required": ["keyword"],
+        }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         keyword = args.get("keyword", "").strip()
@@ -58,6 +74,13 @@ class BiddingSearchTool(BaseTool):
 
         start_date = args.get("start_date") or args.get("startDate")
         end_date = args.get("end_date") or args.get("endDate")
+
+        # 后端兜底：LLM 未传日期时自动用当前时间计算
+        now = datetime.now(_CN_TZ)
+        if not end_date:
+            end_date = now.strftime("%Y-%m-%d")
+        if not start_date:
+            start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
 
         logger.info(f"BiddingSearchTool: keyword={keyword}, date={start_date}~{end_date}")
 
