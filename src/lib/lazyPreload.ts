@@ -55,15 +55,22 @@ async function retryImport<T>(
         }
         // All retries failed — reload only if enabled (route-level components)
         if (reloadOnFailure) {
-            // Use a sessionStorage flag to prevent infinite reload loops
-            const reloadKey = 'chunk-reload';
-            const lastReload = sessionStorage.getItem(reloadKey);
-            const now = Date.now();
-            if (!lastReload || now - Number(lastReload) > 10000) {
-                sessionStorage.setItem(reloadKey, String(now));
-                window.location.reload();
-            }
+            triggerReload();
         }
+
+        // Attach a custom flag to the error to help ErrorBoundaries distinguish it
+        (error as any).isChunkLoadError = true;
         throw error;
+    }
+}
+
+function triggerReload() {
+    // Use a sessionStorage flag to prevent infinite reload loops
+    const reloadKey = 'chunk-reload';
+    const lastReload = sessionStorage.getItem(reloadKey);
+    const now = Date.now();
+    if (!lastReload || now - Number(lastReload) > 10000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        window.location.reload();
     }
 }

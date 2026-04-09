@@ -120,6 +120,9 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
   render() {
     if (this.state.hasError) {
       const fallbackRoute = CRUD_FALLBACK_ROUTES[this.props.componentName];
+      const isChunkError = this.state.error?.message?.includes('fetch') || 
+                          (this.state.error as any)?.isChunkLoadError;
+
       return (
         <div className="p-4 flex flex-col items-center gap-3 text-center">
           <div className="rounded-full bg-amber-500/10 p-2.5">
@@ -127,19 +130,29 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">
-              组件渲染失败
+              {isChunkError ? '组件加载失败' : '组件渲染失败'}
             </p>
             <p className="text-xs text-muted-foreground">
-              「{this.props.componentName}」加载出错，请重试
+              {isChunkError 
+                ? '检测到系统版本更新，可能需要刷新页面后重试' 
+                : `「${this.props.componentName}」运行逻辑出错，请重试`}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={this.handleRetry}
-              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+              onClick={() => {
+                if (isChunkError) {
+                  // If it's a chunk error, a simple state reset usually isn't enough,
+                  // we need to reload the page to get the new manifest.
+                  window.location.reload();
+                } else {
+                  this.handleRetry();
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity"
             >
               <RotateCcw className="h-3 w-3" />
-              重新加载
+              {isChunkError ? '刷新网页' : '重新加载'}
             </button>
             {fallbackRoute && (
               <button
