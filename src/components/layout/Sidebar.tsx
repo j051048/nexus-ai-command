@@ -169,7 +169,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Network size={18} />, label: "组织", href: "org-chart", roles: ["boss", "founder"], group: "管理" },
   { icon: <Building2 size={18} />, label: "公司设置", href: "company-settings", roles: ["boss", "founder"], group: "管理" },
   { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "管理" },
-  { icon: <Settings size={18} />, label: "系统设置", href: "settings", group: "管理" },
+  { icon: <Settings size={18} />, label: "系统设置", href: "settings", roles: ["boss", "founder"], group: "管理" },
 ];
 
 const NAV_GROUPS = ["primary", "业务", "办公", "数据", "资产", "管理"];
