@@ -20,7 +20,7 @@ _redis_initialized = False
 
 
 def _init_redis():
-    """延迟初始化 Redis 连接"""
+    """延迟初始化 Redis 连接，支持 Sentinel/Cluster 高可用"""
     global redis_client, _redis_initialized
     if _redis_initialized:
         return
@@ -30,9 +30,55 @@ def _init_redis():
         from app.core.config import settings
 
         _redis_url = settings.REDIS_URL or "redis://localhost:6379/0"
-        redis_client = redis.from_url(
-            _redis_url, decode_responses=True, socket_timeout=2, socket_connect_timeout=2, retry_on_timeout=True
-        )
+
+        # P1: 支持 Redis Sentinel 高可用
+        if settings.REDIS_SENTINEL_HOSTS:
+            from redis.sentinel import Sentinel
+
+            sentinel_hosts = [
+                tuple(h.split(":")) if ":" in h else (h, 26379)
+                for h in settings.REDIS_SENTINEL_HOSTS.split(",")
+            ]
+            sentinel = Sentinel(
+                sentinel_hosts,
+                socket_timeout=2,
+                socket_connect_timeout=2,
+                retry_on_timeout=True,
+            )
+            redis_client = sentinel.master_for(
+                settings.REDIS_SENTINEL_MASTER or "mymaster",
+                decode_responses=True,
+            )
+            logger.info(f"Redis Sentinel 连接成功: {sentinel_hosts}")
+        # P1: 支持 Redis Cluster
+        elif settings.REDIS_CLUSTER_HOSTS:
+            from redis.cluster import RedisCluster
+
+            cluster_hosts = [
+                tuple(h.split(":")) if ":" in h else (h, 6379)
+                for h in settings.REDIS_CLUSTER_HOSTS.split(",")
+            ]
+            redis_client = RedisCluster.from_url(
+                _redis_url,
+                decode_responses=True,
+                socket_timeout=2,
+                socket_connect_timeout=2,
+                retry_on_timeout=True,
+            )
+            startup_nodes = [{"host": h, "port": int(p)} for h, p in cluster_hosts]
+            redis_client = redis.cluster.RedisCluster(
+                startup_nodes=startup_nodes,
+                decode_responses=True,
+                socket_timeout=2,
+                socket_connect_timeout=2,
+                retry_on_timeout=True,
+            )
+            logger.info(f"Redis Cluster 连接成功: {cluster_hosts}")
+        else:
+            redis_client = redis.from_url(
+                _redis_url, decode_responses=True, socket_timeout=2, socket_connect_timeout=2, retry_on_timeout=True
+            )
+
         # 测试连接
         redis_client.ping()
         # 隐藏密码，只显示 host:port
@@ -113,14 +159,21 @@ def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: list[str] | Non
 
 
 def invalidate_cache(pattern: str):
-    """根据模式批量清理缓存"""
+    """根据模式批量清理缓存（使用 SCAN 代替 KEYS 避免 O(N) 阻塞）"""
     _init_redis()  # 确保 Redis 已初始化
     if redis_client is None:
         return
     try:
-        keys = redis_client.keys(pattern)
-        if keys:
-            redis_client.delete(*keys)
-            logger.info(f"Invalidated {len(keys)} cache keys matching {pattern}")
+        deleted = 0
+        cursor = 0
+        while True:
+            cursor, keys = redis_client.scan(cursor, match=pattern, count=100)
+            if keys:
+                redis_client.delete(*keys)
+                deleted += len(keys)
+            if cursor == 0:
+                break
+        if deleted:
+            logger.info(f"Invalidated {deleted} cache keys matching {pattern}")
     except Exception as e:
         logger.error(f"清理缓存失败: {e}")

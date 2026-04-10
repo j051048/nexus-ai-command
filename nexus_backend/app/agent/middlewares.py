@@ -130,20 +130,21 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
 
 async def token_limit_middleware(state: AgentState) -> dict[str, Any]:
     """
-    Token 限制中间件
+    Token 限制中间件 (P0 升级版)
 
-    检查累计 token 使用，防止超出预算
+    集成 TokenBudgetManager 多维预算检查：
+    - 单会话 token 上限
+    - 单用户小时 token 上限
+    - 单会话费用上限
+    - 单租户日/月费用上限
     """
     config = state.get("config")
     if not config:
         return {}
 
+    # 基础 token 数检查 (快速路径)
     total_tokens = state.get("total_input_tokens", 0) + state.get("total_output_tokens", 0)
     max_tokens = getattr(config, "max_total_tokens", 100000)
-
-    if total_tokens > max_tokens * 0.9:
-        logger.warning(f"[Middleware] Token budget near limit: {total_tokens}/{max_tokens}")
-        return {"_token_warning": True}
 
     if total_tokens > max_tokens:
         logger.error(f"[Middleware] Token budget exceeded: {total_tokens}/{max_tokens}")
@@ -151,6 +152,37 @@ async def token_limit_middleware(state: AgentState) -> dict[str, Any]:
             "error": "TOKEN_LIMIT_EXCEEDED",
             "final_response": f"对话已达到 token 限制（{max_tokens}），请开始新的对话。",
         }
+
+    # P0: 集成 TokenBudgetManager 多维预算检查
+    try:
+        from app.core.token_budget import BudgetVerdict, token_budget_manager
+
+        session_id = getattr(config, "session_id", "") or "unknown"
+        user_id = getattr(config, "user_id", "") or "unknown"
+        tenant_id = getattr(config, "org_id", None)
+
+        budget_status = await token_budget_manager.check_budget(
+            session_id=session_id,
+            user_id=user_id,
+            tenant_id=tenant_id,
+        )
+
+        if budget_status.verdict == BudgetVerdict.EXCEEDED:
+            logger.error(f"[Middleware] Budget exceeded: {budget_status.message}")
+            return {
+                "error": "BUDGET_EXCEEDED",
+                "final_response": budget_status.message,
+            }
+
+        if budget_status.verdict == BudgetVerdict.WARNING:
+            logger.warning(f"[Middleware] Budget warning: {budget_status.message}")
+            return {"_token_warning": True, "_budget_warning_message": budget_status.message}
+
+    except Exception as e:
+        logger.warning(f"[Middleware] Budget check failed, falling back to basic check: {e}")
+        # 降级到基础检查
+        if total_tokens > max_tokens * 0.9:
+            return {"_token_warning": True}
 
     return {}
 

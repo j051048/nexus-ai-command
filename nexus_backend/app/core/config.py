@@ -99,6 +99,16 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str | None = Field(default=None, description="Redis connection URL")
+    # P1: Redis 高可用配置
+    REDIS_SENTINEL_HOSTS: str = Field(
+        default="", description="Redis Sentinel hosts, comma-separated (e.g. 'sentinel1:26379,sentinel2:26379,sentinel3:26379'). Empty = not using Sentinel."
+    )
+    REDIS_SENTINEL_MASTER: str = Field(
+        default="mymaster", description="Redis Sentinel master name (default: mymaster)"
+    )
+    REDIS_CLUSTER_HOSTS: str = Field(
+        default="", description="Redis Cluster hosts, comma-separated (e.g. 'node1:6379,node2:6379,node3:6379'). Empty = not using Cluster."
+    )
 
     # Observability
     SENTRY_DSN: str = Field(default="", description="Sentry DSN for error tracking")
@@ -134,6 +144,13 @@ class Settings(BaseSettings):
     TOKEN_BUDGET_MAX_COST_PER_SESSION: float = Field(default=5.0, description="Max cost (USD) per single chat session")
     TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT: float = Field(
         default=100.0, description="Max cost (USD) per tenant per day"
+    )
+    # P0: Hard cost limits (防止 CRITICAL n=3 投票等场景成本失控)
+    LLM_MAX_COST_PER_REQUEST: float = Field(
+        default=2.0, description="Hard cost cap (USD) per single LLM request. Exceeding triggers auto-downgrade to mini model."
+    )
+    TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT: float = Field(
+        default=2000.0, description="Max cost (USD) per tenant per calendar month. Exceeding blocks LLM calls until next month."
     )
 
     # File upload

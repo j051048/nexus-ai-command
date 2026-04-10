@@ -144,7 +144,7 @@ function CompetitorFormDialog({
       toast.error('请输入竞品名称');
       return;
     }
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       ...form,
       brand_names: form.brand_names ? form.brand_names.split(/[,，]/).map(s => s.trim()).filter(Boolean) : [],
       sort_order: Number(form.sort_order) || 0,
@@ -396,7 +396,7 @@ function FeatureFormDialog({
       toast.error('请输入对比维度名称');
       return;
     }
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       ...form,
       competitor_score: form.competitor_score ? Number(form.competitor_score) : null,
       our_score: form.our_score ? Number(form.our_score) : null,

@@ -362,8 +362,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         ]);
 
         const profile = profileResponse.data?.data?.user;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const aiSettings = settingsResult.data as any;
+        const aiSettings = settingsResult.data as Record<string, unknown> | null;
 
         if (!aiSettings?.api_key || !aiSettings?.base_url) {
             throw new Error('请先在设置中心配置 AI API Key 和 Base URL');

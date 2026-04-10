@@ -1155,12 +1155,22 @@ function getLocale(): Locale {
 
 // ==================== 翻译函数 ====================
 
+// P0: 合并 locale 文件中的翻译（优先级：locale 文件 > 内联 translations）
+import { localeMessages } from './locales';
+
+function _getMergedTranslations(locale: Locale): Translations {
+  const inline = translations[locale] || {};
+  const fromFiles = localeMessages[locale] || {};
+  return { ...inline, ...fromFiles } as Translations;
+}
+
 /**
  * 获取翻译文本
  */
 export function t(key: TranslationKey, values?: TranslationValues): string {
   const locale = getLocale();
-  const translation = translations[locale]?.[key] || translations['zh-CN']?.[key] || key;
+  const merged = _getMergedTranslations(locale);
+  const translation = merged[key] || _getMergedTranslations('zh-CN')[key] || key;
 
   if (typeof translation !== 'string') {
     return key;

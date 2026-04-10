@@ -58,8 +58,9 @@ export function ProjectManagement() {
             if (error) throw error;
             setProjects(data as Project[] || []);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (error: any) {
-            toast.error(error?.message || "加载项目失败");
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : "加载项目失败";
+            toast.error(msg);
         } finally {
             setLoading(false);
         }

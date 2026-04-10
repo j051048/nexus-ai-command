@@ -520,8 +520,7 @@ export function useScheduleRules() {
   return useQuery({
     queryKey: ['llm-schedule-rules'],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res = await aiClient.fetch<{ success: boolean; data: any[] }>('api/llm/schedule-rules');
+      const res = await aiClient.fetch<{ success: boolean; data: Record<string, unknown>[] }>('api/llm/schedule-rules');
       const rows = Array.isArray(res.data) ? res.data : [];
       return rows.map((r): ScheduleRule => ({
         id: String(r.id),

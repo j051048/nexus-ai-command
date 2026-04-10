@@ -19,6 +19,9 @@ from app.services.llm_adapters.base import (
 )
 from app.services.llm_circuit_breaker import circuit_breaker_manager
 from app.services.llm_quota_service import check_quota, record_usage
+from app.core.token_budget import token_budget_manager
+from app.core.model_pricing import estimate_cost
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +161,27 @@ class ChatDispatchMixin:
 
         if quota_result.warning:
             logger.warning(f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}")
+
+        # --- P0: Hard cost gate per request ---
+        # Estimate cost based on message lengths and model pricing
+        try:
+            est_input_tokens = sum(len(m.get("content", "")) // 4 for m in messages) + len(system_prompt) // 4
+            est_output_tokens = max_tokens or 4096
+            est_cost = estimate_cost(est_input_tokens, est_output_tokens, model_code)
+            if not await token_budget_manager.check_request_cost(est_cost):
+                logger.warning(
+                    f"[CostGate] Estimated cost ${est_cost:.4f} exceeds per-request cap "
+                    f"${settings.LLM_MAX_COST_PER_REQUEST:.2f}. Downgrading to mini model."
+                )
+                # Auto-downgrade to mini model
+                mini_model = settings.AI_MINI_MODEL
+                if mini_model and mini_model != model_code:
+                    model_code = mini_model
+                    adapter, config = await self._create_adapter(model_code, org_id)
+                    if not adapter or not config:
+                        return self._error_response(request_id, model_code, "Cost gate: mini model unavailable")
+        except Exception as e:
+            logger.debug(f"[CostGate] Pre-call cost estimation skipped: {e}")
 
         # --- Circuit breaker check ---
         if not circuit_breaker_manager.is_allowed(model_code):

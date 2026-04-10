@@ -20,6 +20,7 @@ MODEL_PRICES: dict[str, tuple[float, float]] = {
     "gemini-pro": (1.25, 5.00),
     "gemini-2.5-pro": (1.25, 5.00),
     "gemini-3-pro-preview": (1.25, 5.00),
+    "gemini-3-flash-preview": (0.075, 0.30),
     "gemini-flash": (0.075, 0.30),
     # Anthropic
     "claude-3-opus": (15.00, 75.00),

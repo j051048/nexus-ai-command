@@ -83,8 +83,7 @@ async function authFetch<T>(url: string, options: RequestInit = {}): Promise<T> 
         errorMessage = typeof errorData.detail === 'string'
           ? errorData.detail
           : Array.isArray(errorData.detail)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? errorData.detail.map((d: any) => d.msg).join(', ')
+            ? errorData.detail.map((d: { msg: string }) => d.msg).join(', ')
             : errorMessage;
       }
     } catch {

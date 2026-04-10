@@ -39,6 +39,7 @@ class BudgetStatus:
     session_cost_usd: float = 0.0
     user_hour_tokens: int = 0
     tenant_day_cost_usd: float = 0.0
+    tenant_month_cost_usd: float = 0.0
 
 
 @dataclass
@@ -49,6 +50,7 @@ class UsageSummary:
     session_cost_usd: float = 0.0
     user_hour_tokens: int = 0
     tenant_day_cost_usd: float = 0.0
+    tenant_month_cost_usd: float = 0.0
 
 
 # ─── In-Memory Fallback Store ──────────────────────────────────────────────
@@ -195,6 +197,16 @@ class TokenBudgetManager:
                     tenant_day_cost_usd=tenant_cost,
                 )
 
+            # 5. Tenant monthly cost check (P0: 防止月度成本失控)
+            month_key = self._key("tenant_month", f"{tenant_id}:{time.strftime('%Y-%m')}")
+            tenant_month_cost = await self._get(month_key)
+            if tenant_month_cost >= settings.TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT:
+                return BudgetStatus(
+                    verdict=BudgetVerdict.EXCEEDED,
+                    message=f"您所在组织本月 AI 费用已达 ${tenant_month_cost:.2f}，超过月度上限 ${settings.TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT:.2f}。请下月再试或联系管理员提升额度。",
+                    tenant_month_cost_usd=tenant_month_cost,
+                )
+
         # Warning checks (> 80% of any limit)
         warning_threshold = 0.8
         warnings = []
@@ -253,6 +265,10 @@ class TokenBudgetManager:
             day_key = self._key("tenant_day", f"{tenant_id}:{int(time.time() // 86400)}")
             await self._incr(day_key, cost, ttl=86400)
 
+            # Tenant monthly cost (TTL = 32 days, covers longest month + buffer)
+            month_key = self._key("tenant_month", f"{tenant_id}:{time.strftime('%Y-%m')}")
+            await self._incr(month_key, cost, ttl=2764800)  # 32 days
+
         logger.debug(
             f"[TokenBudget] Recorded: session={session_id} " f"tokens={total_tokens} cost=${cost:.4f} model={model}"
         )
@@ -265,6 +281,15 @@ class TokenBudgetManager:
             session_total_tokens=int(sess_tokens),
             session_cost_usd=sess_cost,
         )
+
+    async def check_request_cost(self, estimated_cost: float) -> bool:
+        """Pre-call cost gate: check if a single LLM request would exceed the hard cost cap.
+
+        Returns True if the request is allowed, False if it should be downgraded.
+        """
+        if estimated_cost <= 0:
+            return True
+        return estimated_cost <= settings.LLM_MAX_COST_PER_REQUEST
 
 
 # Module-level singleton

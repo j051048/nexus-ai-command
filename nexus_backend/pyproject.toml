@@ -39,10 +39,6 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
-[tool.black]
-target-version = ["py311"]
-line-length = 120
-
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true
@@ -65,36 +61,18 @@ omit = [
     "app/__pycache__/*",
     "*/migrations/*",
     "*/alembic/*",
-    "app/main.py",
-    "app/agent/roles/*",
-    "app/agent/graph.py",
-    "app/agent/node_*.py",
-    "app/agent/stream.py",
-    "app/agent/nodes_orchestrator.py",
-    "app/agent/router.py",
-    "app/core/prompts/*",
-    "app/core/celery_app.py",
-    "app/core/api_docs.py",
-    "app/templates/*",
-    "app/integrations/*",
-    "app/tools/*",
-    "app/routers/*",
-    "app/services/im_platform/*",
-    "app/services/notification_adapters/*",
-    "app/services/llm_adapters/*",
-    "app/services/llm_gateway/*",
-    "app/services/conversation_memory/*",
-    "app/services/etl/*",
-    "app/services/payment_gateway.py",
-    "app/services/content_moderation.py",
-    "app/services/vector_service.py",
-    "app/startup/*",
-    "app/tasks/*",
-    "app/monitoring/*",
+    "app/main.py",           # ASGI app entry, tested via e2e
+    "app/core/celery_app.py", # Celery worker, tested via integration
+    "app/core/api_docs.py",   # Auto-generated API docs
+    "app/templates/*",        # Jinja templates
+    "app/integrations/*",     # External integrations (tested separately)
+    "app/startup/*",          # Startup hooks
+    "app/tasks/*",            # Celery tasks (tested via integration)
+    "app/monitoring/*",       # Monitoring (tested via integration)
 ]
 
 [tool.coverage.report]
-fail_under = 15
+fail_under = 30
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
@@ -104,11 +82,6 @@ exclude_lines = [
     "pass",
     "\\.\\.\\.",
     "logger\\.(debug|info|warning|error|critical|exception)",
-    "except .* as e:",
-    "except Exception",
-    "except KeyError",
-    "except ValueError",
-    "except ImportError",
     "@(abc\\.)?abstractmethod",
     "def __repr__",
     "def __str__",
