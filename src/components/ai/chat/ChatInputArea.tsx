@@ -113,17 +113,6 @@ export const ChatInputArea = React.memo(function ChatInputArea({
 
   return (
     <>
-      {quotaAlert && (
-        <div className={cn(
-          'mx-4 md:mx-6 mb-1 px-3 py-2 rounded-lg text-xs flex items-center gap-2',
-          quotaAlert.alert_level === 'exhausted' && 'bg-destructive/10 text-destructive border border-destructive/20',
-          quotaAlert.alert_level === 'critical' && 'bg-orange-500/10 text-orange-600 border border-orange-500/20',
-        )}>
-          <AtSign className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="flex-1">{quotaAlert.alert_message}</span>
-          <button onClick={() => setQuotaAlert(null)}><X className="w-3 h-3" /></button>
-        </div>
-      )}
 
       <div className={cn(
         "px-4 md:px-8 py-6 sticky bottom-0 z-20",
