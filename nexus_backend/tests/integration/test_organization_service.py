@@ -24,6 +24,8 @@ class TestOrganizationService:
             with patch("app.core.cache._redis_initialized", True):
                 mock.get.return_value = None
                 mock.keys.return_value = []
+                # invalidate_cache uses scan() which returns (cursor, keys)
+                mock.scan.return_value = (0, [])
                 yield mock
 
     async def test_list_departments_caching(self, service, mock_db, mock_redis):
@@ -53,11 +55,11 @@ class TestOrganizationService:
         )
 
         # 验证是否调用了失效逻辑
-        # invalidate_cache(f"org:cache:*list_departments*{org_id}*") -> redis_client.keys
-        assert mock_redis.keys.called
+        # invalidate_cache uses redis_client.scan (not keys)
+        assert mock_redis.scan.called
 
-        # 模拟 keys() 返回了需要删除的 key
-        mock_redis.keys.return_value = ["org:cache:123"]
+        # 模拟 scan() 返回了需要删除的 key
+        mock_redis.scan.return_value = (0, ["org:cache:123"])
         await service.create_department(org_id=org_id, name="Another", db=mock_db)
         assert mock_redis.delete.called
 
@@ -99,5 +101,5 @@ class TestOrganizationService:
         )
 
         assert result["name"] == "Alice Updated"
-        # update_employee 当前未调用 invalidate_cache，不会触发 redis.keys
-        assert mock_redis.keys.call_count == 0
+        # update_employee 当前未调用 invalidate_cache，不会触发 redis.scan
+        assert mock_redis.scan.call_count == 0

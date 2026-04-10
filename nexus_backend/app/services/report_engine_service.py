@@ -4,7 +4,7 @@ AI-generated SQL reports with scheduling and push delivery.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core.database import supabase
@@ -121,7 +121,7 @@ def suggest_chart_config(data: list) -> dict[str, Any]:
 
     first = data[0]
     keys = list(first.keys())
-    numeric_keys = [k for k in keys if isinstance(first.get(k), (int, float))]
+    numeric_keys = [k for k in keys if isinstance(first.get(k), int | float)]
     string_keys = [k for k in keys if isinstance(first.get(k), str)]
 
     if len(numeric_keys) >= 1 and len(string_keys) >= 1:
@@ -292,7 +292,7 @@ async def execute_scheduled_report(schedule_id: str) -> dict[str, Any]:
         sched.get("day_of_week", 1), sched.get("day_of_month", 1),
     )
     await supabase.table("report_schedules").update({
-        "last_executed_at": datetime.now(timezone.utc).isoformat(),
+        "last_executed_at": datetime.now(UTC).isoformat(),
         "next_execution_at": next_exec.isoformat(),
         "last_report_id": report.get("id"),
         "failure_count": 0,
@@ -337,7 +337,7 @@ async def _push_to_recipients(recipients: list, name: str, summary: str, report_
 
 def _compute_next_execution(schedule_type: str, hour: int, day_of_week: int = 1, day_of_month: int = 1) -> datetime:
     """Compute next execution time for a schedule."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     target_time = now.replace(hour=hour, minute=0, second=0, microsecond=0)
 
     if schedule_type == "daily":
@@ -362,5 +362,5 @@ def _compute_next_execution(schedule_type: str, hour: int, day_of_week: int = 1,
 
 def _compute_next_execution_after_toggle(active: bool) -> datetime:
     """When reactivating, set next execution to tomorrow at 9am."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return now.replace(hour=9, minute=0, second=0, microsecond=0) + timedelta(days=1)
