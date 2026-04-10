@@ -42,8 +42,14 @@ async def import_customers(
 ):
     """批量导入客户"""
     try:
-        result = await batch_import_customers(data=request.data, org_id=org_id, user_id=user_id)
-        return api_success(result) if result.get("success") else api_error(result.get("error"))
+        result = await batch_import_customers(
+            data=request.data, org_id=org_id, user_id=user_id
+        )
+        return (
+            api_success(result)
+            if result.get("success")
+            else api_error(result.get("error"))
+        )
     except Exception as e:
         logger.error(f"批量导入失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "批量导入失败，请稍后重试")
@@ -57,8 +63,14 @@ async def update_leads(
 ):
     """批量更新线索"""
     try:
-        result = await batch_update_leads(lead_ids=request.lead_ids, updates=request.updates, org_id=org_id)
-        return api_success(result) if result.get("success") else api_error(result.get("error"))
+        result = await batch_update_leads(
+            lead_ids=request.lead_ids, updates=request.updates, org_id=org_id
+        )
+        return (
+            api_success(result)
+            if result.get("success")
+            else api_error(result.get("error"))
+        )
     except Exception as e:
         logger.error(f"批量更新失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "批量更新失败，请稍后重试")
@@ -72,8 +84,14 @@ async def assign_leads(
 ):
     """批量分配线索"""
     try:
-        result = await batch_assign_leads(lead_ids=request.lead_ids, owner_id=request.owner_id, org_id=org_id)
-        return api_success(result) if result.get("success") else api_error(result.get("error"))
+        result = await batch_assign_leads(
+            lead_ids=request.lead_ids, owner_id=request.owner_id, org_id=org_id
+        )
+        return (
+            api_success(result)
+            if result.get("success")
+            else api_error(result.get("error"))
+        )
     except Exception as e:
         logger.error(f"批量分配失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "批量分配失败，请稍后重试")

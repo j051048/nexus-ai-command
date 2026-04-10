@@ -42,7 +42,9 @@ class ChatService:
         """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)
         #24: Integrates A/B test variant selection when user_id is provided.
         """
-        now_str = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
+        now_str = datetime.now(timezone(timedelta(hours=8))).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
 
         prompt_key = "default_fallback"
         if agent_name in ["@销售指挥官", "sales_commander"]:
@@ -59,10 +61,14 @@ class ChatService:
             try:
                 from app.services.prompt_version_service import prompt_version_service
 
-                variant = prompt_version_service.get_ab_test_variant(prompt_key, user_id)
+                variant = prompt_version_service.get_ab_test_variant(
+                    prompt_key, user_id
+                )
                 if variant and variant.content:
                     try:
-                        return variant.content.replace("{current_time}", now_str).replace("{{current_time}}", now_str)
+                        return variant.content.replace(
+                            "{current_time}", now_str
+                        ).replace("{{current_time}}", now_str)
                     except Exception:
                         return variant.content
             except Exception as e:
@@ -73,25 +79,37 @@ class ChatService:
         cached_prompt = await cache_service.get(cache_key)
         if cached_prompt:
             try:
-                return cached_prompt.replace("{current_time}", now_str).replace("{{current_time}}", now_str)
+                return cached_prompt.replace("{current_time}", now_str).replace(
+                    "{{current_time}}", now_str
+                )
             except Exception:
                 return cached_prompt
 
         # 2. Try DB
         try:
             client = db_client or supabase
-            res = await client.table("prompts").select("content").eq("name", prompt_key).maybe_single().execute()
+            res = (
+                await client.table("prompts")
+                .select("content")
+                .eq("name", prompt_key)
+                .maybe_single()
+                .execute()
+            )
             if res and res.data:
                 raw_prompt = res.data["content"]
                 await cache_service.set(cache_key, raw_prompt, ttl=3600)
-                return raw_prompt.replace("{current_time}", now_str).replace("{{current_time}}", now_str)
+                return raw_prompt.replace("{current_time}", now_str).replace(
+                    "{{current_time}}", now_str
+                )
         except Exception as e:
             logger.warning(f"Failed to fetch prompt {prompt_key} from DB: {e}")
 
         # 3. Fallback to hardcoded registry
         raw_prompt = SYSTEM_PROMPTS.get(prompt_key, SYSTEM_PROMPTS["default_fallback"])
         try:
-            return raw_prompt.replace("{current_time}", now_str).replace("{{current_time}}", now_str)
+            return raw_prompt.replace("{current_time}", now_str).replace(
+                "{{current_time}}", now_str
+            )
         except Exception:
             return raw_prompt
 
@@ -104,7 +122,13 @@ class ChatService:
 
         try:
             client = db_client or supabase
-            res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
+            res = (
+                await client.table("users")
+                .select("role")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
             role = res.data.get("role", "employee") if res.data else "employee"
             await cache_service.set_user_role(user_id, role)
             return role
@@ -128,7 +152,9 @@ class ChatService:
 
         # 1. RBAC Check
         if tool.required_role not in ["all", "ai_assistant"]:
-            user_role = await ChatService._get_cached_user_role(user_id, db_client=db_client)
+            user_role = await ChatService._get_cached_user_role(
+                user_id, db_client=db_client
+            )
             if tool.required_role == "boss" and user_role not in ["boss", "founder"]:
                 return f"⛔ Permission Denied: Tool requires [Boss] role. You are [{user_role}]."
             elif tool.required_role == "manager" and user_role not in [
@@ -141,7 +167,9 @@ class ChatService:
         # 2. System-level Confirmation Gate (P0 Fix #10)
         # This runs BEFORE the tool's own logic, preventing LLM from bypassing confirm
         # P0 Fix #2: Pass system_confirmed to strict check
-        confirmation_msg, _confirmation_type = tool.check_confirmation(args, system_confirmed=system_confirmed)
+        confirmation_msg, _confirmation_type = tool.check_confirmation(
+            args, system_confirmed=system_confirmed
+        )
         if confirmation_msg is not None:
             logger.info(f"[HITL Gate] Tool {name} blocked - awaiting user confirmation")
             return confirmation_msg

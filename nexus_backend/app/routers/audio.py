@@ -85,7 +85,9 @@ async def _transcode_to_mp3(input_path: str) -> str | None:
                 f"[Audio] ffmpeg transcode failed (rc={proc.returncode}): {stderr.decode(errors='ignore')[:200]}"
             )
             return None
-        logger.info(f"[Audio] Transcoded {input_path} -> {output_path} ({os.path.getsize(output_path)} bytes)")
+        logger.info(
+            f"[Audio] Transcoded {input_path} -> {output_path} ({os.path.getsize(output_path)} bytes)"
+        )
         return output_path
     except TimeoutError:
         logger.warning("[Audio] ffmpeg transcode timed out (30s)")
@@ -135,7 +137,9 @@ async def _get_ai_config(req: Request, user_id: str) -> dict:
     return ai_config
 
 
-async def _try_transcribe(openai_client: AsyncOpenAI, tmp_path: str, model: str) -> str | None:
+async def _try_transcribe(
+    openai_client: AsyncOpenAI, tmp_path: str, model: str
+) -> str | None:
     """Attempt transcription with a specific model. Returns text or None on failure."""
     try:
         with open(tmp_path, "rb") as audio_file:
@@ -157,9 +161,15 @@ async def _try_transcribe(openai_client: AsyncOpenAI, tmp_path: str, model: str)
             or "无可用渠道" in error_str
             or "count_token_failed" in error_str.lower()
         ):
-            logger.warning(f"[Audio] Model {model} unavailable/rate-limited, will try fallback")
+            logger.warning(
+                f"[Audio] Model {model} unavailable/rate-limited, will try fallback"
+            )
             return None
-        if "404" in error_str or "not found" in error_str.lower() or "does not exist" in error_str.lower():
+        if (
+            "404" in error_str
+            or "not found" in error_str.lower()
+            or "does not exist" in error_str.lower()
+        ):
             logger.warning(f"[Audio] Model {model} not available, will try fallback")
             return None
         # Other errors: re-raise
@@ -270,7 +280,9 @@ async def transcribe_audio(
                 message="未识别到语音内容",
             )
 
-        logger.info(f"[Audio] Transcribed {len(audio_bytes)} bytes -> {len(text)} chars for user={user_id}")
+        logger.info(
+            f"[Audio] Transcribed {len(audio_bytes)} bytes -> {len(text)} chars for user={user_id}"
+        )
         return api_success(data={"text": text})
 
     except Exception as e:

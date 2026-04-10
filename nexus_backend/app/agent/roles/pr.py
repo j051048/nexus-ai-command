@@ -3,7 +3,12 @@
 AGENT_CODE = "pr_agent"
 AGENT_NAME = "舆情口碑Agent"
 RECOMMENDED_MODEL_TIER = "medium"
-SCENE_CODES = ["brand_monitoring", "reputation_management", "crisis_pr", "review_analysis"]
+SCENE_CODES = [
+    "brand_monitoring",
+    "reputation_management",
+    "crisis_pr",
+    "review_analysis",
+]
 
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "品牌正面提及率>85%，危机响应时间<1小时"

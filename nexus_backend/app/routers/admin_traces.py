@@ -33,7 +33,9 @@ async def get_trace_stats(
 async def list_traces(
     req: Request,
     user_id: str = Depends(get_current_user_id),
-    status: str | None = Query(None, description="按状态筛选: running/completed/failed"),
+    status: str | None = Query(
+        None, description="按状态筛选: running/completed/failed"
+    ),
     limit: int = Query(50, ge=1, le=200),
 ):
     """获取Agent执行记录列表"""
@@ -67,7 +69,9 @@ async def list_traces(
                     "user_id": t.user_id,
                     "query": t.query[:200] if t.query else "",
                     "status": t.status.value,
-                    "start_time": datetime.fromtimestamp(t.start_time, tz=UTC).isoformat(),
+                    "start_time": datetime.fromtimestamp(
+                        t.start_time, tz=UTC
+                    ).isoformat(),
                     "total_duration_ms": t.total_duration_ms,
                     "total_tokens": t.total_tokens,
                     "total_cost_usd": t.total_cost_usd,
@@ -91,7 +95,9 @@ async def get_trace_detail(
     try:
         trace = agent_trace_service.get_trace(trace_id)
         if not trace:
-            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Trace not found: {trace_id}")
+            raise api_error(
+                ErrorCode.RESOURCE_NOT_FOUND, f"Trace not found: {trace_id}"
+            )
 
         return api_success(data={"trace": trace.to_dict()})
     except Exception as e:

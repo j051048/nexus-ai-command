@@ -60,7 +60,9 @@ async def consolidate_user_memories(
             val = val[:3000] + "... (truncated for consolidation)"
         mem_lines.append(f"[{i}] ({m['category']}) {m['key']}: {val}")
 
-    prompt = "以下是用户的记忆条目，请分析并找出跨记忆的模式：\n\n" + "\n".join(mem_lines)
+    prompt = "以下是用户的记忆条目，请分析并找出跨记忆的模式：\n\n" + "\n".join(
+        mem_lines
+    )
     system = (
         "你是记忆整合专家。分析用户的多条记忆，发现跨记忆的模式、总结和矛盾。\n"
         "特别注意发现因果关系(causal)：如果A导致了B、A使B成为可能、A阻止了B，\n"
@@ -101,7 +103,9 @@ async def consolidate_user_memories(
             # Map source indices to actual memory IDs
             source_indices = insight.get("source_indices", [])
             source_ids = [
-                str(memories[i]["id"]) for i in source_indices if isinstance(i, int) and 0 <= i < len(memories)
+                str(memories[i]["id"])
+                for i in source_indices
+                if isinstance(i, int) and 0 <= i < len(memories)
             ]
             if not source_ids:
                 continue
@@ -142,12 +146,16 @@ async def consolidate_user_memories(
     if memories:
         mem_ids = [m["id"] for m in memories]
         try:
-            await client.table("conversation_memories").update({"is_consolidated": True}).in_("id", mem_ids).execute()
+            await client.table("conversation_memories").update(
+                {"is_consolidated": True}
+            ).in_("id", mem_ids).execute()
         except Exception as e:
             logger.warning(f"Failed to mark memories as consolidated: {e}")
 
     if created:
-        logger.info(f"Consolidation for user {user_id}: processed={len(memories)}, insights={created}")
+        logger.info(
+            f"Consolidation for user {user_id}: processed={len(memories)}, insights={created}"
+        )
 
     return {"user_id": user_id, "processed": len(memories), "insights_created": created}
 
@@ -165,7 +173,12 @@ async def _write_connections(
             relation = conn.get("relation", "supplements")
             if not isinstance(from_idx, int) or not isinstance(to_idx, int):
                 continue
-            if from_idx < 0 or from_idx >= len(memories) or to_idx < 0 or to_idx >= len(memories):
+            if (
+                from_idx < 0
+                or from_idx >= len(memories)
+                or to_idx < 0
+                or to_idx >= len(memories)
+            ):
                 continue
             if from_idx == to_idx:
                 continue
@@ -184,7 +197,9 @@ async def _write_connections(
                     .maybe_single()
                     .execute()
                 )
-                current = (res.data or {}).get("connections", []) if res and res.data else []
+                current = (
+                    (res.data or {}).get("connections", []) if res and res.data else []
+                )
                 if not isinstance(current, list):
                     current = []
                 # Avoid duplicates
@@ -197,7 +212,9 @@ async def _write_connections(
                         "strength": strength,
                     }
                 )
-                await client.table("conversation_memories").update({"connections": current}).eq("id", src_id).execute()
+                await client.table("conversation_memories").update(
+                    {"connections": current}
+                ).eq("id", src_id).execute()
         except Exception as e:
             logger.error(f"Failed to write memory connection: {e}")
 
@@ -245,7 +262,10 @@ async def generate_user_observation(
                 val = val[:2000] + "..."
             mem_lines.append(f"- ({m['category']}) {m['key']}: {val}")
 
-        prompt = "以下是某用户的关键记忆条目，请生成一份浓缩的用户画像摘要：\n\n" + "\n".join(mem_lines)
+        prompt = (
+            "以下是某用户的关键记忆条目，请生成一份浓缩的用户画像摘要：\n\n"
+            + "\n".join(mem_lines)
+        )
         system = (
             "你是用户画像分析专家。根据用户的记忆条目，生成一份简洁的用户画像摘要。\n"
             "要求：\n"
@@ -265,7 +285,9 @@ async def generate_user_observation(
         # Generate embedding
         from app.services.vector_service import vector_service
 
-        embedding = await vector_service.embed_text(f"用户画像: {observation_text[:200]}")
+        embedding = await vector_service.embed_text(
+            f"用户画像: {observation_text[:200]}"
+        )
 
         # Upsert: delete existing observation for this user, then insert new one
         try:
@@ -292,12 +314,16 @@ async def generate_user_observation(
         if embedding:
             row["embedding"] = embedding
 
-        insert_result = await client.table("memory_consolidations").insert(row).execute()
+        insert_result = (
+            await client.table("memory_consolidations").insert(row).execute()
+        )
         if insert_result.data:
             logger.info(f"[Observation] Generated user observation for {user_id}")
             return insert_result.data[0]
 
     except Exception as e:
-        logger.warning(f"[Observation] Failed to generate observation for {user_id}: {e}")
+        logger.warning(
+            f"[Observation] Failed to generate observation for {user_id}: {e}"
+        )
 
     return None

@@ -57,7 +57,9 @@ class ApprovalService:
             )
 
             raw_decision = ai_result.get("decision", "manual_review_required")
-            normalized_decision = DECISION_MAP.get(raw_decision, "manual_review_required")
+            normalized_decision = DECISION_MAP.get(
+                raw_decision, "manual_review_required"
+            )
             ai_reason = ai_result.get("reasoning", "需要人工进一步核实详情")
 
             # 2. Rule Engine Guardrails (Optional but recommended)
@@ -68,7 +70,10 @@ class ApprovalService:
             final_reason = ai_reason
 
             # If Rule Engine suggests manual review but AI says auto-approve, trust Rule Engine for safety (amounts)
-            if rule_decision.decision == "manual_review_required" and normalized_decision == "auto_approved":
+            if (
+                rule_decision.decision == "manual_review_required"
+                and normalized_decision == "auto_approved"
+            ):
                 final_decision = "manual_review_required"
                 final_reason = f"Security Rule Override: {rule_decision.reason}. AI Reason: {ai_reason}"
 
@@ -82,7 +87,9 @@ class ApprovalService:
 
         except Exception as e:
             logger.error(f"Approval process failed: {e}")
-            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing error: {str(e)}")
+            raise api_error(
+                ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing error: {str(e)}"
+            )
 
     @staticmethod
     async def analyze_risk(
@@ -115,7 +122,9 @@ class ApprovalService:
         recommendation = "低风险，可正常审批"
 
         if not db:
-            logger.warning("No DB client for risk analysis, returning default low-risk result")
+            logger.warning(
+                "No DB client for risk analysis, returning default low-risk result"
+            )
             return {
                 "risk_score": risk_score,
                 "compliance_flags": compliance_flags,
@@ -151,7 +160,11 @@ class ApprovalService:
 
                         if check_type == "keyword":
                             # Simple keyword matching
-                            keywords = [k.strip().lower() for k in pattern.split(",") if k.strip()]
+                            keywords = [
+                                k.strip().lower()
+                                for k in pattern.split(",")
+                                if k.strip()
+                            ]
                             for kw in keywords:
                                 if kw in desc_lower:
                                     matched = True
@@ -162,7 +175,9 @@ class ApprovalService:
                                 if re.search(pattern, description, re.IGNORECASE):
                                     matched = True
                             except re.error:
-                                logger.warning(f"Invalid regex pattern in compliance rule: {pattern}")
+                                logger.warning(
+                                    f"Invalid regex pattern in compliance rule: {pattern}"
+                                )
 
                         if matched:
                             compliance_flags.append(rule_name)
@@ -193,11 +208,19 @@ class ApprovalService:
                 if hist_result.data:
                     recent_requests = hist_result.data
                     total_count = len(recent_requests)
-                    same_type_count = sum(1 for r in recent_requests if r.get("type") == request_type)
-                    amounts = [float(r.get("amount", 0)) for r in recent_requests if r.get("amount")]
+                    same_type_count = sum(
+                        1 for r in recent_requests if r.get("type") == request_type
+                    )
+                    amounts = [
+                        float(r.get("amount", 0))
+                        for r in recent_requests
+                        if r.get("amount")
+                    ]
                     avg_amount = sum(amounts) / len(amounts) if amounts else 0
                     max_amount = max(amounts) if amounts else 0
-                    rejected_count = sum(1 for r in recent_requests if r.get("status") == "rejected")
+                    rejected_count = sum(
+                        1 for r in recent_requests if r.get("status") == "rejected"
+                    )
 
                     historical_context = {
                         "recent_30d_total": total_count,
@@ -280,7 +303,9 @@ class ApprovalService:
     # ==========================
 
     @staticmethod
-    async def urge_approval(approval_id: str, user_id: str, reason: str, db=None) -> dict:
+    async def urge_approval(
+        approval_id: str, user_id: str, reason: str, db=None
+    ) -> dict:
         """
         P1-5: Urge an existing pending approval.
         Updates the urgency indicator and logs the reason.
@@ -288,13 +313,20 @@ class ApprovalService:
         if not db:
             raise RuntimeError("Database client is required to urge an approval")
 
-        res = await db.table("approval_requests").select("*").eq("id", approval_id).execute()
+        res = (
+            await db.table("approval_requests")
+            .select("*")
+            .eq("id", approval_id)
+            .execute()
+        )
         if not res.data:
             raise ValueError(f"ID为 {approval_id} 的审批请求未找到")
 
         req = res.data[0]
         if req.get("status") != "pending":
-            raise ValueError(f"只能催办待处理的审批，该审批当前状态为：{req.get('status')}")
+            raise ValueError(
+                f"只能催办待处理的审批，该审批当前状态为：{req.get('status')}"
+            )
 
         # In a full data model, we might have an `urgency_level` or `comments` JSON field.
         # Here we bump the `updated_at` time to push it up in the queue, and could store context.
@@ -308,7 +340,12 @@ class ApprovalService:
 
         await (
             db.table("approval_requests")
-            .update({"metadata": current_metadata, "updated_at": datetime.now(UTC).isoformat()})
+            .update(
+                {
+                    "metadata": current_metadata,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                }
+            )
             .eq("id", approval_id)
             .execute()
         )
@@ -329,7 +366,11 @@ class ApprovalService:
         except Exception as e:
             logger.error(f"Event bus error while urging: {e}")
 
-        return {"success": True, "message": "成功催办审批", "urgency_count": urgency_count}
+        return {
+            "success": True,
+            "message": "成功催办审批",
+            "urgency_count": urgency_count,
+        }
 
     @staticmethod
     async def check_approval_timeouts(db=None) -> list[dict]:
@@ -359,9 +400,17 @@ class ApprovalService:
             current_metadata["is_escalated"] = True
             current_metadata["escalation_time"] = datetime.now(UTC).isoformat()
 
-            await db.table("approval_requests").update({"metadata": current_metadata}).eq("id", req["id"]).execute()
+            await db.table("approval_requests").update(
+                {"metadata": current_metadata}
+            ).eq("id", req["id"]).execute()
 
-            escalated.append({"id": req["id"], "type": req.get("type"), "details": req.get("details")})
+            escalated.append(
+                {
+                    "id": req["id"],
+                    "type": req.get("type"),
+                    "details": req.get("details"),
+                }
+            )
 
             # Send escalation alert
             try:

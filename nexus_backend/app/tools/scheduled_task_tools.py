@@ -195,7 +195,9 @@ class CreateScheduledTaskTool(BaseTool):
         "required": ["name", "prompt", "schedule_type"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = supabase
         if not client:
             return "数据库连接不可用"
@@ -270,7 +272,9 @@ class CreateScheduledTaskTool(BaseTool):
         if existing.count and existing.count >= 20:
             return "您的活跃定时任务已达上限（20个）。请先删除不需要的任务。"
 
-        next_exec = _compute_next_execution(schedule_type, hour, minute, day_of_week, interval_minutes, execute_at)
+        next_exec = _compute_next_execution(
+            schedule_type, hour, minute, day_of_week, interval_minutes, execute_at
+        )
 
         task_data = {
             "user_id": user_id,
@@ -292,7 +296,9 @@ class CreateScheduledTaskTool(BaseTool):
             return "创建定时任务失败，请稍后重试。"
 
         # Format schedule description
-        schedule_desc = self._format_schedule(schedule_type, hour, minute, day_of_week, interval_minutes)
+        schedule_desc = self._format_schedule(
+            schedule_type, hour, minute, day_of_week, interval_minutes
+        )
 
         return f"""已创建定时任务！
 
@@ -335,7 +341,10 @@ class ListScheduledTasksTool(BaseTool):
     domain = "schedule"
     examples = [
         {"input": {}, "output_summary": "返回当前用户所有活跃定时任务列表"},
-        {"input": {"include_inactive": True}, "output_summary": "返回包含已停用任务在内的全部定时任务列表"},
+        {
+            "input": {"include_inactive": True},
+            "output_summary": "返回包含已停用任务在内的全部定时任务列表",
+        },
     ]
     related_tools = ["create_scheduled_task", "delete_scheduled_task"]
     gotchas = "默认只返回活跃任务，最多返回20条；如需查看已停用任务需显式传 include_inactive=true。"
@@ -351,7 +360,9 @@ class ListScheduledTasksTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         if not client:
             return "数据库连接不可用"
@@ -417,9 +428,7 @@ class DeleteScheduledTaskTool(BaseTool):
         },
     ]
     related_tools = ["list_scheduled_tasks", "create_scheduled_task"]
-    gotchas = (
-        "删除操作不可逆，需用户确认；停用和启用可反复切换；建议先调用 list_scheduled_tasks 获取任务名称或编号再操作。"
-    )
+    gotchas = "删除操作不可逆，需用户确认；停用和启用可反复切换；建议先调用 list_scheduled_tasks 获取任务名称或编号再操作。"
 
     parameters = {
         "type": "object",
@@ -441,7 +450,9 @@ class DeleteScheduledTaskTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         if not client:
             return "数据库连接不可用"
@@ -474,7 +485,9 @@ class DeleteScheduledTaskTool(BaseTool):
             )
         else:
             # Sanitize: strip LIKE wildcards from task_name
-            safe_name = task_name.replace("%", "").replace("_", "")[:200] if task_name else ""
+            safe_name = (
+                task_name.replace("%", "").replace("_", "")[:200] if task_name else ""
+            )
             if not safe_name:
                 return "任务名称无效。"
             result = (
@@ -492,7 +505,12 @@ class DeleteScheduledTaskTool(BaseTool):
         task = result.data[0]
 
         if action == "delete":
-            del_res = await client.table("user_scheduled_tasks").delete().eq("id", task["id"]).execute()
+            del_res = (
+                await client.table("user_scheduled_tasks")
+                .delete()
+                .eq("id", task["id"])
+                .execute()
+            )
             if not del_res.data:
                 return f"❌ 删除定时任务「{task['name']}」失败，请稍后重试。"
             # 清理该任务产生的推送消息，防止登录/刷新时重复显示
@@ -509,7 +527,10 @@ class DeleteScheduledTaskTool(BaseTool):
             return f"已删除定时任务「{task['name']}」。"
         elif action == "disable":
             dis_res = (
-                await client.table("user_scheduled_tasks").update({"is_active": False}).eq("id", task["id"]).execute()
+                await client.table("user_scheduled_tasks")
+                .update({"is_active": False})
+                .eq("id", task["id"])
+                .execute()
             )
             if not dis_res.data:
                 return f"❌ 停用定时任务「{task['name']}」失败，请稍后重试。"

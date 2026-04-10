@@ -68,7 +68,9 @@ class MonitorIndustryTrendsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         category = args.get("category", "all")
         industry = args.get("industry", "科学仪器")
         keywords = args.get("keywords", "")
@@ -157,7 +159,10 @@ class GenerateMarketResearchTool(BaseTool):
             "output_summary": "生成华东地区环保监测仪器市场调研报告",
         },
         {
-            "input": {"market_segment": "制药分析仪器", "research_focus": "客户需求,市场规模"},
+            "input": {
+                "market_segment": "制药分析仪器",
+                "research_focus": "客户需求,市场规模",
+            },
             "output_summary": "生成聚焦需求和规模的制药分析仪器调研报告",
         },
     ]
@@ -183,7 +188,9 @@ class GenerateMarketResearchTool(BaseTool):
         "required": ["market_segment"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         market_segment = args.get("market_segment", "").strip()
         if not market_segment:
             return "❌ 请提供目标市场细分。"
@@ -214,7 +221,9 @@ class GenerateMarketResearchTool(BaseTool):
             client = _get_client(config)
             if client:
                 # Get customer distribution by industry
-                customers_res = await client.table("customers").select("industry, stage").execute()
+                customers_res = (
+                    await client.table("customers").select("industry, stage").execute()
+                )
                 if customers_res.data:
                     industry_dist = {}
                     for c in customers_res.data:
@@ -279,7 +288,11 @@ class GenerateCompetitorAnalysisTool(BaseTool):
     required_role = "all"
     examples = [
         {
-            "input": {"competitor_name": "安捷伦", "analysis_depth": "deep", "focus_product": "气相色谱"},
+            "input": {
+                "competitor_name": "安捷伦",
+                "analysis_depth": "deep",
+                "focus_product": "气相色谱",
+            },
             "output_summary": "生成安捷伦气相色谱产品线的深度分析报告",
         },
         {
@@ -287,7 +300,11 @@ class GenerateCompetitorAnalysisTool(BaseTool):
             "output_summary": "生成赛默飞的快速概览分析",
         },
     ]
-    related_tools = ["generate_competitor_comparison", "monitor_industry_trends", "generate_market_research"]
+    related_tools = [
+        "generate_competitor_comparison",
+        "monitor_industry_trends",
+        "generate_market_research",
+    ]
     gotchas = "analysis_depth可选值: quick/standard/deep，不传默认standard。与generate_competitor_comparison的区别：本工具分析整个公司，后者对比具体产品参数。"
 
     parameters = {
@@ -310,7 +327,9 @@ class GenerateCompetitorAnalysisTool(BaseTool):
         "required": ["competitor_name"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         competitor_name = args.get("competitor_name", "").strip()
         if not competitor_name:
             return "❌ 请提供竞品公司/品牌名称。"
@@ -324,7 +343,9 @@ class GenerateCompetitorAnalysisTool(BaseTool):
         kb_context = ""
         try:
             org_id = config.get("org_id") if config else None
-            search_query = f"{competitor_name} {focus_product} 竞品 分析 产品线 市场策略".strip()
+            search_query = (
+                f"{competitor_name} {focus_product} 竞品 分析 产品线 市场策略".strip()
+            )
             kb_result = await vector_service.search(
                 search_query,
                 user_id,
@@ -391,7 +412,11 @@ class AggregateCustomerFeedbackTool(BaseTool):
     required_role = "all"
     examples = [
         {
-            "input": {"product_name": "ICP-MS 7800", "time_range": "last_quarter", "feedback_type": "complaint"},
+            "input": {
+                "product_name": "ICP-MS 7800",
+                "time_range": "last_quarter",
+                "feedback_type": "complaint",
+            },
             "output_summary": "汇总近一季度ICP-MS相关投诉，分析高频问题和痛点",
         },
         {
@@ -399,7 +424,11 @@ class AggregateCustomerFeedbackTool(BaseTool):
             "output_summary": "生成近一年全部产品的客户反馈汇总分析",
         },
     ]
-    related_tools = ["customer_lifecycle_analysis", "generate_faq_response", "generate_repurchase_campaign"]
+    related_tools = [
+        "customer_lifecycle_analysis",
+        "generate_faq_response",
+        "generate_repurchase_campaign",
+    ]
     gotchas = "所有参数均为可选。time_range可选值: last_month/last_quarter/last_year/all。feedback_type可选值: complaint/suggestion/praise/all。CRM活动数据最多取100条。"
 
     parameters = {
@@ -423,7 +452,9 @@ class AggregateCustomerFeedbackTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         product_name = args.get("product_name", "")
         time_range = args.get("time_range", "last_quarter")
         feedback_type = args.get("feedback_type", "all")
@@ -446,14 +477,21 @@ class AggregateCustomerFeedbackTool(BaseTool):
         try:
             client = _get_client(config)
             if client:
-                query = client.table("customer_activities").select("*").order("created_at", desc=True).limit(100)
+                query = (
+                    client.table("customer_activities")
+                    .select("*")
+                    .order("created_at", desc=True)
+                    .limit(100)
+                )
                 if feedback_type != "all":
                     query = query.ilike("content", f"%{feedback_type}%")
                 activities_res = await query.execute()
 
                 if activities_res.data:
                     for act in activities_res.data:
-                        feedback_data.append(f"- [{act.get('activity_type', '')}] {act.get('content', '')[:150]}")
+                        feedback_data.append(
+                            f"- [{act.get('activity_type', '')}] {act.get('content', '')[:150]}"
+                        )
         except Exception as e:
             logger.warning(f"Failed to gather feedback data from CRM: {e}")
 
@@ -474,7 +512,9 @@ class AggregateCustomerFeedbackTool(BaseTool):
         except Exception as e:
             logger.warning(f"Knowledge base search failed for feedback: {e}")
 
-        feedback_text = "\n".join(feedback_data[:50]) if feedback_data else "暂无CRM反馈数据"
+        feedback_text = (
+            "\n".join(feedback_data[:50]) if feedback_data else "暂无CRM反馈数据"
+        )
 
         prompt = (
             f"请汇总分析客户反馈：\n\n"

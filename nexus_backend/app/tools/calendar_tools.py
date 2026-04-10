@@ -51,14 +51,23 @@ class CalendarQueryTool(BaseTool):
             },
             "event_type": {
                 "type": "string",
-                "enum": ["meeting", "leave", "task_deadline", "scheduled_task", "travel", "custom"],
+                "enum": [
+                    "meeting",
+                    "leave",
+                    "task_deadline",
+                    "scheduled_task",
+                    "travel",
+                    "custom",
+                ],
                 "description": "可选，按事件类型过滤",
             },
         },
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         now = datetime.now(CN_TZ)
 
@@ -71,7 +80,9 @@ class CalendarQueryTool(BaseTool):
         end_str = args.get("end_date")
         if end_str:
             try:
-                end_dt = datetime.strptime(end_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=CN_TZ)
+                end_dt = datetime.strptime(end_str, "%Y-%m-%d").replace(
+                    hour=23, minute=59, second=59, tzinfo=CN_TZ
+                )
             except ValueError:
                 end_dt = start_dt + timedelta(days=7)
         else:
@@ -79,7 +90,9 @@ class CalendarQueryTool(BaseTool):
 
         query = (
             client.table("calendar_events")
-            .select("id, title, event_type, start_time, end_time, all_day, location, attendees, status")
+            .select(
+                "id, title, event_type, start_time, end_time, all_day, location, attendees, status"
+            )
             .eq("user_id", user_id)
             .eq("status", "active")
             .gte("start_time", start_dt.isoformat())
@@ -130,14 +143,14 @@ class CalendarQueryTool(BaseTool):
             end_time_str = ""
             if et:
                 with contextlib.suppress(Exception):
-                    end_time_str = (
-                        f"-{datetime.fromisoformat(et.replace('Z', '+00:00')).astimezone(CN_TZ).strftime('%H:%M')}"
-                    )
+                    end_time_str = f"-{datetime.fromisoformat(et.replace('Z', '+00:00')).astimezone(CN_TZ).strftime('%H:%M')}"
 
             location = f" | 📍{evt['location']}" if evt.get("location") else ""
             attendees = evt.get("attendees") or []
             att_str = f" | 👥{','.join(attendees[:3])}" if attendees else ""
-            lines.append(f"  {icon} {time_str}{end_time_str} {title}{location}{att_str}")
+            lines.append(
+                f"  {icon} {time_str}{end_time_str} {title}{location}{att_str}"
+            )
 
         lines.append(f"\n共 {len(events)} 个日程")
         return "\n".join(lines)
@@ -166,7 +179,9 @@ class CalendarCreateTool(BaseTool):
         },
     ]
     related_tools = ["get_calendar", "book_meeting", "update_calendar_event"]
-    gotchas = "start_time 必须是 ISO 8601 格式。用户说'明天下午3点'时请转换为具体日期时间。"
+    gotchas = (
+        "start_time 必须是 ISO 8601 格式。用户说'明天下午3点'时请转换为具体日期时间。"
+    )
 
     parameters = {
         "type": "object",
@@ -204,7 +219,9 @@ class CalendarCreateTool(BaseTool):
         "required": ["title", "event_type", "start_time"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
 
         title = args["title"]
@@ -254,11 +271,15 @@ class CalendarCreateTool(BaseTool):
                     c_start = c.get("start_time", "")
                     try:
                         c_time = (
-                            datetime.fromisoformat(c_start.replace("Z", "+00:00")).astimezone(CN_TZ).strftime("%H:%M")
+                            datetime.fromisoformat(c_start.replace("Z", "+00:00"))
+                            .astimezone(CN_TZ)
+                            .strftime("%H:%M")
                         )
                     except Exception:
                         c_time = "?"
-                    conflict_lines.append(f"  - {c_time} {c['title']} ({c['event_type']})")
+                    conflict_lines.append(
+                        f"  - {c_time} {c['title']} ({c['event_type']})"
+                    )
                 conflict_warning = "\n".join(conflict_lines) + "\n\n"
         except Exception as e:
             logger.error(f"Calendar conflict check failed (RPC may not exist yet): {e}")
@@ -266,7 +287,13 @@ class CalendarCreateTool(BaseTool):
         # Get org_id from user
         org_id = None
         try:
-            user_res = await client.table("users").select("organization_id").eq("id", user_id).limit(1).execute()
+            user_res = (
+                await client.table("users")
+                .select("organization_id")
+                .eq("id", user_id)
+                .limit(1)
+                .execute()
+            )
             if user_res.data:
                 org_id = user_res.data[0].get("organization_id")
         except Exception:
@@ -310,7 +337,10 @@ class CalendarUpdateTool(BaseTool):
     """日程修改/取消工具"""
 
     name = "update_calendar_event"
-    description = "修改或取消已有的日程事件。" "用户说'改会议时间'、'取消明天的会'、'把周三的会推迟'时调用。"
+    description = (
+        "修改或取消已有的日程事件。"
+        "用户说'改会议时间'、'取消明天的会'、'把周三的会推迟'时调用。"
+    )
     required_role = "all"
     domain = "schedule"
     confirmation_type = "IRREVERSIBLE"
@@ -320,7 +350,11 @@ class CalendarUpdateTool(BaseTool):
             "output_summary": "取消匹配的日程事件",
         },
         {
-            "input": {"title": "周会", "action": "update", "new_start_time": "2026-03-26T15:00:00+08:00"},
+            "input": {
+                "title": "周会",
+                "action": "update",
+                "new_start_time": "2026-03-26T15:00:00+08:00",
+            },
             "output_summary": "将周会改到新时间",
         },
     ]
@@ -358,7 +392,9 @@ class CalendarUpdateTool(BaseTool):
         "required": ["action"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         action = args["action"]
 
@@ -368,7 +404,12 @@ class CalendarUpdateTool(BaseTool):
 
         if event_id:
             res = await (
-                client.table("calendar_events").select("*").eq("id", event_id).eq("user_id", user_id).limit(1).execute()
+                client.table("calendar_events")
+                .select("*")
+                .eq("id", event_id)
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
             )
             if res.data:
                 event = res.data[0]
@@ -392,7 +433,12 @@ class CalendarUpdateTool(BaseTool):
         if action == "cancel":
             cancel_res = await (
                 client.table("calendar_events")
-                .update({"status": "cancelled", "updated_at": datetime.now(CN_TZ).isoformat()})
+                .update(
+                    {
+                        "status": "cancelled",
+                        "updated_at": datetime.now(CN_TZ).isoformat(),
+                    }
+                )
                 .eq("id", event["id"])
                 .execute()
             )
@@ -425,7 +471,9 @@ class CalendarUpdateTool(BaseTool):
         conflict_warning = ""
         if "start_time" in update_data or "end_time" in update_data:
             check_start = update_data.get("start_time", event["start_time"])
-            check_end = update_data.get("end_time", event.get("end_time") or check_start)
+            check_end = update_data.get(
+                "end_time", event.get("end_time") or check_start
+            )
             try:
                 conflicts = await client.rpc(
                     "check_calendar_conflicts",
@@ -437,11 +485,18 @@ class CalendarUpdateTool(BaseTool):
                     },
                 ).execute()
                 if conflicts.data:
-                    conflict_warning = f"\n⚠️ 注意：新时段与 {len(conflicts.data)} 个日程存在冲突。"
+                    conflict_warning = (
+                        f"\n⚠️ 注意：新时段与 {len(conflicts.data)} 个日程存在冲突。"
+                    )
             except Exception:
                 pass
 
-        upd_res = await client.table("calendar_events").update(update_data).eq("id", event["id"]).execute()
+        upd_res = (
+            await client.table("calendar_events")
+            .update(update_data)
+            .eq("id", event["id"])
+            .execute()
+        )
         if not upd_res.data:
             return "❌ 更新日程失败，请稍后重试。"
 

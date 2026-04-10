@@ -28,7 +28,9 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    logger.warning("Redis not installed. Using in-memory cache (not suitable for multi-instance deployment)")
+    logger.warning(
+        "Redis not installed. Using in-memory cache (not suitable for multi-instance deployment)"
+    )
 
 
 class InMemoryCache:
@@ -110,7 +112,9 @@ class CacheService:
 
         if redis_url and REDIS_AVAILABLE:
             try:
-                self._client = redis.from_url(redis_url, encoding="utf-8", decode_responses=False)
+                self._client = redis.from_url(
+                    redis_url, encoding="utf-8", decode_responses=False
+                )
                 await self._client.ping()
                 self._use_redis = True
                 logger.info("Redis cache connected")
@@ -118,7 +122,9 @@ class CacheService:
                 logger.warning(f"Redis connection failed: {e}. Using in-memory cache.")
                 from app.core.degradation_registry import degradation_registry
 
-                degradation_registry.register("redis_cache", str(e), fallback="InMemoryCache")
+                degradation_registry.register(
+                    "redis_cache", str(e), fallback="InMemoryCache"
+                )
                 self._client = InMemoryCache()
                 self._use_redis = False
         else:
@@ -275,12 +281,19 @@ class SemanticCache:
     - Memory-efficient storage
     """
 
-    def __init__(self, similarity_threshold: float = 0.95, default_ttl: int = 3600, max_entries: int = 1000):  # 1 hour
+    def __init__(
+        self,
+        similarity_threshold: float = 0.95,
+        default_ttl: int = 3600,
+        max_entries: int = 1000,
+    ):  # 1 hour
         self.similarity_threshold = similarity_threshold
         self.default_ttl = default_ttl
         self.max_entries = max_entries
         self._cache: dict[str, SemanticCacheEntry] = {}
-        self._embedding_cache: dict[str, tuple[list[float], float]] = {}  # P2 Fix: key -> (embedding, timestamp)
+        self._embedding_cache: dict[str, tuple[list[float], float]] = (
+            {}
+        )  # P2 Fix: key -> (embedding, timestamp)
         self._embedding_cache_ttl = 7200  # 2 hours TTL for embeddings
         self._embedding_cache_max = 5000
         self._embedding_client = None
@@ -303,7 +316,9 @@ class SemanticCache:
 
                 from app.core.config import settings
 
-                self._embedding_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.AI_BASE_URL)
+                self._embedding_client = AsyncOpenAI(
+                    api_key=settings.OPENAI_API_KEY, base_url=settings.AI_BASE_URL
+                )
             except Exception as e:
                 logger.warning(f"Failed to init embedding client: {e}")
                 return None
@@ -320,12 +335,18 @@ class SemanticCache:
             # P2 Fix: Evict expired entries when approaching limit
             if len(self._embedding_cache) > self._embedding_cache_max:
                 now = time.time()
-                expired = [k for k, (_, ts) in self._embedding_cache.items() if now - ts > self._embedding_cache_ttl]
+                expired = [
+                    k
+                    for k, (_, ts) in self._embedding_cache.items()
+                    if now - ts > self._embedding_cache_ttl
+                ]
                 for k in expired:
                     del self._embedding_cache[k]
                 # If still over limit, remove oldest half
                 if len(self._embedding_cache) > self._embedding_cache_max:
-                    sorted_keys = sorted(self._embedding_cache, key=lambda k: self._embedding_cache[k][1])
+                    sorted_keys = sorted(
+                        self._embedding_cache, key=lambda k: self._embedding_cache[k][1]
+                    )
                     for k in sorted_keys[: len(sorted_keys) // 2]:
                         del self._embedding_cache[k]
 
@@ -346,7 +367,9 @@ class SemanticCache:
 
         return float(dot / norm) if norm > 0 else 0.0
 
-    async def get(self, query: str, context_hash: str = None) -> tuple[str | None, dict[str, Any]]:
+    async def get(
+        self, query: str, context_hash: str = None
+    ) -> tuple[str | None, dict[str, Any]]:
         """
         Get cached response for semantically similar query.
 
@@ -370,7 +393,11 @@ class SemanticCache:
                 continue
 
             # Skip if context doesn't match
-            if context_hash and entry.metadata and entry.metadata.get("context_hash") != context_hash:
+            if (
+                context_hash
+                and entry.metadata
+                and entry.metadata.get("context_hash") != context_hash
+            ):
                 continue
 
             # Calculate similarity
@@ -396,7 +423,13 @@ class SemanticCache:
 
         return None, {}
 
-    async def set(self, query: str, response: str, ttl: int = None, metadata: dict[str, Any] = None) -> bool:
+    async def set(
+        self,
+        query: str,
+        response: str,
+        ttl: int = None,
+        metadata: dict[str, Any] = None,
+    ) -> bool:
         """Cache a query-response pair."""
         # Get embedding
         embedding = await self._get_embedding(query)

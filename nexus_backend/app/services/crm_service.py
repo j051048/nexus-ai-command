@@ -62,7 +62,9 @@ class CRMService:
 
         res = await db.table("customers").insert(insert_data).execute()
         if not res.data:
-            raise RuntimeError("Customer insert returned no data — possible RLS rejection")
+            raise RuntimeError(
+                "Customer insert returned no data — possible RLS rejection"
+            )
 
         created = res.data[0]
         logger.info(f"Customer created: {name} in org {org_id}")
@@ -90,9 +92,16 @@ class CRMService:
         if "stage" in update_data and update_data["stage"] not in CUSTOMER_STAGES:
             raise ValueError(f"无效的客户阶段: {update_data['stage']}")
 
-        res = await db.table("customers").update(update_data).eq("id", customer_id).execute()
+        res = (
+            await db.table("customers")
+            .update(update_data)
+            .eq("id", customer_id)
+            .execute()
+        )
         if not res.data:
-            raise RuntimeError(f"Customer {customer_id} update returned no data — record may not exist or RLS blocked")
+            raise RuntimeError(
+                f"Customer {customer_id} update returned no data — record may not exist or RLS blocked"
+            )
 
         return res.data[0]
 
@@ -100,7 +109,13 @@ class CRMService:
         """获取客户详情"""
         if db:
             try:
-                res = await db.table("customers").select("*").eq("id", customer_id).maybe_single().execute()
+                res = (
+                    await db.table("customers")
+                    .select("*")
+                    .eq("id", customer_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if res.data:
                     return res.data
                 return None
@@ -111,7 +126,9 @@ class CRMService:
         # 无数据库连接时返回 None
         return None
 
-    async def list_customers(self, org_id: str, filters: dict | None = None, db=None) -> list[dict]:
+    async def list_customers(
+        self, org_id: str, filters: dict | None = None, db=None
+    ) -> list[dict]:
         """列出组织的所有客户，支持筛选"""
         filters = filters or {}
 
@@ -194,7 +211,9 @@ class CRMService:
 
         res = await db.table("customer_contacts").insert(insert_data).execute()
         if not res.data:
-            raise RuntimeError("Contact insert returned no data — possible RLS rejection")
+            raise RuntimeError(
+                "Contact insert returned no data — possible RLS rejection"
+            )
 
         return res.data[0]
 
@@ -231,7 +250,12 @@ class CRMService:
         if "name" in update_data and not update_data["name"]:
             raise ValueError("联系人姓名不能为空")
 
-        res = await db.table("customer_contacts").update(update_data).eq("id", contact_id).execute()
+        res = (
+            await db.table("customer_contacts")
+            .update(update_data)
+            .eq("id", contact_id)
+            .execute()
+        )
         if not res.data:
             raise RuntimeError(f"Contact {contact_id} update returned no data")
 
@@ -275,7 +299,9 @@ class CRMService:
 
         return res.data[0]
 
-    async def get_activity_timeline(self, customer_id: str, limit: int = 20, db=None) -> list[dict]:
+    async def get_activity_timeline(
+        self, customer_id: str, limit: int = 20, db=None
+    ) -> list[dict]:
         """获取客户的活动时间线"""
         if db:
             try:
@@ -338,11 +364,17 @@ class CRMService:
         # 计算本月新增
         now = datetime.now(UTC)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        new_this_month = sum(1 for c in customers if self._parse_datetime(c.get("created_at", "")) >= month_start)
+        new_this_month = sum(
+            1
+            for c in customers
+            if self._parse_datetime(c.get("created_at", "")) >= month_start
+        )
 
         # 转化率: customer / (total - churned)
         active_total = total - stage_counts.get("churned", 0)
-        conversion_rate = round(stage_counts.get("customer", 0) / max(1, active_total) * 100, 1)
+        conversion_rate = round(
+            stage_counts.get("customer", 0) / max(1, active_total) * 100, 1
+        )
 
         total_value = sum(float(c.get("estimated_value", 0) or 0) for c in customers)
 

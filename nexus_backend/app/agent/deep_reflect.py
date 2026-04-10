@@ -15,9 +15,24 @@ logger = logging.getLogger(__name__)
 
 # 占位回退方案 — 任何异常时优雅降级
 _FALLBACK_ALTERNATIVES = [
-    {"approach": "方案A: 直接使用已有工具重新查询", "tools": [], "risk": "数据可能不完整", "score": 0.6},
-    {"approach": "方案B: 分步拆解问题逐一解决", "tools": [], "risk": "耗时较长", "score": 0.7},
-    {"approach": "方案C: 简化需求给出部分回答", "tools": [], "risk": "回答不够全面", "score": 0.5},
+    {
+        "approach": "方案A: 直接使用已有工具重新查询",
+        "tools": [],
+        "risk": "数据可能不完整",
+        "score": 0.6,
+    },
+    {
+        "approach": "方案B: 分步拆解问题逐一解决",
+        "tools": [],
+        "risk": "耗时较长",
+        "score": 0.7,
+    },
+    {
+        "approach": "方案C: 简化需求给出部分回答",
+        "tools": [],
+        "risk": "回答不够全面",
+        "score": 0.5,
+    },
 ]
 
 _GENERATE_PROMPT = """你是一个策略规划专家。当前 AI Agent 在执行任务时遇到困难，需要你提出 3 个不同的解决方案。
@@ -88,7 +103,8 @@ class DeepReflector:
 
         try:
             llm = ChatOpenAI(
-                model=getattr(config, "mini_model", None) or getattr(config, "model", "gpt-4o-mini"),
+                model=getattr(config, "mini_model", None)
+                or getattr(config, "model", "gpt-4o-mini"),
                 api_key=config.api_key,
                 base_url=config.base_url,
                 temperature=0.7,
@@ -104,7 +120,9 @@ class DeepReflector:
 
             resp = await llm.ainvoke(
                 [
-                    SystemMessage(content="你是 Tree of Thoughts 决策引擎，负责生成多条候选解决路径。只返回 JSON。"),
+                    SystemMessage(
+                        content="你是 Tree of Thoughts 决策引擎，负责生成多条候选解决路径。只返回 JSON。"
+                    ),
                     HumanMessage(content=prompt),
                 ]
             )
@@ -114,8 +132,17 @@ class DeepReflector:
             match = re.search(r"\[.*\]", raw, re.DOTALL)
             if not match:
                 # 解析失败 — 回退到单方案
-                logger.warning("[DeepReflect] LLM 返回无法解析为 JSON 数组，使用原始文本作为单方案")
-                return [{"approach": raw[:500], "tools": [], "risk": "LLM输出格式异常", "score": 0.5}]
+                logger.warning(
+                    "[DeepReflect] LLM 返回无法解析为 JSON 数组，使用原始文本作为单方案"
+                )
+                return [
+                    {
+                        "approach": raw[:500],
+                        "tools": [],
+                        "risk": "LLM输出格式异常",
+                        "score": 0.5,
+                    }
+                ]
 
             alternatives = json.loads(match.group())
             # 校验结构完整性
@@ -125,7 +152,11 @@ class DeepReflector:
                     valid.append(
                         {
                             "approach": alt.get("approach", ""),
-                            "tools": alt.get("tools", []) if isinstance(alt.get("tools"), list) else [],
+                            "tools": (
+                                alt.get("tools", [])
+                                if isinstance(alt.get("tools"), list)
+                                else []
+                            ),
                             "risk": alt.get("risk", ""),
                             "score": float(alt.get("score", 0.5)),
                         }
@@ -172,7 +203,8 @@ class DeepReflector:
 
         try:
             llm = ChatOpenAI(
-                model=getattr(config, "mini_model", None) or getattr(config, "model", "gpt-4o-mini"),
+                model=getattr(config, "mini_model", None)
+                or getattr(config, "model", "gpt-4o-mini"),
                 api_key=config.api_key,
                 base_url=config.base_url,
                 temperature=0.3,
@@ -200,7 +232,9 @@ class DeepReflector:
                 approach["score"] = max(0.0, min(1.0, new_score))
                 if parsed.get("reason"):
                     approach["eval_reason"] = parsed["reason"]
-                logger.info(f"[DeepReflect] 方案评估完成，score={approach['score']:.2f}")
+                logger.info(
+                    f"[DeepReflect] 方案评估完成，score={approach['score']:.2f}"
+                )
         except Exception as e:
             logger.error(f"[DeepReflect] evaluate_approach 失败，保留原始 score: {e}")
 

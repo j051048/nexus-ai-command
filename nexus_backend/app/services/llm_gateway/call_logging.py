@@ -72,7 +72,8 @@ class CallLoggingMixin:
 
         now = time.time()
         should_flush = (
-            len(self._log_buffer) >= self._LOG_BATCH_SIZE or (now - self._log_last_flush) >= self._LOG_FLUSH_INTERVAL
+            len(self._log_buffer) >= self._LOG_BATCH_SIZE
+            or (now - self._log_last_flush) >= self._LOG_FLUSH_INTERVAL
         )
         if should_flush:
             await self._flush_log_buffer()

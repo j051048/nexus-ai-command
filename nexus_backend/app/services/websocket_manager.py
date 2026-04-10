@@ -91,7 +91,9 @@ class ConnectionManager:
         """
         # Global limit check
         if self.active_connections >= MAX_CONNECTIONS_GLOBAL:
-            logger.warning(f"[WS] Global connection limit reached ({MAX_CONNECTIONS_GLOBAL}), rejecting user {user_id}")
+            logger.warning(
+                f"[WS] Global connection limit reached ({MAX_CONNECTIONS_GLOBAL}), rejecting user {user_id}"
+            )
             # Must accept() first so the close code (1013) actually reaches the client.
             # Without accept(), the browser only sees HTTP 403 → onclose code=1006,
             # which the client treats as a transient error and retries forever.
@@ -105,7 +107,11 @@ class ConnectionManager:
             # First, try to clean up stale connections (no pong for 2× heartbeat)
             now = time.time()
             stale_threshold = HEARTBEAT_INTERVAL * 2
-            stale = [ws for ws in user_conns if now - self._last_pong.get(id(ws), 0) > stale_threshold]
+            stale = [
+                ws
+                for ws in user_conns
+                if now - self._last_pong.get(id(ws), 0) > stale_threshold
+            ]
             for ws in stale:
                 self.disconnect(ws, user_id)
                 with contextlib.suppress(Exception):
@@ -135,7 +141,9 @@ class ConnectionManager:
 
         # Subscribe to this user's Redis channel (first local connection)
         if len(self._connections[user_id]) == 1 and self._redis_bridge:
-            await self._redis_bridge.subscribe(user_id, self._make_redis_deliver(user_id))
+            await self._redis_bridge.subscribe(
+                user_id, self._make_redis_deliver(user_id)
+            )
 
         # Start heartbeat if not running
         if self._heartbeat_task is None or self._heartbeat_task.done():
@@ -146,14 +154,18 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket, user_id: str) -> None:
         """Remove a WebSocket connection."""
         if user_id in self._connections:
-            self._connections[user_id] = [ws for ws in self._connections[user_id] if ws is not websocket]
+            self._connections[user_id] = [
+                ws for ws in self._connections[user_id] if ws is not websocket
+            ]
             if not self._connections[user_id]:
                 del self._connections[user_id]
                 # Unsubscribe from Redis when last connection for user drops
                 if self._redis_bridge:
                     asyncio.ensure_future(self._redis_bridge.unsubscribe(user_id))
         self._last_pong.pop(id(websocket), None)
-        logger.info(f"[WS] User {user_id} disconnected (global: {self.active_connections})")
+        logger.info(
+            f"[WS] User {user_id} disconnected (global: {self.active_connections})"
+        )
 
     def record_pong(self, websocket: WebSocket) -> None:
         """Record pong response from a client."""
@@ -242,7 +254,9 @@ class ConnectionManager:
 
         return local_sent
 
-    async def _local_broadcast(self, message: dict, exclude_user: str | None = None) -> int:
+    async def _local_broadcast(
+        self, message: dict, exclude_user: str | None = None
+    ) -> int:
         """Broadcast to local connections only (callback for Redis bridge)."""
         sent = 0
         for user_id in list(self._connections.keys()):
@@ -321,7 +335,9 @@ async def stream_agent_via_ws(
                 elif "status" in payload:
                     await websocket.send_json({"type": "status", "data": payload})
                 elif "thinking_chain_complete" in payload:
-                    await websocket.send_json({"type": "chain_complete", "data": payload})
+                    await websocket.send_json(
+                        {"type": "chain_complete", "data": payload}
+                    )
                 else:
                     await websocket.send_json({"type": "data", "data": payload})
             except json.JSONDecodeError:

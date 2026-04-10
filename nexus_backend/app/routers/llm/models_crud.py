@@ -6,7 +6,12 @@ from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.encryption_service import encryption_service
 
-from ._shared import CreateModelRequest, UpdateModelRequest, _get_admin_client, _mask_model_record
+from ._shared import (
+    CreateModelRequest,
+    UpdateModelRequest,
+    _get_admin_client,
+    _mask_model_record,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["LLM Models CRUD"])
@@ -47,7 +52,9 @@ async def list_models(req: Request, user_id: str = Depends(get_current_user_id))
 
 
 @router.post("/models")
-async def create_model(req: Request, body: CreateModelRequest, user_id: str = Depends(get_current_user_id)):
+async def create_model(
+    req: Request, body: CreateModelRequest, user_id: str = Depends(get_current_user_id)
+):
     """创建新的 LLM 模型配置"""
     try:
         org_id = getattr(req.state, "org_id", None)
@@ -57,8 +64,12 @@ async def create_model(req: Request, body: CreateModelRequest, user_id: str = De
         db = _get_admin_client()
 
         # 加密 API Key
-        encrypted_key = encryption_service.encrypt(body.api_key) if body.api_key else None
-        encrypted_secret = encryption_service.encrypt(body.secret_key) if body.secret_key else None
+        encrypted_key = (
+            encryption_service.encrypt(body.api_key) if body.api_key else None
+        )
+        encrypted_secret = (
+            encryption_service.encrypt(body.secret_key) if body.secret_key else None
+        )
 
         data = body.model_dump(exclude={"api_key", "secret_key"})
         data.update(
@@ -73,7 +84,9 @@ async def create_model(req: Request, body: CreateModelRequest, user_id: str = De
         if not result.data:
             raise api_error(ErrorCode.DB_QUERY_ERROR, "创建模型失败")
 
-        return api_success(data=_mask_model_record(result.data[0]), message="模型已添加")
+        return api_success(
+            data=_mask_model_record(result.data[0]), message="模型已添加"
+        )
     except Exception as e:
         logger.error(f"Failed to create model: {e}")
         if hasattr(e, "status_code"):
@@ -98,12 +111,18 @@ async def update_model(
 
         # 检查是否存在
         existing = (
-            await db.table("llm_model_config").select("id").eq("id", model_id).eq("tenant_id", str(org_id)).execute()
+            await db.table("llm_model_config")
+            .select("id")
+            .eq("id", model_id)
+            .eq("tenant_id", str(org_id))
+            .execute()
         )
         if not existing.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该模型配置")
 
-        update_data = body.model_dump(exclude_none=True, exclude={"api_key", "secret_key", "is_active"})
+        update_data = body.model_dump(
+            exclude_none=True, exclude={"api_key", "secret_key", "is_active"}
+        )
 
         # 处理开关字段映射 (is_active -> status)
         if body.is_active is not None:
@@ -113,7 +132,9 @@ async def update_model(
         if body.api_key is not None:
             update_data["api_key_encrypted"] = encryption_service.encrypt(body.api_key)
         if body.secret_key is not None:
-            update_data["secret_key_encrypted"] = encryption_service.encrypt(body.secret_key)
+            update_data["secret_key_encrypted"] = encryption_service.encrypt(
+                body.secret_key
+            )
 
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "无可更新字段")
@@ -128,7 +149,9 @@ async def update_model(
         if not result.data:
             raise api_error(ErrorCode.DB_QUERY_ERROR, "更新模型失败")
 
-        return api_success(data=_mask_model_record(result.data[0]), message="配置已更新")
+        return api_success(
+            data=_mask_model_record(result.data[0]), message="配置已更新"
+        )
     except Exception as e:
         logger.error(f"Failed to update model {model_id}: {e}")
         if hasattr(e, "status_code"):
@@ -137,7 +160,9 @@ async def update_model(
 
 
 @router.delete("/models/{model_id}")
-async def delete_model(model_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+async def delete_model(
+    model_id: str, req: Request, user_id: str = Depends(get_current_user_id)
+):
     """逻辑删除模型配置"""
     try:
         org_id = getattr(req.state, "org_id", None)
@@ -165,7 +190,9 @@ async def delete_model(model_id: str, req: Request, user_id: str = Depends(get_c
 
 
 @router.post("/models/{model_id}/test")
-async def test_model(model_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+async def test_model(
+    model_id: str, req: Request, user_id: str = Depends(get_current_user_id)
+):
     """测试模型连通性"""
     import time
 
@@ -179,14 +206,23 @@ async def test_model(model_id: str, req: Request, user_id: str = Depends(get_cur
         db = _get_admin_client()
 
         # 1. 获取模型配置
-        res = await db.table("llm_model_config").select("*").eq("id", model_id).eq("tenant_id", str(org_id)).execute()
+        res = (
+            await db.table("llm_model_config")
+            .select("*")
+            .eq("id", model_id)
+            .eq("tenant_id", str(org_id))
+            .execute()
+        )
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该模型配置")
 
         config = res.data[0]
         base_url = config.get("api_base_url") or "https://api.openai.com/v1"
         # 确保 base_url 以 /v1 结尾（如果是 OpenAI 兼容）
-        if not base_url.endswith("/v1") and "openai" in (config.get("provider_type") or "").lower():
+        if (
+            not base_url.endswith("/v1")
+            and "openai" in (config.get("provider_type") or "").lower()
+        ):
             if not base_url.endswith("/"):
                 base_url += "/"
             base_url += "v1"
@@ -199,7 +235,9 @@ async def test_model(model_id: str, req: Request, user_id: str = Depends(get_cur
                 api_key = encryption_service.decrypt(encrypted_key)
             except Exception as e:
                 logger.error(f"Failed to decrypt API key for model {model_id}: {e}")
-                raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "凭据解密失败，请重新输入 API Key")
+                raise api_error(
+                    ErrorCode.SYSTEM_INTERNAL_ERROR, "凭据解密失败，请重新输入 API Key"
+                )
 
         # 3. 发送测试请求 (调用 /models 接口验证有效性)
         start_time = time.time()
@@ -212,10 +250,17 @@ async def test_model(model_id: str, req: Request, user_id: str = Depends(get_cur
                 latency = int((time.time() - start_time) * 1000)
 
                 if resp.status_code == 200:
-                    return api_success(data={"connectivity": "ok", "latency_ms": latency}, message="连通性测试通过")
+                    return api_success(
+                        data={"connectivity": "ok", "latency_ms": latency},
+                        message="连通性测试通过",
+                    )
                 else:
                     return api_success(
-                        data={"connectivity": "failed", "status_code": resp.status_code, "error": resp.text[:200]},
+                        data={
+                            "connectivity": "failed",
+                            "status_code": resp.status_code,
+                            "error": resp.text[:200],
+                        },
                         message=f"测试失败: 供应商返回状态码 {resp.status_code}",
                     )
             except Exception as net_err:

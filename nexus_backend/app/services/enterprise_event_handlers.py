@@ -69,7 +69,11 @@ async def cascade_employee_resignation(event: Event):
 
         # 3. 通知管理员
         admins = await (
-            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "boss"]).execute()
+            supabase.table("users")
+            .select("id")
+            .eq("org_id", org_id)
+            .in_("role", ["founder", "boss"])
+            .execute()
         )
         for admin in admins.data or []:
             await (
@@ -85,7 +89,9 @@ async def cascade_employee_resignation(event: Event):
                 .execute()
             )
 
-        logger.info(f"[Enterprise] Employee {employee_name} resigned: {len(assets)} assets auto-returned")
+        logger.info(
+            f"[Enterprise] Employee {employee_name} resigned: {len(assets)} assets auto-returned"
+        )
     except Exception as e:
         logger.error(f"[Enterprise] Failed to cascade resignation: {e}")
 
@@ -128,7 +134,11 @@ async def cascade_employee_onboarding(event: Event):
         # 如果有部门，通知部门负责人
         if department_id:
             dept_resp = await (
-                supabase.table("departments").select("manager_id").eq("id", department_id).maybe_single().execute()
+                supabase.table("departments")
+                .select("manager_id")
+                .eq("id", department_id)
+                .maybe_single()
+                .execute()
             )
             manager_id = dept_resp.data.get("manager_id") if dept_resp.data else None
             if manager_id:
@@ -179,7 +189,11 @@ async def cascade_asset_scrap(event: Event):
         # 如果闲置库存不足 2 台，通知采购
         if idle_count < 2:
             admins = await (
-                supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "boss"]).execute()
+                supabase.table("users")
+                .select("id")
+                .eq("org_id", org_id)
+                .in_("role", ["founder", "boss"])
+                .execute()
             )
             for admin in admins.data or []:
                 await (
@@ -195,7 +209,9 @@ async def cascade_asset_scrap(event: Event):
                     .execute()
                 )
 
-            logger.info(f"[Enterprise] Low asset stock alert: {asset_type} idle={idle_count}")
+            logger.info(
+                f"[Enterprise] Low asset stock alert: {asset_type} idle={idle_count}"
+            )
     except Exception as e:
         logger.error(f"[Enterprise] Failed to cascade asset scrap: {e}")
 
@@ -218,7 +234,11 @@ async def notify_low_stock(event: Event):
 
     try:
         admins = await (
-            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "boss"]).execute()
+            supabase.table("users")
+            .select("id")
+            .eq("org_id", org_id)
+            .in_("role", ["founder", "boss"])
+            .execute()
         )
         for admin in admins.data or []:
             await (
@@ -258,7 +278,11 @@ async def notify_certificate_expiring(event: Event):
     try:
         # 通知管理员
         admins = await (
-            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "boss"]).execute()
+            supabase.table("users")
+            .select("id")
+            .eq("org_id", org_id)
+            .in_("role", ["founder", "boss"])
+            .execute()
         )
         for admin in admins.data or []:
             await (

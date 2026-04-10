@@ -35,7 +35,10 @@ class GetContractsTool(BaseTool):
     examples = [
         {"input": {}, "output_summary": "返回全部合同列表"},
         {"input": {"status": "active"}, "output_summary": "返回所有生效中的合同"},
-        {"input": {"search": "服务协议"}, "output_summary": "按标题搜索包含'服务协议'的合同"},
+        {
+            "input": {"search": "服务协议"},
+            "output_summary": "按标题搜索包含'服务协议'的合同",
+        },
     ]
     gotchas = "status可选值: draft/pending_review/active/expired/terminated/renewed。不传则返回全部。"
     related_tools = ["create_contract", "get_expiring_contracts"]
@@ -63,7 +66,9 @@ class GetContractsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -75,7 +80,9 @@ class GetContractsTool(BaseTool):
         if args.get("search"):
             filters["search"] = args["search"]
 
-        contracts = await contract_service.list_contracts(org_id, filters=filters or None, db=client)
+        contracts = await contract_service.list_contracts(
+            org_id, filters=filters or None, db=client
+        )
 
         if not contracts:
             return "当前暂无合同记录。您可以说「创建合同」来添加新合同。"
@@ -94,7 +101,9 @@ class GetContractsTool(BaseTool):
             status = status_labels.get(c.get("status", ""), c.get("status", ""))
             amount = c.get("amount") or 0
             amount_str = f"¥{float(amount):,.0f}" if amount else "未填写"
-            end_date = str(c.get("end_date", ""))[:10] if c.get("end_date") else "未设定"
+            end_date = (
+                str(c.get("end_date", ""))[:10] if c.get("end_date") else "未设定"
+            )
             lines.append(
                 f"- **{c.get('title', '未命名')}** | 状态: {status} "
                 f"| 金额: {amount_str} | 到期: {end_date} "
@@ -117,7 +126,11 @@ class CreateContractTool(BaseTool):
     description = "创建新合同记录，支持设置类型、金额、日期和关联客户"
     examples = [
         {
-            "input": {"title": "华为年度服务合同", "contract_type": "service", "amount": 100000},
+            "input": {
+                "title": "华为年度服务合同",
+                "contract_type": "service",
+                "amount": 100000,
+            },
             "output_summary": "创建一份金额10万的服务合同（草稿状态）",
         },
         {
@@ -152,7 +165,9 @@ class CreateContractTool(BaseTool):
         "required": ["title"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         from datetime import datetime
 
         client = _get_client(config)
@@ -197,14 +212,26 @@ class CreateContractTool(BaseTool):
                 return f"❌ customer_id '{customer_id}' 不是有效的UUID格式。"
 
             try:
-                cust_res = await client.table("customers").select("id").eq("id", customer_id).maybe_single().execute()
+                cust_res = (
+                    await client.table("customers")
+                    .select("id")
+                    .eq("id", customer_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if not cust_res.data:
                     return f"❌ 客户 ID {customer_id} 不存在，请先创建客户。"
             except Exception:
                 pass  # 校验失败不阻塞，让 service 层兜底
 
         data = {"title": title, "created_by": user_id}
-        for field in ("customer_id", "contract_type", "amount", "start_date", "end_date"):
+        for field in (
+            "customer_id",
+            "contract_type",
+            "amount",
+            "start_date",
+            "end_date",
+        ):
             if args.get(field) is not None:
                 data[field] = args[field]
 
@@ -223,7 +250,9 @@ class CreateContractTool(BaseTool):
             "nda": "保密协议",
             "other": "其他",
         }
-        ctype = type_labels.get(contract.get("contract_type", ""), contract.get("contract_type", ""))
+        ctype = type_labels.get(
+            contract.get("contract_type", ""), contract.get("contract_type", "")
+        )
 
         return (
             f"✅ 合同创建成功！\n\n"
@@ -250,7 +279,9 @@ class GetExpiringContractsTool(BaseTool):
         {"input": {}, "output_summary": "返回未来30天内即将到期的合同列表"},
         {"input": {"days": 7}, "output_summary": "返回未来7天内即将到期的合同列表"},
     ]
-    gotchas = "days范围1-365，默认30天。只返回状态为active的合同。无到期合同时返回提示信息。"
+    gotchas = (
+        "days范围1-365，默认30天。只返回状态为active的合同。无到期合同时返回提示信息。"
+    )
     related_tools = ["get_contracts", "create_contract"]
 
     parameters = {
@@ -264,7 +295,9 @@ class GetExpiringContractsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -273,7 +306,9 @@ class GetExpiringContractsTool(BaseTool):
         days = args.get("days", 30)
         days = min(max(1, days), 365)
 
-        contracts = await contract_service.get_expiring_contracts(org_id, days=days, db=client)
+        contracts = await contract_service.get_expiring_contracts(
+            org_id, days=days, db=client
+        )
 
         if not contracts:
             return f"未来 {days} 天内没有即将到期的合同。"

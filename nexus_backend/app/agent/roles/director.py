@@ -3,7 +3,12 @@
 AGENT_CODE = "director_agent"
 AGENT_NAME = "市场总监Agent"
 RECOMMENDED_MODEL_TIER = "high"
-SCENE_CODES = ["task_decompose", "industry_analysis", "market_strategy", "competitive_analysis"]
+SCENE_CODES = [
+    "task_decompose",
+    "industry_analysis",
+    "market_strategy",
+    "competitive_analysis",
+]
 
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "统筹全局营销策略，确保各Agent协同高效，关键指标按时达成"

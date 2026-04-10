@@ -38,7 +38,12 @@ async def list_budgets(
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
-        result = await db.table("finance_budgets").select("*").eq("organization_id", org_id).execute()
+        result = (
+            await db.table("finance_budgets")
+            .select("*")
+            .eq("organization_id", org_id)
+            .execute()
+        )
         return api_success(data={"budgets": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list budgets: {e}")
@@ -65,7 +70,10 @@ async def create_budget(
         data["created_by"] = user_id
 
         result = await db.table("finance_budgets").insert(data).execute()
-        return api_success(data={"budget": result.data[0] if result.data else None}, message="预算创建成功")
+        return api_success(
+            data={"budget": result.data[0] if result.data else None},
+            message="预算创建成功",
+        )
     except Exception as e:
         logger.error(f"Failed to create budget: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建预算失败")
@@ -89,9 +97,16 @@ async def update_budget(
         data = body.model_dump(exclude_none=True)
 
         result = (
-            await db.table("finance_budgets").update(data).eq("id", budget_id).eq("organization_id", org_id).execute()
+            await db.table("finance_budgets")
+            .update(data)
+            .eq("id", budget_id)
+            .eq("organization_id", org_id)
+            .execute()
         )
-        return api_success(data={"budget": result.data[0] if result.data else None}, message="预算已更新")
+        return api_success(
+            data={"budget": result.data[0] if result.data else None},
+            message="预算已更新",
+        )
     except Exception as e:
         logger.error(f"Failed to update budget: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新预算失败")
@@ -117,7 +132,10 @@ async def create_invoice(
         data["created_by"] = user_id
 
         result = await db.table("finance_invoices").insert(data).execute()
-        return api_success(data={"invoice": result.data[0] if result.data else None}, message="发票创建成功")
+        return api_success(
+            data={"invoice": result.data[0] if result.data else None},
+            message="发票创建成功",
+        )
     except Exception as e:
         logger.error(f"Failed to create invoice: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建发票失败")

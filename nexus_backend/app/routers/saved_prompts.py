@@ -55,7 +55,9 @@ async def create_saved_prompt(
         )
         .execute()
     )
-    return api_success(data=result.data[0] if result.data else None, message="快捷指令已保存")
+    return api_success(
+        data=result.data[0] if result.data else None, message="快捷指令已保存"
+    )
 
 
 @router.delete("/{prompt_id}")

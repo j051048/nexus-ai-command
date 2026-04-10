@@ -32,11 +32,19 @@ class ListInventoryTool(BaseTool):
     description = "查询库存列表，支持按分类、位置、关键词筛选。当用户说'查看库存'、'物资列表'、'库存查询'时调用。"
     examples = [
         {"input": {}, "output_summary": "返回全部库存物品列表"},
-        {"input": {"category": "办公用品", "low_stock_only": True}, "output_summary": "返回办公用品分类下的低库存物品"},
-        {"input": {"search": "打印纸"}, "output_summary": "按名称或编码搜索包含'打印纸'的物品"},
+        {
+            "input": {"category": "办公用品", "low_stock_only": True},
+            "output_summary": "返回办公用品分类下的低库存物品",
+        },
+        {
+            "input": {"search": "打印纸"},
+            "output_summary": "按名称或编码搜索包含'打印纸'的物品",
+        },
     ]
     related_tools = ["inventory_in", "inventory_out", "inventory_statistics"]
-    gotchas = "low_stock_only=True时只返回库存低于最低库存阈值的物品。搜索按名称和编码匹配。"
+    gotchas = (
+        "low_stock_only=True时只返回库存低于最低库存阈值的物品。搜索按名称和编码匹配。"
+    )
 
     parameters = {
         "type": "object",
@@ -62,7 +70,9 @@ class ListInventoryTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -91,7 +101,10 @@ class ListInventoryTool(BaseTool):
             lines = [f"📦 共找到 {len(items)} 种物品:\n"]
             for item in items:
                 stock_warning = ""
-                if item.get("min_stock") is not None and item.get("quantity", 0) < item["min_stock"]:
+                if (
+                    item.get("min_stock") is not None
+                    and item.get("quantity", 0) < item["min_stock"]
+                ):
                     stock_warning = " ⚠️低库存"
 
                 lines.append(
@@ -114,7 +127,10 @@ class InventoryInTool(BaseTool):
     domain = "inventory"
     description = "执行物品入库操作，增加指定物品的库存数量。当用户说'入库'、'物资入库'、'收货'时调用。"
     examples = [
-        {"input": {"item_id": "uuid-xxx", "quantity": 100}, "output_summary": "将指定物品入库100个"},
+        {
+            "input": {"item_id": "uuid-xxx", "quantity": 100},
+            "output_summary": "将指定物品入库100个",
+        },
         {
             "input": {"item_id": "uuid-xxx", "quantity": 50, "reason": "采购到货"},
             "output_summary": "入库50个并记录原因为采购到货",
@@ -144,7 +160,9 @@ class InventoryInTool(BaseTool):
         "required": ["item_id", "quantity"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -171,9 +189,7 @@ class InventoryInTool(BaseTool):
                 db=client,
             )
 
-            return (
-                f"✅ 入库成功！\n\n- 物品ID: {item_id[:8]}...\n- 入库数量: {quantity}\n- 记录ID: {record.get('id', '')}"
-            )
+            return f"✅ 入库成功！\n\n- 物品ID: {item_id[:8]}...\n- 入库数量: {quantity}\n- 记录ID: {record.get('id', '')}"
 
         except Exception as e:
             logger.error(f"入库失败: {e}")
@@ -187,9 +203,17 @@ class InventoryOutTool(BaseTool):
     domain = "inventory"
     description = "执行物品出库操作，减少指定物品的库存数量。当用户说'出库'、'领用物资'、'物品出库'时调用。"
     examples = [
-        {"input": {"item_id": "uuid-xxx", "quantity": 10}, "output_summary": "将指定物品出库10个"},
         {
-            "input": {"item_id": "uuid-xxx", "quantity": 5, "receiver_id": "user-uuid", "reason": "项目领用"},
+            "input": {"item_id": "uuid-xxx", "quantity": 10},
+            "output_summary": "将指定物品出库10个",
+        },
+        {
+            "input": {
+                "item_id": "uuid-xxx",
+                "quantity": 5,
+                "receiver_id": "user-uuid",
+                "reason": "项目领用",
+            },
             "output_summary": "出库5个并记录领用人和原因",
         },
     ]
@@ -221,7 +245,9 @@ class InventoryOutTool(BaseTool):
         "required": ["item_id", "quantity"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -255,9 +281,7 @@ class InventoryOutTool(BaseTool):
                 db=client,
             )
 
-            return (
-                f"✅ 出库成功！\n\n- 物品ID: {item_id[:8]}...\n- 出库数量: {quantity}\n- 记录ID: {record.get('id', '')}"
-            )
+            return f"✅ 出库成功！\n\n- 物品ID: {item_id[:8]}...\n- 出库数量: {quantity}\n- 记录ID: {record.get('id', '')}"
 
         except Exception as e:
             logger.error(f"出库失败: {e}")
@@ -269,12 +293,13 @@ class InventoryStatisticsTool(BaseTool):
 
     name = "inventory_statistics"
     domain = "inventory"
-    description = (
-        "获取库存统计数据，包括物品总数、总价值和低库存预警数。当用户说'库存统计'、'库存概况'、'物资统计'时调用。"
-    )
+    description = "获取库存统计数据，包括物品总数、总价值和低库存预警数。当用户说'库存统计'、'库存概况'、'物资统计'时调用。"
     examples = [
         {"input": {}, "output_summary": "返回全部库存的统计概况"},
-        {"input": {"category": "电子设备"}, "output_summary": "返回电子设备分类的库存统计"},
+        {
+            "input": {"category": "电子设备"},
+            "output_summary": "返回电子设备分类的库存统计",
+        },
     ]
     related_tools = ["list_inventory", "inventory_in", "inventory_out"]
     gotchas = "不传category则统计全部分类。返回的总价值基于物品单价乘以数量。"
@@ -290,7 +315,9 @@ class InventoryStatisticsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:

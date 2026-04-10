@@ -35,10 +35,14 @@ def _with_redis_lock(task_name: str, lock_ttl: int = 300):
                 if redis_url:
                     redis_client = _redis.from_url(redis_url)
                     if not redis_client.set(lock_key, "1", nx=True, ex=lock_ttl):
-                        logger.info("[%s] Another worker is executing, skipped", task_name)
+                        logger.info(
+                            "[%s] Another worker is executing, skipped", task_name
+                        )
                         return "skipped: locked by another worker"
             except Exception as e:
-                logger.debug("[%s] Redis lock unavailable, proceeding: %s", task_name, e)
+                logger.debug(
+                    "[%s] Redis lock unavailable, proceeding: %s", task_name, e
+                )
 
             try:
                 return func(*args, **kwargs)
@@ -83,7 +87,12 @@ def push_daily_briefing():
             return "skipped: no db"
 
         # 查询所有管理层用户 (founder = boss, manager = 管理者)
-        result = await supabase.table("users").select("id, role").in_("role", ["manager", "founder"]).execute()
+        result = (
+            await supabase.table("users")
+            .select("id, role")
+            .in_("role", ["manager", "founder"])
+            .execute()
+        )
         users = result.data or []
 
         tool = DailyBriefingTool()
@@ -192,7 +201,13 @@ def monitor_competitors():
             return "No competitor data"
 
         # 汇总竞品名称
-        competitors = list(set(a.get("competitor_name", "") for a in analyses if a.get("competitor_name")))
+        competitors = list(
+            set(
+                a.get("competitor_name", "")
+                for a in analyses
+                if a.get("competitor_name")
+            )
+        )
         if not competitors:
             return "No competitors found"
 
@@ -251,12 +266,16 @@ def cleanup_stale_embeddings():
         for org_id in org_ids:
             try:
                 # Check for stale embeddings (default 30 days)
-                stale_docs = await vs.check_staleness(org_id, staleness_days=30, db=supabase)
+                stale_docs = await vs.check_staleness(
+                    org_id, staleness_days=30, db=supabase
+                )
                 total_stale += len(stale_docs)
 
                 # Log stale documents for monitoring
                 if stale_docs:
-                    logger.info(f"Org {org_id}: {len(stale_docs)} stale documents found")
+                    logger.info(
+                        f"Org {org_id}: {len(stale_docs)} stale documents found"
+                    )
 
                 # Clean up expired embeddings (where expires_at < now)
                 try:
@@ -273,11 +292,18 @@ def cleanup_stale_embeddings():
 
                     for chunk in expired:
                         try:
-                            await supabase.table("document_embeddings").delete().eq("id", chunk["id"]).execute()
+                            await supabase.table("document_embeddings").delete().eq(
+                                "id", chunk["id"]
+                            ).execute()
                             total_expired += 1
                         except Exception as del_e:
-                            if not (hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"):
-                                logger.warning(f"Failed to delete expired embedding {chunk['id']}: {del_e}")
+                            if not (
+                                hasattr(del_e, "code")
+                                and str(getattr(del_e, "code", "")) == "204"
+                            ):
+                                logger.warning(
+                                    f"Failed to delete expired embedding {chunk['id']}: {del_e}"
+                                )
                             else:
                                 total_expired += 1
                 except Exception as e:
@@ -374,24 +400,37 @@ def sync_im_platforms():
 
     async def _run():
         from app.core.database import supabase as sync_db
-        from app.services.im_platform.attendance_sync_service import attendance_sync_service
+        from app.services.im_platform.attendance_sync_service import (
+            attendance_sync_service,
+        )
         from app.services.im_platform.contact_sync_service import contact_sync_service
 
         if not sync_db:
             return "skipped: no db"
 
-        result = await sync_db.table("im_platform_config").select("*").eq("is_active", True).execute()
+        result = (
+            await sync_db.table("im_platform_config")
+            .select("*")
+            .eq("is_active", True)
+            .execute()
+        )
         synced = 0
         for config in result.data or []:
             try:
                 org_id = config.get("organization_id", "")
                 platform = config.get("platform", "")
                 if org_id and platform:
-                    await contact_sync_service.sync_contacts(org_id, platform, db=sync_db)
-                    await attendance_sync_service.sync_attendance(org_id, platform, db=sync_db)
+                    await contact_sync_service.sync_contacts(
+                        org_id, platform, db=sync_db
+                    )
+                    await attendance_sync_service.sync_attendance(
+                        org_id, platform, db=sync_db
+                    )
                     synced += 1
             except Exception as e:
-                logger.error(f"IM sync error for org {config.get('organization_id')}: {e}")
+                logger.error(
+                    f"IM sync error for org {config.get('organization_id')}: {e}"
+                )
 
         return f"IM sync complete: {synced} orgs synced"
 
@@ -408,7 +447,10 @@ def check_contract_expiry():
 
     async def _run():
         from app.core.database import supabase
-        from app.services.notification_service import NotificationPriority, send_notification
+        from app.services.notification_service import (
+            NotificationPriority,
+            send_notification,
+        )
 
         if not supabase:
             return "skipped: no db"
@@ -437,7 +479,10 @@ def check_contract_expiry():
         for contract in expiring:
             try:
                 if contract.get("user_id"):
-                    days_left = (datetime.strptime(contract["end_date"], "%Y-%m-%d") - datetime.now()).days
+                    days_left = (
+                        datetime.strptime(contract["end_date"], "%Y-%m-%d")
+                        - datetime.now()
+                    ).days
                     await send_notification(
                         title=f"合同到期预警: {contract.get('title', '未命名')}",
                         content=f"合同将在 {days_left} 天后到期 ({contract['end_date']})，请及时处理续签或结算。",
@@ -446,7 +491,9 @@ def check_contract_expiry():
                     )
                     notified += 1
             except Exception as e:
-                logger.error(f"Contract expiry notification failed for {contract['id']}: {e}")
+                logger.error(
+                    f"Contract expiry notification failed for {contract['id']}: {e}"
+                )
 
         return f"Notified {notified} expiring contracts"
 
@@ -475,14 +522,22 @@ def decompose_vmd_task(task_id: str):
             return "skipped: no db"
 
         # 1. Load the main task
-        task_res = await supabase.table("vmd_main_task").select("*").eq("id", task_id).maybe_single().execute()
+        task_res = (
+            await supabase.table("vmd_main_task")
+            .select("*")
+            .eq("id", task_id)
+            .maybe_single()
+            .execute()
+        )
         if not task_res.data:
             logger.error(f"decompose_vmd_task: task {task_id} not found")
             return f"task {task_id} not found"
 
         task = task_res.data
         if task.get("status") not in ("pending", None):
-            logger.info(f"decompose_vmd_task: task {task_id} status is {task.get('status')}, skipping")
+            logger.info(
+                f"decompose_vmd_task: task {task_id} status is {task.get('status')}, skipping"
+            )
             return f"task {task_id} already processed"
 
         title = task.get("title", "")
@@ -517,7 +572,9 @@ def decompose_vmd_task(task_id: str):
             # Handle markdown code blocks
             if response_text.startswith("```"):
                 lines = response_text.split("\n")
-                response_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+                response_text = "\n".join(
+                    lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
+                )
                 response_text = response_text.strip()
 
             sub_tasks_data = json.loads(response_text)
@@ -525,7 +582,9 @@ def decompose_vmd_task(task_id: str):
                 sub_tasks_data = [sub_tasks_data]
 
         except (json.JSONDecodeError, Exception) as e:
-            logger.warning(f"decompose_vmd_task: LLM response parse failed: {e}, creating default sub-task")
+            logger.warning(
+                f"decompose_vmd_task: LLM response parse failed: {e}, creating default sub-task"
+            )
             sub_tasks_data = [
                 {
                     "title": f"执行: {title}",
@@ -554,7 +613,9 @@ def decompose_vmd_task(task_id: str):
             await supabase.table("vmd_sub_task").insert(records).execute()
             created_count = len(records)
         except Exception as e:
-            logger.error(f"decompose_vmd_task: batch insert failed: {e}, falling back to individual inserts")
+            logger.error(
+                f"decompose_vmd_task: batch insert failed: {e}, falling back to individual inserts"
+            )
             created_count = 0
             for sub_record in records:
                 try:
@@ -607,7 +668,9 @@ def push_smart_recommendations():
         if not supabase:
             return "skipped: no db"
 
-        from app.services.smart_recommendation_service import smart_recommendation_service
+        from app.services.smart_recommendation_service import (
+            smart_recommendation_service,
+        )
         from app.services.websocket_manager import ws_manager
 
         connected_users = ws_manager.get_connected_user_ids()
@@ -700,7 +763,9 @@ def purge_superseded_memories():
                 .execute()
             )
             deleted = len(result.data) if result.data else 0
-            logger.info(f"[MemoryPurge] Deleted {deleted} superseded memories older than 30 days")
+            logger.info(
+                f"[MemoryPurge] Deleted {deleted} superseded memories older than 30 days"
+            )
             return f"Purged {deleted} superseded old-version memories"
         except Exception as e:
             # superseded_by column may not exist yet
@@ -772,14 +837,19 @@ def consolidate_memories():
 
         for uid in user_ids[:50]:  # Cap at 50 users per batch
             try:
-                r = await conversation_memory_service.consolidate_user_memories(user_id=uid, batch_size=30, db=supabase)
+                r = await conversation_memory_service.consolidate_user_memories(
+                    user_id=uid, batch_size=30, db=supabase
+                )
                 total_insights += r.get("insights_created", 0)
                 if r.get("processed", 0) > 0:
                     processed_users += 1
             except Exception as e:
                 logger.warning(f"Consolidation failed for user {uid}: {e}")
 
-        return f"Consolidated {total_insights} insights " f"for {processed_users}/{len(user_ids[:50])} users"
+        return (
+            f"Consolidated {total_insights} insights "
+            f"for {processed_users}/{len(user_ids[:50])} users"
+        )
 
     return _run_async(_run())
 
@@ -800,7 +870,9 @@ def reevaluate_memory_importance():
         if not supabase:
             return "skipped: no db"
 
-        result = await conversation_memory_service.reevaluate_importance(batch_size=200, db=supabase)
+        result = await conversation_memory_service.reevaluate_importance(
+            batch_size=200, db=supabase
+        )
         return f"Importance reeval: boosted={result['boosted']}, decayed={result['decayed']}"
 
     return _run_async(_run())
@@ -830,7 +902,10 @@ def decay_kg_strength():
             batch_size=500,
             db=supabase,
         )
-        return f"KG decay: scanned={result['scanned']}, " f"decayed={result['decayed']}, archived={result['archived']}"
+        return (
+            f"KG decay: scanned={result['scanned']}, "
+            f"decayed={result['decayed']}, archived={result['archived']}"
+        )
 
     return _run_async(_run())
 
@@ -931,7 +1006,9 @@ def measure_action_outcomes():
                     if cont_res.data:
                         if cont_res.data.get("updated_at", "") > action["action_at"]:
                             success = True
-                            actual_outcome = f"合同已处理，状态: {cont_res.data.get('status')}"
+                            actual_outcome = (
+                                f"合同已处理，状态: {cont_res.data.get('status')}"
+                            )
                         else:
                             success = False
                             actual_outcome = "合同到期提醒后仍未处理"
@@ -952,7 +1029,9 @@ def measure_action_outcomes():
                     measured += 1
 
             except Exception as e:
-                logger.error(f"Action outcome measurement failed for {action['id']}: {e}")
+                logger.error(
+                    f"Action outcome measurement failed for {action['id']}: {e}"
+                )
 
         return f"Measured {measured}/{len(actions)} action outcomes"
 

@@ -204,7 +204,11 @@ class WorkingDirectory:
                         continue
 
                 raw_key = row.get("key", "")
-                user_key = raw_key[len(_KEY_PREFIX) :] if raw_key.startswith(_KEY_PREFIX) else raw_key
+                user_key = (
+                    raw_key[len(_KEY_PREFIX) :]
+                    if raw_key.startswith(_KEY_PREFIX)
+                    else raw_key
+                )
 
                 try:
                     value = json.loads(row.get("value", "null"))
@@ -297,7 +301,9 @@ class WorkingDirectory:
             for eid in expired_ids:
                 await db.table("conversation_memories").delete().eq("id", eid).execute()
 
-            logger.info(f"[WorkingDirectory] Cleaned up {len(expired_ids)} expired states for user={user_id}")
+            logger.info(
+                f"[WorkingDirectory] Cleaned up {len(expired_ids)} expired states for user={user_id}"
+            )
             return len(expired_ids)
 
         except Exception as e:

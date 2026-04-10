@@ -32,7 +32,10 @@ class ListSystemConfigsTool(BaseTool):
     domain = "admin"
     examples = [
         {"input": {}, "output_summary": "返回当前租户的所有配置项，按类型分组展示"},
-        {"input": {"config_type": "asset_status"}, "output_summary": "仅返回资产状态相关的配置项"},
+        {
+            "input": {"config_type": "asset_status"},
+            "output_summary": "仅返回资产状态相关的配置项",
+        },
     ]
     gotchas = "需要用户已登录且有组织信息。返回结果按配置类型分组。"
     related_tools = ["update_system_config"]
@@ -48,7 +51,9 @@ class ListSystemConfigsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -82,7 +87,9 @@ class ListSystemConfigsTool(BaseTool):
                     label = value.get("label", item.get("config_key"))
                     color = value.get("color", "")
                     icon = value.get("icon", "")
-                    lines.append(f"  - {label} (key: {item.get('config_key')}) {icon} {color}")
+                    lines.append(
+                        f"  - {label} (key: {item.get('config_key')}) {icon} {color}"
+                    )
 
             return "\n".join(lines)
 
@@ -108,7 +115,12 @@ class UpdateSystemConfigTool(BaseTool):
             "output_summary": "创建或更新一个资产状态配置项",
         },
         {
-            "input": {"config_type": "priority", "config_key": "urgent", "label": "紧急", "icon": "alert"},
+            "input": {
+                "config_type": "priority",
+                "config_key": "urgent",
+                "label": "紧急",
+                "icon": "alert",
+            },
             "output_summary": "创建一个带图标的优先级配置项",
         },
     ]
@@ -149,7 +161,9 @@ class UpdateSystemConfigTool(BaseTool):
         "required": ["config_type", "config_key", "label"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:

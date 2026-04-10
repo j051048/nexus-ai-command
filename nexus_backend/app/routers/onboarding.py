@@ -34,7 +34,9 @@ async def generate_demo(
             "Organization context required. Please ensure you belong to an organization.",
         )
 
-    logger.info("[Onboarding] Demo data generation requested by user=%s org=%s", user_id, org_id)
+    logger.info(
+        "[Onboarding] Demo data generation requested by user=%s org=%s", user_id, org_id
+    )
 
     try:
         summary = await generate_demo_data(user_id=user_id, org_id=org_id)

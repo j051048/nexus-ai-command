@@ -26,7 +26,9 @@ _CACHE: dict[str, tuple[float, str]] = {}  # query -> (timestamp, result)
 _CACHE_TTL = 900  # 15 minutes
 
 
-@register_tool(name="web_search", category="knowledge", description="搜索互联网获取实时信息")
+@register_tool(
+    name="web_search", category="knowledge", description="搜索互联网获取实时信息"
+)
 class WebSearchTool(BaseTool):
     """搜索互联网获取实时信息"""
 
@@ -73,7 +75,9 @@ class WebSearchTool(BaseTool):
         "required": ["query"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         query = args.get("query", "").strip()
         if not query:
             return "❌ 请提供搜索关键词。"
@@ -120,7 +124,9 @@ class WebSearchTool(BaseTool):
         except httpx.TimeoutException:
             return "❌ 搜索超时，请稍后重试。"
         except httpx.HTTPStatusError as e:
-            logger.error(f"Brave Search API error: {e.response.status_code} {e.response.text[:200]}")
+            logger.error(
+                f"Brave Search API error: {e.response.status_code} {e.response.text[:200]}"
+            )
             return f"❌ 搜索服务异常（HTTP {e.response.status_code}），请稍后重试。"
         except Exception as e:
             logger.error(f"Web search failed: {e}")

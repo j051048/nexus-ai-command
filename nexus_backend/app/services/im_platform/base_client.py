@@ -67,7 +67,9 @@ class IMPlatformClient(ABC):
             self._access_token = token_data["access_token"]
             expires_in = token_data.get("expires_in", 7200)
             self._token_expires_at = time.time() + expires_in
-            logger.info(f"[{self.platform_name}] Access token refreshed, expires in {expires_in}s")
+            logger.info(
+                f"[{self.platform_name}] Access token refreshed, expires in {expires_in}s"
+            )
             return self._access_token
         except Exception as e:
             logger.error(f"[{self.platform_name}] Failed to refresh token: {e}")
@@ -111,7 +113,9 @@ class IMPlatformClient(ABC):
     # ── Attendance ────────────────────────────────────────────────
 
     @abstractmethod
-    async def get_attendance_records(self, user_ids: list[str], start_date: str, end_date: str) -> list[dict]:
+    async def get_attendance_records(
+        self, user_ids: list[str], start_date: str, end_date: str
+    ) -> list[dict]:
         """
         获取考勤打卡数据。
 
@@ -222,18 +226,26 @@ class IMPlatformClient(ABC):
             )
             raise
         except httpx.RequestError as e:
-            logger.error(f"[{self.platform_name}] Request error for {method} {url}: {e}")
+            logger.error(
+                f"[{self.platform_name}] Request error for {method} {url}: {e}"
+            )
             raise
         except Exception as e:
-            logger.error(f"[{self.platform_name}] Unexpected error for {method} {url}: {e}")
+            logger.error(
+                f"[{self.platform_name}] Unexpected error for {method} {url}: {e}"
+            )
             raise
 
         # 检查业务错误码（企微标准: errcode == 0 表示成功）
         errcode = data.get("errcode", 0)
         if errcode != 0:
             errmsg = data.get("errmsg", "unknown error")
-            logger.error(f"[{self.platform_name}] API business error: errcode={errcode}, errmsg={errmsg}, url={url}")
-            raise Exception(f"{self.platform_name} API error (code={errcode}): {errmsg}")
+            logger.error(
+                f"[{self.platform_name}] API business error: errcode={errcode}, errmsg={errmsg}, url={url}"
+            )
+            raise Exception(
+                f"{self.platform_name} API error (code={errcode}): {errmsg}"
+            )
 
         return data
 

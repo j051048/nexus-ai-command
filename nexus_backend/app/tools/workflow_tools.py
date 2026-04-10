@@ -50,15 +50,25 @@ class ProcessOnboardingTool(BaseTool):
             "output_summary": "触发自动化流程，返回各步骤执行结果",
         },
         {
-            "input": {"name": "[姓名]", "department_id": "[ID]", "asset_type": "laptop"},
+            "input": {
+                "name": "[姓名]",
+                "department_id": "[ID]",
+                "asset_type": "laptop",
+            },
             "output_summary": "自动化流程并分配资产",
         },
     ]
-    related_tools = ["process_resignation", "onboarding_assistant", "process_asset_lifecycle"]
+    related_tools = [
+        "process_resignation",
+        "onboarding_assistant",
+        "process_asset_lifecycle",
+    ]
     gotchas = "不可逆操作，需确认后执行。无闲置设备时会跳过分配步骤而非失败。默认分配类型为电脑。"
     required_role = "admin"
     is_irreversible = True
-    confirmation_message = "⚠️ 即将执行员工入职全流程（创建员工+分配设备+创建工单），确认继续？"
+    confirmation_message = (
+        "⚠️ 即将执行员工入职全流程（创建员工+分配设备+创建工单），确认继续？"
+    )
 
     parameters = {
         "type": "object",
@@ -92,7 +102,9 @@ class ProcessOnboardingTool(BaseTool):
         "required": ["name", "department_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -163,7 +175,9 @@ class ProcessOnboardingTool(BaseTool):
                     )
                     .execute()
                 )
-                results.append(f"✅ 已分配设备: {asset.get('name')} [{asset.get('asset_code')}]")
+                results.append(
+                    f"✅ 已分配设备: {asset.get('name')} [{asset.get('asset_code')}]"
+                )
             else:
                 results.append(f"⚠️ 无闲置 {asset_type} 设备可分配，请手动处理")
 
@@ -216,14 +230,22 @@ class ProcessResignationTool(BaseTool):
     )
     domain = "admin"
     examples = [
-        {"input": {"employee_id": "uuid"}, "output_summary": "更新状态为离职→触发资产回收→关闭待处理工单→通知管理员"},
-        {"input": {"employee_id": "uuid", "reason": "个人原因"}, "output_summary": "同上流程并记录离职原因"},
+        {
+            "input": {"employee_id": "uuid"},
+            "output_summary": "更新状态为离职→触发资产回收→关闭待处理工单→通知管理员",
+        },
+        {
+            "input": {"employee_id": "uuid", "reason": "个人原因"},
+            "output_summary": "同上流程并记录离职原因",
+        },
     ]
     related_tools = ["process_onboarding", "process_asset_lifecycle"]
     gotchas = "不可逆操作，需确认后执行。会自动关闭该员工所有待处理工单并清空指派人。"
     required_role = "admin"
     is_irreversible = True
-    confirmation_message = "⚠️ 即将执行员工离职全流程（更新状态+回收资产+通知），确认继续？"
+    confirmation_message = (
+        "⚠️ 即将执行员工离职全流程（更新状态+回收资产+通知），确认继续？"
+    )
 
     parameters = {
         "type": "object",
@@ -241,7 +263,9 @@ class ProcessResignationTool(BaseTool):
         "required": ["employee_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -269,7 +293,12 @@ class ProcessResignationTool(BaseTool):
             emp_name = emp.get("name", "")
 
             # Step 2: 更新员工状态为离职
-            resign_res = await client.table("employees").update({"status": "resigned"}).eq("id", employee_id).execute()
+            resign_res = (
+                await client.table("employees")
+                .update({"status": "resigned"})
+                .eq("id", employee_id)
+                .execute()
+            )
             if not resign_res.data:
                 return f"❌ 更新员工 {emp_name} 状态失败，请检查权限或记录是否存在。"
             results.append(f"✅ 员工状态已更新为离职: {emp_name}")
@@ -331,23 +360,39 @@ class ProcessAssetLifecycleTool(BaseTool):
         {
             "input": {
                 "action": "batch_create",
-                "assets_data": [{"asset_code": "PC001", "name": "台式电脑", "asset_type": "computer"}],
+                "assets_data": [
+                    {
+                        "asset_code": "PC001",
+                        "name": "台式电脑",
+                        "asset_type": "computer",
+                    }
+                ],
             },
             "output_summary": "批量创建资产记录，状态默认为闲置",
         },
         {
-            "input": {"action": "batch_allocate", "asset_ids": ["uuid1", "uuid2"], "to_user_id": "uuid"},
+            "input": {
+                "action": "batch_allocate",
+                "asset_ids": ["uuid1", "uuid2"],
+                "to_user_id": "uuid",
+            },
             "output_summary": "将指定资产分配给目标员工并记录转移",
         },
         {
-            "input": {"action": "batch_scrap", "asset_ids": ["uuid1"], "reason": "已过保"},
+            "input": {
+                "action": "batch_scrap",
+                "asset_ids": ["uuid1"],
+                "reason": "已过保",
+            },
             "output_summary": "报废指定资产并触发库存检查事件",
         },
     ]
-    related_tools = ["process_onboarding", "process_resignation", "predictive_maintenance"]
-    gotchas = (
-        "不可逆操作，需确认后执行。批量分配需同时提供资产列表和目标员工。批量入库时每项数据需包含资产编码、名称、类型。"
-    )
+    related_tools = [
+        "process_onboarding",
+        "process_resignation",
+        "predictive_maintenance",
+    ]
+    gotchas = "不可逆操作，需确认后执行。批量分配需同时提供资产列表和目标员工。批量入库时每项数据需包含资产编码、名称、类型。"
     required_role = "admin"
     is_irreversible = True
     confirmation_message = "⚠️ 即将执行批量资产操作，确认继续？"
@@ -383,7 +428,9 @@ class ProcessAssetLifecycleTool(BaseTool):
         "required": ["action"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -449,7 +496,11 @@ class ProcessAssetLifecycleTool(BaseTool):
                 count = 0
                 for aid in asset_ids:
                     asset_resp = await (
-                        client.table("assets").select("asset_type").eq("id", aid).maybe_single().execute()
+                        client.table("assets")
+                        .select("asset_type")
+                        .eq("id", aid)
+                        .maybe_single()
+                        .execute()
                     )
                     scrap_res = await (
                         client.table("assets")

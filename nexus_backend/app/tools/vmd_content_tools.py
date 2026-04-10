@@ -42,14 +42,19 @@ class GenerateProductManualTool(BaseTool):
             "output_summary": "生成ICP-MS面向实验室技术人员的产品手册框架",
         },
         {
-            "input": {"product_name": "UV-2600", "key_features": "双光束设计,超低杂散光"},
+            "input": {
+                "product_name": "UV-2600",
+                "key_features": "双光束设计,超低杂散光",
+            },
             "output_summary": "生成突出关键特性的UV-2600产品手册框架",
         },
     ]
-    related_tools = ["generate_whitepaper", "generate_application_note", "generate_social_post"]
-    gotchas = (
-        "product_name为必填。知识库无相关资料时会基于行业通用规范生成框架并标注需补充的部分。各字段有最大长度限制。"
-    )
+    related_tools = [
+        "generate_whitepaper",
+        "generate_application_note",
+        "generate_social_post",
+    ]
+    gotchas = "product_name为必填。知识库无相关资料时会基于行业通用规范生成框架并标注需补充的部分。各字段有最大长度限制。"
 
     parameters = {
         "type": "object",
@@ -78,7 +83,9 @@ class GenerateProductManualTool(BaseTool):
         "required": ["product_name"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         product_name = args.get("product_name", "").strip()
         if not product_name:
             return "❌ 请提供产品名称。"
@@ -164,7 +171,11 @@ class GenerateWhitepaperTool(BaseTool):
             "output_summary": "生成概述级的水质监测技术白皮书",
         },
     ]
-    related_tools = ["generate_product_manual", "generate_application_note", "generate_social_post"]
+    related_tools = [
+        "generate_product_manual",
+        "generate_application_note",
+        "generate_social_post",
+    ]
     gotchas = "topic为必填。depth可选值: overview/detailed/expert，不传默认detailed。生成的是框架和要点，需要补充实际数据的位置会标注。"
 
     parameters = {
@@ -191,7 +202,9 @@ class GenerateWhitepaperTool(BaseTool):
         "required": ["topic"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         topic = args.get("topic", "").strip()
         if not topic:
             return "❌ 请提供白皮书主题。"
@@ -262,9 +275,7 @@ class GenerateApplicationNoteTool(BaseTool):
 
     name = "generate_application_note"
     domain = "vmd_content"
-    description = (
-        "生成针对特定行业或场景的科学仪器应用方案文档。当用户说'写应用方案'、'应用笔记'、'解决方案文档'时调用。"
-    )
+    description = "生成针对特定行业或场景的科学仪器应用方案文档。当用户说'写应用方案'、'应用笔记'、'解决方案文档'时调用。"
     required_role = "all"
     examples = [
         {
@@ -282,9 +293,7 @@ class GenerateApplicationNoteTool(BaseTool):
         },
     ]
     related_tools = ["generate_product_manual", "generate_whitepaper"]
-    gotchas = (
-        "application为必填，其余参数可选填'待确定'由模型根据知识库补充。文档涵盖从样品前处理到数据分析的完整实验流程。"
-    )
+    gotchas = "application为必填，其余参数可选填'待确定'由模型根据知识库补充。文档涵盖从样品前处理到数据分析的完整实验流程。"
 
     parameters = {
         "type": "object",
@@ -309,7 +318,9 @@ class GenerateApplicationNoteTool(BaseTool):
         "required": ["application"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         application = args.get("application", "").strip()
         if not application:
             return "❌ 请描述应用场景。"
@@ -353,9 +364,7 @@ class GenerateApplicationNoteTool(BaseTool):
             f"8. **注意事项** — 常见问题和解决办法\n"
         )
 
-        system = (
-            "你是科学仪器应用工程师，擅长编写应用方案和方法学文档。内容需要专业准确，涵盖完整的实验流程。中文输出。"
-        )
+        system = "你是科学仪器应用工程师，擅长编写应用方案和方法学文档。内容需要专业准确，涵盖完整的实验流程。中文输出。"
 
         try:
             result = await AIService.call_llm(prompt, system)
@@ -375,9 +384,7 @@ class GenerateSocialPostTool(BaseTool):
 
     name = "generate_social_post"
     domain = "vmd_content"
-    description = (
-        "生成适配各平台的科学仪器行业自媒体文案。当用户说'写公众号文案'、'生成社媒内容'、'发朋友圈'、'写推文'时调用。"
-    )
+    description = "生成适配各平台的科学仪器行业自媒体文案。当用户说'写公众号文案'、'生成社媒内容'、'发朋友圈'、'写推文'时调用。"
     required_role = "all"
     examples = [
         {
@@ -390,11 +397,19 @@ class GenerateSocialPostTool(BaseTool):
             "output_summary": "生成微信公众号风格的新品发布推广长文",
         },
         {
-            "input": {"topic": "实验室安全知识科普", "platform": "weibo", "tone": "casual"},
+            "input": {
+                "topic": "实验室安全知识科普",
+                "platform": "weibo",
+                "tone": "casual",
+            },
             "output_summary": "生成微博风格的140字以内实验室安全科普短文",
         },
     ]
-    related_tools = ["generate_product_manual", "generate_whitepaper", "generate_application_note"]
+    related_tools = [
+        "generate_product_manual",
+        "generate_whitepaper",
+        "generate_application_note",
+    ]
     gotchas = "platform可选值: wechat/linkedin/forum/weibo/general，不同平台字数和风格差异很大。tone可选值: professional/casual/academic/promotional。"
 
     parameters = {
@@ -422,7 +437,9 @@ class GenerateSocialPostTool(BaseTool):
         "required": ["topic"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         topic = args.get("topic", "").strip()
         if not topic:
             return "❌ 请提供文案主题。"
@@ -459,7 +476,11 @@ class GenerateSocialPostTool(BaseTool):
                 config=config,
                 org_id=org_id,
             )
-            if kb_result and "No relevant documents" not in kb_result and "未找到" not in kb_result:
+            if (
+                kb_result
+                and "No relevant documents" not in kb_result
+                and "未找到" not in kb_result
+            ):
                 kb_context = f"\n\n## 参考资料（来自知识库）\n{kb_result}"
         except Exception as e:
             logger.warning(f"Knowledge base search failed for social post: {e}")

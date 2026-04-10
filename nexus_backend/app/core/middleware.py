@@ -26,7 +26,13 @@ async def global_exception_handler(request: Request, exc: Exception):
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"success": False, "error": {"code": "INTERNAL_ERROR", "message": "服务器内部错误，请稍后重试"}},
+        content={
+            "success": False,
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "服务器内部错误，请稍后重试",
+            },
+        },
     )
 
 
@@ -45,7 +51,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "success": False,
-            "error": {"code": "VALIDATION_ERROR", "message": "请求参数验证失败", "details": errors},
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "请求参数验证失败",
+                "details": errors,
+            },
         },
     )
 
@@ -54,5 +64,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """处理 HTTP 异常"""
     return JSONResponse(
         status_code=exc.status_code,
-        content={"success": False, "error": {"code": f"HTTP_{exc.status_code}", "message": exc.detail}},
+        content={
+            "success": False,
+            "error": {"code": f"HTTP_{exc.status_code}", "message": exc.detail},
+        },
     )

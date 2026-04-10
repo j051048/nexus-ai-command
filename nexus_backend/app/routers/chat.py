@@ -26,7 +26,9 @@ async def _error_stream(msg: str):
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_current_user_id)):
+async def chat(
+    request: ChatRequest, req: Request, user_id: str = Depends(get_current_user_id)
+):
     """
     Unified Chat Endpoint — routes all chat through LangGraph agent.
 
@@ -41,15 +43,25 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     # 1. Identity & Profile Check
     # P0 Multi-tenancy: Use scoped client from request state
     client = req.state.db
-    user_res = await client.table("users").select("id, role").eq("id", user_id).maybe_single().execute()
+    user_res = (
+        await client.table("users")
+        .select("id, role")
+        .eq("id", user_id)
+        .maybe_single()
+        .execute()
+    )
     if not user_res.data:
-        raise HTTPException(status_code=403, detail="User profile not found or access denied")
+        raise HTTPException(
+            status_code=403, detail="User profile not found or access denied"
+        )
 
     user_role = user_res.data.get("role", "employee")
 
     # 2. Prompt Firewall — pre-agent input protection (G4)
     if request.messages:
-        last_msg = next((m for m in reversed(request.messages) if m.role == "user"), None)
+        last_msg = next(
+            (m for m in reversed(request.messages) if m.role == "user"), None
+        )
         if last_msg:
             fw_result = await prompt_firewall.scan_input(
                 last_msg.content, user_id=user_id, context={"agent": request.agent}
@@ -66,9 +78,19 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
     # 2b. Content Moderation (existing)
     # P2: 对带工具调用能力的高风险 Agent 启用 LLM 深度注入检测
-    _tool_agents = {"approval", "crm", "admin", "data", "workflow", "kingdee", "finance"}
+    _tool_agents = {
+        "approval",
+        "crm",
+        "admin",
+        "data",
+        "workflow",
+        "kingdee",
+        "finance",
+    }
     if request.messages:
-        last_msg = next((m for m in reversed(request.messages) if m.role == "user"), None)
+        last_msg = next(
+            (m for m in reversed(request.messages) if m.role == "user"), None
+        )
         if last_msg:
             agent_type = (request.agent or "").lower()
             if agent_type in _tool_agents:
@@ -83,7 +105,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
     # 3. Load User AI Settings
     auth_header = req.headers.get("Authorization")
-    token = auth_header.split(" ")[1] if auth_header and "Bearer" in auth_header else None
+    token = (
+        auth_header.split(" ")[1] if auth_header and "Bearer" in auth_header else None
+    )
 
     ai_config = {
         "base_url": os.getenv("AI_BASE_URL", "https://proxy.flydao.top/v1"),
@@ -94,7 +118,11 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     try:
         # Query AI settings with organization_id to match frontend save logic
         org_id = getattr(req.state, "org_id", None)
-        settings_query = client.table("ai_settings").select("base_url,api_key,model").eq("user_id", user_id)
+        settings_query = (
+            client.table("ai_settings")
+            .select("base_url,api_key,model")
+            .eq("user_id", user_id)
+        )
         if org_id:
             settings_query = settings_query.eq("organization_id", org_id)
         settings_res = await settings_query.maybe_single().execute()
@@ -123,7 +151,10 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
         logger.warning(f"Settings fetch failed: {e}")
 
     if not ai_config["api_key"]:
-        return StreamingResponse(_error_stream("未配置 AI API Key"), media_type="text/event-stream; charset=utf-8")
+        return StreamingResponse(
+            _error_stream("未配置 AI API Key"),
+            media_type="text/event-stream; charset=utf-8",
+        )
 
     # 3b. P2-9: Use settings-based mini_model (replaces fragile _infer_mini_model)
     ai_config["mini_model"] = settings.AI_MINI_MODEL
@@ -135,7 +166,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
         if m.image_urls:
             msg["image_urls"] = m.image_urls
         messages_dicts.append(msg)
-    is_allowed, _, limit_reason = validate_request_tokens(messages_dicts, ai_config["model"], user_id)
+    is_allowed, _, limit_reason = validate_request_tokens(
+        messages_dicts, ai_config["model"], user_id
+    )
     if not is_allowed:
         return StreamingResponse(
             _error_stream(f"⚠️ 额度超限: {limit_reason}"),
@@ -147,7 +180,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     if org_id:
         from app.services.tenant_credit_service import CreditType, tenant_credit_service
 
-        has_credit, credit_error = await tenant_credit_service.check_credit(org_id, CreditType.API_CALLS, 1, db=client)
+        has_credit, credit_error = await tenant_credit_service.check_credit(
+            org_id, CreditType.API_CALLS, 1, db=client
+        )
         if not has_credit:
             return StreamingResponse(
                 _error_stream(f"⚠️ 组织配额不足: {credit_error}"),
@@ -155,7 +190,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
             )
 
     # 5. Prepare Context
-    system_prompt = await ChatService.get_system_prompt(request.agent, db_client=client, org_id=org_id)
+    system_prompt = await ChatService.get_system_prompt(
+        request.agent, db_client=client, org_id=org_id
+    )
 
     # Trace Logger
     tracer = TraceLogger(user_id=user_id, agent=request.agent or "default")
@@ -163,7 +200,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     # 5b. Semantic Cache Check — skip LLM if high-similarity hit
     # Cache bypass logic (creative writing, error responses) is handled inside
     # SemanticCacheService.get_cache() via should_use_cache() classification.
-    last_user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), None)
+    last_user_msg = next(
+        (m.content for m in reversed(request.messages) if m.role == "user"), None
+    )
     if last_user_msg:
         try:
             from app.services.semantic_cache import semantic_cache_service
@@ -178,7 +217,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n"
                     yield "data: [DONE]\n\n"
 
-                return StreamingResponse(_cache_stream(cached), media_type="text/event-stream; charset=utf-8")
+                return StreamingResponse(
+                    _cache_stream(cached), media_type="text/event-stream; charset=utf-8"
+                )
         except Exception as e:
             logger.debug(f"Semantic cache check skipped: {e}")
 
@@ -189,7 +230,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
     raw_messages = messages_dicts  # Reuse already-built list (includes image_urls)
 
-    logger.info(f"[Chat] Using LangGraph agent for user={user_id} agent={request.agent} model={ai_config['model']}")
+    logger.info(
+        f"[Chat] Using LangGraph agent for user={user_id} agent={request.agent} model={ai_config['model']}"
+    )
 
     return StreamingResponse(
         run_agent_stream(
@@ -214,13 +257,21 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
 
 @router.get("/tools/metadata")
-async def get_tools_metadata_endpoint(req: Request, user_id: str = Depends(get_current_user_id)):
+async def get_tools_metadata_endpoint(
+    req: Request, user_id: str = Depends(get_current_user_id)
+):
     """Return structured metadata for all tools (filtered by user role).
 
     Powers frontend inline actions and tool discovery UX.
     """
     client = req.state.db
-    user_res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
+    user_res = (
+        await client.table("users")
+        .select("role")
+        .eq("id", user_id)
+        .maybe_single()
+        .execute()
+    )
     user_role = (user_res.data or {}).get("role", "employee")
 
     from app.tools import get_tools_metadata
@@ -255,7 +306,9 @@ async def get_tools_capabilities():
     for tool in TOOL_REGISTRY.values():
         domain = tool.domain or "general"
         if domain not in domain_map:
-            meta = domain_labels.get(domain, {"label": domain, "icon": "🔧", "color": "#94A3B8"})
+            meta = domain_labels.get(
+                domain, {"label": domain, "icon": "🔧", "color": "#94A3B8"}
+            )
             domain_map[domain] = {
                 "domain": domain,
                 "label": meta["label"],
@@ -276,7 +329,9 @@ async def get_tools_capabilities():
                 }
             )
 
-    capabilities = sorted(domain_map.values(), key=lambda x: x["tool_count"], reverse=True)
+    capabilities = sorted(
+        domain_map.values(), key=lambda x: x["tool_count"], reverse=True
+    )
     total = sum(d["tool_count"] for d in capabilities)
 
     return api_success(
@@ -289,7 +344,9 @@ async def get_tools_capabilities():
 
 
 @router.get("/history/{session_id}")
-async def get_chat_history(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+async def get_chat_history(
+    session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
+):
     """Fetch persistent chat history for a session"""
     try:
         client = req.state.db
@@ -342,11 +399,15 @@ async def list_sessions(req: Request, user_id: str = Depends(get_current_user_id
 
 
 @router.delete("/sessions/{session_id}")
-async def archive_session(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+async def archive_session(
+    session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
+):
     """Archive/delete a chat session"""
     client = req.state.db
     try:
-        await client.table("chat_messages").delete().eq("user_id", user_id).eq("session_id", session_id).execute()
+        await client.table("chat_messages").delete().eq("user_id", user_id).eq(
+            "session_id", session_id
+        ).execute()
         return api_success(data={"message": f"Session {session_id} archived"})
     except Exception as e:
         # PostgREST 204 = success with no content body
@@ -357,7 +418,9 @@ async def archive_session(session_id: str, req: Request, user_id: str = Depends(
 
 
 @router.post("/sessions/{session_id}/compact")
-async def compact_session(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+async def compact_session(
+    session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
+):
     """
     手动压缩会话上下文 — 将早期消息摘要化，保留最近的消息。
     减少 token 消耗，适合长对话场景。
@@ -406,9 +469,7 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
         # 4. Use mini model to generate summary
         from app.services.ai_service import AIService
 
-        summary_prompt = (
-            f"请将以下对话历史压缩为一段简洁的摘要（200字以内），保留关键信息和决策：\n\n{older_text[:3000]}"
-        )
+        summary_prompt = f"请将以下对话历史压缩为一段简洁的摘要（200字以内），保留关键信息和决策：\n\n{older_text[:3000]}"
         summary = await AIService.call_llm(
             summary_prompt,
             "你是对话摘要专家。请提取关键信息，输出简洁的中文摘要。",
@@ -457,7 +518,9 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
 
 
 @router.get("/search")
-async def search_messages(q: str, req: Request, user_id: str = Depends(get_current_user_id), limit: int = 20):
+async def search_messages(
+    q: str, req: Request, user_id: str = Depends(get_current_user_id), limit: int = 20
+):
     """Search chat messages by keyword"""
     if not q or len(q) < 2:
         return api_success(data={"messages": []})
@@ -484,7 +547,9 @@ async def search_messages(q: str, req: Request, user_id: str = Depends(get_curre
 
 
 @router.post("/sessions/{session_id}/star")
-async def toggle_star_session(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+async def toggle_star_session(
+    session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
+):
     """Toggle star/pin on a chat session"""
     client = req.state.db
     try:
@@ -511,12 +576,16 @@ async def toggle_star_session(session_id: str, req: Request, user_id: str = Depe
                     .execute()
                 )
             except Exception as del_e:
-                if not (hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"):
+                if not (
+                    hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"
+                ):
                     raise
             return api_success(data={"starred": False})
         else:
             # Star
-            await client.table("starred_sessions").insert({"user_id": user_id, "session_id": session_id}).execute()
+            await client.table("starred_sessions").insert(
+                {"user_id": user_id, "session_id": session_id}
+            ).execute()
             return api_success(data={"starred": True})
     except Exception as e:
         # If starred_sessions table doesn't exist, log and return gracefully

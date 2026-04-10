@@ -42,7 +42,9 @@ class SortParams(BaseModel):
     """
 
     sort_by: str | None = Field(default=None, description="Field to sort by")
-    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
+    sort_order: str = Field(
+        default="desc", pattern="^(asc|desc)$", description="Sort order"
+    )
 
     @field_validator("sort_order")
     @classmethod

@@ -160,7 +160,8 @@ async def extract_graph_entities(
     conversation = f"用户: {user_message}\nAI助手: {ai_response}"
     if tool_outputs:
         tool_context = "\n".join(
-            f"工具({t.get('tool_name', '')}): {str(t.get('result', ''))[:200]}" for t in tool_outputs[:3]
+            f"工具({t.get('tool_name', '')}): {str(t.get('result', ''))[:200]}"
+            for t in tool_outputs[:3]
         )
         conversation += f"\n{tool_context}"
 
@@ -196,7 +197,10 @@ async def extract_graph_entities(
         )
 
         if saved:
-            logger.info(f"[GraphExtract] Extracted {len(saved)} entity relations " f"for org {org_id}")
+            logger.info(
+                f"[GraphExtract] Extracted {len(saved)} entity relations "
+                f"for org {org_id}"
+            )
 
         return saved
 
@@ -251,7 +255,9 @@ def _parse_extraction_response(response_text: str) -> list[dict]:
         # Validate triple against Ontology constraints
         is_valid, reason = validate_triple(source_type, relationship, dest_type)
         if not is_valid:
-            logger.debug(f"[GraphExtract] Skipping invalid triple: {source} -{relationship}-> {destination}: {reason}")
+            logger.debug(
+                f"[GraphExtract] Skipping invalid triple: {source} -{relationship}-> {destination}: {reason}"
+            )
             continue
 
         relations.append(
@@ -329,7 +335,10 @@ async def _store_triples(
                     relationship=rel["relationship"],
                     db=db,
                 )
-                if conflict and conflict.get("destination_entity") != rel["destination"]:
+                if (
+                    conflict
+                    and conflict.get("destination_entity") != rel["destination"]
+                ):
                     # Soft-expire: set valid_to instead of DELETE
                     from datetime import UTC, datetime
 
@@ -381,13 +390,19 @@ async def _store_triples(
             except Exception:
                 pass  # Embeddings are optional enhancement
 
-            result = await db.table("knowledge_graph_triples").insert(insert_data).execute()
+            result = (
+                await db.table("knowledge_graph_triples").insert(insert_data).execute()
+            )
             if result.data:
-                saved.append(result.data[0] if isinstance(result.data, list) else result.data)
+                saved.append(
+                    result.data[0] if isinstance(result.data, list) else result.data
+                )
 
         except Exception as e:
             err_str = str(e)
-            if "knowledge_graph_triples" in err_str and ("42P01" in err_str or "PGRST" in err_str):
+            if "knowledge_graph_triples" in err_str and (
+                "42P01" in err_str or "PGRST" in err_str
+            ):
                 logger.debug("knowledge_graph_triples table not yet created, skipping")
                 return []
             logger.error(f"Failed to store triple: {e}")
@@ -567,7 +582,9 @@ async def query_entity_relations(
                 continue
 
         combined = hop1 + hop2
-        combined.sort(key=lambda t: (-t.get("hop", 1) == 1, -float(t.get("strength", 0))))
+        combined.sort(
+            key=lambda t: (-t.get("hop", 1) == 1, -float(t.get("strength", 0)))
+        )
         return combined[:limit]
 
     except Exception as e:
@@ -616,7 +633,11 @@ async def search_kg_hybrid(
         logger.error(f"[KG] Hybrid search RPC failed, falling back to ILIKE: {e}")
         try:
             pattern = f"%{query}%"
-            fallback_q = client.table("knowledge_graph_triples").select("*").eq("organization_id", org_id)
+            fallback_q = (
+                client.table("knowledge_graph_triples")
+                .select("*")
+                .eq("organization_id", org_id)
+            )
             if not include_historical:
                 fallback_q = fallback_q.is_("valid_to", "null")
             result = await (

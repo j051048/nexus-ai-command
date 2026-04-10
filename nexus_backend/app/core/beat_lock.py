@@ -37,7 +37,12 @@ class BeatDistributedLock:
     and another instance takes over.
     """
 
-    def __init__(self, redis_url: str | None = None, lock_key: str = LOCK_KEY, ttl: int = LOCK_TTL):
+    def __init__(
+        self,
+        redis_url: str | None = None,
+        lock_key: str = LOCK_KEY,
+        ttl: int = LOCK_TTL,
+    ):
         self._redis_url = redis_url or REDIS_URL
         self._lock_key = lock_key
         self._ttl = ttl
@@ -73,12 +78,18 @@ class BeatDistributedLock:
             if acquired:
                 self._held = True
                 self._start_renew()
-                logger.info(f"[BeatLock] Acquired lock (owner={self._owner_id}, " f"ttl={self._ttl}s)")
+                logger.info(
+                    f"[BeatLock] Acquired lock (owner={self._owner_id}, "
+                    f"ttl={self._ttl}s)"
+                )
                 return True
 
             # Check who holds it (for logging)
             current_owner = r.get(self._lock_key)
-            logger.debug(f"[BeatLock] Lock held by {current_owner}, " f"this instance ({self._owner_id}) will wait")
+            logger.debug(
+                f"[BeatLock] Lock held by {current_owner}, "
+                f"this instance ({self._owner_id}) will wait"
+            )
             return False
 
         except Exception as e:
@@ -112,7 +123,9 @@ class BeatDistributedLock:
     def _start_renew(self) -> None:
         """Start background thread to renew the lock TTL."""
         self._stop_event.clear()
-        self._renew_thread = threading.Thread(target=self._renew_loop, daemon=True, name="beat-lock-renew")
+        self._renew_thread = threading.Thread(
+            target=self._renew_loop, daemon=True, name="beat-lock-renew"
+        )
         self._renew_thread.start()
 
     def _stop_renew(self) -> None:
@@ -140,7 +153,10 @@ class BeatDistributedLock:
                 """
                 result = r.eval(lua, 1, self._lock_key, self._owner_id, str(self._ttl))
                 if result:
-                    logger.debug(f"[BeatLock] Renewed lock TTL " f"(owner={self._owner_id}, ttl={self._ttl}s)")
+                    logger.debug(
+                        f"[BeatLock] Renewed lock TTL "
+                        f"(owner={self._owner_id}, ttl={self._ttl}s)"
+                    )
                 else:
                     logger.warning("[BeatLock] Lock lost — another instance took over")
                     self._held = False
@@ -195,7 +211,9 @@ class BeatLockScheduler:
             return self._inner.tick()
 
         # Could not acquire — wait before retrying
-        logger.debug(f"[BeatLock] Waiting for lock " f"(retry in {self._acquire_interval}s)")
+        logger.debug(
+            f"[BeatLock] Waiting for lock " f"(retry in {self._acquire_interval}s)"
+        )
         return self._acquire_interval
 
     def close(self):

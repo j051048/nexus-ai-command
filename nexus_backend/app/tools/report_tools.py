@@ -158,7 +158,12 @@ class ReportGeneratorTool(BaseTool):
         {
             "input": {
                 "title": "客户分析",
-                "sections": [{"heading": "客户分布", "table_data": [{"区域": "华东", "数量": 50}]}],
+                "sections": [
+                    {
+                        "heading": "客户分布",
+                        "table_data": [{"区域": "华东", "数量": 50}],
+                    }
+                ],
                 "format": "html",
             },
             "output_summary": "生成包含表格的网页格式报告",
@@ -199,7 +204,9 @@ class ReportGeneratorTool(BaseTool):
         "required": ["title", "sections"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         title = (args.get("title") or "").strip()
         sections = args.get("sections")
         fmt = args.get("format", "markdown")

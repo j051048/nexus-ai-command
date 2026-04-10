@@ -95,7 +95,13 @@ class RateLimitingService:
         tier = RateTier.BASIC  # Default tier
         if db:
             try:
-                res = await db.table("users").select("tier").eq("id", user_id).maybe_single().execute()
+                res = (
+                    await db.table("users")
+                    .select("tier")
+                    .eq("id", user_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if res.data and res.data.get("tier"):
                     with contextlib.suppress(ValueError):
                         tier = RateTier(res.data["tier"])

@@ -23,7 +23,12 @@ class AsyncApprovalSystem:
     """异步审批系统"""
 
     async def request_approval(
-        self, tool_name: str, args: dict, user_id: str, thread_id: str, org_id: str = "default"
+        self,
+        tool_name: str,
+        args: dict,
+        user_id: str,
+        thread_id: str,
+        org_id: str = "default",
     ) -> str:
         """发起审批请求（非阻塞）"""
         try:
@@ -59,7 +64,13 @@ class AsyncApprovalSystem:
 
     async def check_approval_status(self, approval_id: str) -> dict:
         """检查审批状态"""
-        result = await supabase.table("approval_requests").select("*").eq("id", approval_id).single().execute()
+        result = (
+            await supabase.table("approval_requests")
+            .select("*")
+            .eq("id", approval_id)
+            .single()
+            .execute()
+        )
 
         return result.data
 

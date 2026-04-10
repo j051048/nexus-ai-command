@@ -40,7 +40,10 @@ class PaymentService:
     """国内支付服务"""
 
     PAYMENT_METHODS = {
-        "bank_transfer": {"name": "对公转账", "description": "银行对公转账（主要方式）"},
+        "bank_transfer": {
+            "name": "对公转账",
+            "description": "银行对公转账（主要方式）",
+        },
         "wechat_pay": {"name": "微信支付", "description": "微信扫码支付"},
         "alipay": {"name": "支付宝", "description": "支付宝扫码支付"},
     }
@@ -106,7 +109,9 @@ class PaymentService:
 
         # 内存缓存
         self._orders_cache[order_no] = order
-        logger.info(f"Order created: {order_no} method={payment_method} amount={amount}")
+        logger.info(
+            f"Order created: {order_no} method={payment_method} amount={amount}"
+        )
 
         # 根据支付方式生成支付信息
         payment_info = {}
@@ -127,7 +132,9 @@ class PaymentService:
 
     # ─── 微信支付 ──────────────────────────────────────────
 
-    async def create_wechat_payment(self, order_id: str, amount: float, description: str) -> dict:
+    async def create_wechat_payment(
+        self, order_id: str, amount: float, description: str
+    ) -> dict:
         """
         创建微信支付（返回支付二维码 URL）。
         预留接口，当前返回 mock。真实环境需要对接微信支付 V3 API。
@@ -163,7 +170,9 @@ class PaymentService:
 
     # ─── 支付宝支付 ─────────────────────────────────────────
 
-    async def create_alipay_payment(self, order_id: str, amount: float, description: str) -> dict:
+    async def create_alipay_payment(
+        self, order_id: str, amount: float, description: str
+    ) -> dict:
         """
         创建支付宝支付（返回支付页面 URL）。
         预留接口，当前返回 mock。真实环境需要对接支付宝开放平台 API。
@@ -199,7 +208,9 @@ class PaymentService:
 
     # ─── 支付回调 ──────────────────────────────────────────
 
-    async def handle_payment_callback(self, platform: str, callback_data: dict, db=None) -> dict:
+    async def handle_payment_callback(
+        self, platform: str, callback_data: dict, db=None
+    ) -> dict:
         """处理支付回调（微信/支付宝）"""
         logger.info(f"Payment callback from {platform}: {callback_data}")
 
@@ -254,7 +265,13 @@ class PaymentService:
         # 查数据库
         if db:
             try:
-                res = await db.table("payment_orders").select("*").eq("id", order_id).maybe_single().execute()
+                res = (
+                    await db.table("payment_orders")
+                    .select("*")
+                    .eq("id", order_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if res.data:
                     return res.data
             except Exception as e:
@@ -262,7 +279,9 @@ class PaymentService:
 
         return {"error": "订单不存在", "order_id": order_id}
 
-    async def list_orders(self, org_id: str, page: int = 1, page_size: int = 20, db=None) -> dict:
+    async def list_orders(
+        self, org_id: str, page: int = 1, page_size: int = 20, db=None
+    ) -> dict:
         """获取组织的订单列表"""
         orders = []
         total = 0
@@ -291,7 +310,9 @@ class PaymentService:
 
     # ─── 发票申请 ──────────────────────────────────────────
 
-    async def generate_invoice_request(self, order_id: str, invoice_info: dict, db=None) -> dict:
+    async def generate_invoice_request(
+        self, order_id: str, invoice_info: dict, db=None
+    ) -> dict:
         """生成增值税发票申请"""
         required_fields = ["company_name", "tax_number"]
         for field in required_fields:

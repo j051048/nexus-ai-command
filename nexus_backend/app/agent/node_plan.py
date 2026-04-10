@@ -35,7 +35,11 @@ from app.services.plugin_system_service import ExtensionPoint
 
 
 def _log_decision(
-    trace_id: str | None, step_id: str, decision: str, reasoning: str, alternatives: list[str] | None = None
+    trace_id: str | None,
+    step_id: str,
+    decision: str,
+    reasoning: str,
+    alternatives: list[str] | None = None,
 ):
     """Log a structured decision to the agent trace (fire-and-forget, never raises)."""
     if not trace_id:
@@ -143,8 +147,16 @@ async def _plan_with_self_consistency(
                         "score": count / n,
                         "tool_calls": [
                             {
-                                "name": tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", ""),
-                                "args": tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {}),
+                                "name": (
+                                    tc.get("name", "")
+                                    if isinstance(tc, dict)
+                                    else getattr(tc, "name", "")
+                                ),
+                                "args": (
+                                    tc.get("args", {})
+                                    if isinstance(tc, dict)
+                                    else getattr(tc, "args", {})
+                                ),
                             }
                             for tc in (getattr(s, "tool_calls", None) or [])
                         ],
@@ -160,11 +172,15 @@ async def _plan_with_self_consistency(
         if sig == best_sig:
             # Aggregate token usage from all samples for accurate tracking
             total_sc_input = sum(
-                (getattr(r, "response_metadata", {}) or {}).get("token_usage", {}).get("prompt_tokens", 0)
+                (getattr(r, "response_metadata", {}) or {})
+                .get("token_usage", {})
+                .get("prompt_tokens", 0)
                 for r in samples
             )
             total_sc_output = sum(
-                (getattr(r, "response_metadata", {}) or {}).get("token_usage", {}).get("completion_tokens", 0)
+                (getattr(r, "response_metadata", {}) or {})
+                .get("token_usage", {})
+                .get("completion_tokens", 0)
                 for r in samples
             )
             s._sc_total_input_tokens = total_sc_input
@@ -219,7 +235,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         try:
             from app.services.llm_helpers import auto_detect_tier
 
-            tool_schemas_for_tier = _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
+            tool_schemas_for_tier = _get_tool_schemas(
+                agent_config.user_role, scene_code=state.get("scene_code")
+            )
             detected_tier = auto_detect_tier(
                 messages=messages,
                 tools_count=len(tool_schemas_for_tier) if tool_schemas_for_tier else 0,
@@ -233,7 +251,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 "flagship": QueryComplexity.CRITICAL,
             }
             complexity = _tier_to_complexity.get(detected_tier, complexity)
-            logger.debug("Auto-detected tier=%s → complexity=%s", detected_tier, complexity.value)
+            logger.debug(
+                "Auto-detected tier=%s → complexity=%s", detected_tier, complexity.value
+            )
         except Exception:
             pass  # Fall through to default MODERATE
 
@@ -246,9 +266,13 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             org_id = agent_config.org_id or "default"
             scene_code = state.get("scene_code", "")
             agent_code = state.get("agent_code", "")
-            resolved = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier=complexity.model_tier)
+            resolved = await resolve_model_config(
+                org_id, scene_code, agent_code, complexity_tier=complexity.model_tier
+            )
         except Exception:
-            logger.debug("LLM gateway model config unavailable in plan_node, using default")
+            logger.debug(
+                "LLM gateway model config unavailable in plan_node, using default"
+            )
 
     # Convert to LC format
     lc_msgs = _messages_to_lc_format(messages)
@@ -286,7 +310,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         )
         if complexity == QueryComplexity.SIMPLE:
             # SIMPLE: only show universal tools in system prompt
-            tool_schemas = [s for s in tool_schemas if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
+            tool_schemas = [
+                s
+                for s in tool_schemas
+                if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
+            ]
         if tool_schemas:
             tool_names = ", ".join(t["function"]["name"] for t in tool_schemas)
             extra_lines.append(f"可用工具: {tool_names}")
@@ -319,7 +347,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             from app.agent.learning_system import learning_system
 
             _org_id = agent_config.org_id or "default"
-            _tool_names_list = [t["function"]["name"] for t in tool_schemas] if tool_schemas else []
+            _tool_names_list = (
+                [t["function"]["name"] for t in tool_schemas] if tool_schemas else []
+            )
             _warnings: list[str] = []
             for _tn in _tool_names_list:
                 _patterns = await learning_system.get_learned_patterns(_tn, _org_id)
@@ -329,7 +359,10 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                         f"- {_tn}: 历史常见错误「{top.get('error_pattern', '')[:80]}」(出现{top.get('frequency', 0)}次)"
                     )
             if _warnings:
-                _warn_text = "[历史失败教训]\n以下工具曾出现过错误，请注意规避：\n" + "\n".join(_warnings[:5])
+                _warn_text = (
+                    "[历史失败教训]\n以下工具曾出现过错误，请注意规避：\n"
+                    + "\n".join(_warnings[:5])
+                )
                 lc_msgs.insert(
                     2 if len(lc_msgs) > 1 else len(lc_msgs),
                     SystemMessage(content=_warn_text),
@@ -360,9 +393,13 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                         .execute()
                     )
                     if golden_res.data:
-                        from app.services.conversation_memory.storage import decrypt_memory_value
+                        from app.services.conversation_memory.storage import (
+                            decrypt_memory_value,
+                        )
 
-                        ex_parts = [decrypt_memory_value(r["value"]) for r in golden_res.data]
+                        ex_parts = [
+                            decrypt_memory_value(r["value"]) for r in golden_res.data
+                        ]
                         few_shot = "【历史优秀对话参考】\n" + "\n---\n".join(ex_parts)
             except Exception:
                 pass  # Dynamic few-shot lookup failed, will fallback to static
@@ -373,7 +410,8 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
             if few_shot:
                 lc_msgs.insert(
-                    2 if len(lc_msgs) > 1 else len(lc_msgs), SystemMessage(content=f"[参考示例]\n{few_shot}")
+                    2 if len(lc_msgs) > 1 else len(lc_msgs),
+                    SystemMessage(content=f"[参考示例]\n{few_shot}"),
                 )
         except Exception:
             pass  # Few-shot injection is optional, never block planning
@@ -406,7 +444,8 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             )
             # 独立 SystemMessage，紧接在主 system prompt 之后
             lc_msgs.insert(
-                1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0, SystemMessage(content=guidance_content)
+                1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+                SystemMessage(content=guidance_content),
             )
 
         # Inject current task board state so AI doesn't drift across iterations
@@ -426,7 +465,12 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             )
             _tasks = _tasks_res.data or []
             if _tasks:
-                _icons = {"pending": "⬜", "in_progress": "🔄", "done": "✅", "blocked": "🚫"}
+                _icons = {
+                    "pending": "⬜",
+                    "in_progress": "🔄",
+                    "done": "✅",
+                    "blocked": "🚫",
+                }
                 _lines = [f"[当前任务板 — 第{iteration + 1}轮规划，请据此决定下一步]"]
                 for _t in _tasks:
                     _icon = _icons.get(_t["status"], "❓")
@@ -446,7 +490,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     if compacted_summary:
         lc_msgs.insert(
             1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
-            SystemMessage(content=f"[上下文摘要 — 之前的对话和工具结果已压缩]\n{compacted_summary}"),
+            SystemMessage(
+                content=f"[上下文摘要 — 之前的对话和工具结果已压缩]\n{compacted_summary}"
+            ),
         )
 
     # DST: Inject slot_context hint when user provided missing params
@@ -454,7 +500,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     if slot_ctx:
         filled = slot_ctx.get("filled_slots", {})
         missing = slot_ctx.get("missing_slots", [])
-        filled_str = ", ".join(f"{k}={v}" for k, v in filled.items()) if filled else "无"
+        filled_str = (
+            ", ".join(f"{k}={v}" for k, v in filled.items()) if filled else "无"
+        )
         missing_str = ", ".join(missing)
         hint = (
             f"[槽位填充提示] 用户正在补充「{slot_ctx['tool_name']}」工具的参数。\n"
@@ -475,14 +523,19 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
             # Dynamic budget: adjust based on selected model's context window
             _resolved = agent_config.resolved_configs or {}
-            _tier_key = complexity.model_tier if hasattr(complexity, "model_tier") else "balanced"
+            _tier_key = (
+                complexity.model_tier
+                if hasattr(complexity, "model_tier")
+                else "balanced"
+            )
             _ctx_window = (_resolved.get(_tier_key) or {}).get("context_window")
             context_engine.adjust_budget_for_model(_ctx_window)
 
             engine_ctx = await context_engine.build_context(
                 user_id=agent_config.user_id,
                 org_id=agent_config.org_id,
-                query=state.get("intent_summary") or (messages[-1].content if messages else ""),
+                query=state.get("intent_summary")
+                or (messages[-1].content if messages else ""),
                 session_id=agent_config.session_id,
             )
             if engine_ctx:
@@ -491,7 +544,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                     SystemMessage(content=f"[上下文引擎检索结果]\n{engine_ctx}"),
                 )
         except Exception as e:
-            logger.error(f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}")
+            logger.error(
+                f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}"
+            )
             engine_ctx = ""
 
         # RAG 上下文（来自 rag_inject 节点的预检索结果）作为补充
@@ -519,7 +574,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     if _decomp_done and _task_steps and _active_idx < len(_task_steps):
         current_step = _task_steps[_active_idx]
         criteria = current_step.get("acceptance_criteria", "")
-        criteria_line = f"\n验收标准: {criteria}\n请确保满足验收标准后再结束此步骤。" if criteria else ""
+        criteria_line = (
+            f"\n验收标准: {criteria}\n请确保满足验收标准后再结束此步骤。"
+            if criteria
+            else ""
+        )
         step_instruction = (
             f"[当前执行步骤 {_active_idx + 1}/{len(_task_steps)}]\n"
             f"标题: {current_step.get('title', '')}\n"
@@ -533,7 +592,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         )
 
     # P1: On first iteration for COMPLEX+ queries, request task decomposition
-    if iteration == 0 and not _decomp_done and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
+    if (
+        iteration == 0
+        and not _decomp_done
+        and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+    ):
         decomp_hint = (
             "\n\n[任务分解指令] 如果此任务涉及多个独立步骤（如先查询再分析再生成），"
             "请在回复开头用以下JSON格式输出任务分解（用```json包裹）：\n"
@@ -560,7 +623,8 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     if iteration > 0 and state.get("completed_tool_calls"):
         # On re-planning after blocked irreversible tools, force tool usage
         _has_irreversible_context = any(
-            getattr(tc, "status", None) == "blocked" for tc in state.get("completed_tool_calls", [])
+            getattr(tc, "status", None) == "blocked"
+            for tc in state.get("completed_tool_calls", [])
         )
 
     if complexity == QueryComplexity.SIMPLE:
@@ -568,7 +632,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         # so LLM can still search the web for "推荐电影" etc., without loading 130+ business tools
         simple_schemas = [
             s
-            for s in _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
+            for s in _get_tool_schemas(
+                agent_config.user_role, scene_code=state.get("scene_code")
+            )
             if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
         ]
         if simple_schemas:
@@ -585,7 +651,10 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         if (
             iteration > 0
             and reflection_guidance
-            and any(kw in reflection_guidance for kw in ["未调用工具", "no tool call", "未使用工具", "无工具调用"])
+            and any(
+                kw in reflection_guidance
+                for kw in ["未调用工具", "no tool call", "未使用工具", "无工具调用"]
+            )
         ):
             bind_kwargs["tool_choice"] = "required"
         llm = llm.bind_tools(
@@ -599,10 +668,14 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         )
 
     # ── Explainability: log tool binding decision ──
-    _configurable_early = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
+    _configurable_early = (
+        (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
+    )
     _trace_id = _configurable_early.get("trace_id")
     _tool_choice_mode = (
-        bind_kwargs.get("tool_choice", "auto") if complexity != QueryComplexity.SIMPLE else "simple_only"
+        bind_kwargs.get("tool_choice", "auto")
+        if complexity != QueryComplexity.SIMPLE
+        else "simple_only"
     )
     _log_decision(
         _trace_id,
@@ -651,7 +724,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     if complexity == QueryComplexity.SIMPLE:
         tool_schemas = [
             s
-            for s in _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
+            for s in _get_tool_schemas(
+                agent_config.user_role, scene_code=state.get("scene_code")
+            )
             if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
         ] or None
     else:
@@ -676,7 +751,10 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         )
         if sc_result is not None:
             ai_msg = sc_result
-            record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
+            record_llm_latency(
+                model=model or agent_config.model,
+                duration_ms=(time.time() - _llm_start) * 1000,
+            )
             llm_circuit_breaker.record_success()
             _sc_succeeded = True
             # Extract best score from the _sc metadata if available
@@ -684,7 +762,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 # Score was logged in _plan_with_self_consistency
                 _sc_best_score = 1.0  # Will be computed below from candidates
         else:
-            logger.warning("[PlanNode] Self-Consistency failed, falling back to single invoke")
+            logger.warning(
+                "[PlanNode] Self-Consistency failed, falling back to single invoke"
+            )
 
     if not _sc_succeeded:
         for attempt in range(3):
@@ -698,19 +778,29 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                     tool_schemas=tool_schemas,
                     complexity_tier=complexity.model_tier,
                 )
-                record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
+                record_llm_latency(
+                    model=model or agent_config.model,
+                    duration_ms=(time.time() - _llm_start) * 1000,
+                )
                 llm_circuit_breaker.record_success()
                 break
             except Exception as e:
                 error_str = str(e).lower()
-                is_retryable = any(kw in error_str for kw in ("timeout", "timed out", "connection", "connect"))
+                is_retryable = any(
+                    kw in error_str
+                    for kw in ("timeout", "timed out", "connection", "connect")
+                )
                 if is_retryable and attempt < 2:
-                    logger.warning(f"[PlanNode] LLM call timeout (attempt {attempt + 1}/3), retrying...")
+                    logger.warning(
+                        f"[PlanNode] LLM call timeout (attempt {attempt + 1}/3), retrying..."
+                    )
                     await asyncio.sleep(1.0 * (attempt + 1))
                     continue
                 # Non-retryable error or final attempt — give up
                 llm_circuit_breaker.record_failure()
-                logger.error(f"[PlanNode] LLM call failed after {attempt + 1} attempts: {e}")
+                logger.error(
+                    f"[PlanNode] LLM call failed after {attempt + 1} attempts: {e}"
+                )
                 return {
                     "error": f"LLM 规划失败: {str(e)}",
                     "current_phase": AgentPhase.ERROR,
@@ -734,7 +824,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     # Diagnostic: log LLM response details for debugging empty/short responses
     finish_reason = ai_msg.response_metadata.get("finish_reason", "unknown")
     # Detect API provider silently downgrading the model
-    actual_api_model = ai_msg.response_metadata.get("model_name") or ai_msg.response_metadata.get("model", "")
+    actual_api_model = ai_msg.response_metadata.get(
+        "model_name"
+    ) or ai_msg.response_metadata.get("model", "")
     content_len = len(ai_msg.content or "")
     tool_call_count = len(ai_msg.tool_calls or [])
     requested_model = model or agent_config.model
@@ -749,7 +841,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         input_tokens,
         output_tokens,
     )
-    if actual_api_model and actual_api_model != requested_model and requested_model not in actual_api_model:
+    if (
+        actual_api_model
+        and actual_api_model != requested_model
+        and requested_model not in actual_api_model
+    ):
         logger.warning(
             "[PlanNode] MODEL MISMATCH: requested '%s' but API returned '%s' — provider may have downgraded",
             requested_model,
@@ -757,22 +853,35 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         )
 
     # Langfuse: log LLM generation
-    _configurable = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
+    _configurable = (
+        (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
+    )
     trace_logger = _configurable.get("trace_logger")
     if trace_logger:
         with contextlib.suppress(Exception):
             trace_logger.log_generation(
                 model=model or agent_config.model,
-                input_messages=[{"role": "user", "content": str(lc_msgs[-1].content)[:500]}] if lc_msgs else [],
+                input_messages=(
+                    [{"role": "user", "content": str(lc_msgs[-1].content)[:500]}]
+                    if lc_msgs
+                    else []
+                ),
                 output=str(ai_msg.content or "")[:1000],
-                usage={"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
+                usage={
+                    "prompt_tokens": input_tokens,
+                    "completion_tokens": output_tokens,
+                },
             )
 
     # P1 Plugin: POST_CHAT hook
     try:
         await plugin_system_service.run_hooks(
             ExtensionPoint.POST_CHAT,
-            {"ai_message": ai_msg, "input_tokens": input_tokens, "output_tokens": output_tokens},
+            {
+                "ai_message": ai_msg,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            },
         )
     except Exception as e:
         logger.error(f"[PlanNode] POST_CHAT hook error: {e}")
@@ -800,16 +909,24 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             fallback_llm = _get_fallback_llm(agent_config, model=model, streaming=True)
             if fallback_llm:
                 if tool_schemas:
-                    fallback_llm = fallback_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
+                    fallback_llm = fallback_llm.bind_tools(
+                        tool_schemas, parallel_tool_calls=True
+                    )
                 ai_msg = await fallback_llm.ainvoke(lc_msgs)
                 content = ai_msg.content or ""
                 tool_calls_raw = ai_msg.tool_calls
                 if tool_calls_raw or len(content.strip()) >= 100:
-                    logger.info("[PlanNode] Short response recovery succeeded via fallback LLM")
+                    logger.info(
+                        "[PlanNode] Short response recovery succeeded via fallback LLM"
+                    )
                 else:
-                    logger.warning("[PlanNode] Fallback LLM also returned short response")
+                    logger.warning(
+                        "[PlanNode] Fallback LLM also returned short response"
+                    )
             else:
-                logger.info("[PlanNode] No fallback LLM available for short response recovery")
+                logger.info(
+                    "[PlanNode] No fallback LLM available for short response recovery"
+                )
         except Exception as e:
             logger.error(f"[PlanNode] Short response recovery failed: {e}")
 
@@ -819,12 +936,18 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     # loop where reflect detects empty → replans → empty again → loop until max_iter.
     completed_tools = state.get("completed_tool_calls", [])
     if not content.strip() and not tool_calls_raw and completed_tools and iteration > 0:
-        logger.warning("[PlanNode] LLM returned empty response after tool execution, retrying with synthesis prompt")
+        logger.warning(
+            "[PlanNode] LLM returned empty response after tool execution, retrying with synthesis prompt"
+        )
         # Build a concise summary of tool results for the retry
         tool_summaries = []
         for tc in completed_tools[-5:]:
-            t_name = tc.tool_name if hasattr(tc, "tool_name") else tc.get("tool_name", "")
-            t_result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[:300]
+            t_name = (
+                tc.tool_name if hasattr(tc, "tool_name") else tc.get("tool_name", "")
+            )
+            t_result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[
+                :300
+            ]
             t_status = tc.status if hasattr(tc, "status") else tc.get("status", "")
             tool_summaries.append(f"- {t_name} ({t_status}): {t_result}")
         synthesis_msg = SystemMessage(
@@ -836,7 +959,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         )
         retry_msgs = lc_msgs + [synthesis_msg]
         try:
-            retry_llm = _get_llm(agent_config, model=model, streaming=True, resolved_config=resolved)
+            retry_llm = _get_llm(
+                agent_config, model=model, streaming=True, resolved_config=resolved
+            )
             # Don't bind tools — we want a text response, not more tool calls
             ai_msg = await retry_llm.ainvoke(retry_msgs)
             content = ai_msg.content or ""
@@ -845,11 +970,19 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 logger.info("[PlanNode] Empty response recovery succeeded")
             else:
                 # Still empty — build a fallback response from tool results
-                logger.warning("[PlanNode] Retry still empty, constructing fallback from tool results")
+                logger.warning(
+                    "[PlanNode] Retry still empty, constructing fallback from tool results"
+                )
                 fallback_parts = ["以下是工具执行结果：\n"]
                 for tc in completed_tools:
-                    t_name = tc.tool_name if hasattr(tc, "tool_name") else tc.get("tool_name", "")
-                    t_result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[:500]
+                    t_name = (
+                        tc.tool_name
+                        if hasattr(tc, "tool_name")
+                        else tc.get("tool_name", "")
+                    )
+                    t_result = (
+                        tc.result if hasattr(tc, "result") else tc.get("result", "")
+                    )[:500]
                     fallback_parts.append(f"**{t_name}**: {t_result}")
                 content = "\n\n".join(fallback_parts)
                 from langchain_core.messages import AIMessage as _AIMessage
@@ -890,16 +1023,28 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                         else:
                             # Subsequent tools: try to extract matching args from schema
                             split_tool = get_tool(ename)
-                            if split_tool and hasattr(split_tool, "parameters") and split_tool.parameters:
-                                required = set(split_tool.parameters.get("required", []))
-                                all_props = set(split_tool.parameters.get("properties", {}).keys())
-                                split_args = {k: v for k, v in tc_args.items() if k in all_props}
+                            if (
+                                split_tool
+                                and hasattr(split_tool, "parameters")
+                                and split_tool.parameters
+                            ):
+                                required = set(
+                                    split_tool.parameters.get("required", [])
+                                )
+                                all_props = set(
+                                    split_tool.parameters.get("properties", {}).keys()
+                                )
+                                split_args = {
+                                    k: v for k, v in tc_args.items() if k in all_props
+                                }
                                 if required and required.issubset(split_args.keys()):
                                     pending_tools.append(
                                         ToolCallRecord(
                                             tool_name=ename,
                                             tool_args=split_args,
-                                            tool_call_id=f"{tc_id}_split{i}" if tc_id else "",
+                                            tool_call_id=(
+                                                f"{tc_id}_split{i}" if tc_id else ""
+                                            ),
                                         )
                                     )
                                 else:
@@ -925,9 +1070,13 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
                     jsonschema.validate(instance=tc_args, schema=tool_obj.parameters)
                 except Exception as ve:
-                    error_msg = _format_validation_error(tc_name, ve, tool_obj.parameters)
+                    error_msg = _format_validation_error(
+                        tc_name, ve, tool_obj.parameters
+                    )
                     validation_errors.append(error_msg)
-                    logger.warning(f"[PlanNode] Pre-exec validation failed for {tc_name}: {ve}")
+                    logger.warning(
+                        f"[PlanNode] Pre-exec validation failed for {tc_name}: {ve}"
+                    )
                     # Still add to pending — execute_node will catch it too,
                     # but we collect errors to give LLM a chance to self-correct
                     pending_tools.append(
@@ -951,7 +1100,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     # so LLM can self-correct parameters before execution
     if validation_errors and iteration < (agent_config.max_iterations - 1):
         error_feedback = "\n\n".join(validation_errors)
-        logger.info(f"[PlanNode] {len(validation_errors)} tool arg validation errors, requesting LLM correction")
+        logger.info(
+            f"[PlanNode] {len(validation_errors)} tool arg validation errors, requesting LLM correction"
+        )
         # Clear invalid tools and return to planning with error feedback
         from langchain_core.messages import AIMessage as _AIMessage
 
@@ -990,7 +1141,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         import json as _json
         import re as _re
 
-        json_match = _re.search(r"```json\s*(\{.*?\"task_steps\".*?\})\s*```", content, _re.DOTALL)
+        json_match = _re.search(
+            r"```json\s*(\{.*?\"task_steps\".*?\})\s*```", content, _re.DOTALL
+        )
         if json_match:
             try:
                 parsed = _json.loads(json_match.group(1))
@@ -998,7 +1151,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 if isinstance(steps, list) and 2 <= len(steps) <= 8:
                     _new_task_steps = steps
                     # Remove the JSON block from content so it doesn't appear in the response
-                    content = content[: json_match.start()] + content[json_match.end() :]
+                    content = (
+                        content[: json_match.start()] + content[json_match.end() :]
+                    )
                     content = content.strip()
                     logger.info(
                         f"[PlanNode] Task decomposed into {len(steps)} steps: {[s.get('title') for s in steps]}"
@@ -1010,7 +1165,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     # LangChain's ai_msg already is a BaseMessage
     result = {
         "messages": [ai_msg],
-        "current_phase": AgentPhase.EXECUTING if pending_tools else AgentPhase.REFLECTING,
+        "current_phase": (
+            AgentPhase.EXECUTING if pending_tools else AgentPhase.REFLECTING
+        ),
         "plan": content or "(执行工具调用)",
         "requires_tools": bool(pending_tools),
         "pending_tool_calls": pending_tools,
@@ -1023,7 +1180,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     _log_decision(
         _trace_id,
         step_id=f"plan_outcome_iter{iteration}",
-        decision=f"tools={[t.tool_name for t in pending_tools]}" if pending_tools else "direct_response",
+        decision=(
+            f"tools={[t.tool_name for t in pending_tools]}"
+            if pending_tools
+            else "direct_response"
+        ),
         reasoning=(
             f"LLM规划了{len(pending_tools)}个工具调用"
             if pending_tools
@@ -1035,7 +1196,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     if _sc_succeeded and sc_candidates:
         result["candidate_plans"] = sc_candidates
         # best_plan_score = 1 - max alternative score (higher = more confident in winner)
-        result["best_plan_score"] = 1.0 - max((c.get("score", 0) for c in sc_candidates), default=0)
+        result["best_plan_score"] = 1.0 - max(
+            (c.get("score", 0) for c in sc_candidates), default=0
+        )
         result["backtrack_depth"] = 0
 
     # P1: Store task decomposition in state
@@ -1053,7 +1216,10 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     elif _decomp_done and _task_steps and _active_idx < len(_task_steps):
         # Advance to next step only if not a step retry (goal-driven acceptance check)
         reflection_guidance = state.get("reflection_guidance", "")
-        is_step_retry = "未完成" in reflection_guidance and f"步骤 {_active_idx + 1}" in reflection_guidance
+        is_step_retry = (
+            "未完成" in reflection_guidance
+            and f"步骤 {_active_idx + 1}" in reflection_guidance
+        )
         if not is_step_retry:
             result["_active_step_index"] = _active_idx + 1
             if _active_idx + 1 >= len(_task_steps):

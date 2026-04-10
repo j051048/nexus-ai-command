@@ -124,7 +124,9 @@ class TenantCreditService:
         current_minute = int(now / 60)
 
         # Clean rate_limit_cache: remove keys from old minutes
-        expired_rate_keys = [k for k in self._rate_limit_cache if not k.endswith(f":{current_minute}")]
+        expired_rate_keys = [
+            k for k in self._rate_limit_cache if not k.endswith(f":{current_minute}")
+        ]
         for k in expired_rate_keys:
             del self._rate_limit_cache[k]
         # Hard cap
@@ -141,7 +143,9 @@ class TenantCreditService:
 
         # Clean behavior_tracker: remove stale users (no activity in 1 hour)
         stale_users = [
-            uid for uid, data in self._behavior_tracker.items() if now - data.get("last_action_time", 0) > 3600
+            uid
+            for uid, data in self._behavior_tracker.items()
+            if now - data.get("last_action_time", 0) > 3600
         ]
         for uid in stale_users:
             del self._behavior_tracker[uid]
@@ -189,12 +193,19 @@ class TenantCreditService:
             return False, f"Insufficient {credit_type.value}"
 
         if credit.alert_level == AlertLevel.WARNING:
-            logger.warning(f"Tenant {org_id} approaching limit ({credit.usage_percentage:.1f}%)")
+            logger.warning(
+                f"Tenant {org_id} approaching limit ({credit.usage_percentage:.1f}%)"
+            )
 
         return True, None
 
     async def consume_credit(
-        self, org_id: str, credit_type: CreditType, amount: int, user_id: str = None, db=None
+        self,
+        org_id: str,
+        credit_type: CreditType,
+        amount: int,
+        user_id: str = None,
+        db=None,
     ) -> tuple[bool, str | None]:
         """Consume credits from tenant allocation (atomic via per-org lock)."""
         async with self._get_lock(org_id):
@@ -209,7 +220,9 @@ class TenantCreditService:
             await self._persist_credit_usage(org_id, credit_type, amount, user_id, db)
             return True, None
 
-    async def check_rate_limit(self, org_id: str, user_id: str) -> tuple[bool, int | None]:
+    async def check_rate_limit(
+        self, org_id: str, user_id: str
+    ) -> tuple[bool, int | None]:
         """Check rate limit. Returns (is_allowed, retry_after_seconds)."""
         self._periodic_cleanup()
         quota = await self._get_tenant_quota(org_id)
@@ -232,12 +245,19 @@ class TenantCreditService:
         self._rate_limit_cache[org_key] = org_requests + [now]
         if user_id:
             user_key = f"user:{user_id}:{current_minute}"
-            self._rate_limit_cache[user_key] = self._rate_limit_cache.get(user_key, []) + [now]
+            self._rate_limit_cache[user_key] = self._rate_limit_cache.get(
+                user_key, []
+            ) + [now]
 
         return True, None
 
     async def detect_abuse(
-        self, user_id: str, org_id: str, action: str, ip_address: str = None, user_agent: str = None
+        self,
+        user_id: str,
+        org_id: str,
+        action: str,
+        ip_address: str = None,
+        user_agent: str = None,
     ) -> AbuseDetectionResult:
         """Detect potential abuse patterns."""
         risk_factors = []
@@ -260,7 +280,10 @@ class TenantCreditService:
 
         # Check bot-like patterns
         if len(recent_requests) >= 5:
-            intervals = [recent_requests[i] - recent_requests[i - 1] for i in range(1, min(6, len(recent_requests)))]
+            intervals = [
+                recent_requests[i] - recent_requests[i - 1]
+                for i in range(1, min(6, len(recent_requests)))
+            ]
             avg_interval = sum(intervals) / len(intervals) if intervals else 1
             if avg_interval < 0.5:
                 risk_factors.append("Bot-like rapid-fire pattern")
@@ -313,7 +336,9 @@ class TenantCreditService:
             return
         now = time.time()
         ip_data = self._ip_tracker.get(ip_address, {})
-        recent_failures = [t for t in ip_data.get("failure_times", []) if now - t < 3600]
+        recent_failures = [
+            t for t in ip_data.get("failure_times", []) if now - t < 3600
+        ]
         recent_failures.append(now)
         self._ip_tracker[ip_address] = {
             **ip_data,
@@ -343,7 +368,9 @@ class TenantCreditService:
             },
         }
 
-    async def _get_credit_status(self, org_id: str, credit_type: CreditType, db=None) -> TenantCredit:
+    async def _get_credit_status(
+        self, org_id: str, credit_type: CreditType, db=None
+    ) -> TenantCredit:
         """Get credit status from cache or database."""
         cache_key = f"{org_id}:{credit_type.value}"
         if cache_key in self._credit_cache:
@@ -378,7 +405,12 @@ class TenantCreditService:
             CreditType.API_CALLS: quota.monthly_api_call_limit,
             CreditType.STORAGE_MB: quota.storage_limit_mb,
         }
-        credit = TenantCredit(org_id=org_id, credit_type=credit_type, allocated=defaults.get(credit_type, 0), used=0)
+        credit = TenantCredit(
+            org_id=org_id,
+            credit_type=credit_type,
+            allocated=defaults.get(credit_type, 0),
+            used=0,
+        )
         self._credit_cache[cache_key] = credit
         return credit
 
@@ -386,13 +418,25 @@ class TenantCreditService:
         """Load per-tenant configurable quotas from DB, with default fallback."""
         if db:
             try:
-                res = await db.table("tenant_quotas").select("*").eq("org_id", org_id).maybe_single().execute()
+                res = (
+                    await db.table("tenant_quotas")
+                    .select("*")
+                    .eq("org_id", org_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if res and res.data:
                     return TenantQuota(
-                        monthly_token_limit=res.data.get("monthly_token_limit", 1_000_000),
-                        monthly_api_call_limit=res.data.get("monthly_api_call_limit", 10_000),
+                        monthly_token_limit=res.data.get(
+                            "monthly_token_limit", 1_000_000
+                        ),
+                        monthly_api_call_limit=res.data.get(
+                            "monthly_api_call_limit", 10_000
+                        ),
                         daily_token_limit=res.data.get("daily_token_limit", 100_000),
-                        daily_api_call_limit=res.data.get("daily_api_call_limit", 1_000),
+                        daily_api_call_limit=res.data.get(
+                            "daily_api_call_limit", 1_000
+                        ),
                         rate_limit_per_minute=res.data.get("rate_limit_per_minute", 60),
                         burst_limit=res.data.get("burst_limit", 10),
                         storage_limit_mb=res.data.get("storage_limit_mb", 1_000),
@@ -406,7 +450,11 @@ class TenantCreditService:
         if not db:
             return
         try:
-            res = await db.table("tenant_credits").select("org_id, credit_type, allocated, used").execute()
+            res = (
+                await db.table("tenant_credits")
+                .select("org_id, credit_type, allocated, used")
+                .execute()
+            )
             for row in res.data or []:
                 allocated = row.get("allocated", 0)
                 used = row.get("used", 0)
@@ -415,7 +463,9 @@ class TenantCreditService:
                 usage_pct = (used / allocated) * 100
 
                 if usage_pct >= 95:
-                    logger.critical(f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%")
+                    logger.critical(
+                        f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%"
+                    )
                     try:
                         from app.services.event_bus import emit
 
@@ -432,19 +482,31 @@ class TenantCreditService:
                     except Exception:
                         pass
                 elif usage_pct >= 80:
-                    logger.warning(f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%")
+                    logger.warning(
+                        f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%"
+                    )
         except Exception as e:
             logger.error(f"Tenant monitoring failed: {e}")
 
     async def _persist_credit_usage(
-        self, org_id: str, credit_type: CreditType, amount: int, user_id: str = None, db=None
+        self,
+        org_id: str,
+        credit_type: CreditType,
+        amount: int,
+        user_id: str = None,
+        db=None,
     ):
         if not db:
             return
         try:
             await db.rpc(
                 "consume_tenant_credit",
-                {"p_org_id": org_id, "p_credit_type": credit_type.value, "p_amount": amount, "p_user_id": user_id},
+                {
+                    "p_org_id": org_id,
+                    "p_credit_type": credit_type.value,
+                    "p_amount": amount,
+                    "p_user_id": user_id,
+                },
             ).execute()
         except Exception as e:
             logger.error(f"Failed to persist: {e}")

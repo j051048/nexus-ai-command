@@ -168,7 +168,9 @@ class DataImportService:
                     continue
 
                 try:
-                    result_code = await self._import_single_row(import_type, row, org_id, user_id, db, mode=mode)
+                    result_code = await self._import_single_row(
+                        import_type, row, org_id, user_id, db, mode=mode
+                    )
                     if result_code == "inserted":
                         success_count += 1
                     elif result_code == "updated":
@@ -257,7 +259,9 @@ class DataImportService:
                 "error_count": len(errors),
                 "errors": errors[:50],
                 "preview": preview_rows,
-                "detected_columns": list(normalized_rows[0].keys()) if normalized_rows else [],
+                "detected_columns": (
+                    list(normalized_rows[0].keys()) if normalized_rows else []
+                ),
             }
 
         except Exception as e:
@@ -309,7 +313,9 @@ class DataImportService:
             # 过滤完全空行
             if any(v and v.strip() for v in row.values()):
                 # 清理值
-                cleaned = {k.strip(): (v.strip() if v else "") for k, v in row.items() if k}  # 忽略空列名
+                cleaned = {
+                    k.strip(): (v.strip() if v else "") for k, v in row.items() if k
+                }  # 忽略空列名
                 data.append(cleaned)
 
         return data
@@ -340,7 +346,9 @@ class DataImportService:
 
     # ============== 验证 ==============
 
-    def _validate_rows(self, import_type: str, rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    def _validate_rows(
+        self, import_type: str, rows: list[dict[str, str]]
+    ) -> list[dict[str, Any]]:
         """
         验证所有数据行。
 
@@ -380,7 +388,9 @@ class DataImportService:
 
         return errors
 
-    def _validate_by_type(self, import_type: str, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
+    def _validate_by_type(
+        self, import_type: str, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """按导入类型执行特定验证"""
         errors = []
 
@@ -395,7 +405,9 @@ class DataImportService:
 
         return errors
 
-    def _validate_employee_row(self, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
+    def _validate_employee_row(
+        self, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """验证员工数据行"""
         errors = []
         email = row.get("email", "").strip()
@@ -433,7 +445,9 @@ class DataImportService:
 
         return errors
 
-    def _validate_customer_row(self, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
+    def _validate_customer_row(
+        self, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """验证客户数据行"""
         errors = []
         email = row.get("email", "").strip()
@@ -460,7 +474,9 @@ class DataImportService:
 
         return errors
 
-    def _validate_attendance_row(self, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
+    def _validate_attendance_row(
+        self, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """验证考勤数据行"""
         errors = []
         date_str = row.get("date", "").strip()
@@ -488,7 +504,9 @@ class DataImportService:
 
         return errors
 
-    def _validate_sales_row(self, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
+    def _validate_sales_row(
+        self, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """验证销售数据行"""
         errors = []
         amount = row.get("amount", "").strip()
@@ -593,10 +611,18 @@ class DataImportService:
         else:
             raise ValueError(f"Unknown import type: {import_type}")
 
-    async def _import_employee(self, row: dict[str, str], org_id: str, db, mode: str = "insert") -> str:
+    async def _import_employee(
+        self, row: dict[str, str], org_id: str, db, mode: str = "insert"
+    ) -> str:
         """导入单条员工记录"""
         email = row.get("email", "").strip()
-        existing = await db.table("users").select("id").eq("email", email).maybe_single().execute()
+        existing = (
+            await db.table("users")
+            .select("id")
+            .eq("email", email)
+            .maybe_single()
+            .execute()
+        )
 
         if existing.data:
             if mode == "incremental":
@@ -615,7 +641,9 @@ class DataImportService:
                 if phone:
                     update_data["phone"] = phone
                 if update_data:
-                    await db.table("users").update(update_data).eq("id", existing.data["id"]).execute()
+                    await db.table("users").update(update_data).eq(
+                        "id", existing.data["id"]
+                    ).execute()
                     return "updated"
             return "skipped"
 
@@ -638,7 +666,9 @@ class DataImportService:
         )
         return "inserted"
 
-    async def _import_customer(self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert") -> str:
+    async def _import_customer(
+        self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
+    ) -> str:
         """导入单条客户记录"""
         name = row.get("name", "").strip()
         company = row.get("company", "").strip()
@@ -667,7 +697,9 @@ class DataImportService:
                 if notes:
                     update_data["notes"] = notes
                 if update_data:
-                    await db.table("customers").update(update_data).eq("id", existing.data["id"]).execute()
+                    await db.table("customers").update(update_data).eq(
+                        "id", existing.data["id"]
+                    ).execute()
                     return "updated"
             return "skipped"
 
@@ -690,12 +722,20 @@ class DataImportService:
         )
         return "inserted"
 
-    async def _import_attendance(self, row: dict[str, str], org_id: str, db, mode: str = "insert") -> str:
+    async def _import_attendance(
+        self, row: dict[str, str], org_id: str, db, mode: str = "insert"
+    ) -> str:
         """导入单条考勤记录"""
         email = row.get("email", "").strip()
 
         # 查找用户 ID
-        user_res = await db.table("users").select("id").eq("email", email).maybe_single().execute()
+        user_res = (
+            await db.table("users")
+            .select("id")
+            .eq("email", email)
+            .maybe_single()
+            .execute()
+        )
 
         if not user_res.data:
             raise ValueError(f"未找到邮箱对应的用户: {email}")
@@ -726,7 +766,9 @@ class DataImportService:
                 if notes:
                     update_data["notes"] = notes
                 if update_data:
-                    await db.table("attendance_records").update(update_data).eq("id", existing.data["id"]).execute()
+                    await db.table("attendance_records").update(update_data).eq(
+                        "id", existing.data["id"]
+                    ).execute()
                     return "updated"
             return "skipped"
 
@@ -747,7 +789,9 @@ class DataImportService:
         )
         return "inserted"
 
-    async def _import_sale(self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert") -> str:
+    async def _import_sale(
+        self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
+    ) -> str:
         """导入单条销售记录"""
         customer_name = row.get("customer_name", "").strip()
         amount_str = row.get("amount", "0").strip()
@@ -757,7 +801,13 @@ class DataImportService:
         sales_rep_id = user_id
         rep_email = row.get("sales_rep_email", "").strip()
         if rep_email:
-            rep_res = await db.table("users").select("id").eq("email", rep_email).maybe_single().execute()
+            rep_res = (
+                await db.table("users")
+                .select("id")
+                .eq("email", rep_email)
+                .maybe_single()
+                .execute()
+            )
             if rep_res.data:
                 sales_rep_id = rep_res.data["id"]
 
@@ -782,7 +832,9 @@ class DataImportService:
 
     @staticmethod
     def _is_valid_email(email: str) -> bool:
-        return bool(re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email))
+        return bool(
+            re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email)
+        )
 
     @staticmethod
     def _is_valid_phone(phone: str) -> bool:

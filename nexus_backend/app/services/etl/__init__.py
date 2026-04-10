@@ -36,7 +36,11 @@ class ETLService:
 
     def __init__(self):
         self.api_key = settings.OPENAI_API_KEY
-        base_url = settings.AI_BASE_URL if settings.AI_BASE_URL else "https://api.openai.com/v1"
+        base_url = (
+            settings.AI_BASE_URL
+            if settings.AI_BASE_URL
+            else "https://api.openai.com/v1"
+        )
         self.base_url = base_url.rstrip("/")
 
         from app.core.config import settings as app_settings
@@ -44,7 +48,9 @@ class ETLService:
         self.chunk_size = app_settings.RAG_CHUNK_SIZE
         self.chunk_overlap = app_settings.RAG_CHUNK_OVERLAP
 
-    async def _call_ai_raw(self, payload: dict, endpoint: str = "/chat/completions") -> str:
+    async def _call_ai_raw(
+        self, payload: dict, endpoint: str = "/chat/completions"
+    ) -> str:
         """Low-level HTTP call to the AI proxy."""
         if not self.api_key:
             raise Exception("AI API Key is missing in environment variables")
@@ -69,7 +75,9 @@ class ETLService:
         """Unified PII scrubbing logic."""
         content = content.replace("\x00", "")
         content = re.sub(r"(?<!\d)1[3-9]\d{9}(?!\d)", "[PHONE_REDACTED]", content)
-        content = re.sub(r"(?<!\d)(\d{6})\d{8}(\d{3}[\dXx])(?!\d)", r"\1********\2", content)
+        content = re.sub(
+            r"(?<!\d)(\d{6})\d{8}(\d{3}[\dXx])(?!\d)", r"\1********\2", content
+        )
         content = re.sub(
             r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
             "[EMAIL_REDACTED]",
@@ -93,7 +101,12 @@ class ETLService:
         return hashlib.sha256(content).hexdigest()
 
     async def check_duplicate(
-        self, content_hash: str, user_id: str, *, org_id: str | None = None, filename: str | None = None
+        self,
+        content_hash: str,
+        user_id: str,
+        *,
+        org_id: str | None = None,
+        filename: str | None = None,
     ) -> dict | None:
         """Multi-level deduplication check."""
         if not supabase:
@@ -132,7 +145,9 @@ class ETLService:
             logger.error(f"Dedup check failed (non-fatal): {e}")
         return None
 
-    async def _check_title_similarity(self, filename: str, org_id: str, threshold: float = 0.85) -> dict | None:
+    async def _check_title_similarity(
+        self, filename: str, org_id: str, threshold: float = 0.85
+    ) -> dict | None:
         """Check for documents with very similar titles within the same org."""
         from difflib import SequenceMatcher
 
@@ -194,7 +209,13 @@ class ETLService:
 
         if visibility == "department" and not department:
             try:
-                user_res = await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
+                user_res = (
+                    await supabase.table("users")
+                    .select("department")
+                    .eq("id", user_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if user_res.data:
                     department = user_res.data.get("department")
             except Exception as e:
@@ -216,7 +237,9 @@ class ETLService:
             raise Exception("Failed to create initial document record")
         return res.data[0]["id"]
 
-    async def _update_progress(self, doc_id: str, progress: int, stage: str, status: str = "processing"):
+    async def _update_progress(
+        self, doc_id: str, progress: int, stage: str, status: str = "processing"
+    ):
         """Updates the progress of the document processing."""
         if not doc_id:
             return
@@ -237,7 +260,9 @@ class ETLService:
         try:
             await (
                 supabase.table("documents")
-                .update({"status": "error", "stage": "failed", "error_log": reason[:500]})
+                .update(
+                    {"status": "error", "stage": "failed", "error_log": reason[:500]}
+                )
                 .eq("id", doc_id)
                 .execute()
             )
@@ -257,7 +282,12 @@ class ETLService:
         """Main ETL pipeline: parse -> extract metadata -> generate embeddings."""
         await self._update_progress(doc_id, 10, "parsing")
 
-        raw_url = (base_url or self.base_url).split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
+        raw_url = (
+            (base_url or self.base_url)
+            .split("/chat/completions")[0]
+            .split("/embeddings")[0]
+            .rstrip("/")
+        )
         if "/v1" not in raw_url and "api.openai.com" not in raw_url:
             active_url = f"{raw_url}/v1" if not raw_url.endswith("/v1") else raw_url
         else:
@@ -266,21 +296,31 @@ class ETLService:
 
         try:
             # 1. Parse file (delegated to file_parsers module)
-            text, parse_error = await parse_file_content(content, filename, self._call_ai_raw)
+            text, parse_error = await parse_file_content(
+                content, filename, self._call_ai_raw
+            )
 
             if parse_error:
-                await self._mark_doc_error(doc_id, parse_error.get("reason", "Parse failed"))
+                await self._mark_doc_error(
+                    doc_id, parse_error.get("reason", "Parse failed")
+                )
                 return parse_error
 
             if not text.strip():
                 await self._mark_doc_error(doc_id, "No text content found")
-                return {"filename": filename, "status": "error", "reason": "No text content found"}
+                return {
+                    "filename": filename,
+                    "status": "error",
+                    "reason": "No text content found",
+                }
 
             text = text.replace("\x00", "")
             await self._update_progress(doc_id, 30, "analyzing")
 
             # 2. AI metadata extraction
-            success, details = await self.extract_metadata_via_ai(text, filename, active_key, active_url)
+            success, details = await self.extract_metadata_via_ai(
+                text, filename, active_key, active_url
+            )
             await self._update_progress(doc_id, 70, "embedding")
 
             if success:
@@ -323,7 +363,9 @@ class ETLService:
                     )
 
                     if embedding_success:
-                        await self._update_progress(doc_id, 100, "completed", status="ready")
+                        await self._update_progress(
+                            doc_id, 100, "completed", status="ready"
+                        )
                         return {
                             "filename": filename,
                             "status": "success",
@@ -363,7 +405,9 @@ class ETLService:
                         "reason": f"数据库写入失败: {str(db_err)}",
                     }
             else:
-                await self._mark_doc_error(doc_id, f"AI 解析失败: {details.get('error')}")
+                await self._mark_doc_error(
+                    doc_id, f"AI 解析失败: {details.get('error')}"
+                )
                 return {
                     "filename": filename,
                     "status": "error",
@@ -446,7 +490,10 @@ class ETLService:
 
         payload = {
             "messages": [
-                {"role": "system", "content": "You are a senior Tender Analyst. Output structured data."},
+                {
+                    "role": "system",
+                    "content": "You are a senior Tender Analyst. Output structured data.",
+                },
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.2,
@@ -462,9 +509,13 @@ class ETLService:
             try:
                 logger.info(f"Attempting AI Analysis with model: {model_name}...")
                 async with httpx.AsyncClient(timeout=90.0) as client:
-                    response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+                    response = await client.post(
+                        f"{base_url}/chat/completions", headers=headers, json=payload
+                    )
                     if response.status_code != 200:
-                        logger.warning(f"Model {model_name} failed: {response.status_code} - {response.text}")
+                        logger.warning(
+                            f"Model {model_name} failed: {response.status_code} - {response.text}"
+                        )
                         return False, None
                     return True, response.json()
             except Exception as e:
@@ -483,8 +534,12 @@ class ETLService:
         try:
             content_text = response_json["choices"][0]["message"]["content"]
 
-            json_match = re.search(r"\[METADATA_JSON\](.*?)\[/METADATA_JSON\]", content_text, re.DOTALL)
-            report_match = re.search(r"\[ANALYSIS_REPORT\](.*?)\[/ANALYSIS_REPORT\]", content_text, re.DOTALL)
+            json_match = re.search(
+                r"\[METADATA_JSON\](.*?)\[/METADATA_JSON\]", content_text, re.DOTALL
+            )
+            report_match = re.search(
+                r"\[ANALYSIS_REPORT\](.*?)\[/ANALYSIS_REPORT\]", content_text, re.DOTALL
+            )
 
             metadata = {}
             if json_match:
@@ -497,7 +552,9 @@ class ETLService:
                 metadata["full_analysis_markdown"] = report_match.group(1).strip()
             elif not json_match:
                 try:
-                    clean_json = content_text.replace("```json", "").replace("```", "").strip()
+                    clean_json = (
+                        content_text.replace("```json", "").replace("```", "").strip()
+                    )
                     metadata = json.loads(clean_json)
                 except json.JSONDecodeError:
                     pass

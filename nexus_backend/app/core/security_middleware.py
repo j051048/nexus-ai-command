@@ -81,7 +81,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     STATIC_PATHS = {"/docs", "/redoc", "/openapi.json", "/favicon.ico"}
 
     # Public paths exempt from CSRF validation (mirrors TenantContextMiddleware)
-    PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/redoc", "/openapi.json", "/api/test-ai"}
+    PUBLIC_PATHS = {
+        "/",
+        "/health",
+        "/favicon.ico",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+        "/api/test-ai",
+    }
 
     # HTTP methods that mutate state and require CSRF origin checks
     MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -90,7 +98,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         # Configurable CSP: prefer CSP_POLICY env var (static), else use nonce template
         self._csp_override = os.environ.get("CSP_POLICY")
-        self._nonce_enabled = os.environ.get("CSP_NONCE_ENABLED", "true").lower() == "true"
+        self._nonce_enabled = (
+            os.environ.get("CSP_NONCE_ENABLED", "true").lower() == "true"
+        )
         # Configurable allowed origins for CSRF validation
         raw_origins = os.environ.get(
             "ALLOWED_ORIGINS",
@@ -152,7 +162,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         normalised = origin.strip().rstrip("/").lower()
         if not self._origin_allowed(normalised):
-            logger.warning("CSRF validation failed: origin %s not in allowed list", origin)
+            logger.warning(
+                "CSRF validation failed: origin %s not in allowed list", origin
+            )
             return JSONResponse(
                 status_code=403,
                 content={"detail": "CSRF validation failed: origin not allowed"},
@@ -184,7 +196,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             if self._csp_override:
                 response.headers["Content-Security-Policy"] = self._csp_override
             elif nonce:
-                response.headers["Content-Security-Policy"] = self.CSP_TEMPLATE.replace("{{nonce}}", nonce)
+                response.headers["Content-Security-Policy"] = self.CSP_TEMPLATE.replace(
+                    "{{nonce}}", nonce
+                )
             else:
                 response.headers["Content-Security-Policy"] = self.FALLBACK_CSP
 
@@ -242,7 +256,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Add tracing headers to response
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Trace-ID"] = trace_id
-        response.headers["Server-Timing"] = f'total;dur={duration_ms};desc="Request Duration"'
+        response.headers["Server-Timing"] = (
+            f'total;dur={duration_ms};desc="Request Duration"'
+        )
 
         # Structured log with trace context for log aggregation
         logger.info(
@@ -272,7 +288,15 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
     """
 
     # Paths that never need tenant context (public endpoints)
-    PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/redoc", "/openapi.json", "/api/test-ai"}
+    PUBLIC_PATHS = {
+        "/",
+        "/health",
+        "/favicon.ico",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+        "/api/test-ai",
+    }
 
     async def dispatch(self, request: Request, call_next) -> Response:
         from app.core.auth import get_current_user_id
@@ -300,7 +324,9 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         if auth_header and auth_header.startswith("Bearer "):
             try:
                 # 1. Authenticate user
-                user_id = await get_current_user_id(request=request, authorization=auth_header)
+                user_id = await get_current_user_id(
+                    request=request, authorization=auth_header
+                )
                 request.state.user_id = user_id
 
                 # 2. Get Org ID (with caching, TTL reduced to 5 min)
@@ -337,6 +363,8 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
                 # Set db=None so route-level auth checks will reject the request.
                 request.state.db = None
                 request.state.auth_failed = True
-                logger.warning(f"TenantMiddleware: Auth failed, RLS client not created: {e}")
+                logger.warning(
+                    f"TenantMiddleware: Auth failed, RLS client not created: {e}"
+                )
 
         return await call_next(request)

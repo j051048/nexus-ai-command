@@ -77,7 +77,9 @@ class DingtalkClient(IMPlatformClient):
         data = response.json()
 
         if "accessToken" not in data:
-            raise Exception(f"Dingtalk gettoken error: {data.get('message', 'unknown')}")
+            raise Exception(
+                f"Dingtalk gettoken error: {data.get('message', 'unknown')}"
+            )
 
         return {
             "access_token": data["accessToken"],
@@ -113,7 +115,9 @@ class DingtalkClient(IMPlatformClient):
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPStatusError as e:
-            logger.error(f"[dingtalk] HTTP {e.response.status_code} for {method} {url}: {e.response.text[:200]}")
+            logger.error(
+                f"[dingtalk] HTTP {e.response.status_code} for {method} {url}: {e.response.text[:200]}"
+            )
             raise
         except httpx.RequestError as e:
             logger.error(f"[dingtalk] Request error for {method} {url}: {e}")
@@ -123,13 +127,17 @@ class DingtalkClient(IMPlatformClient):
         errcode = data.get("errcode")
         if errcode is not None and errcode != 0:
             errmsg = data.get("errmsg", "unknown error")
-            logger.error(f"[dingtalk] API business error: errcode={errcode}, errmsg={errmsg}, url={url}")
+            logger.error(
+                f"[dingtalk] API business error: errcode={errcode}, errmsg={errmsg}, url={url}"
+            )
             raise Exception(f"dingtalk API error (code={errcode}): {errmsg}")
 
         # 新版 API 错误检查
         if "code" in data and data["code"] != "0" and data.get("code") is not None:
             message = data.get("message", "unknown error")
-            logger.error(f"[dingtalk] New API error: code={data['code']}, message={message}, url={url}")
+            logger.error(
+                f"[dingtalk] New API error: code={data['code']}, message={message}, url={url}"
+            )
             raise Exception(f"dingtalk API error (code={data['code']}): {message}")
 
         return data
@@ -158,7 +166,9 @@ class DingtalkClient(IMPlatformClient):
             visited.add(dept_id)
 
             try:
-                data = await self._api_request("POST", url, json={"dept_id": int(dept_id)})
+                data = await self._api_request(
+                    "POST", url, json={"dept_id": int(dept_id)}
+                )
                 sub_depts = data.get("result", [])
                 for dept in sub_depts:
                     dept_info = {
@@ -170,7 +180,9 @@ class DingtalkClient(IMPlatformClient):
                     all_departments.append(dept_info)
                     dept_queue.append(str(dept.get("dept_id", "")))
             except Exception as e:
-                logger.error(f"[dingtalk] Failed to get sub departments for {dept_id}: {e}")
+                logger.error(
+                    f"[dingtalk] Failed to get sub departments for {dept_id}: {e}"
+                )
 
         return all_departments
 
@@ -218,14 +230,18 @@ class DingtalkClient(IMPlatformClient):
                 has_more = result.get("has_more", False)
                 cursor = result.get("next_cursor", 0)
             except Exception as e:
-                logger.error(f"[dingtalk] Failed to get users for dept {department_id}: {e}")
+                logger.error(
+                    f"[dingtalk] Failed to get users for dept {department_id}: {e}"
+                )
                 break
 
         return all_users
 
     # ── Attendance ────────────────────────────────────────────────
 
-    async def get_attendance_records(self, user_ids: list[str], start_date: str, end_date: str) -> list[dict]:
+    async def get_attendance_records(
+        self, user_ids: list[str], start_date: str, end_date: str
+    ) -> list[dict]:
         """
         获取考勤记录。
         POST /attendance/list
@@ -346,7 +362,9 @@ class DingtalkClient(IMPlatformClient):
             logger.info(f"[dingtalk] Interactive card sent to {user_id}")
             return True
         except Exception as e:
-            logger.error(f"[dingtalk] Failed to send interactive card to {user_id}: {e}")
+            logger.error(
+                f"[dingtalk] Failed to send interactive card to {user_id}: {e}"
+            )
             return False
 
     # ── OAuth SSO ─────────────────────────────────────────────────
@@ -430,7 +448,9 @@ class DingtalkClient(IMPlatformClient):
             if union_id:
                 try:
                     userid_url = f"{self.API_URL}/topapi/user/getbyunionid"
-                    uid_data = await self._api_request("POST", userid_url, json={"unionid": union_id})
+                    uid_data = await self._api_request(
+                        "POST", userid_url, json={"unionid": union_id}
+                    )
                     userid = uid_data.get("result", {}).get("userid", "")
                 except Exception:
                     logger.warning("[dingtalk] Could not resolve userid from unionId")

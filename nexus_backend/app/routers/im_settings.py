@@ -140,7 +140,9 @@ async def upsert_im_config(
             .execute()
         )
 
-        logger.info(f"[im_settings] Config upserted for org={org_id}, platform={platform}")
+        logger.info(
+            f"[im_settings] Config upserted for org={org_id}, platform={platform}"
+        )
 
         return api_success(
             data={
@@ -180,9 +182,13 @@ async def delete_im_config(
         )
 
     try:
-        await db.table("im_platform_config").delete().eq("organization_id", org_id).eq("platform", platform).execute()
+        await db.table("im_platform_config").delete().eq("organization_id", org_id).eq(
+            "platform", platform
+        ).execute()
 
-        logger.info(f"[im_settings] Config deleted for org={org_id}, platform={platform}")
+        logger.info(
+            f"[im_settings] Config deleted for org={org_id}, platform={platform}"
+        )
 
         return api_success(data={"message": f"{platform} configuration deleted"})
 

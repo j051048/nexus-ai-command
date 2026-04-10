@@ -18,7 +18,10 @@ class BattlecardTool(BaseTool):
             "input": {"competitor_name": "安捷伦"},
             "output_summary": "返回安捷伦的竞品打击卡，含优劣势、产品对比和打击策略",
         },
-        {"input": {"competitor_name": "赛默飞"}, "output_summary": "返回赛默飞的竞品打击卡及知识库中的相关分析"},
+        {
+            "input": {"competitor_name": "赛默飞"},
+            "output_summary": "返回赛默飞的竞品打击卡及知识库中的相关分析",
+        },
     ]
     gotchas = "竞品名称需与系统中录入的名称匹配。未录入的竞品仅返回通用策略建议。"
     related_tools = ["list_competitors"]
@@ -34,7 +37,9 @@ class BattlecardTool(BaseTool):
         "required": ["competitor_name"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         comp = args.get("competitor_name", "")
         if not comp:
             return "❌ 请指定竞争对手名称。"
@@ -48,18 +53,24 @@ class BattlecardTool(BaseTool):
             try:
                 match = await competitor_service.find_by_name(comp, org_id, db=db)
                 if match:
-                    structured = await competitor_service.get_battlecard_data(match["id"], db=db)
+                    structured = await competitor_service.get_battlecard_data(
+                        match["id"], db=db
+                    )
             except Exception as e:
                 logger.warning(f"Structured competitor lookup failed: {e}")
 
         # 2. RAG search for additional context
         query = f"竞争对手 {comp} 的劣势、弱点以及我们产品的对比优势"
-        rag_result = await vector_service.search(query, user_id, limit=2, config=config, org_id=org_id)
+        rag_result = await vector_service.search(
+            query, user_id, limit=2, config=config, org_id=org_id
+        )
         has_rag = rag_result and "No relevant documents" not in rag_result
 
         # 3. Format output
         if structured:
-            return self._format_structured_card(structured, rag_result if has_rag else None)
+            return self._format_structured_card(
+                structured, rag_result if has_rag else None
+            )
 
         if has_rag:
             return f"⚔️ **{comp} 专属竞品打击卡** (基于知识库):\n\n{rag_result}"
@@ -85,7 +96,9 @@ class BattlecardTool(BaseTool):
             parts[0] += f"  `{c['tag']}`"
         if c.get("threat_level") and c["threat_level"] != "medium":
             level_map = {"low": "🟢低", "high": "🟠高", "critical": "🔴极高"}
-            parts.append(f"威胁等级: {level_map.get(c['threat_level'], c['threat_level'])}")
+            parts.append(
+                f"威胁等级: {level_map.get(c['threat_level'], c['threat_level'])}"
+            )
 
         parts.append("")
 
@@ -111,8 +124,14 @@ class BattlecardTool(BaseTool):
             parts.append("| 维度 | 对手 | 我方 | 打击策略 |")
             parts.append("|------|------|------|----------|")
             for f in features:
-                cs = f"{'⭐' * (f.get('competitor_score') or 0)}" if f.get("competitor_score") else "-"
-                os = f"{'⭐' * (f.get('our_score') or 0)}" if f.get("our_score") else "-"
+                cs = (
+                    f"{'⭐' * (f.get('competitor_score') or 0)}"
+                    if f.get("competitor_score")
+                    else "-"
+                )
+                os = (
+                    f"{'⭐' * (f.get('our_score') or 0)}" if f.get("our_score") else "-"
+                )
                 strategy = (f.get("counter_strategy") or "-")[:50]
                 parts.append(f"| {f['dimension']} | {cs} | {os} | {strategy} |")
 
@@ -134,7 +153,9 @@ class ListCompetitorsTool(BaseTool):
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         org_id = (config or {}).get("org_id")
         db = (config or {}).get("db")
 

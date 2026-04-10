@@ -33,7 +33,12 @@ async def list_vmd_tasks(
         return api_success(data={"tasks": []})
 
     db = _get_admin_db()
-    query = db.table("vmd_main_task").select("*").eq("tenant_id", str(org_id)).order("create_time", desc=True)
+    query = (
+        db.table("vmd_main_task")
+        .select("*")
+        .eq("tenant_id", str(org_id))
+        .order("create_time", desc=True)
+    )
 
     if status:
         query = query.eq("status", status)
@@ -45,7 +50,9 @@ async def list_vmd_tasks(
 
 
 @router.get("/{task_id}")
-async def get_vmd_task_detail(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_vmd_task_detail(
+    req: Request, task_id: str, user_id: str = Depends(get_current_user_id)
+):
     """获取单个 VMD 任务详情"""
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
@@ -54,7 +61,11 @@ async def get_vmd_task_detail(req: Request, task_id: str, user_id: str = Depends
     db = _get_admin_db()
 
     # 支持 task_code 或 UUID
-    column = "task_code" if not task_id.replace("-", "").isalnum() or len(task_id) < 20 else "id"
+    column = (
+        "task_code"
+        if not task_id.replace("-", "").isalnum() or len(task_id) < 20
+        else "id"
+    )
     result = (
         await db.table("vmd_main_task")
         .select("*")
@@ -71,7 +82,9 @@ async def get_vmd_task_detail(req: Request, task_id: str, user_id: str = Depends
 
 
 @router.post("/{task_id}/pause")
-async def pause_vmd_task(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
+async def pause_vmd_task(
+    req: Request, task_id: str, user_id: str = Depends(get_current_user_id)
+):
     """暂停 VMD 任务"""
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
@@ -92,7 +105,9 @@ async def pause_vmd_task(req: Request, task_id: str, user_id: str = Depends(get_
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, message="任务不存在")
 
     if task.data["status"] != "running":
-        raise api_error(ErrorCode.VMD_TASK_STATUS_INVALID, message="只有进行中的任务可以暂停")
+        raise api_error(
+            ErrorCode.VMD_TASK_STATUS_INVALID, message="只有进行中的任务可以暂停"
+        )
 
     # 2. 更新状态
     await db.table("vmd_main_task").update({"status": "paused"}).eq("id", task_id).eq(
@@ -102,7 +117,9 @@ async def pause_vmd_task(req: Request, task_id: str, user_id: str = Depends(get_
 
 
 @router.post("/{task_id}/resume")
-async def resume_vmd_task(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
+async def resume_vmd_task(
+    req: Request, task_id: str, user_id: str = Depends(get_current_user_id)
+):
     """恢复 VMD 任务"""
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
@@ -122,7 +139,9 @@ async def resume_vmd_task(req: Request, task_id: str, user_id: str = Depends(get
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, message="任务不存在")
 
     if task.data["status"] != "paused":
-        raise api_error(ErrorCode.VMD_TASK_STATUS_INVALID, message="只有已暂停的任务可以恢复")
+        raise api_error(
+            ErrorCode.VMD_TASK_STATUS_INVALID, message="只有已暂停的任务可以恢复"
+        )
 
     await db.table("vmd_main_task").update({"status": "running"}).eq("id", task_id).eq(
         "tenant_id", str(org_id)
@@ -131,7 +150,9 @@ async def resume_vmd_task(req: Request, task_id: str, user_id: str = Depends(get
 
 
 @router.post("/{task_id}/cancel")
-async def cancel_vmd_task(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
+async def cancel_vmd_task(
+    req: Request, task_id: str, user_id: str = Depends(get_current_user_id)
+):
     """取消 VMD 任务"""
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
@@ -151,16 +172,21 @@ async def cancel_vmd_task(req: Request, task_id: str, user_id: str = Depends(get
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, message="任务不存在")
 
     if task.data["status"] in ("completed", "cancelled"):
-        raise api_error(ErrorCode.VMD_TASK_STATUS_INVALID, message="已完成或已取消的任务无法再次操作")
+        raise api_error(
+            ErrorCode.VMD_TASK_STATUS_INVALID,
+            message="已完成或已取消的任务无法再次操作",
+        )
 
-    await db.table("vmd_main_task").update({"status": "cancelled"}).eq("id", task_id).eq(
-        "tenant_id", str(org_id)
-    ).execute()
+    await db.table("vmd_main_task").update({"status": "cancelled"}).eq(
+        "id", task_id
+    ).eq("tenant_id", str(org_id)).execute()
     return api_success(data={"status": "cancelled"}, message="任务已取消")
 
 
 @router.get("/{task_id}/sub-tasks")
-async def list_vmd_sub_tasks(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
+async def list_vmd_sub_tasks(
+    req: Request, task_id: str, user_id: str = Depends(get_current_user_id)
+):
     """获取任务下的子任务审计日志"""
     db = _get_admin_db()
 

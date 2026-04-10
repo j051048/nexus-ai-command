@@ -23,7 +23,11 @@ def compute_decay_score(memory: dict) -> float:
     similarity = float(memory.get("similarity", 0) or 0)
 
     # Recency: days since last access (or last update)
-    last_accessed = memory.get("last_accessed_at") or memory.get("updated_at") or memory.get("created_at")
+    last_accessed = (
+        memory.get("last_accessed_at")
+        or memory.get("updated_at")
+        or memory.get("created_at")
+    )
     if last_accessed:
         try:
             if isinstance(last_accessed, str):
@@ -106,7 +110,11 @@ def mmr_rerank(
 
         for i in candidates:
             relevance = scores[i]
-            max_sim = max(_jaccard(tokens[i], tokens[j]) for j in selected) if selected else 0.0
+            max_sim = (
+                max(_jaccard(tokens[i], tokens[j]) for j in selected)
+                if selected
+                else 0.0
+            )
 
             mmr = lambda_param * relevance - (1 - lambda_param) * max_sim
             if mmr > best_mmr:
@@ -140,7 +148,9 @@ async def cleanup_decayed_memories(
     try:
         result = (
             await client.table("conversation_memories")
-            .select("id, user_id, importance, access_count, last_accessed_at, updated_at, created_at, category")
+            .select(
+                "id, user_id, importance, access_count, last_accessed_at, updated_at, created_at, category"
+            )
             .lt("updated_at", cutoff)
             .order("updated_at", desc=False)
             .limit(batch_size)
@@ -161,7 +171,9 @@ async def cleanup_decayed_memories(
         score = compute_decay_score(mem)
         if score < score_threshold:
             try:
-                await client.table("conversation_memories").delete().eq("id", mem["id"]).execute()
+                await client.table("conversation_memories").delete().eq(
+                    "id", mem["id"]
+                ).execute()
                 deleted += 1
             except Exception as e:
                 if not (hasattr(e, "code") and str(getattr(e, "code", "")) == "204"):
@@ -170,7 +182,9 @@ async def cleanup_decayed_memories(
                     deleted += 1
 
     if deleted > 0:
-        logger.info(f"Memory decay cleanup: scanned={len(candidates)}, deleted={deleted}")
+        logger.info(
+            f"Memory decay cleanup: scanned={len(candidates)}, deleted={deleted}"
+        )
 
     return {"scanned": len(candidates), "deleted": deleted}
 
@@ -208,9 +222,9 @@ async def reevaluate_importance(
             boost = min(0.15 * math.log(count + 1), 0.4)
             new_imp = min(old_imp + boost, 1.0)
             if new_imp > old_imp + 0.01:
-                await client.table("conversation_memories").update({"importance": round(new_imp, 3)}).eq(
-                    "id", mem["id"]
-                ).execute()
+                await client.table("conversation_memories").update(
+                    {"importance": round(new_imp, 3)}
+                ).eq("id", mem["id"]).execute()
                 boosted += 1
 
         # Decay: never-accessed old memories with moderate importance
@@ -228,9 +242,9 @@ async def reevaluate_importance(
         for mem in decay_res.data or []:
             old_imp = float(mem.get("importance", 0.5) or 0.5)
             new_imp = max(old_imp - 0.15, 0.1)
-            await client.table("conversation_memories").update({"importance": round(new_imp, 3)}).eq(
-                "id", mem["id"]
-            ).execute()
+            await client.table("conversation_memories").update(
+                {"importance": round(new_imp, 3)}
+            ).eq("id", mem["id"]).execute()
             decayed += 1
 
         # Deep decay: zero access + 30+ days + still moderate -> drop to floor
@@ -246,7 +260,9 @@ async def reevaluate_importance(
             .execute()
         )
         for mem in deep_decay_res.data or []:
-            await client.table("conversation_memories").update({"importance": 0.15}).eq("id", mem["id"]).execute()
+            await client.table("conversation_memories").update({"importance": 0.15}).eq(
+                "id", mem["id"]
+            ).execute()
             decayed += 1
 
     except Exception as e:
@@ -284,7 +300,9 @@ async def decay_kg_strength(
         # Fetch active triples with their reinforcement timestamps
         result = (
             await client.table("knowledge_graph_triples")
-            .select("id, strength, occurrences, last_reinforced_at, updated_at, created_at")
+            .select(
+                "id, strength, occurrences, last_reinforced_at, updated_at, created_at"
+            )
             .is_("valid_to", "null")
             .order("updated_at", desc=False)
             .limit(batch_size)
@@ -296,7 +314,11 @@ async def decay_kg_strength(
 
         for triple in triples:
             # Determine last activity time
-            last_active = triple.get("last_reinforced_at") or triple.get("updated_at") or triple.get("created_at")
+            last_active = (
+                triple.get("last_reinforced_at")
+                or triple.get("updated_at")
+                or triple.get("created_at")
+            )
             if not last_active:
                 continue
 
@@ -350,9 +372,15 @@ async def decay_kg_strength(
         logger.warning(f"[KG Decay] Scan failed: {e}")
 
     if decayed_count or archived:
-        logger.info(f"[KG Decay] scanned={len(triples)}, decayed={decayed_count}, archived={archived}")
+        logger.info(
+            f"[KG Decay] scanned={len(triples)}, decayed={decayed_count}, archived={archived}"
+        )
 
-    return {"scanned": len(triples) if "triples" in dir() else 0, "decayed": decayed_count, "archived": archived}
+    return {
+        "scanned": len(triples) if "triples" in dir() else 0,
+        "decayed": decayed_count,
+        "archived": archived,
+    }
 
 
 async def promote_high_recurrence_memories(
@@ -484,9 +512,15 @@ async def promote_high_recurrence_memories(
                 logger.warning(f"[Promote] Failed to process memory {mem['id']}: {e}")
 
         if promoted or boosted:
-            logger.info(f"[Promote] Processed {len(candidates)} candidates: promoted={promoted}, boosted={boosted}")
+            logger.info(
+                f"[Promote] Processed {len(candidates)} candidates: promoted={promoted}, boosted={boosted}"
+            )
 
     except Exception as e:
         logger.warning(f"[Promote] Scan failed: {e}")
 
-    return {"scanned": len(candidates) if "candidates" in dir() else 0, "promoted": promoted, "boosted": boosted}
+    return {
+        "scanned": len(candidates) if "candidates" in dir() else 0,
+        "promoted": promoted,
+        "boosted": boosted,
+    }

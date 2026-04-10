@@ -50,7 +50,9 @@ class AssetService:
                     query = query.eq("current_user_id", filters["current_user_id"])
                 if filters.get("search"):
                     search = filters["search"]
-                    query = query.or_(f"asset_code.ilike.%{search}%,name.ilike.%{search}%")
+                    query = query.or_(
+                        f"asset_code.ilike.%{search}%,name.ilike.%{search}%"
+                    )
 
             result = await query.execute()
             return result.data or []
@@ -149,7 +151,9 @@ class AssetService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await db.table("assets").update(updates).eq("id", asset_id).execute()
+            result = (
+                await db.table("assets").update(updates).eq("id", asset_id).execute()
+            )
 
             if result.data and len(result.data) > 0:
                 logger.info(f"资产已更新: id={asset_id}")
@@ -209,7 +213,9 @@ class AssetService:
                 "operator_id": operator_id,
             }
 
-            transfer_result = await db.table("asset_transfers").insert(transfer_data).execute()
+            transfer_result = (
+                await db.table("asset_transfers").insert(transfer_data).execute()
+            )
 
             # 更新资产状态
             asset_updates = {}
@@ -226,7 +232,9 @@ class AssetService:
                 asset_updates["department_id"] = to_department_id
 
             if asset_updates:
-                await db.table("assets").update(asset_updates).eq("id", asset_id).execute()
+                await db.table("assets").update(asset_updates).eq(
+                    "id", asset_id
+                ).execute()
 
             logger.info(f"资产转移成功: asset={asset_id}, type={transfer_type}")
             return transfer_result.data[0] if transfer_result.data else {}
@@ -267,7 +275,9 @@ class AssetService:
             total_count = len(assets)
             idle_count = sum(1 for a in assets if a.get("status") == "idle")
             in_use_count = sum(1 for a in assets if a.get("status") == "in_use")
-            maintenance_count = sum(1 for a in assets if a.get("status") == "maintenance")
+            maintenance_count = sum(
+                1 for a in assets if a.get("status") == "maintenance"
+            )
             scrapped_count = sum(1 for a in assets if a.get("status") == "scrapped")
 
             total_value = sum(float(a.get("value") or 0) for a in assets)
@@ -278,7 +288,9 @@ class AssetService:
                 "in_use_count": in_use_count,
                 "maintenance_count": maintenance_count,
                 "scrapped_count": scrapped_count,
-                "utilization_rate": round(in_use_count / total_count * 100, 2) if total_count > 0 else 0,
+                "utilization_rate": (
+                    round(in_use_count / total_count * 100, 2) if total_count > 0 else 0
+                ),
                 "total_value": round(total_value, 2),
             }
 
@@ -305,7 +317,12 @@ class AssetService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await db.table("asset_types").select("*").eq("organization_id", org_id).execute()
+            result = (
+                await db.table("asset_types")
+                .select("*")
+                .eq("organization_id", org_id)
+                .execute()
+            )
 
             return result.data or []
 

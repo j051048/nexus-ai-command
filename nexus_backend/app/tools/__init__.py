@@ -39,9 +39,15 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "approve_request": ("app.tools.approval_tools", "ApprovalTool"),
     "reject_request": ("app.tools.approval_tools", "RejectTool"),
     "get_pending_approvals": ("app.tools.approval_tools", "PendingApprovalsTool"),
-    "submit_approval_on_behalf": ("app.tools.approval_tools", "SubmitApprovalOnBehalfTool"),
+    "submit_approval_on_behalf": (
+        "app.tools.approval_tools",
+        "SubmitApprovalOnBehalfTool",
+    ),
     "get_employee_info": ("app.tools.approval_tools", "GetEmployeeInfoTool"),
-    "get_employee_approval_history": ("app.tools.approval_tools", "GetEmployeeApprovalHistoryTool"),
+    "get_employee_approval_history": (
+        "app.tools.approval_tools",
+        "GetEmployeeApprovalHistoryTool",
+    ),
     "urge_approval": ("app.tools.approval_tools", "UrgeApprovalTool"),
     # operational_tools
     "get_performance_report": ("app.tools.operational_tools", "PerformanceReportTool"),
@@ -100,14 +106,26 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     # contract_crud_tools
     "get_contracts": ("app.tools.contract_crud_tools", "GetContractsTool"),
     "create_contract": ("app.tools.contract_crud_tools", "CreateContractTool"),
-    "get_expiring_contracts": ("app.tools.contract_crud_tools", "GetExpiringContractsTool"),
+    "get_expiring_contracts": (
+        "app.tools.contract_crud_tools",
+        "GetExpiringContractsTool",
+    ),
     # strategy_tools (Phase 4)
     "analyze_data_attribution": ("app.tools.strategy_tools", "DataAttributionTool"),
     "strategy_simulation": ("app.tools.strategy_tools", "StrategySimulationTool"),
     # scheduled_task_tools (user-defined scheduled tasks)
-    "create_scheduled_task": ("app.tools.scheduled_task_tools", "CreateScheduledTaskTool"),
-    "list_scheduled_tasks": ("app.tools.scheduled_task_tools", "ListScheduledTasksTool"),
-    "delete_scheduled_task": ("app.tools.scheduled_task_tools", "DeleteScheduledTaskTool"),
+    "create_scheduled_task": (
+        "app.tools.scheduled_task_tools",
+        "CreateScheduledTaskTool",
+    ),
+    "list_scheduled_tasks": (
+        "app.tools.scheduled_task_tools",
+        "ListScheduledTasksTool",
+    ),
+    "delete_scheduled_task": (
+        "app.tools.scheduled_task_tools",
+        "DeleteScheduledTaskTool",
+    ),
     # agent_task_tools (P1a: external persistent task system)
     "create_task": ("app.tools.agent_task_tools", "CreateTaskTool"),
     "update_task": ("app.tools.agent_task_tools", "UpdateTaskTool"),
@@ -177,48 +195,105 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     # ai_insight_tools (AI智能分析 - Phase 3)
     "smart_report": ("app.tools.ai_insight_tools", "SmartReportTool"),
     "anomaly_detection": ("app.tools.ai_insight_tools", "AnomalyDetectionTool"),
-    "predictive_maintenance": ("app.tools.ai_insight_tools", "PredictiveMaintenanceTool"),
+    "predictive_maintenance": (
+        "app.tools.ai_insight_tools",
+        "PredictiveMaintenanceTool",
+    ),
     "auto_dispatch": ("app.tools.ai_insight_tools", "AutoDispatchTool"),
     "meeting_summary": ("app.tools.ai_insight_tools", "MeetingSummaryTool"),
     "onboarding_assistant": ("app.tools.ai_insight_tools", "OnboardingAssistantTool"),
     # workflow_tools (复合工作流)
     "process_onboarding": ("app.tools.workflow_tools", "ProcessOnboardingTool"),
     "process_resignation": ("app.tools.workflow_tools", "ProcessResignationTool"),
-    "process_asset_lifecycle": ("app.tools.workflow_tools", "ProcessAssetLifecycleTool"),
+    "process_asset_lifecycle": (
+        "app.tools.workflow_tools",
+        "ProcessAssetLifecycleTool",
+    ),
     # audit_tools (审计日志查询)
     "query_audit_logs": ("app.tools.audit_tools", "QueryAuditLogsTool"),
     # user_preference_tools (用户偏好管理)
-    "get_user_preferences": ("app.tools.user_preference_tools", "GetUserPreferencesTool"),
-    "update_user_preferences": ("app.tools.user_preference_tools", "UpdateUserPreferencesTool"),
+    "get_user_preferences": (
+        "app.tools.user_preference_tools",
+        "GetUserPreferencesTool",
+    ),
+    "update_user_preferences": (
+        "app.tools.user_preference_tools",
+        "UpdateUserPreferencesTool",
+    ),
 }
 
 # VMD tools are optional — kept separate so ImportError is tolerated
 _VMD_TOOL_MODULES: dict[str, tuple[str, str]] = {
     # vmd_content_tools
-    "generate_product_manual": ("app.tools.vmd_content_tools", "GenerateProductManualTool"),
+    "generate_product_manual": (
+        "app.tools.vmd_content_tools",
+        "GenerateProductManualTool",
+    ),
     "generate_whitepaper": ("app.tools.vmd_content_tools", "GenerateWhitepaperTool"),
-    "generate_application_note": ("app.tools.vmd_content_tools", "GenerateApplicationNoteTool"),
+    "generate_application_note": (
+        "app.tools.vmd_content_tools",
+        "GenerateApplicationNoteTool",
+    ),
     "generate_social_post": ("app.tools.vmd_content_tools", "GenerateSocialPostTool"),
     # vmd_tender_tools
     "generate_bid_document": ("app.tools.vmd_tender_tools", "GenerateBidDocumentTool"),
-    "generate_deviation_table": ("app.tools.vmd_tender_tools", "GenerateDeviationTableTool"),
+    "generate_deviation_table": (
+        "app.tools.vmd_tender_tools",
+        "GenerateDeviationTableTool",
+    ),
     "check_bid_compliance": ("app.tools.vmd_tender_tools", "CheckBidComplianceTool"),
-    "extract_bid_requirements": ("app.tools.vmd_tender_tools", "ExtractBidRequirementsTool"),
+    "extract_bid_requirements": (
+        "app.tools.vmd_tender_tools",
+        "ExtractBidRequirementsTool",
+    ),
     # vmd_sales_tools
     "generate_sales_script": ("app.tools.vmd_sales_tools", "GenerateSalesScriptTool"),
-    "generate_competitor_comparison": ("app.tools.vmd_sales_tools", "GenerateCompetitorComparisonTool"),
-    "generate_training_material": ("app.tools.vmd_sales_tools", "GenerateTrainingMaterialTool"),
-    "generate_quotation_template": ("app.tools.vmd_sales_tools", "GenerateQuotationTemplateTool"),
+    "generate_competitor_comparison": (
+        "app.tools.vmd_sales_tools",
+        "GenerateCompetitorComparisonTool",
+    ),
+    "generate_training_material": (
+        "app.tools.vmd_sales_tools",
+        "GenerateTrainingMaterialTool",
+    ),
+    "generate_quotation_template": (
+        "app.tools.vmd_sales_tools",
+        "GenerateQuotationTemplateTool",
+    ),
     # vmd_synergy_tools
-    "monitor_industry_trends": ("app.tools.vmd_synergy_tools", "MonitorIndustryTrendsTool"),
-    "generate_market_research": ("app.tools.vmd_synergy_tools", "GenerateMarketResearchTool"),
-    "generate_competitor_analysis": ("app.tools.vmd_synergy_tools", "GenerateCompetitorAnalysisTool"),
-    "aggregate_customer_feedback": ("app.tools.vmd_synergy_tools", "AggregateCustomerFeedbackTool"),
+    "monitor_industry_trends": (
+        "app.tools.vmd_synergy_tools",
+        "MonitorIndustryTrendsTool",
+    ),
+    "generate_market_research": (
+        "app.tools.vmd_synergy_tools",
+        "GenerateMarketResearchTool",
+    ),
+    "generate_competitor_analysis": (
+        "app.tools.vmd_synergy_tools",
+        "GenerateCompetitorAnalysisTool",
+    ),
+    "aggregate_customer_feedback": (
+        "app.tools.vmd_synergy_tools",
+        "AggregateCustomerFeedbackTool",
+    ),
     # vmd_operation_tools
-    "generate_maintenance_reminder": ("app.tools.vmd_operation_tools", "GenerateMaintenanceReminderTool"),
-    "generate_faq_response": ("app.tools.vmd_operation_tools", "GenerateFaqResponseTool"),
-    "generate_repurchase_campaign": ("app.tools.vmd_operation_tools", "GenerateRepurchaseCampaignTool"),
-    "customer_lifecycle_analysis": ("app.tools.vmd_operation_tools", "CustomerLifecycleAnalysisTool"),
+    "generate_maintenance_reminder": (
+        "app.tools.vmd_operation_tools",
+        "GenerateMaintenanceReminderTool",
+    ),
+    "generate_faq_response": (
+        "app.tools.vmd_operation_tools",
+        "GenerateFaqResponseTool",
+    ),
+    "generate_repurchase_campaign": (
+        "app.tools.vmd_operation_tools",
+        "GenerateRepurchaseCampaignTool",
+    ),
+    "customer_lifecycle_analysis": (
+        "app.tools.vmd_operation_tools",
+        "CustomerLifecycleAnalysisTool",
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -294,7 +369,9 @@ def _load_all():
                     tool_info.category,
                 )
             except Exception:
-                logger.warning("装饰器注册的工具 %s 实例化失败，已跳过", tool_name, exc_info=True)
+                logger.warning(
+                    "装饰器注册的工具 %s 实例化失败，已跳过", tool_name, exc_info=True
+                )
 
     # Step 3: 兜底扫描（捕获既没在字典里也没用装饰器的 BaseTool 子类）
     _auto_discover()
@@ -310,7 +387,9 @@ def _auto_discover():
     import app.tools as tools_pkg
 
     known = set(_TOOL_MODULES) | set(_VMD_TOOL_MODULES)
-    for _importer, modname, ispkg in pkgutil.iter_modules(tools_pkg.__path__, "app.tools."):
+    for _importer, modname, ispkg in pkgutil.iter_modules(
+        tools_pkg.__path__, "app.tools."
+    ):
         if ispkg or modname.endswith(("__init__", "base_tool")):
             continue
         try:
@@ -327,9 +406,14 @@ def _auto_discover():
             ):
                 try:
                     instance = obj()
-                    if instance.name not in TOOL_REGISTRY and instance.name not in known:
+                    if (
+                        instance.name not in TOOL_REGISTRY
+                        and instance.name not in known
+                    ):
                         TOOL_REGISTRY[instance.name] = instance
-                        logger.debug("Auto-discovered tool: %s from %s", instance.name, modname)
+                        logger.debug(
+                            "Auto-discovered tool: %s from %s", instance.name, modname
+                        )
                 except Exception:
                     pass  # skip tools that fail to instantiate
 
@@ -436,7 +520,11 @@ def get_tools_metadata(user_role: str = "all") -> list[dict]:
     result = []
     for tool in TOOL_REGISTRY.values():
         # RBAC filter: skip tools the user cannot access
-        if tool.required_role != "all" and tool.required_role != user_role and user_role != "boss":
+        if (
+            tool.required_role != "all"
+            and tool.required_role != user_role
+            and user_role != "boss"
+        ):
             continue
         result.append(
             {

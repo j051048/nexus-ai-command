@@ -66,7 +66,12 @@ async def _notify_next_approver(
     from app.services.approval_chain import approval_chain_service
 
     notified = False
-    type_names = {"travel": "出差", "leave": "请假", "expense": "报销", "purchase": "采购"}
+    type_names = {
+        "travel": "出差",
+        "leave": "请假",
+        "expense": "报销",
+        "purchase": "采购",
+    }
     type_label = type_names.get(approval_type, approval_type)
     level_label = _LEVEL_NAMES.get(approval_level, approval_level)
     content = (
@@ -77,7 +82,9 @@ async def _notify_next_approver(
     try:
         # Strategy 1: Direct manager for manager-level
         if approval_level == "manager":
-            manager = await approval_chain_service.get_direct_manager(requester_id, db=client)
+            manager = await approval_chain_service.get_direct_manager(
+                requester_id, db=client
+            )
             if manager:
                 await (
                     client.table("notifications")
@@ -120,7 +127,13 @@ async def _notify_next_approver(
 
         # Strategy 3: Ultimate fallback to any founder
         if not notified:
-            founders_res = await client.table("users").select("id").eq("role", "founder").limit(3).execute()
+            founders_res = (
+                await client.table("users")
+                .select("id")
+                .eq("role", "founder")
+                .limit(3)
+                .execute()
+            )
             for f in founders_res.data or []:
                 await (
                     client.table("notifications")
@@ -158,11 +171,19 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             "output_summary": "已提交出差审批，等待部门经理审批",
         },
         {
-            "input": {"type": "purchase", "description": "采购10台显示器", "amount": 15000},
+            "input": {
+                "type": "purchase",
+                "description": "采购10台显示器",
+                "amount": 15000,
+            },
             "output_summary": "已提交采购审批，审批链匹配为多级审批",
         },
     ]
-    related_tools = ["create_leave_request", "create_expense_claim", "get_pending_approvals"]
+    related_tools = [
+        "create_leave_request",
+        "create_expense_claim",
+        "get_pending_approvals",
+    ]
     gotchas = "用户明确说请假或报销时应优先使用专用工具而非本工具。老板角色无法通过此工具提交审批。同类型同金额的待审批申请会被防重复拦截。"
 
     parameters = {
@@ -173,7 +194,12 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 "enum": ["travel", "leave", "expense", "purchase"],
                 "description": "审批类型：travel=出差, leave=请假, expense=报销, purchase=采购",
             },
-            "amount": {"type": "number", "minimum": 0, "maximum": 99999999, "description": "金额（如适用，默认0）"},
+            "amount": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 99999999,
+                "description": "金额（如适用，默认0）",
+            },
             "description": {"type": "string", "description": "详细说明申请事由"},
             "start_date": {"type": "string", "description": "开始日期（如适用）"},
             "end_date": {"type": "string", "description": "结束日期（如适用）"},
@@ -182,7 +208,9 @@ class SubmitApprovalOnBehalfTool(BaseTool):
     }
     domain = "approval"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         from datetime import datetime
 
         client = _get_client(config)
@@ -198,7 +226,15 @@ class SubmitApprovalOnBehalfTool(BaseTool):
 
         # ── 输入校验 ──
         # 金额校验：涉及金额的审批类型必须 > 0
-        _amount_types = {"reimbursement", "expense", "purchase", "budget", "报销", "采购", "预算"}
+        _amount_types = {
+            "reimbursement",
+            "expense",
+            "purchase",
+            "budget",
+            "报销",
+            "采购",
+            "预算",
+        }
         if approval_type in _amount_types or amount:
             try:
                 amount = float(amount)
@@ -316,7 +352,9 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 insert_data["organization_id"] = employee_org_id
             logger.debug(f"[AI审批] 准备插入数据: {insert_data}")
 
-            result = await client.table("approval_requests").insert(insert_data).execute()
+            result = (
+                await client.table("approval_requests").insert(insert_data).execute()
+            )
             logger.debug("[AI审批] 插入结果成功")
         except Exception as e:
             logger.exception(f"[AI审批] 插入失败: {e}")
@@ -401,31 +439,48 @@ class GetEmployeeInfoTool(BaseTool):
     """AI助手查询员工信息"""
 
     name = "get_employee_info"
-    description = "根据员工姓名查询其基本信息和用户编号。当需要将姓名转换为员工编号时使用。"
+    description = (
+        "根据员工姓名查询其基本信息和用户编号。当需要将姓名转换为员工编号时使用。"
+    )
     required_role = "ai_assistant"
     examples = [
-        {"input": {"query": "张三"}, "output_summary": "返回匹配的员工列表，包含姓名、ID、部门"},
+        {
+            "input": {"query": "张三"},
+            "output_summary": "返回匹配的员工列表，包含姓名、ID、部门",
+        },
         {"input": {"query": "王"}, "output_summary": "返回所有姓王的员工列表"},
     ]
     related_tools = ["get_employee_approval_history", "get_employee_profile"]
-    gotchas = "不会返回老板（founder角色）的信息。模糊搜索可能匹配多个员工，需用户确认。"
+    gotchas = (
+        "不会返回老板（founder角色）的信息。模糊搜索可能匹配多个员工，需用户确认。"
+    )
 
     parameters = {
         "type": "object",
         "properties": {
             "query": {"type": "string", "description": "员工姓名关键词"},
-            "employee_name": {"type": "string", "description": "员工姓名（query的别名）"},
+            "employee_name": {
+                "type": "string",
+                "description": "员工姓名（query的别名）",
+            },
         },
         "required": ["query"],
     }
     domain = "hr"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         name = args.get("query") or args.get("employee_name")
         if not name:
             return "请提供员工姓名关键词"
         client = _get_client(config)
-        result = await client.table("users").select("id, name, department, role").ilike("name", f"%{name}%").execute()
+        result = (
+            await client.table("users")
+            .select("id, name, department, role")
+            .ilike("name", f"%{name}%")
+            .execute()
+        )
 
         if not result.data:
             return f"找不到名为 '{name}' 的员工。"
@@ -433,7 +488,9 @@ class GetEmployeeInfoTool(BaseTool):
         employees = []
         for emp in result.data:
             if emp.get("role") != "founder":  # 不返回老板信息
-                employees.append(f"- {emp['name']}（ID: {emp['id']}, 部门: {emp.get('department', '未知')}）")
+                employees.append(
+                    f"- {emp['name']}（ID: {emp['id']}, 部门: {emp.get('department', '未知')}）"
+                )
 
         if not employees:
             return f"找不到名为 '{name}' 的普通员工。"
@@ -445,14 +502,19 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
     """AI助手查询员工的审批历史"""
 
     name = "get_employee_approval_history"
-    description = "查询指定员工的审批申请历史记录。当用户说'审批记录'、'审批历史'时调用。"
+    description = (
+        "查询指定员工的审批申请历史记录。当用户说'审批记录'、'审批历史'时调用。"
+    )
     required_role = "ai_assistant"
     examples = [
         {
             "input": {"employee_id": "a1b2c3d4-...", "limit": 5},
             "output_summary": "返回该员工最近5条审批记录，含状态、类型、金额",
         },
-        {"input": {"employee_id": "a1b2c3d4-..."}, "output_summary": "返回该员工最近5条审批记录（默认）"},
+        {
+            "input": {"employee_id": "a1b2c3d4-..."},
+            "output_summary": "返回该员工最近5条审批记录（默认）",
+        },
     ]
     related_tools = ["get_employee_info", "get_pending_approvals"]
     gotchas = "employee_id 必须是有效的 UUID 格式，传入姓名会报错。请先用 get_employee_info 通过姓名查询员工编号。"
@@ -464,13 +526,20 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
                 "type": "string",
                 "description": "员工ID（UUID格式），可通过 get_employee_info 工具查询获取",
             },
-            "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "返回记录数量，默认5条"},
+            "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50,
+                "description": "返回记录数量，默认5条",
+            },
         },
         "required": ["employee_id"],
     }
     domain = "approval"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         employee_id = args.get("employee_id")
         limit = args.get("limit", 5)
 
@@ -529,7 +598,11 @@ class ApprovalTool(BaseTool):
             "output_summary": "返回审批单预览信息，等待用户确认",
         },
         {
-            "input": {"request_id": "a1b2c3d4-...", "reason": "金额合理", "confirm": True},
+            "input": {
+                "request_id": "a1b2c3d4-...",
+                "reason": "金额合理",
+                "confirm": True,
+            },
             "output_summary": "执行批准操作，推进审批链",
         },
     ]
@@ -550,7 +623,9 @@ class ApprovalTool(BaseTool):
     }
     domain = "approval"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         req_id = args.get("request_id")
         reason = args.get("reason", "")
         confirm = args.get("confirm", False)
@@ -564,19 +639,34 @@ class ApprovalTool(BaseTool):
         client = _get_client(config)
 
         # Manager approval limit check
-        user_role_res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
-        user_role = user_role_res.data.get("role", "employee") if user_role_res.data else "employee"
+        user_role_res = (
+            await client.table("users")
+            .select("role")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        user_role = (
+            user_role_res.data.get("role", "employee")
+            if user_role_res.data
+            else "employee"
+        )
 
         if user_role == "manager":
             # Check if approval amount exceeds manager limit (5000)
             manager_approval_limit = 5000
             request_res = (
-                await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
+                await client.table("approval_requests")
+                .select("amount")
+                .eq("id", req_id)
+                .maybe_single()
+                .execute()
             )
-            if request_res.data and float(request_res.data.get("amount", 0)) > manager_approval_limit:
-                return (
-                    f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
-                )
+            if (
+                request_res.data
+                and float(request_res.data.get("amount", 0)) > manager_approval_limit
+            ):
+                return f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -598,7 +688,9 @@ class ApprovalTool(BaseTool):
             return f"该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
 
         submitter = request_data.get("users", {})
-        submitter_name = submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
+        submitter_name = (
+            submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
+        )
 
         # P0 Security Fix #1: Return preview if not confirmed
         if not confirm:
@@ -666,7 +758,9 @@ class ApprovalTool(BaseTool):
 
                 if new_status == "approved":
                     # Send final approval notification to submitter
-                    await self._send_approval_notification(client, request_data, submitter_name)
+                    await self._send_approval_notification(
+                        client, request_data, submitter_name
+                    )
                     return (
                         f"已批准审批单 {req_id[:8]}...（{submitter_name} 的 "
                         f"{request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}）"
@@ -743,7 +837,9 @@ class ApprovalTool(BaseTool):
         return "批准失败，该单据可能已被他人处理。"
 
     @staticmethod
-    async def _send_approval_notification(client, request_data: dict, submitter_name: str):
+    async def _send_approval_notification(
+        client, request_data: dict, submitter_name: str
+    ):
         """Send approval notifications (in-app + multi-channel)."""
         try:
             target_user = request_data.get("submitted_by")
@@ -800,11 +896,19 @@ class RejectTool(BaseTool):
     confirmation_message = "驳回操作不可逆。请在弹出的确认框中确认后执行。"
     examples = [
         {
-            "input": {"request_id": "a1b2c3d4-...", "reason": "金额不合理", "confirm": False},
+            "input": {
+                "request_id": "a1b2c3d4-...",
+                "reason": "金额不合理",
+                "confirm": False,
+            },
             "output_summary": "返回驳回预览信息，等待用户确认",
         },
         {
-            "input": {"request_id": "a1b2c3d4-...", "reason": "超出预算", "confirm": True},
+            "input": {
+                "request_id": "a1b2c3d4-...",
+                "reason": "超出预算",
+                "confirm": True,
+            },
             "output_summary": "执行驳回操作并通知申请人",
         },
     ]
@@ -825,7 +929,9 @@ class RejectTool(BaseTool):
     }
     domain = "approval"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         req_id = args.get("request_id")
         reason = args.get("reason", "未说明原因")
         confirm = args.get("confirm", False)
@@ -839,19 +945,34 @@ class RejectTool(BaseTool):
         client = _get_client(config)
 
         # Manager approval limit check
-        user_role_res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
-        user_role = user_role_res.data.get("role", "employee") if user_role_res.data else "employee"
+        user_role_res = (
+            await client.table("users")
+            .select("role")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        user_role = (
+            user_role_res.data.get("role", "employee")
+            if user_role_res.data
+            else "employee"
+        )
 
         if user_role == "manager":
             # Check if approval amount exceeds manager limit (5000)
             manager_approval_limit = 5000
             request_res = (
-                await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
+                await client.table("approval_requests")
+                .select("amount")
+                .eq("id", req_id)
+                .maybe_single()
+                .execute()
             )
-            if request_res.data and float(request_res.data.get("amount", 0)) > manager_approval_limit:
-                return (
-                    f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
-                )
+            if (
+                request_res.data
+                and float(request_res.data.get("amount", 0)) > manager_approval_limit
+            ):
+                return f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -873,7 +994,9 @@ class RejectTool(BaseTool):
             return f"该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
 
         submitter = request_data.get("users", {})
-        submitter_name = submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
+        submitter_name = (
+            submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
+        )
 
         # P0 Security Fix #1: Return preview if not confirmed
         if not confirm:
@@ -1030,15 +1153,24 @@ class PendingApprovalsTool(BaseTool):
     name = "get_pending_approvals"
     description = "获取当前所有待处理的审批列表。当用户说'待审批'、'有什么要审的'、'审批列表'时调用。"
     examples = [
-        {"input": {}, "output_summary": "返回所有待处理审批单列表，含申请人、类型、金额、审批链步骤"},
+        {
+            "input": {},
+            "output_summary": "返回所有待处理审批单列表，含申请人、类型、金额、审批链步骤",
+        },
     ]
-    related_tools = ["approve_request", "reject_request", "get_employee_approval_history"]
+    related_tools = [
+        "approve_request",
+        "reject_request",
+        "get_employee_approval_history",
+    ]
     gotchas = ""
 
     parameters = {"type": "object", "properties": {}, "required": []}
     domain = "approval"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         result = (
             await client.table("approval_requests")
@@ -1067,9 +1199,14 @@ class UrgeApprovalTool(BaseTool):
     """催办审批请求"""
 
     name = "urge_approval"
-    description = "催办某个正在等待审批的请示或流程，提高它的紧急处理等级并记录催办原因。"
+    description = (
+        "催办某个正在等待审批的请示或流程，提高它的紧急处理等级并记录催办原因。"
+    )
     examples = [
-        {"input": {"approval_id": "uuid-xxxx", "reason": "客户催得急"}, "output_summary": "成功催办审批"},
+        {
+            "input": {"approval_id": "uuid-xxxx", "reason": "客户催得急"},
+            "output_summary": "成功催办审批",
+        },
     ]
     gotchas = "只能催办状态为'pending'的审批。需要提供催办原因。"
     related_tools = ["get_pending_approvals", "approve_request"]
@@ -1084,7 +1221,9 @@ class UrgeApprovalTool(BaseTool):
     }
     domain = "approval"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         approval_id = args.get("approval_id")
         reason = args.get("reason", "加急处理")
@@ -1098,7 +1237,9 @@ class UrgeApprovalTool(BaseTool):
         from app.services.approval_service import ApprovalService
 
         try:
-            res = await ApprovalService.urge_approval(approval_id, user_id, reason, db=client)
+            res = await ApprovalService.urge_approval(
+                approval_id, user_id, reason, db=client
+            )
             return f"✅ 催办成功！该审批的催单次数为 {res.get('urgency_count', 1)}。已通知管理员处理。"
         except Exception as e:
             return safe_tool_error(e, "催办审批")

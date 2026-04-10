@@ -63,13 +63,15 @@ async def generate_report(
     chart_config = suggest_chart_config(data)
     summary = await generate_insight(body.nl_query, data)
 
-    return api_success(data={
-        "sql": gen["sql"],
-        "result": data,
-        "total_rows": exec_result["total_rows"],
-        "chart_config": chart_config,
-        "summary": summary,
-    })
+    return api_success(
+        data={
+            "sql": gen["sql"],
+            "result": data,
+            "total_rows": exec_result["total_rows"],
+            "chart_config": chart_config,
+            "summary": summary,
+        }
+    )
 
 
 @router.post("/generate-sql")
@@ -115,10 +117,14 @@ async def save_generated_report(
         raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
     report = await save_report(
-        org_id=org_id, user_id=user_id,
-        title=body.title, nl_query=body.nl_query,
-        generated_sql=body.generated_sql, result_data=body.result_data,
-        chart_config=body.chart_config, summary=body.summary,
+        org_id=org_id,
+        user_id=user_id,
+        title=body.title,
+        nl_query=body.nl_query,
+        generated_sql=body.generated_sql,
+        result_data=body.result_data,
+        chart_config=body.chart_config,
+        summary=body.summary,
         is_public=body.is_public,
     )
     return api_success(data=report, message="报表已保存")
@@ -189,11 +195,16 @@ async def create_report_schedule(
         raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
     sched = await create_schedule(
-        org_id=org_id, user_id=user_id,
-        name=body.name, nl_query=body.nl_query,
-        schedule_type=body.schedule_type, hour=body.hour,
-        day_of_week=body.day_of_week, day_of_month=body.day_of_month,
-        recipients=body.recipients, output_format=body.output_format,
+        org_id=org_id,
+        user_id=user_id,
+        name=body.name,
+        nl_query=body.nl_query,
+        schedule_type=body.schedule_type,
+        hour=body.hour,
+        day_of_week=body.day_of_week,
+        day_of_month=body.day_of_month,
+        recipients=body.recipients,
+        output_format=body.output_format,
     )
     return api_success(data=sched, message="定时报表已创建")
 
@@ -245,5 +256,7 @@ async def run_report_schedule(
     """Manually trigger a scheduled report execution."""
     result = await execute_scheduled_report(schedule_id)
     if not result.get("success"):
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, result.get("error", "执行失败"))
+        raise api_error(
+            ErrorCode.SYSTEM_INTERNAL_ERROR, result.get("error", "执行失败")
+        )
     return api_success(data=result, message="定时报表已执行")

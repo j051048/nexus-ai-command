@@ -22,7 +22,9 @@ class OnboardingPlanRequest(BaseModel):
     """Request body for generating an onboarding plan."""
 
     user_role: str = Field(..., description="用户角色: sales / manager / hr / finance")
-    company_info: dict | None = Field(None, description="公司信息: name, industry, size 等")
+    company_info: dict | None = Field(
+        None, description="公司信息: name, industry, size 等"
+    )
 
 
 @router.post("/plan")

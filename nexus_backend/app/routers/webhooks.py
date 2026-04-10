@@ -57,7 +57,9 @@ async def list_subscriptions(
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
         raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
-    subs = await webhook_service.list_subscriptions(org_id=org_id, db=getattr(req.state, "db", None))
+    subs = await webhook_service.list_subscriptions(
+        org_id=org_id, db=getattr(req.state, "db", None)
+    )
     return api_success(data={"subscriptions": subs})
 
 
@@ -68,7 +70,9 @@ async def delete_subscription(
     user_id: str = Depends(get_current_user_id),
 ):
     """Deactivate a webhook subscription."""
-    success = await webhook_service.deactivate_subscription(sub_id, db=getattr(req.state, "db", None))
+    success = await webhook_service.deactivate_subscription(
+        sub_id, db=getattr(req.state, "db", None)
+    )
     if not success:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Subscription not found")
     return api_success(data={"deactivated": sub_id})

@@ -77,7 +77,9 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
             updates: dict[str, Any] = {"_memory_injected": True}
 
             if memory_context:
-                logger.debug(f"[Middleware] Injected memory context ({len(memory_context)} chars)")
+                logger.debug(
+                    f"[Middleware] Injected memory context ({len(memory_context)} chars)"
+                )
                 updates["_injected_memories"] = [memory_context]
 
             # P0-6: 技能匹配 — 检索已有技能模板，注入 planning 提示
@@ -98,7 +100,9 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
                         existing.append(hint)
                         updates["_injected_memories"] = existing
                         updates["_matched_skill"] = matched
-                        logger.info(f"[Middleware] Skill matched: {matched.get('intent_pattern', '')[:40]}")
+                        logger.info(
+                            f"[Middleware] Skill matched: {matched.get('intent_pattern', '')[:40]}"
+                        )
             except Exception as e:
                 logger.debug(f"[Middleware] Skill matching skipped: {e}")
 
@@ -106,7 +110,9 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
             try:
                 from app.agent.working_directory import working_directory
 
-                active_states = await working_directory.list_active(user_id=config.user_id, limit=20)
+                active_states = await working_directory.list_active(
+                    user_id=config.user_id, limit=20
+                )
                 if active_states:
                     key_names = ", ".join(s["key"] for s in active_states[:5])
                     if len(active_states) > 5:
@@ -116,7 +122,9 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
                     existing = updates.get("_injected_memories", [])
                     existing.append(summary)
                     updates["_injected_memories"] = existing
-                    logger.debug(f"[Middleware] Working directory: {len(active_states)} active states")
+                    logger.debug(
+                        f"[Middleware] Working directory: {len(active_states)} active states"
+                    )
             except Exception as e:
                 logger.debug(f"[Middleware] Working directory injection skipped: {e}")
 
@@ -143,7 +151,9 @@ async def token_limit_middleware(state: AgentState) -> dict[str, Any]:
         return {}
 
     # 基础 token 数检查 (快速路径)
-    total_tokens = state.get("total_input_tokens", 0) + state.get("total_output_tokens", 0)
+    total_tokens = state.get("total_input_tokens", 0) + state.get(
+        "total_output_tokens", 0
+    )
     max_tokens = getattr(config, "max_total_tokens", 100000)
 
     if total_tokens > max_tokens:
@@ -176,10 +186,15 @@ async def token_limit_middleware(state: AgentState) -> dict[str, Any]:
 
         if budget_status.verdict == BudgetVerdict.WARNING:
             logger.warning(f"[Middleware] Budget warning: {budget_status.message}")
-            return {"_token_warning": True, "_budget_warning_message": budget_status.message}
+            return {
+                "_token_warning": True,
+                "_budget_warning_message": budget_status.message,
+            }
 
     except Exception as e:
-        logger.warning(f"[Middleware] Budget check failed, falling back to basic check: {e}")
+        logger.warning(
+            f"[Middleware] Budget check failed, falling back to basic check: {e}"
+        )
         # 降级到基础检查
         if total_tokens > max_tokens * 0.9:
             return {"_token_warning": True}
@@ -204,9 +219,16 @@ async def audit_log_middleware(state: AgentState) -> dict[str, Any]:
     # 记录新的工具调用
     new_tools = completed_tools[state.get("_last_audit_count", 0) :]
     for tool_call in new_tools:
-        tool_name = getattr(tool_call, "tool_name", None) or tool_call.get("tool_name", "unknown")
-        status = getattr(tool_call, "status", None) or tool_call.get("status", "unknown")
-        logger.info(f"[Audit] org={config.org_id} user={config.user_id} " f"tool={tool_name} status={status}")
+        tool_name = getattr(tool_call, "tool_name", None) or tool_call.get(
+            "tool_name", "unknown"
+        )
+        status = getattr(tool_call, "status", None) or tool_call.get(
+            "status", "unknown"
+        )
+        logger.info(
+            f"[Audit] org={config.org_id} user={config.user_id} "
+            f"tool={tool_name} status={status}"
+        )
 
     return {"_last_audit_count": len(completed_tools)}
 
@@ -265,19 +287,32 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                         tc_dicts.append(
                             {
                                 "tool_name": getattr(tc, "tool_name", "")
-                                or (tc.get("tool_name", "") if isinstance(tc, dict) else ""),
+                                or (
+                                    tc.get("tool_name", "")
+                                    if isinstance(tc, dict)
+                                    else ""
+                                ),
                                 "status": getattr(tc, "status", "")
-                                or (tc.get("status", "") if isinstance(tc, dict) else ""),
-                                "args": getattr(tc, "args", {}) or (tc.get("args", {}) if isinstance(tc, dict) else {}),
+                                or (
+                                    tc.get("status", "") if isinstance(tc, dict) else ""
+                                ),
+                                "args": getattr(tc, "args", {})
+                                or (tc.get("args", {}) if isinstance(tc, dict) else {}),
                             }
                         )
 
                     complexity = state.get("complexity")
-                    complexity_str = complexity.value if hasattr(complexity, "value") else str(complexity or "")
+                    complexity_str = (
+                        complexity.value
+                        if hasattr(complexity, "value")
+                        else str(complexity or "")
+                    )
 
                     asyncio.create_task(
                         skill_library.extract_skill(
-                            intent_summary=state.get("intent_summary", user_message[:60]),
+                            intent_summary=state.get(
+                                "intent_summary", user_message[:60]
+                            ),
                             tool_chain=tc_dicts,
                             complexity=complexity_str,
                             user_id=config.user_id,
@@ -300,10 +335,18 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                         or "unknown"
                     )
                     tc_status = (
-                        getattr(tc, "status", None) or (tc.get("status") if isinstance(tc, dict) else None) or "unknown"
+                        getattr(tc, "status", None)
+                        or (tc.get("status") if isinstance(tc, dict) else None)
+                        or "unknown"
                     )
-                    tc_args = getattr(tc, "args", None) or (tc.get("args") if isinstance(tc, dict) else None) or {}
-                    param_keys = list(tc_args.keys()) if isinstance(tc_args, dict) else []
+                    tc_args = (
+                        getattr(tc, "args", None)
+                        or (tc.get("args") if isinstance(tc, dict) else None)
+                        or {}
+                    )
+                    param_keys = (
+                        list(tc_args.keys()) if isinstance(tc_args, dict) else []
+                    )
 
                     if tc_status == "success":
                         ctx = {
@@ -327,7 +370,11 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                         )
                         ctx = {
                             "tool_name": tc_name,
-                            "error_type": type(tc_error).__name__ if not isinstance(tc_error, str) else tc_error[:120],
+                            "error_type": (
+                                type(tc_error).__name__
+                                if not isinstance(tc_error, str)
+                                else tc_error[:120]
+                            ),
                             "param_keys": param_keys,
                         }
                         asyncio.create_task(
@@ -351,7 +398,9 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                 if session_id:
                     tool_names = []
                     for tc in completed:
-                        name = getattr(tc, "tool_name", None) or (tc.get("tool_name") if isinstance(tc, dict) else None)
+                        name = getattr(tc, "tool_name", None) or (
+                            tc.get("tool_name") if isinstance(tc, dict) else None
+                        )
                         if name:
                             tool_names.append(name)
 

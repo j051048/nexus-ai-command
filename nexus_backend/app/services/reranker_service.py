@@ -103,23 +103,33 @@ class RerankerService:
             elif backend == "llm":
                 result_docs = await self._rerank_llm(query, documents, top_k)
             else:
-                logger.warning(f"[RerankerService] Unknown backend '{backend}', falling back to llm")
+                logger.warning(
+                    f"[RerankerService] Unknown backend '{backend}', falling back to llm"
+                )
                 result_docs = await self._rerank_llm(query, documents, top_k)
                 backend = "llm"
         except Exception as e:
             error_msg = str(e) or repr(e) or type(e).__name__
-            logger.warning(f"[RerankerService] {backend} failed: {error_msg}, falling back to llm")
+            logger.warning(
+                f"[RerankerService] {backend} failed: {error_msg}, falling back to llm"
+            )
             try:
                 result_docs = await self._rerank_llm(query, documents, top_k)
                 backend = f"llm(fallback from {backend})"
             except Exception as e2:
-                logger.warning(f"[RerankerService] LLM fallback also failed: {e2}, returning original order")
+                logger.warning(
+                    f"[RerankerService] LLM fallback also failed: {e2}, returning original order"
+                )
                 result_docs = documents[:top_k]
                 backend = "none(all failed)"
 
         elapsed_ms = (time.time() - start) * 1000
-        logger.info(f"[RerankerService] Reranked {len(documents)} docs via {backend} in {elapsed_ms:.0f}ms")
-        return RerankResult(documents=result_docs, backend_used=backend, latency_ms=elapsed_ms)
+        logger.info(
+            f"[RerankerService] Reranked {len(documents)} docs via {backend} in {elapsed_ms:.0f}ms"
+        )
+        return RerankResult(
+            documents=result_docs, backend_used=backend, latency_ms=elapsed_ms
+        )
 
     # G5 Optimization: Use a shared persistent client for all rerank requests
     _client: "httpx.AsyncClient" = None
@@ -127,13 +137,16 @@ class RerankerService:
     async def _get_client(self, timeout: float = 10.0) -> "httpx.AsyncClient":
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                timeout=timeout, limits=httpx.Limits(max_connections=50, max_keepalive_connections=20)
+                timeout=timeout,
+                limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
             )
         return self._client
 
     # ── Cohere Backend ─────────────────────────────────────────────────────
 
-    async def _rerank_cohere(self, query: str, documents: list[dict], top_k: int) -> list[dict]:
+    async def _rerank_cohere(
+        self, query: str, documents: list[dict], top_k: int
+    ) -> list[dict]:
         """Rerank via Cohere Rerank API."""
         api_key = getattr(settings, "COHERE_API_KEY", "").strip()
         if not api_key:
@@ -169,7 +182,9 @@ class RerankerService:
 
     # ── BGE Backend (via OpenAI-compatible API proxy) ──────────────────────
 
-    async def _rerank_bge(self, query: str, documents: list[dict], top_k: int) -> list[dict]:
+    async def _rerank_bge(
+        self, query: str, documents: list[dict], top_k: int
+    ) -> list[dict]:
         """Rerank via BGE-Reranker model through API proxy (Cohere-compatible format)."""
         max_docs = getattr(settings, "RERANK_MAX_DOCS", 15)
         timeout = getattr(settings, "RERANK_TIMEOUT", 30)
@@ -178,7 +193,11 @@ class RerankerService:
         # Build rerank API URL from base URL
         base_url = (settings.AI_BASE_URL or "https://api.apiyi.com/v1").rstrip("/")
         # Fix: ensure we have /v1/rerank or /rerank correctly
-        url = f"{base_url.split('/v1')[0]}/v1/rerank" if "/v1" in base_url else f"{base_url}/rerank"
+        url = (
+            f"{base_url.split('/v1')[0]}/v1/rerank"
+            if "/v1" in base_url
+            else f"{base_url}/rerank"
+        )
 
         doc_texts = [doc.get("content", "")[:1000] for doc in documents[:max_docs]]
 
@@ -197,7 +216,9 @@ class RerankerService:
         resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code != 200:
             error_text = resp.text[:200]
-            raise RuntimeError(f"BGE rerank failed: status={resp.status_code}, body={error_text}")
+            raise RuntimeError(
+                f"BGE rerank failed: status={resp.status_code}, body={error_text}"
+            )
         data = resp.json()
 
         results = data.get("results", [])
@@ -205,7 +226,9 @@ class RerankerService:
 
     # ── LLM Backend (fallback) ─────────────────────────────────────────────
 
-    async def _rerank_llm(self, query: str, documents: list[dict], top_k: int) -> list[dict]:
+    async def _rerank_llm(
+        self, query: str, documents: list[dict], top_k: int
+    ) -> list[dict]:
         """Rerank using LLM to sort documents by relevance (existing VectorService approach)."""
         from openai import AsyncOpenAI
 
@@ -268,7 +291,9 @@ class RerankerService:
     # ── Shared Helper ──────────────────────────────────────────────────────
 
     @staticmethod
-    def _apply_rerank_indices(documents: list[dict], results: list[dict], top_k: int) -> list[dict]:
+    def _apply_rerank_indices(
+        documents: list[dict], results: list[dict], top_k: int
+    ) -> list[dict]:
         """Apply Cohere-format rerank results to original document list."""
         reranked = []
         seen: set[int] = set()

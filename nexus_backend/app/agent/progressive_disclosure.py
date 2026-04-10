@@ -43,7 +43,9 @@ class ProgressiveDisclosure:
     def __init__(self):
         self._category_cache: dict[str, list[dict]] = {}
 
-    async def get_tier0_overview(self, org_id: str, categories: list[str] | None = None) -> str:
+    async def get_tier0_overview(
+        self, org_id: str, categories: list[str] | None = None
+    ) -> str:
         """Tier 0: 分类概览 — 最小 token 开销。
 
         返回格式：
@@ -62,7 +64,12 @@ class ProgressiveDisclosure:
 
             if not result.data:
                 # Fallback: 直接查询 conversation_memories 表
-                result = await supabase.table("conversation_memories").select("category").eq("org_id", org_id).execute()
+                result = (
+                    await supabase.table("conversation_memories")
+                    .select("category")
+                    .eq("org_id", org_id)
+                    .execute()
+                )
                 if not result.data:
                     return ""
 
@@ -88,14 +95,18 @@ class ProgressiveDisclosure:
             lines.append("如需查看某分类详情，请告诉我分类名。")
 
             overview = "\n".join(lines)
-            logger.info(f"[Disclosure] Tier0 for org {org_id}: {len(counts)} categories")
+            logger.info(
+                f"[Disclosure] Tier0 for org {org_id}: {len(counts)} categories"
+            )
             return overview
 
         except Exception as e:
             logger.debug(f"[Disclosure] Tier0 failed: {e}")
             return ""
 
-    async def get_tier1_summaries(self, org_id: str, category: str, limit: int = 20) -> str:
+    async def get_tier1_summaries(
+        self, org_id: str, category: str, limit: int = 20
+    ) -> str:
         """Tier 1: 摘要列表 — 标题 + 一句话描述。
 
         返回格式：

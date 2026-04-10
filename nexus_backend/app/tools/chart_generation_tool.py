@@ -70,7 +70,9 @@ async def generate_chart(
         return {"success": False, "error": str(e)}
 
 
-def _build_echarts_option(chart_type: ChartType, data: dict, title: str, x_label: str, y_label: str) -> dict:
+def _build_echarts_option(
+    chart_type: ChartType, data: dict, title: str, x_label: str, y_label: str
+) -> dict:
     """构建 ECharts 配置"""
     base_option = {
         "title": {"text": title, "left": "center"},
@@ -101,7 +103,10 @@ def _build_line_chart(data: dict, x_label: str, y_label: str) -> dict:
         return {
             "xAxis": {"type": "category", "data": data.get("x", []), "name": x_label},
             "yAxis": {"type": "value", "name": y_label},
-            "series": [{"type": "line", "name": s["name"], "data": s["data"]} for s in data["series"]],
+            "series": [
+                {"type": "line", "name": s["name"], "data": s["data"]}
+                for s in data["series"]
+            ],
         }
     else:
         # 单系列数据
@@ -118,7 +123,10 @@ def _build_bar_chart(data: dict, x_label: str, y_label: str) -> dict:
         return {
             "xAxis": {"type": "category", "data": data.get("x", []), "name": x_label},
             "yAxis": {"type": "value", "name": y_label},
-            "series": [{"type": "bar", "name": s["name"], "data": s["data"]} for s in data["series"]],
+            "series": [
+                {"type": "bar", "name": s["name"], "data": s["data"]}
+                for s in data["series"]
+            ],
         }
     else:
         return {
@@ -137,7 +145,9 @@ def _build_pie_chart(data: dict) -> dict:
             {
                 "type": "pie",
                 "radius": "50%",
-                "data": [{"name": labels[i], "value": values[i]} for i in range(len(labels))],
+                "data": [
+                    {"name": labels[i], "value": values[i]} for i in range(len(labels))
+                ],
             }
         ]
     }
@@ -151,7 +161,9 @@ def _build_funnel_chart(data: dict) -> dict:
         "series": [
             {
                 "type": "funnel",
-                "data": [{"name": stages[i], "value": values[i]} for i in range(len(stages))],
+                "data": [
+                    {"name": stages[i], "value": values[i]} for i in range(len(stages))
+                ],
             }
         ]
     }

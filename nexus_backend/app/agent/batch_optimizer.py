@@ -37,7 +37,11 @@ class BatchOptimizer:
 
         # 提取所有 ID
         ids = [
-            call["args"].get("id") if call["args"].get("id") is not None else call["args"].get("customer_id")
+            (
+                call["args"].get("id")
+                if call["args"].get("id") is not None
+                else call["args"].get("customer_id")
+            )
             for call in tool_calls
         ]
 

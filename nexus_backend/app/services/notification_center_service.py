@@ -99,7 +99,11 @@ class NotificationCenterService:
         if type_filter and type_filter in VALID_NOTIFICATION_TYPES:
             query = query.eq("type", type_filter)
 
-        result = await query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        result = (
+            await query.order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
 
         return result.data or []
 
@@ -236,16 +240,29 @@ class NotificationCenterService:
 
         # Check if preferences exist
         existing = (
-            await client.table("notification_preferences").select("id").eq("user_id", user_id).maybe_single().execute()
+            await client.table("notification_preferences")
+            .select("id")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
         )
 
         if existing and existing.data:
             # Update existing
-            result = await client.table("notification_preferences").update(sanitized).eq("user_id", user_id).execute()
+            result = (
+                await client.table("notification_preferences")
+                .update(sanitized)
+                .eq("user_id", user_id)
+                .execute()
+            )
         else:
             # Insert new preferences with defaults merged
             insert_data = {**DEFAULT_PREFERENCES, **sanitized}
-            result = await client.table("notification_preferences").insert(insert_data).execute()
+            result = (
+                await client.table("notification_preferences")
+                .insert(insert_data)
+                .execute()
+            )
 
         if not result.data:
             raise RuntimeError("更新通知偏好失败")

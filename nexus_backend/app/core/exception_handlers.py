@@ -21,9 +21,13 @@ from app.core.responses import UTF8JSONResponse
 logger = logging.getLogger(__name__)
 
 
-async def generic_exception_handler(request: Request, exc: Exception) -> UTF8JSONResponse:
+async def generic_exception_handler(
+    request: Request, exc: Exception
+) -> UTF8JSONResponse:
     """Catch unhandled exceptions - return 500 with safe message, log full traceback."""
-    trace_id = request.headers.get("X-Trace-ID") or request.headers.get("X-Request-ID", "")
+    trace_id = request.headers.get("X-Trace-ID") or request.headers.get(
+        "X-Request-ID", ""
+    )
 
     # Log full traceback for debugging
     logger.error(
@@ -56,9 +60,13 @@ async def generic_exception_handler(request: Request, exc: Exception) -> UTF8JSO
     )
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> UTF8JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> UTF8JSONResponse:
     """Pydantic validation errors - return 422 with field-level details."""
-    trace_id = request.headers.get("X-Trace-ID") or request.headers.get("X-Request-ID", "")
+    trace_id = request.headers.get("X-Trace-ID") or request.headers.get(
+        "X-Request-ID", ""
+    )
 
     # Build field-level error details
     field_errors = []
@@ -95,9 +103,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-async def http_exception_handler(request: Request, exc: HTTPException) -> UTF8JSONResponse:
+async def http_exception_handler(
+    request: Request, exc: HTTPException
+) -> UTF8JSONResponse:
     """Standardize HTTP exceptions into our api_error format."""
-    trace_id = request.headers.get("X-Trace-ID") or request.headers.get("X-Request-ID", "")
+    trace_id = request.headers.get("X-Trace-ID") or request.headers.get(
+        "X-Request-ID", ""
+    )
 
     error_content = exc.detail
 

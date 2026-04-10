@@ -56,9 +56,13 @@ class EpisodicMemoryService:
             if embedding:
                 record["embedding"] = embedding
 
-            result = await client.table("conversation_episodes").insert(record).execute()
+            result = (
+                await client.table("conversation_episodes").insert(record).execute()
+            )
             if result.data:
-                logger.info(f"[Episode] Saved episode for user {user_id}: {user_intent[:50]}")
+                logger.info(
+                    f"[Episode] Saved episode for user {user_id}: {user_intent[:50]}"
+                )
                 return result.data[0] if isinstance(result.data, list) else result.data
         except Exception as e:
             # Episode save failure should never block the main flow
@@ -127,5 +131,7 @@ class EpisodicMemoryService:
                 f"使用工具: {tools} | "
                 f"结果置信度: {ep.get('confidence_score', 0):.0%}"
             )
-        parts.append("[经验回忆结束]\n注意: 请根据时间戳判断这些记忆的时效性，不要将过去的事件误认为是最近发生的。")
+        parts.append(
+            "[经验回忆结束]\n注意: 请根据时间戳判断这些记忆的时效性，不要将过去的事件误认为是最近发生的。"
+        )
         return "\n".join(parts)

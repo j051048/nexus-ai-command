@@ -10,7 +10,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tuple[str, dict | None]:
+async def parse_file_content(
+    content: bytes, filename: str, call_ai_raw
+) -> tuple[str, dict | None]:
     """
     Parse file content based on filename extension.
 
@@ -62,7 +64,9 @@ async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tupl
                         },
                         {
                             "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            },
                         },
                     ],
                 }
@@ -72,7 +76,11 @@ async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tupl
         try:
             text = await call_ai_raw(payload, endpoint="/chat/completions")
         except Exception as e:
-            return "", {"filename": filename, "status": "skipped", "reason": f"OCR Failed: {str(e)}"}
+            return "", {
+                "filename": filename,
+                "status": "skipped",
+                "reason": f"OCR Failed: {str(e)}",
+            }
 
     elif fn_lower.endswith(".docx"):
 
@@ -101,9 +109,13 @@ async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tupl
                 raise ImportError("openpyxl 未安装，请运行: pip install openpyxl")
 
             if filename.lower().endswith(".xls"):
-                raise ValueError("不支持旧版 .xls 格式（Excel 97-2003）。请将文件另存为 .xlsx 格式后重新上传。")
+                raise ValueError(
+                    "不支持旧版 .xls 格式（Excel 97-2003）。请将文件另存为 .xlsx 格式后重新上传。"
+                )
 
-            wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+            wb = openpyxl.load_workbook(
+                io.BytesIO(content), read_only=True, data_only=True
+            )
             parts = []
 
             for sheet_name in wb.sheetnames:
@@ -117,7 +129,9 @@ async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tupl
                     continue
 
                 for row_idx, row in enumerate(rows):
-                    cell_values = [str(cell) if cell is not None else "" for cell in row]
+                    cell_values = [
+                        str(cell) if cell is not None else "" for cell in row
+                    ]
                     row_text = "| " + " | ".join(cell_values) + " |"
                     sheet_lines.append(row_text)
                     if row_idx == 0:
@@ -150,7 +164,9 @@ async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tupl
                 raise ImportError("python-pptx 未安装，请运行: pip install python-pptx")
 
             if filename.lower().endswith(".ppt"):
-                raise ValueError("不支持旧版 .ppt 格式（PowerPoint 97-2003）。请将文件另存为 .pptx 格式后重新上传。")
+                raise ValueError(
+                    "不支持旧版 .ppt 格式（PowerPoint 97-2003）。请将文件另存为 .pptx 格式后重新上传。"
+                )
 
             prs = Presentation(io.BytesIO(content))
             parts = []
@@ -159,7 +175,9 @@ async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tupl
                 slide_lines = [f"## 幻灯片 {slide_num}"]
 
                 if slide.shapes.title and slide.shapes.title.has_text_frame:
-                    slide_lines.append(f"**标题:** {slide.shapes.title.text_frame.text}")
+                    slide_lines.append(
+                        f"**标题:** {slide.shapes.title.text_frame.text}"
+                    )
 
                 body_texts = []
                 for shape in slide.shapes:
@@ -184,12 +202,19 @@ async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tupl
             return "", {"filename": filename, "status": "error", "reason": str(e)}
         except Exception as e:
             error_str = str(e)
-            if "File is not a zip file" in error_str or "Package not found" in error_str:
+            if (
+                "File is not a zip file" in error_str
+                or "Package not found" in error_str
+            ):
                 reason = "文件格式错误。请确认这是标准的 .pptx 文件（OpenXML）。"
             else:
                 reason = f"PPT 解析失败: {error_str}"
             return "", {"filename": filename, "status": "error", "reason": reason}
     else:
-        return "", {"filename": filename, "status": "skipped", "reason": "Unsupported format"}
+        return "", {
+            "filename": filename,
+            "status": "skipped",
+            "reason": "Unsupported format",
+        }
 
     return text, None

@@ -27,7 +27,9 @@ from app.services.llm_adapters.base import (
 
 logger = logging.getLogger(__name__)
 
-DASHSCOPE_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
+DASHSCOPE_CHAT_URL = (
+    "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
+)
 DASHSCOPE_EMBEDDING_URL = "https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding"
 
 
@@ -45,7 +47,11 @@ class TongyiAdapter(BaseModelAdapter):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         # Allow overriding base URL for private deployments
-        self.chat_url = config.api_base_url.rstrip("/") if config.api_base_url else DASHSCOPE_CHAT_URL
+        self.chat_url = (
+            config.api_base_url.rstrip("/")
+            if config.api_base_url
+            else DASHSCOPE_CHAT_URL
+        )
         self.embedding_url = DASHSCOPE_EMBEDDING_URL
 
     def _build_headers(self, streaming: bool = False) -> dict:
@@ -79,10 +85,16 @@ class TongyiAdapter(BaseModelAdapter):
 
         # Parameters
         params = payload["parameters"]
-        temperature = request.temperature if request.temperature is not None else self.config.default_temperature
+        temperature = (
+            request.temperature
+            if request.temperature is not None
+            else self.config.default_temperature
+        )
         params["temperature"] = max(0.0, min(2.0, temperature))
 
-        top_p = request.top_p if request.top_p is not None else self.config.default_top_p
+        top_p = (
+            request.top_p if request.top_p is not None else self.config.default_top_p
+        )
         params["top_p"] = max(0.0, min(1.0, top_p))
 
         max_tokens = request.max_tokens or self.config.max_tokens
@@ -101,7 +113,12 @@ class TongyiAdapter(BaseModelAdapter):
     def _parse_usage(self, usage_data: dict | None) -> dict:
         """Parse DashScope usage info."""
         if not usage_data:
-            return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "call_cost": 0.0}
+            return {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "call_cost": 0.0,
+            }
 
         input_tokens = usage_data.get("input_tokens", 0)
         output_tokens = usage_data.get("output_tokens", 0)
@@ -145,11 +162,15 @@ class TongyiAdapter(BaseModelAdapter):
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(self.chat_url, headers=headers, json=payload)
+                response = await client.post(
+                    self.chat_url, headers=headers, json=payload
+                )
 
                 if response.status_code != 200:
                     error_text = response.text[:500]
-                    logger.error(f"DashScope API error ({response.status_code}): {error_text}")
+                    logger.error(
+                        f"DashScope API error ({response.status_code}): {error_text}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return ChatResponse(
                         request_id=request_id,
@@ -243,7 +264,9 @@ class TongyiAdapter(BaseModelAdapter):
         try:
             async with (
                 httpx.AsyncClient(timeout=timeout) as client,
-                client.stream("POST", self.chat_url, headers=headers, json=payload) as response,
+                client.stream(
+                    "POST", self.chat_url, headers=headers, json=payload
+                ) as response,
             ):
                 if response.status_code != 200:
                     error_text = ""
@@ -359,10 +382,14 @@ class TongyiAdapter(BaseModelAdapter):
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(self.embedding_url, headers=headers, json=payload)
+                response = await client.post(
+                    self.embedding_url, headers=headers, json=payload
+                )
 
                 if response.status_code != 200:
-                    logger.error(f"DashScope embedding error ({response.status_code}): {response.text[:300]}")
+                    logger.error(
+                        f"DashScope embedding error ({response.status_code}): {response.text[:300]}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return EmbeddingResponse(
                         request_id=request_id,
@@ -373,7 +400,9 @@ class TongyiAdapter(BaseModelAdapter):
                 data = response.json()
 
                 if data.get("code"):
-                    logger.error(f"DashScope embedding API error: {data.get('message')}")
+                    logger.error(
+                        f"DashScope embedding API error: {data.get('message')}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return EmbeddingResponse(
                         request_id=request_id,
@@ -426,7 +455,11 @@ class TongyiAdapter(BaseModelAdapter):
             latency_ms = int((time.monotonic() - start_time) * 1000)
 
             if result.finish_reason == "error":
-                return {"success": False, "latency_ms": latency_ms, "error": result.content}
+                return {
+                    "success": False,
+                    "latency_ms": latency_ms,
+                    "error": result.content,
+                }
 
             return {"success": True, "latency_ms": latency_ms, "error": None}
 

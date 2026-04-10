@@ -32,7 +32,11 @@ class CreateWorkOrderTool(BaseTool):
     description = "创建新工单，支持报修、投诉、申请、咨询等类型"
     examples = [
         {
-            "input": {"title": "办公室空调故障", "order_type": "repair", "priority": "high"},
+            "input": {
+                "title": "办公室空调故障",
+                "order_type": "repair",
+                "priority": "high",
+            },
             "output_summary": "创建一个高优先级的设备报修工单",
         },
         {
@@ -82,7 +86,9 @@ class CreateWorkOrderTool(BaseTool):
         "required": ["title", "order_type"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -94,10 +100,14 @@ class CreateWorkOrderTool(BaseTool):
         if not title or not order_type:
             return "❌ 工单标题和类型不能为空"
 
-        if args.get("assignee_id") and (err := _validate_uuid(args["assignee_id"], "assignee_id")):
+        if args.get("assignee_id") and (
+            err := _validate_uuid(args["assignee_id"], "assignee_id")
+        ):
             return f"❌ {err}"
 
-        if args.get("department_id") and (err := _validate_uuid(args["department_id"], "department_id")):
+        if args.get("department_id") and (
+            err := _validate_uuid(args["department_id"], "department_id")
+        ):
             return f"❌ {err}"
 
         data = {
@@ -124,8 +134,15 @@ class CreateWorkOrderTool(BaseTool):
                 "consultation": "咨询",
             }
             otype = type_labels.get(order_type, order_type)
-            priority_labels = {"low": "低", "medium": "中", "high": "高", "urgent": "紧急"}
-            prio = priority_labels.get(order.get("priority", ""), order.get("priority", ""))
+            priority_labels = {
+                "low": "低",
+                "medium": "中",
+                "high": "高",
+                "urgent": "紧急",
+            }
+            prio = priority_labels.get(
+                order.get("priority", ""), order.get("priority", "")
+            )
 
             return (
                 f"✅ 工单创建成功！\n\n"
@@ -150,10 +167,20 @@ class ListWorkOrdersTool(BaseTool):
     description = "查询工单列表，支持按类型、状态、优先级和处理人筛选"
     examples = [
         {"input": {}, "output_summary": "返回全部工单列表"},
-        {"input": {"status": "open", "priority": "urgent"}, "output_summary": "返回待处理的紧急工单"},
-        {"input": {"order_type": "repair", "assignee_id": "uuid-xxxx"}, "output_summary": "返回指定处理人的报修工单"},
+        {
+            "input": {"status": "open", "priority": "urgent"},
+            "output_summary": "返回待处理的紧急工单",
+        },
+        {
+            "input": {"order_type": "repair", "assignee_id": "uuid-xxxx"},
+            "output_summary": "返回指定处理人的报修工单",
+        },
     ]
-    related_tools = ["create_work_order", "get_work_order_detail", "work_order_statistics"]
+    related_tools = [
+        "create_work_order",
+        "get_work_order_detail",
+        "work_order_statistics",
+    ]
     gotchas = "状态可选值：open/processing/resolved/closed/cancelled。优先级可选值：low/medium/high/urgent。不传筛选条件则返回全部工单。"
 
     parameters = {
@@ -186,7 +213,9 @@ class ListWorkOrdersTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -223,12 +252,21 @@ class ListWorkOrdersTool(BaseTool):
                 "closed": "已关闭",
                 "cancelled": "已取消",
             }
-            priority_labels = {"low": "低", "medium": "中", "high": "高", "urgent": "🔴紧急"}
+            priority_labels = {
+                "low": "低",
+                "medium": "中",
+                "high": "高",
+                "urgent": "🔴紧急",
+            }
 
             lines = [f"📋 共找到 {len(orders)} 个工单:\n"]
             for order in orders:
-                status = status_labels.get(order.get("status", ""), order.get("status", ""))
-                prio = priority_labels.get(order.get("priority", ""), order.get("priority", ""))
+                status = status_labels.get(
+                    order.get("status", ""), order.get("status", "")
+                )
+                prio = priority_labels.get(
+                    order.get("priority", ""), order.get("priority", "")
+                )
                 assignee = order.get("assignee", {})
                 assignee_name = assignee.get("name", "未分配") if assignee else "未分配"
 
@@ -252,7 +290,10 @@ class GetWorkOrderDetailTool(BaseTool):
     domain = "project"
     description = "查询指定工单的详细信息，包括描述、处理人和流转记录"
     examples = [
-        {"input": {"order_id": "uuid-xxxx"}, "output_summary": "返回工单完整信息及最近5条流转记录"},
+        {
+            "input": {"order_id": "uuid-xxxx"},
+            "output_summary": "返回工单完整信息及最近5条流转记录",
+        },
     ]
     related_tools = ["list_work_orders", "update_work_order"]
     gotchas = "order_id必须是有效的UUID格式。返回的流转记录默认最多显示最近5条。"
@@ -268,7 +309,9 @@ class GetWorkOrderDetailTool(BaseTool):
         "required": ["order_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         order_id = args.get("order_id")
 
@@ -291,9 +334,16 @@ class GetWorkOrderDetailTool(BaseTool):
                 "closed": "已关闭",
                 "cancelled": "已取消",
             }
-            priority_labels = {"low": "低", "medium": "中", "high": "高", "urgent": "紧急"}
+            priority_labels = {
+                "low": "低",
+                "medium": "中",
+                "high": "高",
+                "urgent": "紧急",
+            }
             status = status_labels.get(order.get("status", ""), order.get("status", ""))
-            prio = priority_labels.get(order.get("priority", ""), order.get("priority", ""))
+            prio = priority_labels.get(
+                order.get("priority", ""), order.get("priority", "")
+            )
             assignee = order.get("assignee", {})
             assignee_name = assignee.get("name", "未分配") if assignee else "未分配"
 
@@ -336,12 +386,23 @@ class UpdateWorkOrderTool(BaseTool):
     description = "更新工单状态、指派处理人或添加备注"
     examples = [
         {
-            "input": {"order_id": "uuid-xxxx", "status": "processing", "comment": "已开始处理"},
+            "input": {
+                "order_id": "uuid-xxxx",
+                "status": "processing",
+                "comment": "已开始处理",
+            },
             "output_summary": "将工单状态更新为处理中并添加备注",
         },
-        {"input": {"order_id": "uuid-xxxx", "assignee_id": "uuid-yyyy"}, "output_summary": "将工单指派给指定处理人"},
         {
-            "input": {"order_id": "uuid-xxxx", "status": "resolved", "comment": "问题已修复"},
+            "input": {"order_id": "uuid-xxxx", "assignee_id": "uuid-yyyy"},
+            "output_summary": "将工单指派给指定处理人",
+        },
+        {
+            "input": {
+                "order_id": "uuid-xxxx",
+                "status": "resolved",
+                "comment": "问题已修复",
+            },
             "output_summary": "将工单标记为已解决",
         },
     ]
@@ -373,7 +434,9 @@ class UpdateWorkOrderTool(BaseTool):
         "required": ["order_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         order_id = args.get("order_id")
 
@@ -431,7 +494,11 @@ class WorkOrderStatisticsTool(BaseTool):
     examples = [
         {"input": {}, "output_summary": "返回全部工单的统计概况"},
         {
-            "input": {"order_type": "repair", "start_date": "2026-03-01", "end_date": "2026-03-31"},
+            "input": {
+                "order_type": "repair",
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-31",
+            },
             "output_summary": "返回本月报修类工单的统计数据",
         },
     ]
@@ -457,7 +524,9 @@ class WorkOrderStatisticsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:

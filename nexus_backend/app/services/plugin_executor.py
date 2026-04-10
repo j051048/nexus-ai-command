@@ -93,7 +93,10 @@ class WebhookNotificationExecutor(BasePluginExecutor):
 
         # P0-3: SSRF protection
         if not _validate_url(webhook_url):
-            return {"success": False, "error": f"URL not in allowlist: {urlparse(webhook_url).hostname}"}
+            return {
+                "success": False,
+                "error": f"URL not in allowlist: {urlparse(webhook_url).hostname}",
+            }
 
         if action == "send_message":
             return await self._send_webhook_message(webhook_url, params)
@@ -115,7 +118,10 @@ class WebhookNotificationExecutor(BasePluginExecutor):
                     url,
                     json={"msgtype": "text", "text": {"content": content}},
                 )
-                return {"success": resp.status_code == 200, "status_code": resp.status_code}
+                return {
+                    "success": resp.status_code == 200,
+                    "status_code": resp.status_code,
+                }
         except Exception as e:
             return {"success": False, "error": str(e)[:200]}
 
@@ -128,9 +134,15 @@ class WebhookNotificationExecutor(BasePluginExecutor):
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(
                     url,
-                    json={"msgtype": "markdown", "markdown": {"title": title, "text": content}},
+                    json={
+                        "msgtype": "markdown",
+                        "markdown": {"title": title, "text": content},
+                    },
                 )
-                return {"success": resp.status_code == 200, "status_code": resp.status_code}
+                return {
+                    "success": resp.status_code == 200,
+                    "status_code": resp.status_code,
+                }
         except Exception as e:
             return {"success": False, "error": str(e)[:200]}
 
@@ -147,7 +159,10 @@ class ERPConnectorExecutor(BasePluginExecutor):
 
         # P0-3: SSRF protection
         if not _validate_url(api_url):
-            return {"success": False, "error": f"URL not in allowlist: {urlparse(api_url).hostname}"}
+            return {
+                "success": False,
+                "error": f"URL not in allowlist: {urlparse(api_url).hostname}",
+            }
 
         if action == "query":
             return await self._query_erp(api_url, api_key, params)
@@ -170,8 +185,16 @@ class ERPConnectorExecutor(BasePluginExecutor):
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(f"{api_url.rstrip('/')}{endpoint}", params=query_params, headers=headers)
-                return {"success": resp.status_code == 200, "data": resp.json(), "status_code": resp.status_code}
+                resp = await client.get(
+                    f"{api_url.rstrip('/')}{endpoint}",
+                    params=query_params,
+                    headers=headers,
+                )
+                return {
+                    "success": resp.status_code == 200,
+                    "data": resp.json(),
+                    "status_code": resp.status_code,
+                }
         except Exception as e:
             return {"success": False, "error": str(e)[:200]}
 
@@ -184,8 +207,14 @@ class ERPConnectorExecutor(BasePluginExecutor):
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(f"{api_url.rstrip('/')}{endpoint}", json=data, headers=headers)
-                return {"success": resp.status_code in (200, 201), "data": resp.json(), "status_code": resp.status_code}
+                resp = await client.post(
+                    f"{api_url.rstrip('/')}{endpoint}", json=data, headers=headers
+                )
+                return {
+                    "success": resp.status_code in (200, 201),
+                    "data": resp.json(),
+                    "status_code": resp.status_code,
+                }
         except Exception as e:
             return {"success": False, "error": str(e)[:200]}
 
@@ -195,8 +224,13 @@ class ERPConnectorExecutor(BasePluginExecutor):
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{api_url.rstrip('/')}/health", headers=headers)
-                return {"success": resp.status_code == 200, "status_code": resp.status_code}
+                resp = await client.get(
+                    f"{api_url.rstrip('/')}/health", headers=headers
+                )
+                return {
+                    "success": resp.status_code == 200,
+                    "status_code": resp.status_code,
+                }
         except Exception as e:
             return {"success": False, "error": str(e)[:200]}
 
@@ -329,7 +363,10 @@ async def execute_plugin(
                 .execute()
             )
             if not result.data:
-                return {"success": False, "error": f"Plugin {plugin_id} is not installed"}
+                return {
+                    "success": False,
+                    "error": f"Plugin {plugin_id} is not installed",
+                }
             if not result.data.get("is_active"):
                 return {"success": False, "error": f"Plugin {plugin_id} is disabled"}
             config = result.data.get("config", {})
@@ -345,7 +382,10 @@ async def execute_plugin(
         return _truncate_output(result)
     except TimeoutError:
         logger.error(f"Plugin execution timed out ({plugin_id}/{action})")
-        return {"success": False, "error": f"Plugin execution timed out after {PLUGIN_TIMEOUT_SECONDS}s"}
+        return {
+            "success": False,
+            "error": f"Plugin execution timed out after {PLUGIN_TIMEOUT_SECONDS}s",
+        }
     except Exception as e:
         logger.error(f"Plugin execution failed ({plugin_id}/{action}): {e}")
         return {"success": False, "error": str(e)[:200]}

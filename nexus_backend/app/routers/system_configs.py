@@ -78,7 +78,9 @@ async def delete_config(
 ):
     """删除配置（软删除）"""
     if not config_type or not config_key:
-        raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "config_type 和 config_key 不能为空")
+        raise api_error(
+            ErrorCode.VALIDATION_MISSING_FIELD, "config_type 和 config_key 不能为空"
+        )
     try:
         org_id = getattr(req.state, "org_id", None)
         if not org_id:

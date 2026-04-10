@@ -328,13 +328,19 @@ async def _call_agent(user_id: str, message: str, session_id: str) -> str:
             if not reply:
                 # 从消息中提取最后一个 AI 回复
                 for msg in reversed(final_state.get("messages", [])):
-                    if hasattr(msg, "content") and hasattr(msg, "type") and msg.type == "ai":
+                    if (
+                        hasattr(msg, "content")
+                        and hasattr(msg, "type")
+                        and msg.type == "ai"
+                    ):
                         reply = msg.content
                         break
 
             # 缓存结果
             try:
-                redis_client.setex(cache_key, 1800, json.dumps({"reply": reply}, ensure_ascii=False))
+                redis_client.setex(
+                    cache_key, 1800, json.dumps({"reply": reply}, ensure_ascii=False)
+                )
             except Exception as e:
                 logger.warning(f"Failed to cache agent result: {e}")
 

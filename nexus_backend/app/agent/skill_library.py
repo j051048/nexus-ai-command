@@ -127,11 +127,15 @@ class SkillLibrary:
 
         # ── 1. 尝试语义向量匹配 ──
         try:
-            semantic_result = await self._match_skill_semantic(user_message, user_id, org_id, db)
+            semantic_result = await self._match_skill_semantic(
+                user_message, user_id, org_id, db
+            )
             if semantic_result:
                 return semantic_result
         except Exception as e:
-            logger.debug(f"[SkillLibrary] Semantic match unavailable, falling back to keyword: {e}")
+            logger.debug(
+                f"[SkillLibrary] Semantic match unavailable, falling back to keyword: {e}"
+            )
 
         # ── 2. 回退：关键词重叠度匹配 ──
         return await self._match_skill_keyword(user_message, user_id, db)
@@ -306,7 +310,9 @@ class SkillLibrary:
                 .execute()
             )
 
-            logger.debug(f"[SkillLibrary] Reinforced: {skill_key} (count={success_count})")
+            logger.debug(
+                f"[SkillLibrary] Reinforced: {skill_key} (count={success_count})"
+            )
 
         except Exception as e:
             logger.warning(f"[SkillLibrary] Reinforce failed: {e}")
@@ -382,7 +388,9 @@ class SkillLibrary:
             if embedding is not None:
                 update_data["embedding"] = embedding
 
-            await db.table("conversation_memories").update(update_data).eq("id", existing.data[0]["id"]).execute()
+            await db.table("conversation_memories").update(update_data).eq(
+                "id", existing.data[0]["id"]
+            ).execute()
         else:
             # 新技能 → 插入（先检查是否超限）
             count_result = (
@@ -405,7 +413,9 @@ class SkillLibrary:
                     .execute()
                 )
                 if oldest.data:
-                    await db.table("conversation_memories").delete().eq("id", oldest.data[0]["id"]).execute()
+                    await db.table("conversation_memories").delete().eq(
+                        "id", oldest.data[0]["id"]
+                    ).execute()
 
             insert_data = {
                 "user_id": user_id,

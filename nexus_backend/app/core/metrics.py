@@ -88,13 +88,17 @@ _MAX_HISTOGRAM_SAMPLES = 5000
 # ---------------------------------------------------------------------------
 
 
-def observe_http_request(method: str, path: str, status: int, duration_s: float) -> None:
+def observe_http_request(
+    method: str, path: str, status: int, duration_s: float
+) -> None:
     """Record an HTTP request metric."""
     # Normalize path: collapse IDs to reduce cardinality
     normalized = _normalize_path(path)
 
     if _prom_available:
-        HTTP_REQUESTS_TOTAL.labels(method=method, path=normalized, status=str(status)).inc()
+        HTTP_REQUESTS_TOTAL.labels(
+            method=method, path=normalized, status=str(status)
+        ).inc()
         HTTP_REQUEST_DURATION.labels(method=method, path=normalized).observe(duration_s)
     else:
         _mem_counters[f"http_requests_total|{method}|{normalized}|{status}"] += 1

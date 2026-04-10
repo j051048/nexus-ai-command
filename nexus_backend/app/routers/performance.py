@@ -12,7 +12,9 @@ router = APIRouter(prefix="/api/performance", tags=["Performance"])
 
 
 @router.post("/calculate", response_model=StandardResponse)
-async def calculate_performance(event: PerformanceEvent, user_id: str = Depends(get_current_user_id)):
+async def calculate_performance(
+    event: PerformanceEvent, user_id: str = Depends(get_current_user_id)
+):
     """
     Real-time performance calculation API.
 
@@ -44,7 +46,9 @@ async def quality_trend(
         since = datetime.now(UTC) - timedelta(days=days)
         query = (
             supabase.table("agent_quality_scores")
-            .select("created_at, quality_score, completeness, relevance, accuracy, passed")
+            .select(
+                "created_at, quality_score, completeness, relevance, accuracy, passed"
+            )
             .gte("created_at", since.isoformat())
         )
         if scene_code:

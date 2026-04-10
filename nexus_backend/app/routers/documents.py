@@ -35,7 +35,12 @@ async def list_documents(
     """List all documents for current user."""
     client = req.state.db
     try:
-        result = await client.table("documents").select("*").order("created_at", desc=True).execute()
+        result = (
+            await client.table("documents")
+            .select("*")
+            .order("created_at", desc=True)
+            .execute()
+        )
         return api_success(data={"documents": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list documents: {e}")
@@ -65,7 +70,12 @@ async def batch_delete_documents(
         # With CASCADE DELETE on FK, only need to delete documents.
         # Embeddings are automatically cleaned up by PostgreSQL.
         try:
-            res = await client.table("documents").delete().in_("id", payload.document_ids).execute()
+            res = (
+                await client.table("documents")
+                .delete()
+                .in_("id", payload.document_ids)
+                .execute()
+            )
             count = len(res.data) if res and res.data else 0
         except Exception as e:
             if _is_postgrest_204(e):
@@ -79,7 +89,10 @@ async def batch_delete_documents(
                 if global_supabase:
                     try:
                         res = (
-                            await global_supabase.table("documents").delete().in_("id", payload.document_ids).execute()
+                            await global_supabase.table("documents")
+                            .delete()
+                            .in_("id", payload.document_ids)
+                            .execute()
                         )
                         count = len(res.data) if res and res.data else 0
                     except Exception as fallback_e:
@@ -90,12 +103,16 @@ async def batch_delete_documents(
                 else:
                     raise
 
-        logger.info(f"User {user_id} deleted {count} documents (cascade cleaned embeddings).")
+        logger.info(
+            f"User {user_id} deleted {count} documents (cascade cleaned embeddings)."
+        )
         return api_success(data={"deleted_count": count})
 
     except Exception as e:
         if _is_jwt_expired(e):
-            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "登录已过期，请刷新页面后重试")
+            raise api_error(
+                ErrorCode.AUTH_PERMISSION_DENIED, "登录已过期，请刷新页面后重试"
+            )
         logger.error(f"Batch Delete Failed for user {user_id}: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "删除失败")
 
@@ -142,13 +159,23 @@ async def upload_documents(
         try:
             # Fetch user settings and department
             user_settings = (
-                await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+                await client.table("ai_settings")
+                .select("*")
+                .eq("user_id", user_id)
+                .maybe_single()
+                .execute()
             )
             if user_settings.data:
                 api_key = user_settings.data.get("api_key")
                 base_url = user_settings.data.get("base_url")
 
-            user_data = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            user_data = (
+                await client.table("users")
+                .select("department")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
             if user_data.data:
                 user_department = user_data.data.get("department")
         except Exception as e:
@@ -164,12 +191,20 @@ async def upload_documents(
             filename = file.filename
 
             if len(content) > 50 * 1024 * 1024:
-                results.append({"filename": file.filename, "status": "error", "reason": "文件大小超过50MB限制"})
+                results.append(
+                    {
+                        "filename": file.filename,
+                        "status": "error",
+                        "reason": "文件大小超过50MB限制",
+                    }
+                )
                 continue
 
             # P1 Fix #20: Multi-level deduplication (hash + title similarity)
             content_hash = etl_service.compute_content_hash(content)
-            existing_doc = await etl_service.check_duplicate(content_hash, user_id, org_id=org_id, filename=filename)
+            existing_doc = await etl_service.check_duplicate(
+                content_hash, user_id, org_id=org_id, filename=filename
+            )
 
             if existing_doc:
                 dedup_reason = existing_doc.get("dedup_reason", "exact_hash")
@@ -179,7 +214,9 @@ async def upload_documents(
                     "title_exact": "同名文档已存在",
                 }.get(dedup_reason, "相似文档已存在")
                 if dedup_reason.startswith("title_similar"):
-                    reason_text = f"与已有文档「{existing_doc.get('name', '未知')}」高度相似"
+                    reason_text = (
+                        f"与已有文档「{existing_doc.get('name', '未知')}」高度相似"
+                    )
                 skipped_count += 1
                 results.append(
                     {
@@ -228,13 +265,17 @@ async def upload_documents(
 
         except Exception as e:
             logger.error(f"Upload Setup Failed for {file.filename}: {e}")
-            results.append({"filename": file.filename, "status": "error", "reason": "文件处理失败"})
+            results.append(
+                {"filename": file.filename, "status": "error", "reason": "文件处理失败"}
+            )
 
     summary = f"Queued {processed_count} files"
     if skipped_count > 0:
         summary += f", skipped {skipped_count} duplicates"
 
-    return api_success(data={"summary": summary, "results": results}, message="Upload received")
+    return api_success(
+        data={"summary": summary, "results": results}, message="Upload received"
+    )
 
 
 @router.post("/batch-upload", response_model=StandardResponse)
@@ -258,13 +299,23 @@ async def batch_upload_documents(
     if user_id:
         try:
             user_settings = (
-                await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+                await client.table("ai_settings")
+                .select("*")
+                .eq("user_id", user_id)
+                .maybe_single()
+                .execute()
             )
             if user_settings.data:
                 api_key = user_settings.data.get("api_key")
                 base_url = user_settings.data.get("base_url")
 
-            user_data = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            user_data = (
+                await client.table("users")
+                .select("department")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
             if user_data.data:
                 user_department = user_data.data.get("department")
         except Exception as e:
@@ -275,7 +326,11 @@ async def batch_upload_documents(
         try:
             # Validate file type
             allowed_extensions = [".pdf", ".docx", ".txt", ".md", ".csv"]
-            ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+            ext = (
+                "." + file.filename.rsplit(".", 1)[-1].lower()
+                if "." in file.filename
+                else ""
+            )
             if ext not in allowed_extensions:
                 results.append(
                     {
@@ -349,7 +404,9 @@ async def batch_upload_documents(
             )
         except Exception as e:
             logger.error(f"Failed to upload {file.filename}: {e}")
-            results.append({"filename": file.filename, "status": "error", "reason": "文件处理失败"})
+            results.append(
+                {"filename": file.filename, "status": "error", "reason": "文件处理失败"}
+            )
 
     success_count = sum(1 for r in results if r["status"] == "uploaded")
     error_count = sum(1 for r in results if r["status"] == "error")
@@ -390,7 +447,9 @@ async def update_document(
 
     # 2. Delete old embeddings
     try:
-        await client.table("document_embeddings").delete().eq("document_id", document_id).execute()
+        await client.table("document_embeddings").delete().eq(
+            "document_id", document_id
+        ).execute()
     except Exception as e:
         if not _is_postgrest_204(e):
             logger.warning(f"Failed to delete old embeddings: {e}")
@@ -419,7 +478,13 @@ async def update_document(
     api_key = None
     base_url = None
     try:
-        user_settings = await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+        user_settings = (
+            await client.table("ai_settings")
+            .select("*")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
         if user_settings.data:
             api_key = user_settings.data.get("api_key")
             base_url = user_settings.data.get("base_url")
@@ -451,9 +516,9 @@ async def update_document(
 
 
 class UpdateCategoryRequest(BaseModel):
-    doc_type: Literal["contract", "tender", "bid", "product", "proposal", "invoice", "legal", "other"] = Field(
-        ..., description="文档分类"
-    )
+    doc_type: Literal[
+        "contract", "tender", "bid", "product", "proposal", "invoice", "legal", "other"
+    ] = Field(..., description="文档分类")
 
 
 @router.patch("/{document_id}/category", response_model=StandardResponse)
@@ -466,14 +531,26 @@ async def update_document_category(
     """手动修改文档分类"""
     client = req.state.db
     try:
-        res = await client.table("documents").update({"doc_type": body.doc_type}).eq("id", document_id).execute()
+        res = (
+            await client.table("documents")
+            .update({"doc_type": body.doc_type})
+            .eq("id", document_id)
+            .execute()
+        )
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "文档不存在")
 
-        logger.info(f"User {user_id} updated doc {document_id} category to {body.doc_type}")
-        return api_success(data={"document_id": document_id, "doc_type": body.doc_type}, message="分类已更新")
+        logger.info(
+            f"User {user_id} updated doc {document_id} category to {body.doc_type}"
+        )
+        return api_success(
+            data={"document_id": document_id, "doc_type": body.doc_type},
+            message="分类已更新",
+        )
     except Exception as e:
-        logger.error(f"Update category failed: doc={document_id} user={user_id} err={e}")
+        logger.error(
+            f"Update category failed: doc={document_id} user={user_id} err={e}"
+        )
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新分类失败")
 
 
@@ -486,14 +563,20 @@ require_kb_admin = require_role(["admin", "founder", "boss"])
 class BulkImportDocumentItem(BaseModel):
     """Single document in a bulk import request."""
 
-    title: str = Field(..., min_length=1, max_length=500, description="文档标题（将用作文件名）")
-    content: str = Field(..., min_length=10, description="文档正文内容")
-    doc_type: Literal["contract", "tender", "bid", "product", "proposal", "invoice", "legal", "other"] = Field(
-        default="other", description="文档分类"
+    title: str = Field(
+        ..., min_length=1, max_length=500, description="文档标题（将用作文件名）"
     )
-    library_code: str | None = Field(default=None, description="目标知识库编码（如 product_lib）")
+    content: str = Field(..., min_length=10, description="文档正文内容")
+    doc_type: Literal[
+        "contract", "tender", "bid", "product", "proposal", "invoice", "legal", "other"
+    ] = Field(default="other", description="文档分类")
+    library_code: str | None = Field(
+        default=None, description="目标知识库编码（如 product_lib）"
+    )
     tags: list[str] = Field(default_factory=list, description="文档标签")
-    visibility: Literal["private", "department", "organization"] = Field(default="organization", description="可见性")
+    visibility: Literal["private", "department", "organization"] = Field(
+        default="organization", description="可见性"
+    )
 
 
 class BulkImportRequest(BaseModel):
@@ -528,7 +611,9 @@ async def bulk_import_documents(
     # Prefetch library code -> id mapping
     library_map: dict[str, int] = {}
     try:
-        lib_res = await client.table("knowledge_library").select("id, library_code").execute()
+        lib_res = (
+            await client.table("knowledge_library").select("id, library_code").execute()
+        )
         if lib_res.data:
             library_map = {row["library_code"]: row["id"] for row in lib_res.data}
     except Exception as e:
@@ -546,7 +631,13 @@ async def bulk_import_documents(
             content_hash = hashlib.sha256(content_bytes).hexdigest()
 
             # Check if document with same name already exists (idempotent)
-            existing = await client.table("documents").select("id, name").eq("name", item.title).limit(1).execute()
+            existing = (
+                await client.table("documents")
+                .select("id, name")
+                .eq("name", item.title)
+                .limit(1)
+                .execute()
+            )
             if existing.data and len(existing.data) > 0:
                 skip_count += 1
                 results.append(
@@ -567,7 +658,9 @@ async def bulk_import_documents(
             }
 
             # Resolve library_id
-            library_id = library_map.get(item.library_code) if item.library_code else None
+            library_id = (
+                library_map.get(item.library_code) if item.library_code else None
+            )
 
             record = {
                 "name": item.title,
@@ -624,22 +717,30 @@ async def bulk_import_documents(
     # 使用 admin client: knowledge_library 的 RLS 依赖 app.current_org_id session 变量
     from app.core.database import supabase as admin_client
 
-    affected_codes = {item.library_code for item in payload.documents if item.library_code}
+    affected_codes = {
+        item.library_code for item in payload.documents if item.library_code
+    }
     for code in affected_codes:
         lib_id = library_map.get(code)
         if lib_id:
             try:
                 count_res = (
-                    await (admin_client or client).table("documents").select("id").eq("library_id", lib_id).execute()
+                    await (admin_client or client)
+                    .table("documents")
+                    .select("id")
+                    .eq("library_id", lib_id)
+                    .execute()
                 )
                 doc_count = len(count_res.data) if count_res.data else 0
-                await (admin_client or client).table("knowledge_library").update({"doc_count": doc_count}).eq(
-                    "id", lib_id
-                ).execute()
+                await (admin_client or client).table("knowledge_library").update(
+                    {"doc_count": doc_count}
+                ).eq("id", lib_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to update doc_count for library {code}: {e}")
 
-    logger.info(f"Bulk import by user {user_id}: {success_count} created, {skip_count} skipped, {error_count} errors")
+    logger.info(
+        f"Bulk import by user {user_id}: {success_count} created, {skip_count} skipped, {error_count} errors"
+    )
 
     return api_success(
         data={
@@ -669,7 +770,9 @@ async def list_knowledge_libraries(
     try:
         res = (
             await client.table("knowledge_library")
-            .select("id, library_code, library_name, description, access_level, doc_count, is_active")
+            .select(
+                "id, library_code, library_name, description, access_level, doc_count, is_active"
+            )
             .eq("is_active", True)
             .order("id")
             .execute()
@@ -708,7 +811,9 @@ async def trigger_re_embed(
             .limit(500)
             .execute()
         )
-        doc_ids = list({row["document_id"] for row in (res.data or []) if row.get("document_id")})
+        doc_ids = list(
+            {row["document_id"] for row in (res.data or []) if row.get("document_id")}
+        )
 
         if not doc_ids:
             return api_success(data={"queued": 0}, message="所有文档已使用最新嵌入模型")
@@ -722,7 +827,10 @@ async def trigger_re_embed(
                     .in_("id", document_ids)
                     .execute()
                 )
-                doc_org_map = {d["id"]: d.get("organization_id", "default") for d in (docs_res.data or [])}
+                doc_org_map = {
+                    d["id"]: d.get("organization_id", "default")
+                    for d in (docs_res.data or [])
+                }
             except Exception as e:
                 logger.error(f"Batch doc fetch failed: {e}")
                 return
@@ -738,7 +846,9 @@ async def trigger_re_embed(
                 chunks_by_doc: dict[str, list[str]] = {}
                 for row in chunks_res.data or []:
                     if row.get("content") and row.get("document_id"):
-                        chunks_by_doc.setdefault(row["document_id"], []).append(row["content"])
+                        chunks_by_doc.setdefault(row["document_id"], []).append(
+                            row["content"]
+                        )
             except Exception as e:
                 logger.error(f"Batch chunks fetch failed: {e}")
                 return
@@ -756,7 +866,10 @@ async def trigger_re_embed(
                     logger.error(f"Re-embed failed for doc {doc_id}: {e}")
 
         background_tasks.add_task(_re_embed_docs, doc_ids)
-        return api_success(data={"queued": len(doc_ids)}, message=f"已排队 {len(doc_ids)} 个文档进行重新嵌入")
+        return api_success(
+            data={"queued": len(doc_ids)},
+            message=f"已排队 {len(doc_ids)} 个文档进行重新嵌入",
+        )
     except Exception as e:
         logger.error(f"Failed to trigger re-embed: {e}")
         raise api_error(ErrorCode.DB_QUERY_ERROR, "触发重新嵌入失败")

@@ -33,7 +33,12 @@ async def list_targets(
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
-        result = await db.table("sales_targets").select("*").eq("organization_id", org_id).execute()
+        result = (
+            await db.table("sales_targets")
+            .select("*")
+            .eq("organization_id", org_id)
+            .execute()
+        )
         return api_success(data={"targets": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list targets: {e}")
@@ -81,7 +86,9 @@ async def delete_target(
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
-        await db.table("sales_targets").delete().eq("id", target_id).eq("organization_id", org_id).execute()
+        await db.table("sales_targets").delete().eq("id", target_id).eq(
+            "organization_id", org_id
+        ).execute()
         return api_success(data={"deleted": True})
     except Exception as e:
         logger.error(f"Failed to delete target: {e}")
@@ -102,7 +109,12 @@ async def list_metrics(
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
-        result = await db.table("sales_metrics").select("*").eq("organization_id", org_id).execute()
+        result = (
+            await db.table("sales_metrics")
+            .select("*")
+            .eq("organization_id", org_id)
+            .execute()
+        )
         return api_success(data={"metrics": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list metrics: {e}")
@@ -129,7 +141,9 @@ async def list_metrics_by_range(
     req: Request,
     start_date: str = Query(..., description="开始日期 YYYY-MM-DD"),
     end_date: str = Query(..., description="结束日期 YYYY-MM-DD"),
-    user_id_filter: str | None = Query(None, alias="user_id", description="可选用户ID过滤"),
+    user_id_filter: str | None = Query(
+        None, alias="user_id", description="可选用户ID过滤"
+    ),
     user_id: str = Depends(get_current_user_id),
 ):
     """按日期范围查询销售指标"""
@@ -249,7 +263,11 @@ async def upsert_metrics(
         data = body.model_dump(exclude_none=True)
         data["organization_id"] = org_id
 
-        result = await db.table("sales_metrics").upsert(data, on_conflict="user_id,date").execute()
+        result = (
+            await db.table("sales_metrics")
+            .upsert(data, on_conflict="user_id,date")
+            .execute()
+        )
         return api_success(data={"metric": result.data[0] if result.data else {}})
     except Exception as e:
         logger.error(f"Failed to upsert metrics: {e}")

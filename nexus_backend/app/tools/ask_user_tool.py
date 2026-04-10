@@ -37,12 +37,17 @@ class AskUserTool(BaseTool):
             "output_summary": "向用户展示选项列表并等待选择",
         },
         {
-            "input": {"question": "请确认您要删除的是哪个客户的记录？", "context": "搜索结果中有多个同名客户"},
+            "input": {
+                "question": "请确认您要删除的是哪个客户的记录？",
+                "context": "搜索结果中有多个同名客户",
+            },
             "output_summary": "带上下文说明向用户提出澄清问题",
         },
     ]
     related_tools = ["save_memory"]
-    gotchas = "此工具为伪工具，不会真正执行，由前端拦截处理；不要在用户意图明确时滥用此工具。"
+    gotchas = (
+        "此工具为伪工具，不会真正执行，由前端拦截处理；不要在用户意图明确时滥用此工具。"
+    )
     parameters = {
         "type": "object",
         "properties": {
@@ -69,18 +74,35 @@ class AskUserTool(BaseTool):
                         "label": {"type": "string", "description": "字段显示标签"},
                         "type": {
                             "type": "string",
-                            "enum": ["text", "number", "email", "select", "date", "textarea", "checkbox"],
+                            "enum": [
+                                "text",
+                                "number",
+                                "email",
+                                "select",
+                                "date",
+                                "textarea",
+                                "checkbox",
+                            ],
                             "description": "字段类型",
                         },
                         "required": {"type": "boolean", "description": "是否必填"},
-                        "default_value": {"type": "string", "description": "AI预填的默认值"},
+                        "default_value": {
+                            "type": "string",
+                            "description": "AI预填的默认值",
+                        },
                         "options": {
                             "type": "array",
                             "items": {"type": "string"},
                             "description": "select类型的选项列表",
                         },
-                        "placeholder": {"type": "string", "description": "占位提示文本"},
-                        "step": {"type": "integer", "description": "多步骤表单的步骤号(从1开始)"},
+                        "placeholder": {
+                            "type": "string",
+                            "description": "占位提示文本",
+                        },
+                        "step": {
+                            "type": "integer",
+                            "description": "多步骤表单的步骤号(从1开始)",
+                        },
                     },
                     "required": ["name", "label", "type"],
                 },
@@ -90,6 +112,8 @@ class AskUserTool(BaseTool):
     }
     requires_confirmation = False  # This is a UI interaction, not a sensitive action
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         """This tool should never actually execute — it's intercepted by execute_node."""
         return "[ask_user] 此工具被拦截用于前端交互，不应直接执行。"

@@ -163,7 +163,9 @@ async def list_tools(user_id: str = Depends(get_current_user_id)):
         user_id,
         len(tools),
     )
-    return api_success(data=MCPToolListResponse(tools=tools, count=len(tools)).model_dump())
+    return api_success(
+        data=MCPToolListResponse(tools=tools, count=len(tools)).model_dump()
+    )
 
 
 @router.post("/tools/{tool_name}/execute")
@@ -221,7 +223,10 @@ async def execute_tool(
         user_id,
         org_id,
         list(body.arguments.keys()),
-        {k: (v if len(str(v)) < 100 else str(v)[:100] + "...") for k, v in body.arguments.items()},
+        {
+            k: (v if len(str(v)) < 100 else str(v)[:100] + "...")
+            for k, v in body.arguments.items()
+        },
     )
 
     # --- Execute (with timeout protection against LLM-heavy tools) ---
@@ -418,7 +423,9 @@ async def handle_message(
 
             tool = get_tool(tool_name)
             if not tool:
-                await session.send_jsonrpc_error(msg_id, -32602, f"Tool '{tool_name}' not found")
+                await session.send_jsonrpc_error(
+                    msg_id, -32602, f"Tool '{tool_name}' not found"
+                )
                 return {"ok": True}
 
             # Validate arguments against JSON Schema
@@ -489,11 +496,15 @@ async def handle_message(
                 )
 
         else:
-            await session.send_jsonrpc_error(msg_id, -32601, f"Method '{method}' not supported")
+            await session.send_jsonrpc_error(
+                msg_id, -32601, f"Method '{method}' not supported"
+            )
 
     except Exception as exc:
         logger.exception("[MCP-SSE] handler error: %s", exc)
         if msg_id is not None:
-            await session.send_jsonrpc_error(msg_id, -32603, f"Internal error: {str(exc)}")
+            await session.send_jsonrpc_error(
+                msg_id, -32603, f"Internal error: {str(exc)}"
+            )
 
     return {"ok": True}

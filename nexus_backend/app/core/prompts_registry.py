@@ -483,7 +483,9 @@ _yaml_system = _load_yaml_prompts("system_prompts.yaml")
 if _yaml_system:
     for key, raw_prompt in _yaml_system.items():
         # Re-inject SECURITY_GUARDRAILS and ENTERPRISE_CAPABILITIES
-        full_prompt = raw_prompt + "\n" + SECURITY_GUARDRAILS + "\n" + ENTERPRISE_CAPABILITIES
+        full_prompt = (
+            raw_prompt + "\n" + SECURITY_GUARDRAILS + "\n" + ENTERPRISE_CAPABILITIES
+        )
         SYSTEM_PROMPTS[key] = full_prompt
     logger.info(f"Loaded {len(_yaml_system)} system prompts from YAML")
 

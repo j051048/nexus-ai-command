@@ -29,10 +29,18 @@ class CreateModelRequest(BaseModel):
 
     model_code: str = Field(..., min_length=1, max_length=100, description="模型编码")
     model_name: str = Field(..., min_length=1, max_length=200, description="模型名称")
-    provider_type: str = Field(..., min_length=1, max_length=50, description="供应商类型")
-    adapter_code: str = Field(..., min_length=1, max_length=100, description="适配器编码")
-    api_base_url: str = Field("", max_length=500, description="API基础URL (空则使用系统默认)")
-    api_key: str = Field("", description="API密钥 (空或__SYSTEM_DEFAULT__则使用系统默认)")
+    provider_type: str = Field(
+        ..., min_length=1, max_length=50, description="供应商类型"
+    )
+    adapter_code: str = Field(
+        ..., min_length=1, max_length=100, description="适配器编码"
+    )
+    api_base_url: str = Field(
+        "", max_length=500, description="API基础URL (空则使用系统默认)"
+    )
+    api_key: str = Field(
+        "", description="API密钥 (空或__SYSTEM_DEFAULT__则使用系统默认)"
+    )
     secret_key: str | None = Field(None, description="Secret Key (部分供应商需要)")
     model_id: str | None = Field(None, max_length=200, description="供应商模型ID")
     timeout_ms: int = Field(30000, ge=1000, le=300000, description="超时时间(ms)")
@@ -113,7 +121,9 @@ class CreateQuotaConfigRequest(BaseModel):
     daily_request_limit: int | None = Field(None, ge=0, description="每日最大请求数")
     daily_cost_limit: float | None = Field(None, ge=0, description="每日最大花费(USD)")
     monthly_token_limit: int | None = Field(None, ge=0, description="每月最大Token数")
-    monthly_cost_limit: float | None = Field(None, ge=0, description="每月最大花费(USD)")
+    monthly_cost_limit: float | None = Field(
+        None, ge=0, description="每月最大花费(USD)"
+    )
 
 
 class UpdateQuotaConfigRequest(BaseModel):

@@ -20,7 +20,9 @@ try:
         soft_time_limit=120,
         time_limit=150,
     )
-    def execute_tool_isolated(self, tool_name: str, tool_args: dict, user_id: str, org_id: str | None = None):
+    def execute_tool_isolated(
+        self, tool_name: str, tool_args: dict, user_id: str, org_id: str | None = None
+    ):
         """Execute a tool in an isolated Celery worker process."""
         import asyncio
 
@@ -42,4 +44,6 @@ try:
 except ImportError:
     # Celery not installed — provide a no-op fallback
     def execute_tool_isolated(*args, **kwargs):
-        raise ImportError("Celery is not installed. Install celery to use isolated tool execution.")
+        raise ImportError(
+            "Celery is not installed. Install celery to use isolated tool execution."
+        )

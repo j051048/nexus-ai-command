@@ -29,9 +29,15 @@ class CreateScheduledTaskBody(BaseModel):
     schedule_type: str = Field(..., description="调度类型: daily/weekly/once/interval")
     hour: int | None = Field(None, ge=0, le=23, description="执行时间-小时 (0-23)")
     minute: int = Field(0, ge=0, le=59, description="执行时间-分钟 (0-59)")
-    day_of_week: int | None = Field(None, ge=0, le=6, description="星期几 (0=周一, 6=周日), 仅 weekly")
-    interval_minutes: int | None = Field(None, ge=1, description="间隔分钟数, 仅 interval")
-    notify_method: str = Field("notification", description="通知方式: notification/email")
+    day_of_week: int | None = Field(
+        None, ge=0, le=6, description="星期几 (0=周一, 6=周日), 仅 weekly"
+    )
+    interval_minutes: int | None = Field(
+        None, ge=1, description="间隔分钟数, 仅 interval"
+    )
+    notify_method: str = Field(
+        "notification", description="通知方式: notification/email"
+    )
 
 
 class UpdateScheduledTaskBody(BaseModel):
@@ -58,7 +64,11 @@ async def list_scheduled_tasks(
     """获取当前用户的定时任务列表"""
     try:
         query = (
-            db.table("user_scheduled_tasks").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(50)
+            db.table("user_scheduled_tasks")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(50)
         )
         if not include_inactive:
             query = query.eq("is_active", True)
@@ -82,11 +92,18 @@ async def create_scheduled_task(
     try:
         # 校验
         if body.schedule_type == "weekly" and body.day_of_week is None:
-            raise api_error(ErrorCode.VALIDATION_ERROR, "每周任务需指定 day_of_week (0=周一, 6=周日)")
+            raise api_error(
+                ErrorCode.VALIDATION_ERROR,
+                "每周任务需指定 day_of_week (0=周一, 6=周日)",
+            )
         if body.schedule_type == "interval" and not body.interval_minutes:
-            raise api_error(ErrorCode.VALIDATION_ERROR, "间隔任务需指定 interval_minutes")
+            raise api_error(
+                ErrorCode.VALIDATION_ERROR, "间隔任务需指定 interval_minutes"
+            )
         if body.schedule_type in ("daily", "weekly", "once") and body.hour is None:
-            raise api_error(ErrorCode.VALIDATION_ERROR, "daily/weekly/once 任务需指定 hour")
+            raise api_error(
+                ErrorCode.VALIDATION_ERROR, "daily/weekly/once 任务需指定 hour"
+            )
 
         # 限额检查
         existing = (
@@ -196,9 +213,16 @@ async def update_scheduled_task(
 
         update_data["update_time"] = datetime.now(UTC).isoformat()
 
-        result = await db.table("user_scheduled_tasks").update(update_data).eq("id", task_id).execute()
+        result = (
+            await db.table("user_scheduled_tasks")
+            .update(update_data)
+            .eq("id", task_id)
+            .execute()
+        )
 
-        return api_success(data=result.data[0] if result.data else task, message="定时任务更新成功")
+        return api_success(
+            data=result.data[0] if result.data else task, message="定时任务更新成功"
+        )
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
@@ -216,7 +240,11 @@ async def delete_scheduled_task(
     try:
         # 确认任务属于当前用户
         existing = (
-            await db.table("user_scheduled_tasks").select("id").eq("id", task_id).eq("user_id", user_id).execute()
+            await db.table("user_scheduled_tasks")
+            .select("id")
+            .eq("id", task_id)
+            .eq("user_id", user_id)
+            .execute()
         )
         if not existing.data:
             raise api_error(ErrorCode.NOT_FOUND, "定时任务不存在")
@@ -291,7 +319,9 @@ async def run_scheduled_task(
             .execute()
         )
 
-        return api_success(data={"task_id": task_id}, message="任务已触发执行，结果将通过通知推送")
+        return api_success(
+            data={"task_id": task_id}, message="任务已触发执行，结果将通过通知推送"
+        )
     except Exception as e:
         if hasattr(e, "status_code"):
             raise

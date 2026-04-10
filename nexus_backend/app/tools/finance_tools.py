@@ -38,7 +38,11 @@ class ExpenseClaimTool(BaseTool):
             "output_summary": "提交招待费报销，自动计算人均消费并检查是否超标",
         },
     ]
-    related_tools = ["query_expense_status", "submit_approval_on_behalf", "recognize_invoice"]
+    related_tools = [
+        "query_expense_status",
+        "submit_approval_on_behalf",
+        "recognize_invoice",
+    ]
     gotchas = "金额必须大于0。招待费用建议填写参与人员以通过合规检查。人均招待标准为200元，差旅单日上限1500元。"
 
     parameters = {
@@ -76,7 +80,9 @@ class ExpenseClaimTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         expense_type = args.get("expense_type", "other")
         amount = float(args.get("amount", 0))
@@ -135,7 +141,9 @@ class ExpenseClaimTool(BaseTool):
 
         # 差旅费检查
         if expense_type == "travel" and amount > config_info.get("daily_limit", 1500):
-            compliance_issues.append(f"⚠️ 单日差旅费 ¥{amount:.0f} 超过标准 ¥{config_info['daily_limit']}")
+            compliance_issues.append(
+                f"⚠️ 单日差旅费 ¥{amount:.0f} 超过标准 ¥{config_info['daily_limit']}"
+            )
 
         # ── 审批链匹配：替代硬编码的审批级别 ──
         from app.services.approval_chain import approval_chain_service
@@ -155,13 +163,21 @@ class ExpenseClaimTool(BaseTool):
         _chain_name = chain_result.get("chain_name", "费用报销审批链")
 
         approval_status = "approved" if auto_approve else "pending"
-        approval_note = "金额在自动审批限额内，已自动审批" if auto_approve else f"需{approval_level}级别审批"
+        approval_note = (
+            "金额在自动审批限额内，已自动审批"
+            if auto_approve
+            else f"需{approval_level}级别审批"
+        )
 
         # 查找关联项目
         project_id = None
         if project_name:
             proj_res = (
-                await client.table("projects").select("id, name").ilike("name", f"%{project_name}%").limit(1).execute()
+                await client.table("projects")
+                .select("id, name")
+                .ilike("name", f"%{project_name}%")
+                .limit(1)
+                .execute()
             )
             if proj_res.data:
                 project_id = proj_res.data[0]["id"]
@@ -262,11 +278,16 @@ class ExpenseQueryTool(BaseTool):
     description = "查询个人报销申请状态和历史记录。当用户说'报销到哪了'、'报销进度'、'到账了吗'时调用。"
     required_role = "all"
     examples = [
-        {"input": {}, "output_summary": "返回最近10条报销记录，含状态、金额，以及待审批和已批准的汇总"},
+        {
+            "input": {},
+            "output_summary": "返回最近10条报销记录，含状态、金额，以及待审批和已批准的汇总",
+        },
         {"input": {"query_type": "pending"}, "output_summary": "返回待处理的报销申请"},
     ]
     related_tools = ["create_expense_claim"]
-    gotchas = "仅查询当前用户自己的报销记录。时间范围筛选参数暂未生效，默认返回最近10条。"
+    gotchas = (
+        "仅查询当前用户自己的报销记录。时间范围筛选参数暂未生效，默认返回最近10条。"
+    )
 
     parameters = {
         "type": "object",
@@ -286,7 +307,9 @@ class ExpenseQueryTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         # 查询该用户的报销申请
         claims = (
@@ -340,7 +363,10 @@ class BudgetQueryTool(BaseTool):
     description = "查询部门或项目的预算使用情况。当用户说'预算还剩多少'、'部门预算'时调用。需要经理权限。"
     required_role = "manager"
     examples = [
-        {"input": {"department": "销售部"}, "output_summary": "返回销售部的预算使用情况"},
+        {
+            "input": {"department": "销售部"},
+            "output_summary": "返回销售部的预算使用情况",
+        },
         {"input": {"category": "travel"}, "output_summary": "返回差旅类预算使用情况"},
     ]
     related_tools = ["create_expense_claim", "query_expense_status"]
@@ -361,27 +387,38 @@ class BudgetQueryTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         args.get("department")
         client = _get_client(config)
         # 获取用户部门
-        user_res = await client.table("users").select("department, role").eq("id", user_id).maybe_single().execute()
+        user_res = (
+            await client.table("users")
+            .select("department, role")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         if not user_res.data:
             return "❌ 无法获取用户信息"
 
-        return "📊 暂无预算数据。\n\n💡 预算管理功能正在建设中，请联系管理员配置部门预算。"
+        return (
+            "📊 暂无预算数据。\n\n💡 预算管理功能正在建设中，请联系管理员配置部门预算。"
+        )
 
 
 class SalaryQueryTool(BaseTool):
     """薪资查询工具"""
 
     name = "query_salary"
-    description = (
-        "查询当前用户的个人薪资明细和到账记录。当用户说'这个月工资'、'薪资明细'、'工资条'时调用。仅能查询自己的薪资。"
-    )
+    description = "查询当前用户的个人薪资明细和到账记录。当用户说'这个月工资'、'薪资明细'、'工资条'时调用。仅能查询自己的薪资。"
     required_role = "all"
     examples = [
-        {"input": {"month": "2026-03"}, "output_summary": "返回2026年3月的薪资明细，含基本工资、奖金、扣除、实发"},
+        {
+            "input": {"month": "2026-03"},
+            "output_summary": "返回2026年3月的薪资明细，含基本工资、奖金、扣除、实发",
+        },
         {"input": {}, "output_summary": "返回当月薪资明细（默认当月）"},
     ]
     related_tools = ["query_expense_status"]
@@ -404,7 +441,9 @@ class SalaryQueryTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         month = args.get("month", datetime.now().strftime("%Y-%m"))
         client = _get_client(config)
         try:
@@ -434,9 +473,7 @@ class InvoiceOCRTool(BaseTool):
     """发票识别工具"""
 
     name = "recognize_invoice"
-    description = (
-        "识别上传的发票图片，自动提取金额、日期、类型等结构化信息。当用户上传发票图片或说'识别发票'、'发票识别'时调用。"
-    )
+    description = "识别上传的发票图片，自动提取金额、日期、类型等结构化信息。当用户上传发票图片或说'识别发票'、'发票识别'时调用。"
     required_role = "all"
     examples = [
         {
@@ -444,7 +481,10 @@ class InvoiceOCRTool(BaseTool):
             "output_summary": "识别发票并返回发票号码、金额、税额、开票单位等信息",
         },
         {
-            "input": {"image_url": "https://example.com/train.jpg", "invoice_type": "train"},
+            "input": {
+                "image_url": "https://example.com/train.jpg",
+                "invoice_type": "train",
+            },
             "output_summary": "识别火车票发票并提取结构化数据",
         },
     ]
@@ -465,7 +505,9 @@ class InvoiceOCRTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         image_url = args.get("image_url", "")
         invoice_type = args.get("invoice_type", "auto")
 
@@ -477,7 +519,9 @@ class InvoiceOCRTool(BaseTool):
 
             from app.core.config import settings
 
-            type_hint = f"（提示类型: {invoice_type}）" if invoice_type != "auto" else ""
+            type_hint = (
+                f"（提示类型: {invoice_type}）" if invoice_type != "auto" else ""
+            )
 
             # P3: 使用 Vision API multimodal content 格式（之前只是把 URL 当文本传给 LLM）
             payload = {
@@ -506,13 +550,18 @@ class InvoiceOCRTool(BaseTool):
                 or getattr(settings, "AI_BASE_URL", "")
                 or "https://api.openai.com/v1"
             )
-            api_key = (config.get("api_key") if config else None) or settings.OPENAI_API_KEY
+            api_key = (
+                config.get("api_key") if config else None
+            ) or settings.OPENAI_API_KEY
             url = f"{base_url.rstrip('/')}/chat/completions"
 
             async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.post(
                     url,
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
                     json=payload,
                 )
                 if resp.status_code != 200:

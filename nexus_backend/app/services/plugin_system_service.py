@@ -90,7 +90,9 @@ class PluginSystemService:
     def __init__(self):
         self._plugins: dict[str, BasePlugin] = {}
         self._metadata: dict[str, PluginMetadata] = {}
-        self._hooks: dict[ExtensionPoint, list[HookHandler]] = {ep: [] for ep in ExtensionPoint}
+        self._hooks: dict[ExtensionPoint, list[HookHandler]] = {
+            ep: [] for ep in ExtensionPoint
+        }
 
     def register(self, plugin: BasePlugin) -> bool:
         """Register a plugin (does not activate it)."""
@@ -142,9 +144,13 @@ class PluginSystemService:
 
         # Remove its hooks
         for ep_hooks in self._hooks.values():
-            ep_hooks[:] = [h for h in ep_hooks if getattr(h, "_plugin_id", None) != plugin_id]
+            ep_hooks[:] = [
+                h for h in ep_hooks if getattr(h, "_plugin_id", None) != plugin_id
+            ]
 
-    def add_hook(self, point: ExtensionPoint, handler: HookHandler, plugin_id: str = None):
+    def add_hook(
+        self, point: ExtensionPoint, handler: HookHandler, plugin_id: str = None
+    ):
         """Register a hook handler at an extension point."""
         if plugin_id:
             handler._plugin_id = plugin_id  # type: ignore
@@ -180,9 +186,13 @@ class PluginSystemService:
         Returns the number of plugins loaded.
         """
         try:
-            from app.services.plugin_marketplace_service import plugin_marketplace_service
+            from app.services.plugin_marketplace_service import (
+                plugin_marketplace_service,
+            )
 
-            installed = await plugin_marketplace_service.get_installed_plugins(org_id, db=db)
+            installed = await plugin_marketplace_service.get_installed_plugins(
+                org_id, db=db
+            )
         except Exception as e:
             logger.warning(f"Failed to load installed plugins for org {org_id}: {e}")
             return 0
@@ -197,20 +207,32 @@ class PluginSystemService:
             config = plugin_info.get("config", {})
 
             # Create a marketplace bridge plugin
-            bridge = _MarketplaceBridgePlugin(plugin_id, plugin_info["name"], category, config)
+            bridge = _MarketplaceBridgePlugin(
+                plugin_id, plugin_info["name"], category, config
+            )
             if self.register(bridge):
                 # Register category-specific hooks
                 if category == "notification":
-                    self.add_hook(ExtensionPoint.POST_CHAT, bridge.post_chat_notify, plugin_id)
+                    self.add_hook(
+                        ExtensionPoint.POST_CHAT, bridge.post_chat_notify, plugin_id
+                    )
                 elif category == "erp":
-                    self.add_hook(ExtensionPoint.POST_TOOL, bridge.post_tool_sync, plugin_id)
+                    self.add_hook(
+                        ExtensionPoint.POST_TOOL, bridge.post_tool_sync, plugin_id
+                    )
                 elif category == "productivity":
-                    self.add_hook(ExtensionPoint.DATA_EXPORT, bridge.data_export_hook, plugin_id)
+                    self.add_hook(
+                        ExtensionPoint.DATA_EXPORT, bridge.data_export_hook, plugin_id
+                    )
                 elif category == "security":
-                    self.add_hook(ExtensionPoint.PRE_CHAT, bridge.pre_chat_compliance, plugin_id)
+                    self.add_hook(
+                        ExtensionPoint.PRE_CHAT, bridge.pre_chat_compliance, plugin_id
+                    )
 
                 loaded += 1
-                logger.info(f"[PluginBridge] Loaded marketplace plugin: {plugin_id} ({category})")
+                logger.info(
+                    f"[PluginBridge] Loaded marketplace plugin: {plugin_id} ({category})"
+                )
 
         return loaded
 
@@ -258,10 +280,15 @@ class _MarketplaceBridgePlugin(BasePlugin):
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     await client.post(
                         webhook_url,
-                        json={"msgtype": "text", "text": {"content": f"[Nexus AI] {content}"}},
+                        json={
+                            "msgtype": "text",
+                            "text": {"content": f"[Nexus AI] {content}"},
+                        },
                     )
         except Exception as e:
-            logger.warning(f"[PluginBridge] Notification hook failed for {self._plugin_id}: {e}")
+            logger.warning(
+                f"[PluginBridge] Notification hook failed for {self._plugin_id}: {e}"
+            )
         return context
 
     async def post_tool_sync(self, context: dict) -> dict:

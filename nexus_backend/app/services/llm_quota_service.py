@@ -50,7 +50,9 @@ _CACHE_TTL = 300  # 5 minutes
 _usage_cache: dict[str, dict] = {}
 
 
-def _cache_key(tenant_id: str, model_code: str | None = None, user_id: str | None = None) -> str:
+def _cache_key(
+    tenant_id: str, model_code: str | None = None, user_id: str | None = None
+) -> str:
     """Build a cache key for quota lookup."""
     parts = [tenant_id]
     if model_code:
@@ -62,7 +64,9 @@ def _cache_key(tenant_id: str, model_code: str | None = None, user_id: str | Non
 
 def _usage_key(tenant_id: str, model_code: str, period: str) -> str:
     """Build a usage accumulator key."""
-    date_part = time.strftime("%Y-%m-%d") if period == "daily" else time.strftime("%Y-%m")
+    date_part = (
+        time.strftime("%Y-%m-%d") if period == "daily" else time.strftime("%Y-%m")
+    )
     return f"usage:{tenant_id}:{model_code}:{date_part}"
 
 
@@ -136,7 +140,11 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
             _usage_cache[u_key] = usage
             return usage
 
-        date_filter = time.strftime("%Y-%m-%d") if period == "daily" else time.strftime("%Y-%m-01")
+        date_filter = (
+            time.strftime("%Y-%m-%d")
+            if period == "daily"
+            else time.strftime("%Y-%m-01")
+        )
 
         query = (
             supabase.table("llm_usage_stats")
@@ -147,7 +155,11 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
         if model_code != "__all__":
             query = query.eq("model_code", model_code)
 
-        query = query.eq("stat_date", date_filter) if period == "daily" else query.gte("stat_date", date_filter)
+        query = (
+            query.eq("stat_date", date_filter)
+            if period == "daily"
+            else query.gte("stat_date", date_filter)
+        )
 
         res = await query.execute()
 
@@ -157,7 +169,9 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
             usage["requests"] += row.get("total_requests", 0)
 
     except Exception as e:
-        logger.warning(f"Failed to load usage from DB for {tenant_id}/{model_code}: {e}")
+        logger.warning(
+            f"Failed to load usage from DB for {tenant_id}/{model_code}: {e}"
+        )
 
     _usage_cache[u_key] = usage
     return usage
@@ -270,7 +284,9 @@ async def check_quota(
 
         # Check request count quota
         if cfg.max_requests > 0:
-            req_pct = usage["requests"] / cfg.max_requests if cfg.max_requests > 0 else 0.0
+            req_pct = (
+                usage["requests"] / cfg.max_requests if cfg.max_requests > 0 else 0.0
+            )
             if usage["requests"] >= cfg.max_requests:
                 if cfg.overage_action == "block":
                     return QuotaCheckResult(

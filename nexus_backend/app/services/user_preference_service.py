@@ -51,7 +51,9 @@ class UserPreferenceService:
     """追踪用户对主动消息的反馈，学习偏好"""
 
     # ── record_feedback ─────────────────────────────────────
-    async def record_feedback(self, user_id: str, notification_type: str, action: str) -> None:
+    async def record_feedback(
+        self, user_id: str, notification_type: str, action: str
+    ) -> None:
         """记录用户对通知的反馈
         action: clicked | dismissed | ignored | muted
         """
@@ -141,7 +143,9 @@ class UserPreferenceService:
         from app.core.database import supabase
 
         row = {"user_id": user_id, **updates, "updated_at": "now()"}
-        supabase.table("user_preference_settings").upsert(row, on_conflict="user_id").execute()
+        supabase.table("user_preference_settings").upsert(
+            row, on_conflict="user_id"
+        ).execute()
 
     async def _load_settings(self, user_id: str) -> dict:
         cache_key = f"pref:{user_id}:settings"
@@ -151,7 +155,12 @@ class UserPreferenceService:
 
         from app.core.database import supabase
 
-        resp = supabase.table("user_preference_settings").select("*").eq("user_id", user_id).execute()
+        resp = (
+            supabase.table("user_preference_settings")
+            .select("*")
+            .eq("user_id", user_id)
+            .execute()
+        )
         settings = resp.data[0] if resp.data else dict(_DEFAULTS)
         _cache_set(cache_key, settings)
         return settings

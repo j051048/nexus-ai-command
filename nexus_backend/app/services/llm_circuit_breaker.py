@@ -89,7 +89,9 @@ class ModelCircuitBreaker:
         self.cooldown_seconds = cooldown_seconds
 
         self._state = CircuitState.CLOSED
-        self._results: deque[bool] = deque(maxlen=window_size)  # True=success, False=failure
+        self._results: deque[bool] = deque(
+            maxlen=window_size
+        )  # True=success, False=failure
         self._total_calls = 0
         self._last_failure_at: float | None = None
         self._last_success_at: float | None = None
@@ -135,11 +137,16 @@ class ModelCircuitBreaker:
             self._opened_at = time.monotonic()
             self._half_open_at = None
             self._sync_open_to_redis()
-            logger.warning(f"Circuit breaker re-OPENED for model '{self.model_code}' - probe failed")
+            logger.warning(
+                f"Circuit breaker re-OPENED for model '{self.model_code}' - probe failed"
+            )
             return
 
         # Check if we should open the circuit
-        if self._state == CircuitState.CLOSED and len(self._results) >= self.window_size:
+        if (
+            self._state == CircuitState.CLOSED
+            and len(self._results) >= self.window_size
+        ):
             failures = sum(1 for r in self._results if not r)
             error_rate = failures / len(self._results)
             if error_rate >= self.failure_threshold:
@@ -164,7 +171,9 @@ class ModelCircuitBreaker:
             self._opened_at = None
             self._half_open_at = None
             self._clear_redis_open()
-            logger.info(f"Circuit breaker CLOSED for model '{self.model_code}' - probe succeeded")
+            logger.info(
+                f"Circuit breaker CLOSED for model '{self.model_code}' - probe succeeded"
+            )
 
     def _sync_open_to_redis(self):
         """Publish OPEN state to Redis so other workers see it."""
@@ -178,7 +187,9 @@ class ModelCircuitBreaker:
                 # This is best-effort; local state is always authoritative
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    loop.create_task(redis.set(key, "1", ttl=int(self.cooldown_seconds + 60)))
+                    loop.create_task(
+                        redis.set(key, "1", ttl=int(self.cooldown_seconds + 60))
+                    )
         except Exception:
             pass  # Redis sync is best-effort
 
@@ -318,7 +329,9 @@ class CircuitBreakerManager:
                     if val:
                         breaker._state = CircuitState.OPEN
                         breaker._opened_at = time.monotonic()
-                        logger.info(f"Circuit breaker synced OPEN from Redis for model '{model_code}'")
+                        logger.info(
+                            f"Circuit breaker synced OPEN from Redis for model '{model_code}'"
+                        )
         except Exception as e:
             logger.error(f"Circuit breaker Redis sync failed (non-fatal): {e}")
 

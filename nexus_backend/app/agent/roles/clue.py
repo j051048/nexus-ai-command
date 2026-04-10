@@ -3,7 +3,12 @@
 AGENT_CODE = "clue_agent"
 AGENT_NAME = "线索获客Agent"
 RECOMMENDED_MODEL_TIER = "medium"
-SCENE_CODES = ["lead_generation", "lead_scoring", "channel_attribution", "cac_optimization"]
+SCENE_CODES = [
+    "lead_generation",
+    "lead_scoring",
+    "channel_attribution",
+    "cac_optimization",
+]
 
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "保障线索获取漏斗健康，MQL到SQL转化率>30%，CAC持续优化"

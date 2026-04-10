@@ -116,7 +116,8 @@ class TenantThrottle:
                 self._active[tenant_id] += 1
                 waiter.set()  # Wake the waiting coroutine
                 logger.debug(
-                    f"[TenantThrottle] Dispatched slot to tenant {tenant_id} " f"(active={self._active[tenant_id]})"
+                    f"[TenantThrottle] Dispatched slot to tenant {tenant_id} "
+                    f"(active={self._active[tenant_id]})"
                 )
 
                 # Clean up empty waiter queue

@@ -61,12 +61,17 @@ class QueryAuditLogsTool(BaseTool):
             "input": {"target_table": "contracts", "limit": 20},
             "output_summary": "返回合同表相关的最近操作记录，最多20条",
         },
-        {"input": {"user_id": "abc123", "days": 30}, "output_summary": "返回指定用户最近30天的所有操作记录"},
+        {
+            "input": {"user_id": "abc123", "days": 30},
+            "output_summary": "返回指定用户最近30天的所有操作记录",
+        },
     ]
     gotchas = "仅管理员角色可用。查询天数默认7天，最大90天。返回结果包含异常检测摘要。"
     related_tools = ["get_company_stats"]
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         from app.services.audit_logger import audit_logger
 
         org_id = config.get("org_id") if config else None
@@ -112,7 +117,9 @@ class QueryAuditLogsTool(BaseTool):
                 "time_range": f"最近{days}天",
                 "action_distribution": action_counts,
                 "status_distribution": status_counts,
-                "top_users": dict(sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:5]),
+                "top_users": dict(
+                    sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+                ),
             }
 
             # 标记异常
@@ -136,7 +143,11 @@ class QueryAuditLogsTool(BaseTool):
                     {
                         "time": log.get("timestamp", ""),
                         "action": log.get("action", ""),
-                        "user": log.get("actor_user_id", "")[:8] + "..." if log.get("actor_user_id") else "system",
+                        "user": (
+                            log.get("actor_user_id", "")[:8] + "..."
+                            if log.get("actor_user_id")
+                            else "system"
+                        ),
                         "status": log.get("status", ""),
                         "target": log.get("target_table", ""),
                         "ip": log.get("ip_address", ""),

@@ -21,7 +21,13 @@ router = APIRouter(prefix="/api/soul-document", tags=["Soul Document"])
 
 # ── 辅助: 获取当前用户的 org_id ──────────────────────────────────────────
 async def _get_org_id(user_id: str) -> str:
-    res = await supabase.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
+    res = (
+        await supabase.table("users")
+        .select("organization_id")
+        .eq("id", user_id)
+        .maybe_single()
+        .execute()
+    )
     org_id = res.data.get("organization_id") if res.data else None
     if not org_id:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到所属组织")
@@ -32,11 +38,17 @@ async def _get_org_id(user_id: str) -> str:
 class SoulDocumentBody(BaseModel):
     ai_name: str = Field(default="小助手", max_length=50, description="AI 名字")
     identity: str | None = Field(default=None, max_length=500, description="身份定位")
-    personality: str | None = Field(default=None, max_length=500, description="性格特征")
+    personality: str | None = Field(
+        default=None, max_length=500, description="性格特征"
+    )
     values: str | None = Field(default=None, max_length=1000, description="价值观/原则")
-    language_style: str | None = Field(default=None, max_length=500, description="语言风格")
+    language_style: str | None = Field(
+        default=None, max_length=500, description="语言风格"
+    )
     taboos: str | None = Field(default=None, max_length=1000, description="禁忌/红线")
-    custom_instructions: str | None = Field(default=None, max_length=3000, description="自由指令")
+    custom_instructions: str | None = Field(
+        default=None, max_length=3000, description="自由指令"
+    )
     is_active: bool = Field(default=True, description="是否启用")
 
 

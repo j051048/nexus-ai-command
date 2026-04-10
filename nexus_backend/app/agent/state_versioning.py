@@ -32,7 +32,9 @@ AUTO_SNAPSHOT_CONFIG = {
 class StateVersionControl:
     """状态版本控制 — 支持手动和自动快照。"""
 
-    async def save_snapshot(self, thread_id: str, state: dict, label: str = None) -> str:
+    async def save_snapshot(
+        self, thread_id: str, state: dict, label: str = None
+    ) -> str:
         """保存完整状态快照。"""
         try:
             result = (
@@ -99,7 +101,9 @@ class StateVersionControl:
             )
 
             snapshot_id = result.data[0]["id"]
-            logger.debug(f"[Snapshot] Lightweight snapshot saved: {snapshot_id} ({label})")
+            logger.debug(
+                f"[Snapshot] Lightweight snapshot saved: {snapshot_id} ({label})"
+            )
 
             # 异步清理超限快照
             await self._enforce_snapshot_limit(thread_id)
@@ -133,7 +137,9 @@ class StateVersionControl:
             # 额外保存 plan 和 pending_tool_calls
             if state.get("plan"):
                 plan = state["plan"]
-                snapshot_state["plan"] = plan[:500] if isinstance(plan, str) else str(plan)[:500]
+                snapshot_state["plan"] = (
+                    plan[:500] if isinstance(plan, str) else str(plan)[:500]
+                )
 
             # 保存最近的消息摘要（不存完整消息，太大）
             messages = state.get("messages", [])
@@ -165,7 +171,9 @@ class StateVersionControl:
             )
 
             snapshot_id = result.data[0]["id"]
-            logger.info(f"[Snapshot] Pre-action snapshot saved: {snapshot_id} (before {tool_name})")
+            logger.info(
+                f"[Snapshot] Pre-action snapshot saved: {snapshot_id} (before {tool_name})"
+            )
             return snapshot_id
 
         except Exception as e:
@@ -175,7 +183,13 @@ class StateVersionControl:
     async def rollback(self, thread_id: str, snapshot_id: str) -> dict:
         """回滚到历史状态。"""
         try:
-            result = await supabase.table("state_snapshots").select("state").eq("id", snapshot_id).single().execute()
+            result = (
+                await supabase.table("state_snapshots")
+                .select("state")
+                .eq("id", snapshot_id)
+                .single()
+                .execute()
+            )
 
             return result.data["state"]
 
@@ -239,7 +253,9 @@ class StateVersionControl:
         state = await checkpointer.aget({"configurable": {"thread_id": thread_id}})
 
         if state:
-            await checkpointer.aput({"configurable": {"thread_id": new_thread_id}}, state)
+            await checkpointer.aput(
+                {"configurable": {"thread_id": new_thread_id}}, state
+            )
             logger.info(f"State branched: {thread_id} -> {new_thread_id}")
             return new_thread_id
 
@@ -262,8 +278,12 @@ class StateVersionControl:
             if result.data and len(result.data) > max_count:
                 to_delete = result.data[max_count:]
                 ids = [r["id"] for r in to_delete]
-                await supabase.table("state_snapshots").delete().in_("id", ids).execute()
-                logger.debug(f"[Snapshot] Cleaned {len(ids)} old snapshots for thread {thread_id[:8]}")
+                await supabase.table("state_snapshots").delete().in_(
+                    "id", ids
+                ).execute()
+                logger.debug(
+                    f"[Snapshot] Cleaned {len(ids)} old snapshots for thread {thread_id[:8]}"
+                )
 
         except Exception as e:
             logger.warning(f"[Snapshot] Limit enforcement failed: {e}")
@@ -273,10 +293,17 @@ class StateVersionControl:
         retention = days or AUTO_SNAPSHOT_CONFIG["retention_days"]
         cutoff = (datetime.now(UTC) - timedelta(days=retention)).isoformat()
         try:
-            result = await supabase.table("state_snapshots").delete().lt("created_at", cutoff).execute()
+            result = (
+                await supabase.table("state_snapshots")
+                .delete()
+                .lt("created_at", cutoff)
+                .execute()
+            )
             deleted = len(result.data) if result.data else 0
             if deleted:
-                logger.info(f"[Snapshot] Cleaned {deleted} expired snapshots (>{retention} days)")
+                logger.info(
+                    f"[Snapshot] Cleaned {deleted} expired snapshots (>{retention} days)"
+                )
             return deleted
         except Exception as e:
             logger.warning(f"[Snapshot] Expired cleanup failed: {e}")

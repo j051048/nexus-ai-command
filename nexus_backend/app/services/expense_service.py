@@ -67,7 +67,9 @@ class ExpenseService:
 
                 await db.table("expense_items").insert(items).execute()
 
-            logger.info(f"报销单已提交: org={org_id}, claim_no={claim_no}, amount={total_amount}")
+            logger.info(
+                f"报销单已提交: org={org_id}, claim_no={claim_no}, amount={total_amount}"
+            )
             return claim
 
         except Exception as e:
@@ -95,7 +97,12 @@ class ExpenseService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = db.table("expense_claims").select("*").eq("organization_id", org_id).order("created_at", desc=True)
+            query = (
+                db.table("expense_claims")
+                .select("*")
+                .eq("organization_id", org_id)
+                .order("created_at", desc=True)
+            )
 
             if filters:
                 if filters.get("employee_id"):
@@ -145,7 +152,12 @@ class ExpenseService:
             if comment:
                 updates["review_comment"] = comment
 
-            result = await db.table("expense_claims").update(updates).eq("id", expense_id).execute()
+            result = (
+                await db.table("expense_claims")
+                .update(updates)
+                .eq("id", expense_id)
+                .execute()
+            )
 
             if result.data and len(result.data) > 0:
                 logger.info(f"报销单已审批: id={expense_id}, action={action}")
@@ -209,8 +221,12 @@ class ExpenseService:
                 "total_count": total_count,
                 "total_amount": round(total_amount, 2),
                 "pending_count": sum(1 for c in claims if c.get("status") == "pending"),
-                "approved_count": sum(1 for c in claims if c.get("status") == "approved"),
-                "rejected_count": sum(1 for c in claims if c.get("status") == "rejected"),
+                "approved_count": sum(
+                    1 for c in claims if c.get("status") == "approved"
+                ),
+                "rejected_count": sum(
+                    1 for c in claims if c.get("status") == "rejected"
+                ),
                 "by_type": by_type,
             }
 
@@ -259,7 +275,11 @@ class ExpenseService:
                 "total": round(total_budget, 2),
                 "used": round(used_budget, 2),
                 "remaining": round(remaining, 2),
-                "utilization_rate": round(used_budget / total_budget * 100, 2) if total_budget > 0 else 0,
+                "utilization_rate": (
+                    round(used_budget / total_budget * 100, 2)
+                    if total_budget > 0
+                    else 0
+                ),
             }
 
         except Exception as e:

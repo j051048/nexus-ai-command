@@ -21,7 +21,9 @@ try:
     _FERNET_AVAILABLE = True
 except ImportError:
     _FERNET_AVAILABLE = False
-    logger.warning("cryptography package not found. Data will be stored as base64 (UNSECURE).")
+    logger.warning(
+        "cryptography package not found. Data will be stored as base64 (UNSECURE)."
+    )
 
 
 class KeyProvider(ABC):
@@ -46,14 +48,18 @@ class EnvKeyProvider(KeyProvider):
 
     def rotate_key(self) -> str:
         new_key = Fernet.generate_key().decode()
-        logger.warning("EnvKeyProvider: key rotation generated new key. Update ENCRYPTION_KEY env var manually.")
+        logger.warning(
+            "EnvKeyProvider: key rotation generated new key. Update ENCRYPTION_KEY env var manually."
+        )
         return new_key
 
 
 class VaultKeyProvider(KeyProvider):
     """HashiCorp Vault key provider (stub — implement per deployment)."""
 
-    def __init__(self, vault_addr: str = None, secret_path: str = "secret/data/nexus/encryption"):
+    def __init__(
+        self, vault_addr: str = None, secret_path: str = "secret/data/nexus/encryption"
+    ):
         self._vault_addr = vault_addr or os.getenv("VAULT_ADDR", "")
         self._secret_path = secret_path
 
@@ -104,7 +110,9 @@ class EncryptionService:
             return Fernet(key.encode() if isinstance(key, str) else key)
         except Exception as e:
             logger.error(f"Failed to initialize Fernet: {e}")
-            raise ValueError(f"Invalid encryption key or Fernet initialization error: {e}")
+            raise ValueError(
+                f"Invalid encryption key or Fernet initialization error: {e}"
+            )
 
     @staticmethod
     def encrypt(data: str) -> str:
@@ -149,7 +157,9 @@ class EncryptionService:
             return fernet.decrypt(encrypted_data.encode()).decode()
         except Exception as e:
             logger.warning(f"Fernet decryption failed: {e}")
-            raise ValueError("Decryption failed - data corrupted or encryption key mismatch")
+            raise ValueError(
+                "Decryption failed - data corrupted or encryption key mismatch"
+            )
 
 
 # Global instance

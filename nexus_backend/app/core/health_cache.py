@@ -46,7 +46,9 @@ class HealthCache:
             return
         self._running = True
         self._task = asyncio.create_task(self._background_loop())
-        logger.info("[HealthCache] Background health checker started (TTL=%ds)", self.CACHE_TTL)
+        logger.info(
+            "[HealthCache] Background health checker started (TTL=%ds)", self.CACHE_TTL
+        )
 
     async def stop(self) -> None:
         """Stop the background checker gracefully."""
@@ -86,7 +88,10 @@ class HealthCache:
                 if not supabase:
                     return "not_configured"
                 await asyncio.wait_for(
-                    supabase.table("users").select("count", count="exact").limit(1).execute(),
+                    supabase.table("users")
+                    .select("count", count="exact")
+                    .limit(1)
+                    .execute(),
                     timeout=2.0,
                 )
                 return "connected"
@@ -114,7 +119,11 @@ class HealthCache:
                     resp = await client.get(domain)
                     return f"reachable ({resp.status_code})"
             except Exception as e:
-                return "unreachable" if settings.IS_PRODUCTION else f"unreachable: {str(e)[:50]}"
+                return (
+                    "unreachable"
+                    if settings.IS_PRODUCTION
+                    else f"unreachable: {str(e)[:50]}"
+                )
 
         async def check_llm_gateway() -> str:
             try:
@@ -128,8 +137,16 @@ class HealthCache:
                     .execute(),
                     timeout=2.0,
                 )
-                enabled_count = model_res.count if model_res.count is not None else len(model_res.data or [])
-                return f"ok ({enabled_count} models)" if enabled_count > 0 else "no_models_enabled"
+                enabled_count = (
+                    model_res.count
+                    if model_res.count is not None
+                    else len(model_res.data or [])
+                )
+                return (
+                    f"ok ({enabled_count} models)"
+                    if enabled_count > 0
+                    else "no_models_enabled"
+                )
             except Exception:
                 return "available"
 
@@ -156,7 +173,11 @@ class HealthCache:
         current_status = "healthy" if is_healthy else "degraded"
         # Only log on status change to avoid spamming logs every 10s
         if current_status != self._last_status:
-            logger.info("[HealthCache] Status changed: %s -> %s", self._last_status, current_status)
+            logger.info(
+                "[HealthCache] Status changed: %s -> %s",
+                self._last_status,
+                current_status,
+            )
             self._last_status = current_status
 
 

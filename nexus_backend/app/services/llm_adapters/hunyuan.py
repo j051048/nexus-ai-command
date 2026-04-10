@@ -53,7 +53,9 @@ class HunyuanAdapter(BaseModelAdapter):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         self.host = HUNYUAN_HOST
-        self.endpoint = config.api_base_url.rstrip("/") if config.api_base_url else HUNYUAN_ENDPOINT
+        self.endpoint = (
+            config.api_base_url.rstrip("/") if config.api_base_url else HUNYUAN_ENDPOINT
+        )
 
     def _sign(self, payload_json: str, action: str, timestamp: int) -> dict:
         """
@@ -70,7 +72,9 @@ class HunyuanAdapter(BaseModelAdapter):
         secret_id = self.config.api_key
         secret_key = self.config.secret_key
         if not secret_key:
-            raise ValueError("Hunyuan adapter requires secret_key (Tencent Cloud SecretKey)")
+            raise ValueError(
+                "Hunyuan adapter requires secret_key (Tencent Cloud SecretKey)"
+            )
 
         # Step 1: Build canonical request
         http_request_method = "POST"
@@ -90,10 +94,14 @@ class HunyuanAdapter(BaseModelAdapter):
         )
 
         # Step 2: Build string to sign
-        date = datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).strftime("%Y-%m-%d")
+        date = datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).strftime(
+            "%Y-%m-%d"
+        )
         credential_scope = f"{date}/{HUNYUAN_SERVICE}/tc3_request"
         hashed_canonical = hashlib.sha256(canonical_request.encode("utf-8")).hexdigest()
-        string_to_sign = f"TC3-HMAC-SHA256\n{timestamp}\n{credential_scope}\n{hashed_canonical}"
+        string_to_sign = (
+            f"TC3-HMAC-SHA256\n{timestamp}\n{credential_scope}\n{hashed_canonical}"
+        )
 
         # Step 3: Calculate signature
         def _hmac_sha256(key: bytes, msg: str) -> bytes:
@@ -102,7 +110,9 @@ class HunyuanAdapter(BaseModelAdapter):
         secret_date = _hmac_sha256(("TC3" + secret_key).encode("utf-8"), date)
         secret_service = _hmac_sha256(secret_date, HUNYUAN_SERVICE)
         secret_signing = _hmac_sha256(secret_service, "tc3_request")
-        signature = hmac.new(secret_signing, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            secret_signing, string_to_sign.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
 
         # Step 4: Construct Authorization header
         authorization = (
@@ -138,11 +148,17 @@ class HunyuanAdapter(BaseModelAdapter):
         }
 
         # Temperature
-        temperature = request.temperature if request.temperature is not None else self.config.default_temperature
+        temperature = (
+            request.temperature
+            if request.temperature is not None
+            else self.config.default_temperature
+        )
         payload["Temperature"] = max(0.0, min(2.0, temperature))
 
         # TopP
-        top_p = request.top_p if request.top_p is not None else self.config.default_top_p
+        top_p = (
+            request.top_p if request.top_p is not None else self.config.default_top_p
+        )
         payload["TopP"] = max(0.0, min(1.0, top_p))
 
         # Streaming
@@ -172,7 +188,12 @@ class HunyuanAdapter(BaseModelAdapter):
     def _parse_usage(self, usage_data: dict | None) -> dict:
         """Parse Hunyuan usage info (PascalCase keys)."""
         if not usage_data:
-            return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "call_cost": 0.0}
+            return {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "call_cost": 0.0,
+            }
 
         input_tokens = usage_data.get("PromptTokens", 0)
         output_tokens = usage_data.get("CompletionTokens", 0)
@@ -234,11 +255,15 @@ class HunyuanAdapter(BaseModelAdapter):
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(self.endpoint, headers=headers, content=payload_json)
+                response = await client.post(
+                    self.endpoint, headers=headers, content=payload_json
+                )
 
                 if response.status_code != 200:
                     error_text = response.text[:500]
-                    logger.error(f"Hunyuan API error ({response.status_code}): {error_text}")
+                    logger.error(
+                        f"Hunyuan API error ({response.status_code}): {error_text}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return ChatResponse(
                         request_id=request_id,
@@ -254,7 +279,9 @@ class HunyuanAdapter(BaseModelAdapter):
                 # Check for API error
                 error = resp.get("Error")
                 if error:
-                    error_msg = f"{error.get('Code', 'Unknown')}: {error.get('Message', '')}"
+                    error_msg = (
+                        f"{error.get('Code', 'Unknown')}: {error.get('Message', '')}"
+                    )
                     logger.error(f"Hunyuan API error: {error_msg}")
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return ChatResponse(
@@ -343,7 +370,9 @@ class HunyuanAdapter(BaseModelAdapter):
         try:
             async with (
                 httpx.AsyncClient(timeout=timeout) as client,
-                client.stream("POST", self.endpoint, headers=headers, content=payload_json) as response,
+                client.stream(
+                    "POST", self.endpoint, headers=headers, content=payload_json
+                ) as response,
             ):
                 if response.status_code != 200:
                     error_text = ""
@@ -455,10 +484,14 @@ class HunyuanAdapter(BaseModelAdapter):
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(self.endpoint, headers=headers, content=payload_json)
+                response = await client.post(
+                    self.endpoint, headers=headers, content=payload_json
+                )
 
                 if response.status_code != 200:
-                    logger.error(f"Hunyuan embedding error ({response.status_code}): {response.text[:300]}")
+                    logger.error(
+                        f"Hunyuan embedding error ({response.status_code}): {response.text[:300]}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return EmbeddingResponse(
                         request_id=request_id,
@@ -522,7 +555,11 @@ class HunyuanAdapter(BaseModelAdapter):
             latency_ms = int((time.monotonic() - start_time) * 1000)
 
             if result.finish_reason == "error":
-                return {"success": False, "latency_ms": latency_ms, "error": result.content}
+                return {
+                    "success": False,
+                    "latency_ms": latency_ms,
+                    "error": result.content,
+                }
 
             return {"success": True, "latency_ms": latency_ms, "error": None}
 

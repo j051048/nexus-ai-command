@@ -149,7 +149,9 @@ async def get_competitor(
 ):
     """获取竞品详情（含产品和维度）"""
     try:
-        data = await competitor_service.get_battlecard_data(competitor_id, db=req.state.db)
+        data = await competitor_service.get_battlecard_data(
+            competitor_id, db=req.state.db
+        )
         if not data:
             raise api_error(ErrorCode.NOT_FOUND, "竞品不存在")
         return api_success(data=data)
@@ -247,7 +249,9 @@ async def update_product(
 ):
     _check_admin(req)
     try:
-        data = await competitor_service.update_product(product_id, body.model_dump(exclude_none=True), db=req.state.db)
+        data = await competitor_service.update_product(
+            product_id, body.model_dump(exclude_none=True), db=req.state.db
+        )
         return api_success(data=data, message="产品更新成功")
     except Exception as e:
         logger.error(f"Update product failed: {e}")
@@ -372,7 +376,9 @@ async def unlink_document(
 ):
     _check_admin(req)
     try:
-        await competitor_service.unlink_document(competitor_id, document_id, db=req.state.db)
+        await competitor_service.unlink_document(
+            competitor_id, document_id, db=req.state.db
+        )
         return api_success(None, message="文档关联已移除")
     except Exception as e:
         logger.error(f"Unlink document failed: {e}")

@@ -64,7 +64,9 @@ async def import_employees(
 
     # 检查文件大小
     if len(contents) > MAX_FILE_SIZE:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）")
+        raise api_error(
+            ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）"
+        )
 
     # 获取数据库客户端（支持 RLS）
     db_client = request.state.db
@@ -117,7 +119,9 @@ async def import_customers(
 
     # 检查文件大小
     if len(contents) > MAX_FILE_SIZE:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）")
+        raise api_error(
+            ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）"
+        )
 
     # 获取数据库客户端（支持 RLS）
     db_client = request.state.db
@@ -149,7 +153,9 @@ async def import_customers(
 
 
 @router.get("/templates/{template_type}")
-async def get_import_template(template_type: str, user_id: str = Depends(get_current_user_id)):
+async def get_import_template(
+    template_type: str, user_id: str = Depends(get_current_user_id)
+):
     """
     下载导入模板（CSV 格式）
 
@@ -164,7 +170,9 @@ async def get_import_template(template_type: str, user_id: str = Depends(get_cur
         return PlainTextResponse(
             content=template_content,
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={template_type}_template.csv"},
+            headers={
+                "Content-Disposition": f"attachment; filename={template_type}_template.csv"
+            },
         )
 
     except ValueError:
@@ -175,7 +183,9 @@ async def get_import_template(template_type: str, user_id: str = Depends(get_cur
 
 
 @router.post("/preview")
-async def preview_import_data(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
+async def preview_import_data(
+    file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)
+):
     """
     预览导入数据
 
@@ -190,11 +200,15 @@ async def preview_import_data(file: UploadFile = File(...), user_id: str = Depen
 
     # 检查文件大小
     if len(contents) > MAX_FILE_SIZE:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）")
+        raise api_error(
+            ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）"
+        )
 
     try:
         # 预览数据
-        preview_data = await ImportService.preview(contents=contents, filename=file.filename or "unknown.csv")
+        preview_data = await ImportService.preview(
+            contents=contents, filename=file.filename or "unknown.csv"
+        )
 
         return api_success(data=preview_data)
 

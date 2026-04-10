@@ -74,7 +74,9 @@ async def upload_chat_image(
         logger.warning(f"chat_attachments insert failed (table may not exist yet): {e}")
         attachment_id = None
 
-    logger.info(f"[ChatUpload] user={user_id} file={file.filename} size={len(content)} type={content_type}")
+    logger.info(
+        f"[ChatUpload] user={user_id} file={file.filename} size={len(content)} type={content_type}"
+    )
 
     return api_success(
         data={

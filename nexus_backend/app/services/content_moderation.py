@@ -276,7 +276,9 @@ class ContentModerator:
 
                 from app.core.config import settings
 
-                self._llm_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.AI_BASE_URL)
+                self._llm_client = AsyncOpenAI(
+                    api_key=settings.OPENAI_API_KEY, base_url=settings.AI_BASE_URL
+                )
             except Exception as e:
                 logger.warning(f"Failed to initialize LLM client for detection: {e}")
                 self._llm_client = None
@@ -287,7 +289,9 @@ class ContentModerator:
         for vtype, (pattern, _, _) in self.PATTERNS.items():
             self._compiled_patterns[vtype] = re.compile(pattern)
 
-        self._injection_patterns = [re.compile(p, re.IGNORECASE) for p in self.INJECTION_PATTERNS]
+        self._injection_patterns = [
+            re.compile(p, re.IGNORECASE) for p in self.INJECTION_PATTERNS
+        ]
 
     def scan(self, content: str) -> tuple[bool, list[Violation]]:
         """
@@ -320,7 +324,11 @@ class ContentModerator:
                     Violation(
                         type=ViolationType.PROMPT_INJECTION,
                         severity="high",
-                        matched_text=(match.group()[:50] + "..." if len(match.group()) > 50 else match.group()),
+                        matched_text=(
+                            match.group()[:50] + "..."
+                            if len(match.group()) > 50
+                            else match.group()
+                        ),
                         position=(match.start(), match.end()),
                         suggestion="[疑似注入攻击]",
                     )
@@ -378,7 +386,9 @@ class ContentModerator:
             return content, violations
 
         # Sort violations by position (reverse order for replacement)
-        sorted_violations = sorted(violations, key=lambda v: v.position[0], reverse=True)
+        sorted_violations = sorted(
+            violations, key=lambda v: v.position[0], reverse=True
+        )
 
         sanitized = content
         for violation in sorted_violations:
@@ -529,7 +539,9 @@ class ContentModerator:
             # Fail-closed: block when detection service is unavailable
             return False, "安全检测服务暂时不可用，请稍后重试"
 
-    async def scan_output_pipeline(self, content: str, context: dict = None) -> tuple[str, list[Violation]]:
+    async def scan_output_pipeline(
+        self, content: str, context: dict = None
+    ) -> tuple[str, list[Violation]]:
         """
         P0 Security: Complete output scanning pipeline.
 
@@ -558,7 +570,9 @@ class ContentModerator:
 
         # Stage 3: Check for data that shouldn't be exposed
         if context:
-            sanitized, data_violations = self._scan_context_violations(sanitized, context)
+            sanitized, data_violations = self._scan_context_violations(
+                sanitized, context
+            )
             violations.extend(data_violations)
 
         # Stage 4: Harmful content check
@@ -631,7 +645,9 @@ class ContentModerator:
 
         return sanitized, violations
 
-    def _scan_context_violations(self, content: str, context: dict) -> tuple[str, list[Violation]]:
+    def _scan_context_violations(
+        self, content: str, context: dict
+    ) -> tuple[str, list[Violation]]:
         """Check if output contains data that shouldn't be exposed."""
         violations = []
 
@@ -658,7 +674,10 @@ class ContentModerator:
                             type=ViolationType.HARMFUL_CONTENT,
                             severity="critical",
                             matched_text=data[:20] + "...",
-                            position=(content.find(data), content.find(data) + len(data)),
+                            position=(
+                                content.find(data),
+                                content.find(data) + len(data),
+                            ),
                             suggestion="[他人数据已隐藏]",
                         )
                     )
@@ -684,7 +703,11 @@ class ContentModerator:
             # Self-harm / suicide — always critical
             (r"自杀|self-harm|kill yourself", "critical", "[内容已过滤]"),
             # Drug manufacturing/dealing instructions — exclude regulatory context
-            (r"(?<!打击)(?<!禁止)(?<!查处)(?<!缉)(?<!涉)毒品|(?<!anti-)drugs", "high", "[内容已过滤]"),
+            (
+                r"(?<!打击)(?<!禁止)(?<!查处)(?<!缉)(?<!涉)毒品|(?<!anti-)drugs",
+                "high",
+                "[内容已过滤]",
+            ),
         ]
         # NOTE: Removed overly broad patterns that caused false positives:
         # - "暴力|violent|攻击" — triggers on news, security reports, sports
@@ -757,7 +780,9 @@ async def check_user_input_advanced(user_input: str) -> tuple[bool, str | None]:
     return await content_moderator.check_input_with_llm(user_input)
 
 
-async def sanitize_output_advanced(content: str, context: dict = None) -> tuple[str, list[Violation]]:
+async def sanitize_output_advanced(
+    content: str, context: dict = None
+) -> tuple[str, list[Violation]]:
     """
     P0 Security: Complete output sanitization pipeline.
     Use this before displaying AI responses to users.
@@ -772,7 +797,9 @@ async def sanitize_output_advanced_safe(content: str) -> str:
     try:
         sanitized, violations = await sanitize_output_advanced(content)
         if violations:
-            logger.warning(f"[OutputScan] {len(violations)} violations: {[v.type for v in violations]}")
+            logger.warning(
+                f"[OutputScan] {len(violations)} violations: {[v.type for v in violations]}"
+            )
         return sanitized
     except Exception as e:
         logger.error(f"[OutputScan] Advanced scan failed, fallback to simple: {e}")

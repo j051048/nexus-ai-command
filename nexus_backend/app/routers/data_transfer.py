@@ -39,7 +39,9 @@ class ImportValidateRequest(BaseModel):
 
     import_type: str = Field(..., description="导入类型")
     csv_content: str = Field(..., description="CSV 字符串内容")
-    column_mapping: dict[str, str] | None = Field(None, description="自定义列映射 (原列名 -> 标准列名)")
+    column_mapping: dict[str, str] | None = Field(
+        None, description="自定义列映射 (原列名 -> 标准列名)"
+    )
 
 
 # ============== Export Endpoints ==============
@@ -69,7 +71,9 @@ async def export_data(
     db = getattr(request.state, "db", None)
 
     if format not in ("csv", "xlsx"):
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "format 参数只支持 csv 或 xlsx")
+        raise api_error(
+            ErrorCode.VALIDATION_INVALID_INPUT, "format 参数只支持 csv 或 xlsx"
+        )
 
     try:
         # 构建过滤条件
@@ -96,7 +100,9 @@ async def export_data(
 
         # CSV 导出（保持原有逻辑）
         if export_type == "approvals" and org_id:
-            csv_content = await data_export_service.export_approvals(org_id=org_id, filters=filters, db=db)
+            csv_content = await data_export_service.export_approvals(
+                org_id=org_id, filters=filters, db=db
+            )
         elif export_type == "attendance" and org_id:
             date_range = {}
             if body.date_from:
@@ -107,7 +113,9 @@ async def export_data(
                 org_id=org_id, date_range=date_range or None, db=db
             )
         elif export_type == "sales" and org_id:
-            csv_content = await data_export_service.export_sales_data(org_id=org_id, filters=filters, db=db)
+            csv_content = await data_export_service.export_sales_data(
+                org_id=org_id, filters=filters, db=db
+            )
         else:
             # 通用导出
             csv_content = await data_export_service.export_to_csv(

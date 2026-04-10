@@ -31,7 +31,12 @@ def cached_report(ttl_seconds: int = 300):
 
             # Build deterministic cache key
             params_blob = json.dumps(
-                {"args": [str(a) for a in args], "kwargs": {k: str(v) for k, v in sorted(kwargs.items()) if k != "db"}},
+                {
+                    "args": [str(a) for a in args],
+                    "kwargs": {
+                        k: str(v) for k, v in sorted(kwargs.items()) if k != "db"
+                    },
+                },
                 sort_keys=True,
             )
             params_hash = hashlib.md5(params_blob.encode()).hexdigest()[:12]
@@ -80,7 +85,9 @@ async def invalidate_report(org_id: str, report_type: str) -> bool:
             keys = await cache_service._client.keys(pattern)
             if keys:
                 await cache_service._client.delete(*keys)
-                logger.info("Invalidated %d cached reports matching %s", len(keys), pattern)
+                logger.info(
+                    "Invalidated %d cached reports matching %s", len(keys), pattern
+                )
                 return True
     except Exception as e:
         logger.error("Report cache invalidation failed: %s", e)

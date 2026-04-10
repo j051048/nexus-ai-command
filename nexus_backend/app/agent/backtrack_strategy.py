@@ -44,14 +44,20 @@ def should_backtrack(state: dict) -> bool:
     """
     backtrack_depth = state.get("backtrack_depth", 0)
     if backtrack_depth >= MAX_BACKTRACK_DEPTH:
-        logger.debug("[Backtrack] Max depth reached (%d), no backtrack", backtrack_depth)
+        logger.debug(
+            "[Backtrack] Max depth reached (%d), no backtrack", backtrack_depth
+        )
         return False
 
     # Condition 2: Low confidence or total tool failure
     confidence = state.get("confidence_score", 1.0)
     completed_tools = state.get("completed_tool_calls", [])
     all_tools_failed = len(completed_tools) > 0 and all(
-        (getattr(tc, "status", None) or (tc.get("status") if isinstance(tc, dict) else "")) == "error"
+        (
+            getattr(tc, "status", None)
+            or (tc.get("status") if isinstance(tc, dict) else "")
+        )
+        == "error"
         for tc in completed_tools
     )
 
@@ -68,7 +74,10 @@ def should_backtrack(state: dict) -> bool:
     # Check if there's an untried candidate with sufficient quality
     current_plan_sig = _plan_signature(state.get("plan", ""))
     alternatives = [
-        c for c in candidates if c.get("sig") != current_plan_sig and c.get("score", 0) >= MIN_ALTERNATIVE_SCORE
+        c
+        for c in candidates
+        if c.get("sig") != current_plan_sig
+        and c.get("score", 0) >= MIN_ALTERNATIVE_SCORE
     ]
 
     if not alternatives:
@@ -76,7 +85,8 @@ def should_backtrack(state: dict) -> bool:
         return False
 
     logger.info(
-        "[Backtrack] Backtrack conditions met: confidence=%.2f, all_failed=%s, " "alternatives=%d, depth=%d",
+        "[Backtrack] Backtrack conditions met: confidence=%.2f, all_failed=%s, "
+        "alternatives=%d, depth=%d",
         confidence,
         all_tools_failed,
         len(alternatives),
@@ -109,7 +119,9 @@ def execute_backtrack(state: dict) -> dict:
     )
 
     if not alternatives:
-        logger.warning("[Backtrack] No alternatives found during execute (race condition?)")
+        logger.warning(
+            "[Backtrack] No alternatives found during execute (race condition?)"
+        )
         return {}
 
     best = alternatives[0]

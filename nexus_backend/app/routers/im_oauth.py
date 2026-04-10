@@ -217,7 +217,13 @@ async def oauth_callback(
             # 3. 尝试通过手机号自动关联
             mobile = platform_user.get("mobile", "")
             if mobile:
-                user_result = await db.table("users").select("id").eq("phone", mobile).limit(1).execute()
+                user_result = (
+                    await db.table("users")
+                    .select("id")
+                    .eq("phone", mobile)
+                    .limit(1)
+                    .execute()
+                )
                 if user_result.data:
                     nexus_user_id = user_result.data[0].get("id")
 
@@ -234,7 +240,9 @@ async def oauth_callback(
                                 .execute()
                             )
                             if org_result.data:
-                                resolved_org_id = org_result.data.get("organization_id", "")
+                                resolved_org_id = org_result.data.get(
+                                    "organization_id", ""
+                                )
 
                         if resolved_org_id:
                             await (
@@ -245,7 +253,9 @@ async def oauth_callback(
                                         "organization_id": resolved_org_id,
                                         "platform": platform,
                                         "platform_user_id": platform_user_id,
-                                        "platform_username": platform_user.get("name", ""),
+                                        "platform_username": platform_user.get(
+                                            "name", ""
+                                        ),
                                     }
                                 )
                                 .execute()

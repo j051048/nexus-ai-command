@@ -59,22 +59,30 @@ class QueryTransformer:
                     base_url = resolved.get("base_url", "") or ""
                     model = resolved.get("model") or model
                 except Exception:
-                    logger.debug("LLM gateway model config unavailable, using default fallback")
+                    logger.debug(
+                        "LLM gateway model config unavailable, using default fallback"
+                    )
 
                 # Fallback chain: gateway → AgentConfig → global settings
                 api_key = api_key or self.config.api_key or settings.OPENAI_API_KEY
                 base_url = (
-                    base_url or self.config.base_url or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+                    base_url
+                    or self.config.base_url
+                    or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
                 )
 
                 if not api_key:
-                    logger.warning("[QueryTransformer] No API key resolved from gateway, config, or settings")
+                    logger.warning(
+                        "[QueryTransformer] No API key resolved from gateway, config, or settings"
+                    )
                     return None
 
                 self._llm_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
                 self._resolved_model = model
             except Exception as e:
-                logger.warning(f"Failed to init LLM for query transformation: {e}", exc_info=True)
+                logger.warning(
+                    f"Failed to init LLM for query transformation: {e}", exc_info=True
+                )
         return self._llm_client
 
     async def generate_hyde(self, query: str) -> str:
@@ -151,7 +159,9 @@ class QueryTransformer:
             logger.warning(f"Multi-query expansion failed: {e}", exc_info=True)
             return [query]
 
-    async def rewrite_query(self, query: str, messages: list[dict] | None = None) -> str:
+    async def rewrite_query(
+        self, query: str, messages: list[dict] | None = None
+    ) -> str:
         """
         Rewrite query for better semantic matching.
         Supports context-aware rewriting with recent conversation history.
@@ -169,7 +179,9 @@ class QueryTransformer:
                 role = msg.get("role", "")
                 content = (msg.get("content") or "")[:150]
                 if role in ("user", "assistant") and content:
-                    context_lines.append(f"{'用户' if role == 'user' else 'AI'}: {content}")
+                    context_lines.append(
+                        f"{'用户' if role == 'user' else 'AI'}: {content}"
+                    )
             if context_lines:
                 context_block = "\n对话上下文:\n" + "\n".join(context_lines) + "\n"
 
@@ -205,7 +217,9 @@ class QueryTransformer:
             return query
 
 
-async def llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k: int = 3) -> list[dict]:
+async def llm_rerank(
+    query: str, docs: list[dict], config: "AgentConfig", top_k: int = 3
+) -> list[dict]:
     """用 mini_model 对 RAG 文档打相关性分（0-10），取 top_k。
 
     超时 5s，失败返回原始 docs。
@@ -219,14 +233,18 @@ async def llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k:
         from app.core.config import settings
 
         api_key = config.api_key or settings.OPENAI_API_KEY
-        base_url = config.base_url or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+        base_url = config.base_url or getattr(
+            settings, "AI_BASE_URL", "https://api.openai.com/v1"
+        )
 
         if not api_key:
             logger.warning("[LLMRerank] No API key available, skipping rerank")
             return docs[:top_k]
 
         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-        doc_list = "\n".join(f"[{i}] {doc.get('content', '')[:200]}" for i, doc in enumerate(docs))
+        doc_list = "\n".join(
+            f"[{i}] {doc.get('content', '')[:200]}" for i, doc in enumerate(docs)
+        )
         prompt = (
             f"用户问题: {query}\n\n"
             f"以下是检索到的文档片段，请对每个片段与用户问题的相关性打分（0-10），"
@@ -246,7 +264,9 @@ async def llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k:
         if arr_match:
             scores = json.loads(arr_match.group())
             if len(scores) == len(docs):
-                ranked = sorted(zip(scores, docs, strict=False), key=lambda x: x[0], reverse=True)
+                ranked = sorted(
+                    zip(scores, docs, strict=False), key=lambda x: x[0], reverse=True
+                )
                 return [doc for _, doc in ranked[:top_k]]
     except Exception as e:
         logger.error(f"[LLMRerank] Failed, returning original docs: {e}")

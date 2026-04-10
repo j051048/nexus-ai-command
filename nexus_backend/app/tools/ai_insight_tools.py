@@ -31,15 +31,23 @@ class SmartReportTool(BaseTool):
     description = "生成组织综合报告，聚合员工、资产、工单、考勤数据。当用户说'生成报告'、'组织概况'、'综合报告'时调用。"
     domain = "analytics"
     examples = [
-        {"input": {"report_type": "daily"}, "output_summary": "返回当日全组织的员工/资产/工单/考勤汇总"},
+        {
+            "input": {"report_type": "daily"},
+            "output_summary": "返回当日全组织的员工/资产/工单/考勤汇总",
+        },
         {
             "input": {"report_type": "weekly", "department_id": "uuid"},
             "output_summary": "返回指定部门最近7天的综合报告",
         },
-        {"input": {"report_type": "monthly"}, "output_summary": "返回最近30天全组织综合报告"},
+        {
+            "input": {"report_type": "monthly"},
+            "output_summary": "返回最近30天全组织综合报告",
+        },
     ]
     related_tools = ["anomaly_detection", "generate_weekly_report"]
-    gotchas = "报告基于实时查询而非缓存，数据量大时可能较慢。部门ID必须是有效的UUID格式。"
+    gotchas = (
+        "报告基于实时查询而非缓存，数据量大时可能较慢。部门ID必须是有效的UUID格式。"
+    )
 
     parameters = {
         "type": "object",
@@ -57,7 +65,9 @@ class SmartReportTool(BaseTool):
         "required": ["report_type"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -100,7 +110,11 @@ class SmartReportTool(BaseTool):
                 pass
             if emp_count == 0:
                 try:
-                    uq = client.table("users").select("id", count="exact").eq("organization_id", org_id)
+                    uq = (
+                        client.table("users")
+                        .select("id", count="exact")
+                        .eq("organization_id", org_id)
+                    )
                     if department_id:
                         uq = uq.eq("department", department_id)
                     emp_result = await uq.execute()
@@ -112,12 +126,18 @@ class SmartReportTool(BaseTool):
             asset_total = 0
             asset_in_use = 0
             try:
-                asset_query = client.table("assets").select("id, status", count="exact").eq("organization_id", org_id)
+                asset_query = (
+                    client.table("assets")
+                    .select("id, status", count="exact")
+                    .eq("organization_id", org_id)
+                )
                 if department_id:
                     asset_query = asset_query.eq("department_id", department_id)
                 asset_result = await asset_query.execute()
                 asset_total = asset_result.count or 0
-                asset_in_use = sum(1 for a in (asset_result.data or []) if a.get("status") == "in_use")
+                asset_in_use = sum(
+                    1 for a in (asset_result.data or []) if a.get("status") == "in_use"
+                )
             except Exception:
                 pass
 
@@ -136,8 +156,16 @@ class SmartReportTool(BaseTool):
                     wo_query = wo_query.eq("department_id", department_id)
                 wo_result = await wo_query.execute()
                 wo_total = wo_result.count or 0
-                wo_pending = sum(1 for w in (wo_result.data or []) if w.get("status") in ("pending", "open"))
-                wo_done = sum(1 for w in (wo_result.data or []) if w.get("status") in ("done", "closed", "completed"))
+                wo_pending = sum(
+                    1
+                    for w in (wo_result.data or [])
+                    if w.get("status") in ("pending", "open")
+                )
+                wo_done = sum(
+                    1
+                    for w in (wo_result.data or [])
+                    if w.get("status") in ("done", "closed", "completed")
+                )
             except Exception:
                 pass
 
@@ -156,11 +184,15 @@ class SmartReportTool(BaseTool):
                     att_query = att_query.eq("department_id", department_id)
                 att_result = await att_query.execute()
                 att_total = att_result.count or 0
-                att_late = sum(1 for a in (att_result.data or []) if a.get("status") == "late")
+                att_late = sum(
+                    1 for a in (att_result.data or []) if a.get("status") == "late"
+                )
             except Exception:
                 pass
 
-            dept_note = f"（部门: {department_id[:8]}...）" if department_id else "（全组织）"
+            dept_note = (
+                f"（部门: {department_id[:8]}...）" if department_id else "（全组织）"
+            )
 
             return (
                 f"📊 智能{type_label} {dept_note}\n"
@@ -191,14 +223,21 @@ class AnomalyDetectionTool(BaseTool):
     """检测组织数据异常"""
 
     name = "anomaly_detection"
-    description = (
-        "检测组织数据中的异常情况，覆盖考勤、报销、库存范围。当用户说'检测异常'、'有没有异常'、'风险预警'时调用。"
-    )
+    description = "检测组织数据中的异常情况，覆盖考勤、报销、库存范围。当用户说'检测异常'、'有没有异常'、'风险预警'时调用。"
     domain = "analytics"
     examples = [
-        {"input": {"scope": "all"}, "output_summary": "返回考勤、报销、库存三个维度的异常检测结果"},
-        {"input": {"scope": "attendance"}, "output_summary": "仅返回考勤异常，如频繁迟到员工"},
-        {"input": {"scope": "inventory"}, "output_summary": "返回低于安全库存的物资预警"},
+        {
+            "input": {"scope": "all"},
+            "output_summary": "返回考勤、报销、库存三个维度的异常检测结果",
+        },
+        {
+            "input": {"scope": "attendance"},
+            "output_summary": "仅返回考勤异常，如频繁迟到员工",
+        },
+        {
+            "input": {"scope": "inventory"},
+            "output_summary": "返回低于安全库存的物资预警",
+        },
     ]
     related_tools = ["smart_report", "predictive_maintenance"]
     gotchas = "异常检测基于最近7天数据。报销异常阈值为平均值的3倍，非固定金额。库存预警依赖物资表中的最低库存设置。"
@@ -215,7 +254,9 @@ class AnomalyDetectionTool(BaseTool):
         "required": ["scope"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -247,9 +288,13 @@ class AnomalyDetectionTool(BaseTool):
 
                         frequent_late = {k: v for k, v in late_counts.items() if v >= 3}
                         if frequent_late:
-                            alerts.append(f"⏰ **考勤异常**: {len(frequent_late)} 名员工本周迟到 3 次以上")
+                            alerts.append(
+                                f"⏰ **考勤异常**: {len(frequent_late)} 名员工本周迟到 3 次以上"
+                            )
                         if len(late_records) > 10:
-                            alerts.append(f"⏰ **考勤预警**: 本周共 {len(late_records)} 次迟到记录，建议关注")
+                            alerts.append(
+                                f"⏰ **考勤预警**: 本周共 {len(late_records)} 次迟到记录，建议关注"
+                            )
                 except Exception:
                     pass
 
@@ -265,7 +310,11 @@ class AnomalyDetectionTool(BaseTool):
                     )
                     expenses = exp_result.data or []
                     if expenses:
-                        amounts = [float(e.get("amount", 0)) for e in expenses if e.get("amount")]
+                        amounts = [
+                            float(e.get("amount", 0))
+                            for e in expenses
+                            if e.get("amount")
+                        ]
                         if amounts:
                             avg_amount = sum(amounts) / len(amounts)
                             high_expenses = [a for a in amounts if a > avg_amount * 3]
@@ -295,8 +344,12 @@ class AnomalyDetectionTool(BaseTool):
                         and item["quantity"] <= item["min_stock"]
                     ]
                     if low_stock:
-                        names = ", ".join(i.get("name", "未知")[:10] for i in low_stock[:5])
-                        alerts.append(f"📦 **库存预警**: {len(low_stock)} 项物资低于安全库存 ({names})")
+                        names = ", ".join(
+                            i.get("name", "未知")[:10] for i in low_stock[:5]
+                        )
+                        alerts.append(
+                            f"📦 **库存预警**: {len(low_stock)} 项物资低于安全库存 ({names})"
+                        )
                 except Exception:
                     pass
 
@@ -320,13 +373,14 @@ class PredictiveMaintenanceTool(BaseTool):
     """预测资产维护需求"""
 
     name = "predictive_maintenance"
-    description = (
-        "预测资产维护需求，识别超期未维护的使用中资产。当用户说'维护预测'、'哪些设备需要维护'、'预防性维护'时调用。"
-    )
+    description = "预测资产维护需求，识别超期未维护的使用中资产。当用户说'维护预测'、'哪些设备需要维护'、'预防性维护'时调用。"
     domain = "asset"
     examples = [
         {"input": {}, "output_summary": "返回所有使用中资产的维护预测建议"},
-        {"input": {"asset_type": "computer"}, "output_summary": "仅返回电脑类资产的维护建议"},
+        {
+            "input": {"asset_type": "computer"},
+            "output_summary": "仅返回电脑类资产的维护建议",
+        },
     ]
     related_tools = ["anomaly_detection", "process_asset_lifecycle"]
     gotchas = "维护判断逻辑：无转移记录且购置超180天，或距上次操作超90天。不支持自定义维护周期阈值。"
@@ -342,7 +396,9 @@ class PredictiveMaintenanceTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -394,7 +450,9 @@ class PredictiveMaintenanceTool(BaseTool):
                     purchase_date = asset.get("purchase_date")
                     if purchase_date:
                         try:
-                            pd = datetime.fromisoformat(purchase_date).replace(tzinfo=UTC)
+                            pd = datetime.fromisoformat(purchase_date).replace(
+                                tzinfo=UTC
+                            )
                             days_since = (now - pd).days
                             if days_since > 180:
                                 needs_maintenance = True
@@ -406,7 +464,9 @@ class PredictiveMaintenanceTool(BaseTool):
                     last_date_str = last_transfer.get("created_at", "")
                     if last_date_str:
                         try:
-                            last_date = datetime.fromisoformat(last_date_str.replace("Z", "+00:00"))
+                            last_date = datetime.fromisoformat(
+                                last_date_str.replace("Z", "+00:00")
+                            )
                             days_since = (now - last_date).days
                             if days_since > 90:
                                 needs_maintenance = True
@@ -415,13 +475,18 @@ class PredictiveMaintenanceTool(BaseTool):
                             pass
 
                 if needs_maintenance:
-                    suggestions.append(f"- 🔧 **{asset_name}** [{asset_code}] — {reason}")
+                    suggestions.append(
+                        f"- 🔧 **{asset_name}** [{asset_code}] — {reason}"
+                    )
 
             if not suggestions:
                 type_note = f"（类型: {asset_type}）" if asset_type else ""
                 return f"✅ 所有使用中的资产{type_note}暂无维护需求。"
 
-            return f"🔧 **维护预测报告**\n以下 {len(suggestions)} 项资产建议安排维护:\n\n" + "\n".join(suggestions)
+            return (
+                f"🔧 **维护预测报告**\n以下 {len(suggestions)} 项资产建议安排维护:\n\n"
+                + "\n".join(suggestions)
+            )
 
         except Exception as e:
             logger.error(f"维护预测失败: {e}")
@@ -435,7 +500,10 @@ class AutoDispatchTool(BaseTool):
     description = "推荐工单最佳处理人，按员工当前工作量排序。当用户说'派遣工单'、'谁来处理这个工单'、'智能分配'时调用。"
     domain = "project"
     examples = [
-        {"input": {"order_id": "uuid"}, "output_summary": "返回该工单所属部门员工按工作量排序的派遣建议"},
+        {
+            "input": {"order_id": "uuid"},
+            "output_summary": "返回该工单所属部门员工按工作量排序的派遣建议",
+        },
     ]
     related_tools = ["smart_report", "process_onboarding"]
     gotchas = "仅提供建议，不会自动修改工单的指派人。工单必须已存在，否则返回错误。"
@@ -451,7 +519,9 @@ class AutoDispatchTool(BaseTool):
         "required": ["order_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -465,7 +535,13 @@ class AutoDispatchTool(BaseTool):
 
         try:
             # 获取工单详情
-            wo_result = await client.table("work_orders").select("*").eq("id", order_id).maybe_single().execute()
+            wo_result = (
+                await client.table("work_orders")
+                .select("*")
+                .eq("id", order_id)
+                .maybe_single()
+                .execute()
+            )
             order = wo_result.data
             if not order:
                 return f"❌ 未找到ID为 {order_id} 的工单。"
@@ -477,7 +553,10 @@ class AutoDispatchTool(BaseTool):
             employees = []
             try:
                 emp_query = (
-                    client.table("employees").select("id, name").eq("organization_id", org_id).eq("status", "active")
+                    client.table("employees")
+                    .select("id, name")
+                    .eq("organization_id", org_id)
+                    .eq("status", "active")
                 )
                 if department_id:
                     emp_query = emp_query.eq("department_id", department_id)
@@ -487,7 +566,11 @@ class AutoDispatchTool(BaseTool):
                 pass
             if not employees:
                 try:
-                    uq = client.table("users").select("id, name").eq("organization_id", org_id)
+                    uq = (
+                        client.table("users")
+                        .select("id, name")
+                        .eq("organization_id", org_id)
+                    )
                     if department_id:
                         uq = uq.eq("department", department_id)
                     emp_result = await uq.execute()
@@ -534,7 +617,9 @@ class AutoDispatchTool(BaseTool):
 
             for i, wl in enumerate(workloads[:5], 1):
                 tag = " ⭐ 推荐" if i == 1 else ""
-                lines.append(f"{i}. **{wl['name']}** — 当前待处理工单: {wl['open_count']}{tag}")
+                lines.append(
+                    f"{i}. **{wl['name']}** — 当前待处理工单: {wl['open_count']}{tag}"
+                )
 
             return "\n".join(lines)
 
@@ -551,7 +636,9 @@ class MeetingSummaryTool(BaseTool):
     domain = "oa_leave"
     examples = [
         {
-            "input": {"content": "参会人员：张三、李四\n决定：启动新项目\n行动事项：张三负责方案"},
+            "input": {
+                "content": "参会人员：张三、李四\n决定：启动新项目\n行动事项：张三负责方案"
+            },
             "output_summary": "返回结构化纪要，含参会人、决定、行动事项",
         },
         {
@@ -573,7 +660,9 @@ class MeetingSummaryTool(BaseTool):
         "required": ["content"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         content = args.get("content", "").strip()
         if not content:
             return "❌ 会议笔记内容不能为空"
@@ -648,7 +737,9 @@ class MeetingSummaryTool(BaseTool):
                     result_parts.append(f"  - {n}")
                 result_parts.append("")
 
-            if other_lines and not (attendees or decisions or action_items or next_steps):
+            if other_lines and not (
+                attendees or decisions or action_items or next_steps
+            ):
                 # 无结构化内容时，返回原文摘要
                 result_parts.append("📄 **会议内容**")
                 for line in other_lines[:20]:
@@ -669,12 +760,13 @@ class OnboardingAssistantTool(BaseTool):
     """生成新员工入职清单"""
 
     name = "onboarding_assistant"
-    description = (
-        "生成新员工入职清单，含账号配置、设备分配、培训计划等。当用户说'入职清单'、'新员工入职'、'入职准备'时调用。"
-    )
+    description = "生成新员工入职清单，含账号配置、设备分配、培训计划等。当用户说'入职清单'、'新员工入职'、'入职准备'时调用。"
     domain = "hr"
     examples = [
-        {"input": {"employee_id": "uuid"}, "output_summary": "返回该员工的完整入职清单，含可分配的闲置设备"},
+        {
+            "input": {"employee_id": "uuid"},
+            "output_summary": "返回该员工的完整入职清单，含可分配的闲置设备",
+        },
         {
             "input": {"employee_id": "uuid", "department_id": "uuid"},
             "output_summary": "返回入职清单，部门信息使用指定部门而非员工默认部门",
@@ -698,7 +790,9 @@ class OnboardingAssistantTool(BaseTool):
         "required": ["employee_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -718,13 +812,25 @@ class OnboardingAssistantTool(BaseTool):
             # 获取员工信息 — 优先 employees，兜底 users
             employee = None
             try:
-                emp_result = await client.table("employees").select("*").eq("id", employee_id).maybe_single().execute()
+                emp_result = (
+                    await client.table("employees")
+                    .select("*")
+                    .eq("id", employee_id)
+                    .maybe_single()
+                    .execute()
+                )
                 employee = emp_result.data
             except Exception:
                 pass
             if not employee:
                 try:
-                    emp_result = await client.table("users").select("*").eq("id", employee_id).maybe_single().execute()
+                    emp_result = (
+                        await client.table("users")
+                        .select("*")
+                        .eq("id", employee_id)
+                        .maybe_single()
+                        .execute()
+                    )
                     employee = emp_result.data
                 except Exception:
                     pass
@@ -732,13 +838,21 @@ class OnboardingAssistantTool(BaseTool):
                 return f"❌ 未找到ID为 {employee_id} 的员工。"
 
             emp_name = employee.get("name", "未知")
-            dept_id = department_id or employee.get("department_id") or employee.get("department")
+            dept_id = (
+                department_id
+                or employee.get("department_id")
+                or employee.get("department")
+            )
 
             # 获取部门信息
             dept_name = "未分配"
             if dept_id:
                 dept_result = await (
-                    client.table("departments").select("name").eq("id", dept_id).maybe_single().execute()
+                    client.table("departments")
+                    .select("name")
+                    .eq("id", dept_id)
+                    .maybe_single()
+                    .execute()
                 )
                 if dept_result.data:
                     dept_name = dept_result.data.get("name", "未知")

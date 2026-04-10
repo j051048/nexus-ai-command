@@ -41,7 +41,9 @@ async def get_sales_report(
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         date_range = _build_date_range(preset, start, end)
-        data = await report_service.get_sales_report(org_id, date_range, group_by, db=db)
+        data = await report_service.get_sales_report(
+            org_id, date_range, group_by, db=db
+        )
         return api_success(data=data)
     except Exception as e:
         logger.error(f"Sales report error: {e}")
@@ -148,10 +150,16 @@ async def refresh_report_cache(
         "get_usage_report",
         "get_overview_stats",
     }
-    method_name = f"get_{report_type}_report" if report_type != "overview" else "get_overview_stats"
+    method_name = (
+        f"get_{report_type}_report"
+        if report_type != "overview"
+        else "get_overview_stats"
+    )
 
     if method_name not in valid_types:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"不支持的报表类型: {report_type}")
+        raise api_error(
+            ErrorCode.VALIDATION_INVALID_INPUT, f"不支持的报表类型: {report_type}"
+        )
 
     org_id = getattr(req.state, "org_id", None)
     if not org_id:

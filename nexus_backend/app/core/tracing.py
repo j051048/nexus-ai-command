@@ -29,7 +29,9 @@ def init_tracing():
         return _tracer
 
     # 创建 Resource
-    resource = Resource.create({"service.name": "nexus-agent", "service.version": "1.0.0"})
+    resource = Resource.create(
+        {"service.name": "nexus-agent", "service.version": "1.0.0"}
+    )
 
     # 创建 TracerProvider
     provider = TracerProvider(resource=resource)

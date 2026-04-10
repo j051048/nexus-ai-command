@@ -55,7 +55,8 @@ _FINANCIAL_RULES: dict[str, list[dict]] = {
     "update_purchase_order": [
         {
             "field": "amount",
-            "max": settings.APPROVAL_PURCHASE_AUTO_LIMIT * (1 + settings.APPROVAL_PURCHASE_OVERRUN_TOLERANCE),
+            "max": settings.APPROVAL_PURCHASE_AUTO_LIMIT
+            * (1 + settings.APPROVAL_PURCHASE_OVERRUN_TOLERANCE),
             "reason_tpl": "采购金额 {val} 超过含超支容差的上限 {limit}",
             "escalation": "needs_approval",
             "policy_name": "purchase_overrun_limit",

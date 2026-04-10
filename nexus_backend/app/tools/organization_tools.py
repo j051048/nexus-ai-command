@@ -36,7 +36,10 @@ class ListDepartmentsTool(BaseTool):
     description = "查询组织的部门列表，支持按父部门筛选子部门。当用户说'查看部门'、'部门列表'、'有哪些部门'时调用。"
     examples = [
         {"input": {}, "output_summary": "返回组织下所有顶级部门列表"},
-        {"input": {"parent_id": "abc123..."}, "output_summary": "返回指定父部门下的子部门列表"},
+        {
+            "input": {"parent_id": "abc123..."},
+            "output_summary": "返回指定父部门下的子部门列表",
+        },
     ]
     related_tools = ["create_department", "update_department", "org_statistics"]
     gotchas = "parent_id 必须是合法的UUID格式。未传 parent_id 时返回所有部门。"
@@ -52,7 +55,9 @@ class ListDepartmentsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -77,7 +82,9 @@ class ListDepartmentsTool(BaseTool):
             for dept in departments:
                 manager = dept.get("manager")
                 manager_name = manager.get("name") if manager else "未设置"
-                lines.append(f"- **{dept.get('name')}** | 负责人: {manager_name} | ID: {dept['id'][:8]}...")
+                lines.append(
+                    f"- **{dept.get('name')}** | 负责人: {manager_name} | ID: {dept['id'][:8]}..."
+                )
 
             return "\n".join(lines)
 
@@ -96,12 +103,18 @@ class CreateDepartmentTool(BaseTool):
     examples = [
         {"input": {"name": "技术部"}, "output_summary": "创建名为技术部的顶级部门"},
         {
-            "input": {"name": "前端组", "parent_id": "abc123...", "manager_id": "def456..."},
+            "input": {
+                "name": "前端组",
+                "parent_id": "abc123...",
+                "manager_id": "def456...",
+            },
             "output_summary": "在指定父部门下创建前端组并设置负责人",
         },
     ]
     related_tools = ["list_departments", "update_department", "create_employee"]
-    gotchas = "部门名称不能为空。parent_id 和 manager_id 必须是合法的UUID。仅管理员可操作。"
+    gotchas = (
+        "部门名称不能为空。parent_id 和 manager_id 必须是合法的UUID。仅管理员可操作。"
+    )
 
     parameters = {
         "type": "object",
@@ -123,7 +136,9 @@ class CreateDepartmentTool(BaseTool):
         "required": ["name"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -171,8 +186,14 @@ class UpdateDepartmentTool(BaseTool):
     description = "更新部门信息，支持修改名称、负责人和状态。当用户说'更新部门'、'修改部门'、'设置部门负责人'时调用。"
     required_role = "admin"
     examples = [
-        {"input": {"department_id": "abc123...", "name": "研发中心"}, "output_summary": "将部门名称改为研发中心"},
-        {"input": {"department_id": "abc123...", "status": "dissolved"}, "output_summary": "将部门状态设为已解散"},
+        {
+            "input": {"department_id": "abc123...", "name": "研发中心"},
+            "output_summary": "将部门名称改为研发中心",
+        },
+        {
+            "input": {"department_id": "abc123...", "status": "dissolved"},
+            "output_summary": "将部门状态设为已解散",
+        },
     ]
     related_tools = ["list_departments", "create_department"]
     gotchas = "必须提供 department_id。至少要更新一个字段，否则报错。状态可选值：active、merged、dissolved。"
@@ -202,7 +223,9 @@ class UpdateDepartmentTool(BaseTool):
         "required": ["department_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -250,12 +273,16 @@ class ListEmployeesTool(BaseTool):
 
     name = "list_employees"
     domain = "hr"
-    description = (
-        "查询员工花名册，支持按部门、职位、状态和关键词筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
-    )
+    description = "查询员工花名册，支持按部门、职位、状态和关键词筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
     examples = [
-        {"input": {"department_id": "abc123..."}, "output_summary": "返回指定部门的员工列表"},
-        {"input": {"status": "active", "search": "[关键词]"}, "output_summary": "返回符合条件的在职员工列表"},
+        {
+            "input": {"department_id": "abc123..."},
+            "output_summary": "返回指定部门的员工列表",
+        },
+        {
+            "input": {"status": "active", "search": "[关键词]"},
+            "output_summary": "返回符合条件的在职员工列表",
+        },
     ]
     related_tools = ["get_employee_detail", "create_employee", "update_employee"]
     gotchas = "search 按姓名、手机、邮箱模糊匹配。所有ID参数必须是合法UUID。"
@@ -285,7 +312,9 @@ class ListEmployeesTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -328,8 +357,14 @@ class ListEmployeesTool(BaseTool):
                     pos = emp.get("position", {})
                     dept_id = emp.get("department_id", "未分配")
                     pos_name = pos.get("name", "未设置") if pos else "未设置"
-                    status_map = {"active": "在职", "resigned": "离职", "suspended": "停职"}
-                    status = status_map.get(emp.get("status", ""), emp.get("status", ""))
+                    status_map = {
+                        "active": "在职",
+                        "resigned": "离职",
+                        "suspended": "停职",
+                    }
+                    status = status_map.get(
+                        emp.get("status", ""), emp.get("status", "")
+                    )
 
                     lines.append(
                         f"- **{name}** | 部门: {dept_id[:8]}... - {pos_name} | "
@@ -348,9 +383,14 @@ class GetEmployeeDetailTool(BaseTool):
 
     name = "get_employee_detail"
     domain = "hr"
-    description = "根据员工编号获取员工详细信息。当用户说'查看员工详情'、'员工信息'时调用。"
+    description = (
+        "根据员工编号获取员工详细信息。当用户说'查看员工详情'、'员工信息'时调用。"
+    )
     examples = [
-        {"input": {"employee_id": "abc123..."}, "output_summary": "返回该员工的姓名、部门、职位、状态、联系方式等详情"},
+        {
+            "input": {"employee_id": "abc123..."},
+            "output_summary": "返回该员工的姓名、部门、职位、状态、联系方式等详情",
+        },
     ]
     related_tools = ["list_employees", "update_employee", "get_employee_profile"]
     gotchas = "employee_id 必须是合法UUID。查不到时返回未找到提示。"
@@ -366,7 +406,9 @@ class GetEmployeeDetailTool(BaseTool):
         "required": ["employee_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         employee_id = args.get("employee_id")
 
@@ -386,7 +428,9 @@ class GetEmployeeDetailTool(BaseTool):
             pos = employee.get("position", {})
             pos_name = pos.get("name", "未设置") if pos else "未设置"
             status_map = {"active": "在职", "resigned": "离职", "suspended": "停职"}
-            status = status_map.get(employee.get("status", ""), employee.get("status", ""))
+            status = status_map.get(
+                employee.get("status", ""), employee.get("status", "")
+            )
 
             return (
                 f"👤 员工详情:\n\n"
@@ -410,12 +454,21 @@ class CreateEmployeeTool(BaseTool):
 
     name = "create_employee"
     domain = "hr"
-    description = "创建新员工并完成入职登记。当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
+    description = (
+        "创建新员工并完成入职登记。当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
+    )
     required_role = "admin"
     examples = [
-        {"input": {"name": "[姓名]", "department_id": "[ID]"}, "output_summary": "创建员工并分配到指定部门"},
         {
-            "input": {"name": "[姓名]", "phone": "138xxxxxxxx", "hire_date": "2026-03-01"},
+            "input": {"name": "[姓名]", "department_id": "[ID]"},
+            "output_summary": "创建员工并分配到指定部门",
+        },
+        {
+            "input": {
+                "name": "[姓名]",
+                "phone": "138xxxxxxxx",
+                "hire_date": "2026-03-01",
+            },
             "output_summary": "创建员工并填写手机号和入职日期",
         },
     ]
@@ -456,7 +509,9 @@ class CreateEmployeeTool(BaseTool):
         "required": ["name", "department_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -471,7 +526,9 @@ class CreateEmployeeTool(BaseTool):
         if err := _validate_uuid(department_id, "department_id"):
             return f"❌ {err}"
 
-        if args.get("position_id") and (err := _validate_uuid(args["position_id"], "position_id")):
+        if args.get("position_id") and (
+            err := _validate_uuid(args["position_id"], "position_id")
+        ):
             return f"❌ {err}"
 
         data = {
@@ -511,8 +568,14 @@ class UpdateEmployeeTool(BaseTool):
     description = "更新员工信息，支持调岗、离职和信息变更。当用户说'更新员工'、'员工调岗'、'员工离职'时调用。"
     required_role = "admin"
     examples = [
-        {"input": {"employee_id": "abc123...", "department_id": "def456..."}, "output_summary": "将员工调至新部门"},
-        {"input": {"employee_id": "abc123...", "status": "resigned"}, "output_summary": "将员工状态设为离职"},
+        {
+            "input": {"employee_id": "abc123...", "department_id": "def456..."},
+            "output_summary": "将员工调至新部门",
+        },
+        {
+            "input": {"employee_id": "abc123...", "status": "resigned"},
+            "output_summary": "将员工状态设为离职",
+        },
     ]
     related_tools = ["get_employee_detail", "list_employees", "create_employee"]
     gotchas = "必须提供 employee_id。至少要更新一个字段。状态可选值：active、resigned、suspended。"
@@ -551,7 +614,9 @@ class UpdateEmployeeTool(BaseTool):
         "required": ["employee_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         employee_id = args.get("employee_id")
 
@@ -609,7 +674,9 @@ class OrgStatisticsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -649,7 +716,10 @@ class GetOrgTreeTool(BaseTool):
         "当AI需要理解公司组织结构、判断任务派发路径、或回答关于部门关系的问题时调用。"
     )
     examples = [
-        {"input": {}, "output_summary": "返回完整的组织架构树，包含部门层级、负责人和人员数"},
+        {
+            "input": {},
+            "output_summary": "返回完整的组织架构树，包含部门层级、负责人和人员数",
+        },
     ]
     related_tools = ["list_departments", "get_reporting_line", "org_statistics"]
     gotchas = "返回的是完整树形结构，数据量可能较大。优先用此工具理解全局组织关系。"
@@ -660,7 +730,9 @@ class GetOrgTreeTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
 
@@ -677,7 +749,11 @@ class GetOrgTreeTool(BaseTool):
             def render_tree(node, indent=0):
                 prefix = "  " * indent + ("├── " if indent > 0 else "")
                 meta = node.metadata or {}
-                manager_info = f" (负责人ID: {meta['manager_id'][:8]}...)" if meta.get("manager_id") else ""
+                manager_info = (
+                    f" (负责人ID: {meta['manager_id'][:8]}...)"
+                    if meta.get("manager_id")
+                    else ""
+                )
                 lines.append(f"{prefix}📁 **{node.name}**{manager_info}")
                 for child in node.children:
                     render_tree(child, indent + 1)
@@ -688,7 +764,9 @@ class GetOrgTreeTool(BaseTool):
             # 补充人员信息
             if org_id and client:
                 try:
-                    stats = await organization_service.get_org_statistics(org_id=org_id, db=client)
+                    stats = await organization_service.get_org_statistics(
+                        org_id=org_id, db=client
+                    )
                     lines.append(
                         f"\n📊 总计: {stats.get('total_employees', 0)} 名员工, {stats.get('total_departments', 0)} 个部门"
                     )
@@ -712,7 +790,10 @@ class GetReportingLineTool(BaseTool):
         "当AI需要判断审批路径、任务上报路径、或理解某人的上下级关系时调用。"
     )
     examples = [
-        {"input": {"user_id": "abc123..."}, "output_summary": "返回该用户的汇报链：直属经理 → 部门总监 → VP → CEO"},
+        {
+            "input": {"user_id": "abc123..."},
+            "output_summary": "返回该用户的汇报链：直属经理 → 部门总监 → VP → CEO",
+        },
     ]
     related_tools = ["get_org_tree", "get_employee_detail", "list_departments"]
     gotchas = "user_id 必须是合法UUID。如果用户没有设置 manager_id，会尝试通过部门负责人推断。最多向上追溯10层。"
@@ -728,7 +809,9 @@ class GetReportingLineTool(BaseTool):
         "required": ["user_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         target_user_id = args.get("user_id")
 
@@ -757,7 +840,9 @@ class GetReportingLineTool(BaseTool):
                 }
                 role = role_map.get(person.get("role", ""), person.get("role", ""))
                 dept = person.get("department", "未分配")
-                lines.append(f"  {arrow}**{person.get('name')}** ({role}) - {dept} [{level}]")
+                lines.append(
+                    f"  {arrow}**{person.get('name')}** ({role}) - {dept} [{level}]"
+                )
 
             return "\n".join(lines)
 

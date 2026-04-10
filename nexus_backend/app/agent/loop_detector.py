@@ -50,7 +50,11 @@ def tool_call_fingerprint(tool_calls: list) -> str:
         return ""
     parts = []
     for tc in sorted(tool_calls, key=lambda t: t.tool_name):
-        args_str = json.dumps(tc.tool_args, sort_keys=True, ensure_ascii=False) if tc.tool_args else ""
+        args_str = (
+            json.dumps(tc.tool_args, sort_keys=True, ensure_ascii=False)
+            if tc.tool_args
+            else ""
+        )
         parts.append(f"{tc.tool_name}:{args_str}")
     combined = "|".join(parts)
     return hashlib.md5(combined.encode()).hexdigest()
@@ -91,7 +95,9 @@ def detect_loop(state: "AgentState") -> bool:
         for poll_tool in POLL_TOOLS:
             count = sum(1 for tc in recent_completed if tc.tool_name == poll_tool)
             if count >= POLL_NO_PROGRESS_THRESHOLD:
-                logger.warning(f"[LoopDetect] Poll no-progress: {poll_tool} called {count} times")
+                logger.warning(
+                    f"[LoopDetect] Poll no-progress: {poll_tool} called {count} times"
+                )
                 return True
 
     # --- Detector 4: Global Circuit Breaker ---
@@ -100,7 +106,9 @@ def detect_loop(state: "AgentState") -> bool:
         tool_counts = Counter(tc.tool_name for tc in recent_completed)
         for tool_name, count in tool_counts.items():
             if count >= GLOBAL_CIRCUIT_BREAKER:
-                logger.warning(f"[LoopDetect] Circuit breaker: {tool_name} called {count} times")
+                logger.warning(
+                    f"[LoopDetect] Circuit breaker: {tool_name} called {count} times"
+                )
                 return True
 
     return False

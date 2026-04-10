@@ -83,7 +83,9 @@ class InputValidator:
 
         return True, None
 
-    def validate_date(self, value: str, format: str = "%Y-%m-%d") -> tuple[bool, str | None]:  # noqa: A002
+    def validate_date(
+        self, value: str, format: str = "%Y-%m-%d"
+    ) -> tuple[bool, str | None]:  # noqa: A002
         """
         Validate a date string.
 
@@ -165,7 +167,11 @@ class InputValidator:
         if len(sanitized) > 255:
             # Keep extension if present
             parts = sanitized.rsplit(".", 1)
-            sanitized = parts[0][:240] + "." + parts[1] if len(parts) == 2 and len(parts[1]) <= 10 else sanitized[:255]
+            sanitized = (
+                parts[0][:240] + "." + parts[1]
+                if len(parts) == 2 and len(parts[1]) <= 10
+                else sanitized[:255]
+            )
 
         return sanitized or "unnamed"
 

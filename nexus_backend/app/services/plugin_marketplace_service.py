@@ -281,7 +281,9 @@ class PluginMarketplaceService:
             "installed_at": datetime.utcnow().isoformat(),
         }
 
-    async def uninstall_plugin(self, org_id: str, plugin_id: str, db: Any = None) -> bool:
+    async def uninstall_plugin(
+        self, org_id: str, plugin_id: str, db: Any = None
+    ) -> bool:
         """从组织卸载插件"""
         if db:
             try:
@@ -294,7 +296,9 @@ class PluginMarketplaceService:
                 raise
         return True
 
-    async def update_plugin_config(self, org_id: str, plugin_id: str, config: dict, db: Any = None) -> dict:
+    async def update_plugin_config(
+        self, org_id: str, plugin_id: str, config: dict, db: Any = None
+    ) -> dict:
         """更新插件配置"""
         plugin = self._plugin_map.get(plugin_id)
         if not plugin:

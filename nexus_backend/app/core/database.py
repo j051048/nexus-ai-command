@@ -50,7 +50,9 @@ try:
             # Connection pool configuration with timeout
             timeout = httpx.Timeout(30.0, connect=10.0)
 
-            self.client = AsyncPostgrestClient(base_url, headers=headers, timeout=timeout)
+            self.client = AsyncPostgrestClient(
+                base_url, headers=headers, timeout=timeout
+            )
             self._url = url
             self._key = key
 
@@ -156,7 +158,9 @@ try:
             return OrgFilteredClient(self._inner, org_id)
 
     if not url or not key:
-        logger.warning("SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Database features disabled.")
+        logger.warning(
+            "SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Database features disabled."
+        )
         supabase = None
     else:
         supabase = MiniSupabaseClient(url, key)

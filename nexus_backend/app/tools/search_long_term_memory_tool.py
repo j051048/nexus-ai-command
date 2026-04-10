@@ -71,7 +71,13 @@ class SearchLongTermMemoryTool(BaseTool):
                 },
                 "category": {
                     "type": "string",
-                    "enum": ["preference", "fact", "explicit_memory", "knowledge", "all"],
+                    "enum": [
+                        "preference",
+                        "fact",
+                        "explicit_memory",
+                        "knowledge",
+                        "all",
+                    ],
                     "description": "检索的记忆分类过滤，如果不确定可以传 all 或省略",
                 },
             },
@@ -84,7 +90,9 @@ class SearchLongTermMemoryTool(BaseTool):
         re.IGNORECASE,
     )
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] | None = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] | None = None
+    ) -> str:
         from app.services.conversation_memory_service import conversation_memory_service
 
         query = args["query"]
@@ -111,7 +119,9 @@ class SearchLongTermMemoryTool(BaseTool):
             if memories:
                 results.append("[个人长期记忆]")
                 for m in memories:
-                    results.append(f"- [{m.get('category')}] {m.get('key', 'unknown')}: {m.get('value')}")
+                    results.append(
+                        f"- [{m.get('category')}] {m.get('key', 'unknown')}: {m.get('value')}"
+                    )
 
             # 搜索组织共享记忆 (Org Memory)
             if org_id:
@@ -121,15 +131,21 @@ class SearchLongTermMemoryTool(BaseTool):
                     limit=3,
                 )
                 if category and category != "all":
-                    org_memories = [m for m in org_memories if m.get("category") == category]
+                    org_memories = [
+                        m for m in org_memories if m.get("category") == category
+                    ]
 
                 if org_memories:
                     results.append("[组织共享记忆]")
                     for m in org_memories:
-                        results.append(f"- [{m.get('category')}] {m.get('key', 'unknown')}: {m.get('value')}")
+                        results.append(
+                            f"- [{m.get('category')}] {m.get('key', 'unknown')}: {m.get('value')}"
+                        )
 
             if not results:
-                return f"未找到与 '{query}' 相关的记忆记录。你可以尝试更换关键词再次搜索。"
+                return (
+                    f"未找到与 '{query}' 相关的记忆记录。你可以尝试更换关键词再次搜索。"
+                )
 
             logger.info(
                 f"[SearchMemoryTool] Found {len(memories)} personal and {len(org_memories) if org_id else 0} org memories for query '{query}'"

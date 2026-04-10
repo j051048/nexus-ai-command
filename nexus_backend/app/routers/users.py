@@ -29,7 +29,9 @@ async def get_profile(
         db = getattr(req.state, "db", None)
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
-        result = await db.table("users").select("*").eq("id", user_id).single().execute()
+        result = (
+            await db.table("users").select("*").eq("id", user_id).single().execute()
+        )
         return api_success(data={"user": result.data})
     except Exception as e:
         logger.error(f"Failed to get profile: {e}")
@@ -51,7 +53,9 @@ async def update_profile(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         data = body.model_dump(exclude_none=True)
         result = await db.table("users").update(data).eq("id", user_id).execute()
-        return api_success(data={"user": result.data[0] if result.data else None}, message="资料已更新")
+        return api_success(
+            data={"user": result.data[0] if result.data else None}, message="资料已更新"
+        )
     except Exception as e:
         logger.error(f"Failed to update profile: {e}")
         if hasattr(e, "status_code"):

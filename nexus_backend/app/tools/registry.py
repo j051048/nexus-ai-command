@@ -100,7 +100,9 @@ def register_tool(
             required_role=required_role,
             extras=extras,
         )
-        logger.debug("装饰器注册工具: %s (class=%s, category=%s)", name, cls.__name__, category)
+        logger.debug(
+            "装饰器注册工具: %s (class=%s, category=%s)", name, cls.__name__, category
+        )
         return cls
 
     return decorator
@@ -133,7 +135,9 @@ def auto_discover_tools(package_path: str = "app.tools") -> dict[str, ToolInfo]:
         logger.warning("%s 不是一个包（没有 __path__），跳过自动发现", package_path)
         return dict(_TOOL_REGISTRY)
 
-    for _importer, modname, ispkg in pkgutil.iter_modules(pkg_paths, f"{package_path}."):
+    for _importer, modname, ispkg in pkgutil.iter_modules(
+        pkg_paths, f"{package_path}."
+    ):
         # 跳过子包、__init__、base_tool、registry 自身
         if ispkg:
             continue

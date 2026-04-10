@@ -30,7 +30,9 @@ async def _send_system_notification(
     org_id: str | None = None,
 ) -> None:
     """Send a system notification via NotificationService (unified path)."""
-    priority = NotificationPriority.HIGH if type == "warning" else NotificationPriority.NORMAL
+    priority = (
+        NotificationPriority.HIGH if type == "warning" else NotificationPriority.NORMAL
+    )
     metadata: dict = {}
     if action_url:
         metadata["action_url"] = action_url
@@ -61,7 +63,9 @@ async def run_all_system_tasks():
         try:
             await task_fn()
         except Exception as e:
-            logger.error("[SystemTasks] %s failed: %s", task_fn.__name__, e, exc_info=True)
+            logger.error(
+                "[SystemTasks] %s failed: %s", task_fn.__name__, e, exc_info=True
+            )
     logger.info("[SystemTasks] Daily system tasks completed")
 
 
@@ -113,7 +117,9 @@ async def check_expiring_contracts():
                 continue
 
             # Dedup: check if we already sent a notification today for this contract
-            today_start = datetime.now(CN_TZ).replace(hour=0, minute=0, second=0).isoformat()
+            today_start = (
+                datetime.now(CN_TZ).replace(hour=0, minute=0, second=0).isoformat()
+            )
             existing = await (
                 supabase.table("notifications")
                 .select("id")
@@ -126,7 +132,9 @@ async def check_expiring_contracts():
             if existing.data:
                 continue
 
-            days_left = (datetime.fromisoformat(contract["end_date"]).date() - today).days
+            days_left = (
+                datetime.fromisoformat(contract["end_date"]).date() - today
+            ).days
             urgency = "紧急" if days_left <= 7 else "提醒"
 
             await _send_system_notification(
@@ -138,9 +146,15 @@ async def check_expiring_contracts():
                 org_id=contract.get("organization_id"),
             )
 
-            logger.debug("[SystemTasks] Sent contract expiry notification for %s", contract["id"])
+            logger.debug(
+                "[SystemTasks] Sent contract expiry notification for %s", contract["id"]
+            )
         except Exception as e:
-            logger.warning("[SystemTasks] Failed to notify for contract %s: %s", contract.get("id"), e)
+            logger.warning(
+                "[SystemTasks] Failed to notify for contract %s: %s",
+                contract.get("id"),
+                e,
+            )
 
 
 # ─── #15 CRM Relationship Coach ──────────────────────────────────
@@ -181,7 +195,9 @@ async def check_inactive_customers():
                 .execute()
             )
 
-            last_activity = activity_res.data[0]["created_at"] if activity_res.data else None
+            last_activity = (
+                activity_res.data[0]["created_at"] if activity_res.data else None
+            )
 
             # Skip if recent activity exists
             if last_activity and last_activity > cutoff:
@@ -217,7 +233,9 @@ async def check_inactive_customers():
 
             notified += 1
         except Exception as e:
-            logger.warning("[SystemTasks] Failed to check customer %s: %s", customer.get("id"), e)
+            logger.warning(
+                "[SystemTasks] Failed to check customer %s: %s", customer.get("id"), e
+            )
 
     if notified:
         logger.info("[SystemTasks] Sent %d inactive customer reminders", notified)
@@ -238,7 +256,10 @@ async def check_data_consistency():
     # Rule 1: Customers with stage='customer' but no active contract
     try:
         won_customers = await (
-            supabase.table("customers").select("id, name, organization_id").eq("stage", "customer").execute()
+            supabase.table("customers")
+            .select("id, name, organization_id")
+            .eq("stage", "customer")
+            .execute()
         )
         if won_customers.data:
             customer_ids = [c["id"] for c in won_customers.data]
@@ -256,7 +277,9 @@ async def check_data_consistency():
                     {
                         "type": "customer_no_contract",
                         "message": f"{len(missing)} 个已成交客户没有活跃合同",
-                        "items": [{"id": c["id"], "name": c["name"]} for c in missing[:10]],
+                        "items": [
+                            {"id": c["id"], "name": c["name"]} for c in missing[:10]
+                        ],
                     }
                 )
     except Exception as e:
@@ -277,7 +300,9 @@ async def check_data_consistency():
                 {
                     "type": "contract_past_due",
                     "message": f"{len(stale.data)} 个合同已过期但状态仍为活跃",
-                    "items": [{"id": c["id"], "title": c["title"]} for c in stale.data[:10]],
+                    "items": [
+                        {"id": c["id"], "title": c["title"]} for c in stale.data[:10]
+                    ],
                 }
             )
     except Exception as e:
@@ -290,7 +315,10 @@ async def check_data_consistency():
     try:
         # Get all org admins
         admin_res = await (
-            supabase.table("users").select("id, organization_id").in_("role", ["boss", "founder"]).execute()
+            supabase.table("users")
+            .select("id, organization_id")
+            .in_("role", ["boss", "founder"])
+            .execute()
         )
         admins = admin_res.data or []
 
@@ -323,7 +351,11 @@ async def check_data_consistency():
                     org_id=admin.get("organization_id"),
                 )
 
-        logger.info("[SystemTasks] Sent %d consistency alerts to %d admins", len(alerts), len(admins))
+        logger.info(
+            "[SystemTasks] Sent %d consistency alerts to %d admins",
+            len(alerts),
+            len(admins),
+        )
     except Exception as e:
         logger.warning("[SystemTasks] Failed to notify admins: %s", e)
 
@@ -356,7 +388,9 @@ async def check_pending_approvals():
 
     result = await (
         supabase.table("approval_requests")
-        .select("id, type, description, amount, submitted_by, submitted_at, organization_id")
+        .select(
+            "id, type, description, amount, submitted_by, submitted_at, organization_id"
+        )
         .eq("status", "pending")
         .lte("submitted_at", cutoff_4h)
         .execute()
@@ -366,7 +400,9 @@ async def check_pending_approvals():
     if not approvals:
         return
 
-    logger.info("[SystemTasks] Found %d pending approvals older than 4h", len(approvals))
+    logger.info(
+        "[SystemTasks] Found %d pending approvals older than 4h", len(approvals)
+    )
 
     # Get org admins (boss/founder) as approvers
     org_ids = {a["organization_id"] for a in approvals if a.get("organization_id")}
@@ -403,12 +439,17 @@ async def check_pending_approvals():
         # Calculate hours pending
         try:
             sub_dt = datetime.fromisoformat(submitted_at.replace("Z", "+00:00"))
-            hours_pending = int((datetime.now(CN_TZ).astimezone(sub_dt.tzinfo) - sub_dt).total_seconds() / 3600)
+            hours_pending = int(
+                (datetime.now(CN_TZ).astimezone(sub_dt.tzinfo) - sub_dt).total_seconds()
+                / 3600
+            )
         except Exception:
             hours_pending = 4
 
         desc = (approval.get("description") or approval.get("type") or "未知")[:50]
-        amount_str = f"，金额 ¥{approval['amount']:,.0f}" if approval.get("amount") else ""
+        amount_str = (
+            f"，金额 ¥{approval['amount']:,.0f}" if approval.get("amount") else ""
+        )
 
         for admin_id in admins:
             try:
@@ -437,7 +478,11 @@ async def check_pending_approvals():
 
                 notified += 1
             except Exception as e:
-                logger.warning("[SystemTasks] Failed to notify for approval %s: %s", approval.get("id"), e)
+                logger.warning(
+                    "[SystemTasks] Failed to notify for approval %s: %s",
+                    approval.get("id"),
+                    e,
+                )
 
     if notified:
         logger.info("[SystemTasks] Sent %d pending approval reminders", notified)
@@ -448,7 +493,9 @@ async def check_pending_approvals():
 
 async def promote_memories():
     """Auto-promote high-recurrence memories to business_rule category."""
-    from app.services.conversation_memory.cleanup import promote_high_recurrence_memories
+    from app.services.conversation_memory.cleanup import (
+        promote_high_recurrence_memories,
+    )
 
     result = await promote_high_recurrence_memories()
     if result.get("promoted"):

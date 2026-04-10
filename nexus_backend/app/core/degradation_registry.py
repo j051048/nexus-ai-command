@@ -62,7 +62,11 @@ class DegradationRegistry:
         with self._lock:
             removed = self._active.pop(service, None)
         if removed:
-            logger.info("[Degradation] %s recovered (was degraded for %.0fs)", service, time.time() - removed.timestamp)
+            logger.info(
+                "[Degradation] %s recovered (was degraded for %.0fs)",
+                service,
+                time.time() - removed.timestamp,
+            )
 
     @property
     def is_healthy(self) -> bool:

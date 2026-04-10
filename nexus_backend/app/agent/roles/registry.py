@@ -35,7 +35,9 @@ class RoleConfig:
     # ── P2: AI Position fields (OpenFang "Hands" inspired) ──
     goal: str = ""  # Position objective, e.g. "确保所有商机在72小时内被跟进"
     kpi_metrics: list[str] = field(default_factory=list)  # KPIs this position tracks
-    sensors: list[str] = field(default_factory=list)  # Event sensors this position monitors
+    sensors: list[str] = field(
+        default_factory=list
+    )  # Event sensors this position monitors
     patrol_schedule: dict = field(default_factory=dict)  # Autonomous patrol schedule
 
     def get_tool_schemas(self) -> list[dict]:
@@ -89,7 +91,9 @@ def _load_role_from_module(module_path: str) -> RoleConfig:
 # ─── DB-backed Config Loader ────────────────────────────────────────────────
 
 
-async def _load_role_from_db(agent_code: str, tenant_id: str | None = None) -> RoleConfig | None:
+async def _load_role_from_db(
+    agent_code: str, tenant_id: str | None = None
+) -> RoleConfig | None:
     """
     Attempt to load a role config from the vmd_agent_config table.
 
@@ -112,7 +116,12 @@ async def _load_role_from_db(agent_code: str, tenant_id: str | None = None) -> R
         if supabase is None:
             return None
 
-        query = supabase.table("vmd_agent_config").select("*").eq("agent_code", agent_code).eq("is_active", True)
+        query = (
+            supabase.table("vmd_agent_config")
+            .select("*")
+            .eq("agent_code", agent_code)
+            .eq("is_active", True)
+        )
         if tenant_id:
             query = query.eq("tenant_id", tenant_id)
 
@@ -191,7 +200,9 @@ async def get_role_config(agent_code: str, tenant_id: str | None = None) -> Role
         return ROLE_REGISTRY[agent_code]
 
     # 3. Fallback
-    logger.warning(f"[RoleRegistry] Unknown agent_code '{agent_code}', falling back to director_agent")
+    logger.warning(
+        f"[RoleRegistry] Unknown agent_code '{agent_code}', falling back to director_agent"
+    )
     return ROLE_REGISTRY.get(
         "director_agent",
         RoleConfig(

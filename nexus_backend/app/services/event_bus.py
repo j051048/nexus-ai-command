@@ -146,7 +146,9 @@ class InMemoryEventBus:
     def unsubscribe(self, event_type: str, handler: Callable):
         """Unsubscribe a handler from an event type"""
         if event_type in self._handlers:
-            self._handlers[event_type] = [h for h in self._handlers[event_type] if h != handler]
+            self._handlers[event_type] = [
+                h for h in self._handlers[event_type] if h != handler
+            ]
 
     async def publish(self, event: Event):
         """
@@ -221,15 +223,21 @@ class InMemoryEventBus:
             # Drain remaining events in the queue (max 5s grace period)
             try:
                 await asyncio.wait_for(self._queue.join(), timeout=5.0)
-                logger.info(f"EventBus: Queue drained ({self._queue.qsize()} remaining)")
+                logger.info(
+                    f"EventBus: Queue drained ({self._queue.qsize()} remaining)"
+                )
             except TimeoutError:
-                logger.warning(f"EventBus: Queue drain timeout, {self._queue.qsize()} events dropped")
+                logger.warning(
+                    f"EventBus: Queue drain timeout, {self._queue.qsize()} events dropped"
+                )
             self._worker_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._worker_task
         logger.info("EventBus: Stopped")
 
-    def get_recent_events(self, limit: int = 100, event_type: str = None) -> list[Event]:
+    def get_recent_events(
+        self, limit: int = 100, event_type: str = None
+    ) -> list[Event]:
         """Get recent events from history"""
         events = self._event_history
         if event_type:
@@ -333,7 +341,9 @@ async def notify_approval_escalated(event: Event):
 
     try:
         # Find all bosses
-        bosses = await supabase.table("users").select("id").eq("role", "founder").execute()
+        bosses = (
+            await supabase.table("users").select("id").eq("role", "founder").execute()
+        )
 
         for boss in bosses.data or []:
             await (
@@ -397,7 +407,12 @@ async def handle_system_alert(event: Event):
                 .execute()
             )
         else:
-            admins = await supabase.table("users").select("id").eq("role", "founder").execute()
+            admins = (
+                await supabase.table("users")
+                .select("id")
+                .eq("role", "founder")
+                .execute()
+            )
 
         for admin in admins.data or []:
             await (
@@ -453,7 +468,9 @@ async def invalidate_cache_on_document_change(event: Event):
         from app.services.semantic_cache import semantic_cache_service
 
         count = await semantic_cache_service.invalidate_by_org(org_id)
-        logger.info(f"[EventBus] Semantic cache invalidated on document change: org={org_id}, deleted={count}")
+        logger.info(
+            f"[EventBus] Semantic cache invalidated on document change: org={org_id}, deleted={count}"
+        )
     except Exception as e:
         logger.warning(f"[EventBus] Semantic cache invalidation failed: {e}")
 
@@ -474,7 +491,9 @@ async def handle_cache_invalidation(event: Event):
 
         keywords = event.payload.get("keywords", [])
         if keywords:
-            count = await semantic_cache_service.invalidate_by_keywords(org_id, keywords)
+            count = await semantic_cache_service.invalidate_by_keywords(
+                org_id, keywords
+            )
         else:
             count = await semantic_cache_service.invalidate_by_org(org_id)
         logger.info(
@@ -503,7 +522,9 @@ async def calculate_deal_bonus(event: Event):
         bonus = deal_value * 0.005
 
         # Update user's total bonus
-        await supabase.rpc("increment_user_bonus", {"p_user_id": user_id, "p_amount": bonus}).execute()
+        await supabase.rpc(
+            "increment_user_bonus", {"p_user_id": user_id, "p_amount": bonus}
+        ).execute()
 
         # Create incentive record
         await (
@@ -556,7 +577,9 @@ async def bridge_ai_error(event: Event):
     try:
         from app.services.auto_trigger_service import auto_trigger_service
 
-        await auto_trigger_service.check_data_trigger({"error_rate": event.payload.get("error_rate", 0)})
+        await auto_trigger_service.check_data_trigger(
+            {"error_rate": event.payload.get("error_rate", 0)}
+        )
     except Exception as e:
         logger.error(f"[EventBridge] AI error forward failed: {e}")
 
@@ -613,7 +636,9 @@ async def auto_create_contract_from_deal(event: Event):
             .execute()
         )
 
-        logger.info(f"[CrossModule] Auto-created contract from deal {deal_id} for {customer_name}")
+        logger.info(
+            f"[CrossModule] Auto-created contract from deal {deal_id} for {customer_name}"
+        )
     except Exception as e:
         logger.error(f"[CrossModule] Failed to auto-create contract from deal: {e}")
 
@@ -650,7 +675,12 @@ async def auto_create_invoice_from_contract(event: Event):
         await supabase.table("payment_orders").insert(invoice_data).execute()
 
         # Notify finance team (founders and managers)
-        finance_roles = await supabase.table("users").select("id").in_("role", ["founder", "manager"]).execute()
+        finance_roles = (
+            await supabase.table("users")
+            .select("id")
+            .in_("role", ["founder", "manager"])
+            .execute()
+        )
         for user in finance_roles.data or []:
             await (
                 supabase.table("notifications")
@@ -747,7 +777,9 @@ async def update_sales_metrics_on_payment(event: Event):
             .execute()
         )
 
-        logger.info(f"[CrossModule] Payment received ¥{amount} → metrics updated for user {user_id}")
+        logger.info(
+            f"[CrossModule] Payment received ¥{amount} → metrics updated for user {user_id}"
+        )
     except Exception as e:
         logger.error(f"[CrossModule] Failed to update metrics on payment: {e}")
 
@@ -770,7 +802,12 @@ async def trigger_downstream_on_approval(event: Event):
 
         if supabase:
             try:
-                finance_users = await supabase.table("users").select("id").in_("role", ["founder"]).execute()
+                finance_users = (
+                    await supabase.table("users")
+                    .select("id")
+                    .in_("role", ["founder"])
+                    .execute()
+                )
                 for user in finance_users.data or []:
                     await (
                         supabase.table("notifications")
@@ -786,4 +823,6 @@ async def trigger_downstream_on_approval(event: Event):
                         .execute()
                     )
             except Exception as e:
-                logger.error(f"[CrossModule] Failed to notify finance on expense approval: {e}")
+                logger.error(
+                    f"[CrossModule] Failed to notify finance on expense approval: {e}"
+                )

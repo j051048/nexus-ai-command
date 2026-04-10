@@ -31,7 +31,9 @@ async def get_my_permissions(
     try:
         db = getattr(request.state, "db", None)
 
-        permissions = await permission_service.get_user_permissions(user_id=user_id, db=db)
+        permissions = await permission_service.get_user_permissions(
+            user_id=user_id, db=db
+        )
 
         # 统计
         granted_count = sum(1 for p in permissions if p["granted"])

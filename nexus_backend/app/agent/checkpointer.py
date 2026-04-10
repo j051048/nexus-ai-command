@@ -97,14 +97,21 @@ def _create_postgres_checkpointer():
         # Enable AES encryption if key is configured
         serde = _build_encrypted_serde()
 
-        checkpointer = AsyncPostgresSaver(pool, serde=serde) if serde else AsyncPostgresSaver(pool)
+        checkpointer = (
+            AsyncPostgresSaver(pool, serde=serde) if serde else AsyncPostgresSaver(pool)
+        )
 
         encrypted_label = " + AES encrypted" if serde else ""
-        logger.info("[Checkpointer] Using PostgreSQL checkpointer (persistent%s)", encrypted_label)
+        logger.info(
+            "[Checkpointer] Using PostgreSQL checkpointer (persistent%s)",
+            encrypted_label,
+        )
         return checkpointer
 
     except ImportError as e:
-        logger.warning(f"[Checkpointer] langgraph-checkpoint-postgres not installed, falling back to memory: {e}")
+        logger.warning(
+            f"[Checkpointer] langgraph-checkpoint-postgres not installed, falling back to memory: {e}"
+        )
         from app.core.degradation_registry import degradation_registry
 
         degradation_registry.register("checkpointer", str(e), fallback="MemorySaver")
@@ -132,10 +139,14 @@ def _build_encrypted_serde():
         logger.info("[Checkpointer] AES encryption enabled for checkpoint state")
         return serde
     except ImportError:
-        logger.warning("[Checkpointer] pycryptodome not installed, checkpoint encryption disabled")
+        logger.warning(
+            "[Checkpointer] pycryptodome not installed, checkpoint encryption disabled"
+        )
         return None
     except Exception as e:
-        logger.warning("[Checkpointer] Encryption setup failed (%s), continuing unencrypted", e)
+        logger.warning(
+            "[Checkpointer] Encryption setup failed (%s), continuing unencrypted", e
+        )
         return None
 
 
@@ -174,7 +185,9 @@ def _build_postgres_url() -> str:
 
     # Prefer dedicated database password if available
     # Otherwise, use the service key (which works as postgres password in Supabase)
-    db_password = getattr(settings, "SUPABASE_DB_PASSWORD", None) or settings.SUPABASE_SERVICE_KEY
+    db_password = (
+        getattr(settings, "SUPABASE_DB_PASSWORD", None) or settings.SUPABASE_SERVICE_KEY
+    )
 
     if not db_password:
         raise ValueError("Database password required for PostgreSQL checkpointer")

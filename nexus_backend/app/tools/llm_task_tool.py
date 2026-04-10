@@ -41,7 +41,11 @@ class LLMTaskTool(BaseTool):
             "output_summary": "返回要点形式的摘要",
         },
         {
-            "input": {"task_type": "extract", "instruction": "提取客户联系方式", "content": "邮件正文内容..."},
+            "input": {
+                "task_type": "extract",
+                "instruction": "提取客户联系方式",
+                "content": "邮件正文内容...",
+            },
             "output_summary": "返回提取到的联系方式信息",
         },
     ]
@@ -54,7 +58,15 @@ class LLMTaskTool(BaseTool):
         "properties": {
             "task_type": {
                 "type": "string",
-                "enum": ["translate", "summarize", "format", "classify", "extract", "rewrite", "other"],
+                "enum": [
+                    "translate",
+                    "summarize",
+                    "format",
+                    "classify",
+                    "extract",
+                    "rewrite",
+                    "other",
+                ],
                 "description": (
                     "任务类型: translate=翻译, summarize=摘要, format=格式化, "
                     "classify=分类, extract=信息提取, rewrite=改写, other=其他"
@@ -76,7 +88,9 @@ class LLMTaskTool(BaseTool):
         "required": ["instruction", "content"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         instruction = args.get("instruction", "").strip()
         content = args.get("content", "").strip()
         if not instruction or not content:
@@ -113,7 +127,10 @@ class LLMTaskTool(BaseTool):
             "rewrite": "你是文案改写专家。请按指令改写内容，保持核心含义。",
             "other": "你是高效的文本处理助手。请按指令处理内容。",
         }
-        system = system_prompts.get(task_type, system_prompts["other"]) + " 中文输出（除非指令要求其他语言）。"
+        system = (
+            system_prompts.get(task_type, system_prompts["other"])
+            + " 中文输出（除非指令要求其他语言）。"
+        )
 
         try:
             # AIService.call_llm uses the mini model by default

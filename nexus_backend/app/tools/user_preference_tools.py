@@ -23,7 +23,10 @@ class GetUserPreferencesTool(BaseTool):
         "当用户说'查看我的设置'、'我的偏好'、'通知设置'时调用。"
     )
     examples = [
-        {"input": {}, "output_summary": "返回用户的完整偏好设置，包括活跃时段、通知上限等"},
+        {
+            "input": {},
+            "output_summary": "返回用户的完整偏好设置，包括活跃时段、通知上限等",
+        },
     ]
     related_tools = ["update_user_preferences"]
     gotchas = ""
@@ -36,7 +39,9 @@ class GetUserPreferencesTool(BaseTool):
 
     domain = "schedule"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         from app.services.user_preference_service import user_preference_service
 
         try:
@@ -45,8 +50,12 @@ class GetUserPreferencesTool(BaseTool):
             result = {
                 "active_hours": f"{prefs['active_hours'][0]}:00 - {prefs['active_hours'][1]}:00",
                 "daily_notification_limit": prefs["daily_limit"],
-                "muted_types": prefs["muted_types"] if prefs["muted_types"] else "无（全部开启）",
-                "notification_stats": prefs["type_stats"] if prefs["type_stats"] else "暂无统计数据",
+                "muted_types": (
+                    prefs["muted_types"] if prefs["muted_types"] else "无（全部开启）"
+                ),
+                "notification_stats": (
+                    prefs["type_stats"] if prefs["type_stats"] else "暂无统计数据"
+                ),
             }
 
             return json.dumps(result, ensure_ascii=False, indent=2)
@@ -66,9 +75,18 @@ class UpdateUserPreferencesTool(BaseTool):
         "'关掉某类通知'时调用。"
     )
     examples = [
-        {"input": {"active_hours_start": 9, "active_hours_end": 18}, "output_summary": "将通知活跃时段设为9:00-18:00"},
-        {"input": {"daily_notification_limit": 5}, "output_summary": "将每日通知上限设为5条"},
-        {"input": {"mute_type": "system_alert"}, "output_summary": "静音系统告警类通知"},
+        {
+            "input": {"active_hours_start": 9, "active_hours_end": 18},
+            "output_summary": "将通知活跃时段设为9:00-18:00",
+        },
+        {
+            "input": {"daily_notification_limit": 5},
+            "output_summary": "将每日通知上限设为5条",
+        },
+        {
+            "input": {"mute_type": "system_alert"},
+            "output_summary": "静音系统告警类通知",
+        },
     ]
     related_tools = ["get_user_preferences"]
     gotchas = "至少需要传一个参数才能执行更新；active_hours_start 和 active_hours_end 可以单独设置；mute_type 和 unmute_type 在同一次调用中不要同时传相同类型。"
@@ -108,7 +126,9 @@ class UpdateUserPreferencesTool(BaseTool):
 
     domain = "schedule"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         from app.services.user_preference_service import user_preference_service
 
         try:
@@ -144,7 +164,9 @@ class UpdateUserPreferencesTool(BaseTool):
                     "current_settings": {
                         "active_hours": f"{result['active_hours'][0]}:00 - {result['active_hours'][1]}:00",
                         "daily_limit": result["daily_limit"],
-                        "muted_types": result["muted_types"] if result["muted_types"] else "无",
+                        "muted_types": (
+                            result["muted_types"] if result["muted_types"] else "无"
+                        ),
                     },
                 },
                 ensure_ascii=False,

@@ -13,7 +13,15 @@ logger = logging.getLogger(__name__)
 class OrgNode:
     """组织架构节点，用于构建树形结构"""
 
-    def __init__(self, id, name, parent_id=None, type="department", manager_id=None, manager_name=None):
+    def __init__(
+        self,
+        id,
+        name,
+        parent_id=None,
+        type="department",
+        manager_id=None,
+        manager_name=None,
+    ):
         self.id = id
         self.name = name
         self.parent_id = parent_id
@@ -51,7 +59,13 @@ class OrganizationService:
         if not db:
             raise RuntimeError("数据库连接不可用")
         try:
-            result = await db.table("organizations").select("*").eq("id", org_id).maybe_single().execute()
+            result = (
+                await db.table("organizations")
+                .select("*")
+                .eq("id", org_id)
+                .maybe_single()
+                .execute()
+            )
             return result.data
         except Exception as e:
             logger.error(f"获取组织信息失败: {e}")
@@ -62,7 +76,12 @@ class OrganizationService:
         if not db:
             raise RuntimeError("数据库连接不可用")
         try:
-            result = await db.table("organizations").update(updates).eq("id", org_id).execute()
+            result = (
+                await db.table("organizations")
+                .update(updates)
+                .eq("id", org_id)
+                .execute()
+            )
             if result.data and len(result.data) > 0:
                 logger.info(f"组织已更新: id={org_id}")
                 invalidate_cache(f"org:cache:*get_organization*{org_id}*")
@@ -79,18 +98,38 @@ class OrganizationService:
     async def get_org_statistics(self, org_id: str, db=None) -> dict:
         """获取组织统计数据"""
         if not db:
-            return {"member_count": 0, "department_count": 0, "role_count": 0, "active_employees": 0}
+            return {
+                "member_count": 0,
+                "department_count": 0,
+                "role_count": 0,
+                "active_employees": 0,
+            }
         try:
             # 1. 统计员工总数
-            members = await db.table("users").select("id", count="exact").eq("organization_id", org_id).execute()
+            members = (
+                await db.table("users")
+                .select("id", count="exact")
+                .eq("organization_id", org_id)
+                .execute()
+            )
             member_count = members.count or 0
 
             # 2. 统计部门数
-            depts = await db.table("departments").select("id", count="exact").eq("organization_id", org_id).execute()
+            depts = (
+                await db.table("departments")
+                .select("id", count="exact")
+                .eq("organization_id", org_id)
+                .execute()
+            )
             dept_count = depts.count or 0
 
             # 3. 统计常见职位数 (基于 role 类型去重统计)
-            roles = await db.table("users").select("role").eq("organization_id", org_id).execute()
+            roles = (
+                await db.table("users")
+                .select("role")
+                .eq("organization_id", org_id)
+                .execute()
+            )
             unique_roles = set(r["role"] for r in (roles.data or []) if r.get("role"))
             role_count = len(unique_roles)
 
@@ -115,7 +154,13 @@ class OrganizationService:
         if not db:
             raise RuntimeError("数据库连接不可用")
         try:
-            result = await db.table("departments").select("*").eq("status", "active").order("sort_order").execute()
+            result = (
+                await db.table("departments")
+                .select("*")
+                .eq("status", "active")
+                .order("sort_order")
+                .execute()
+            )
             return result.data or []
         except Exception as e:
             logger.error(f"获取所有部门失败: {e}")
@@ -126,7 +171,13 @@ class OrganizationService:
         if not db:
             raise RuntimeError("数据库连接不可用")
         try:
-            result = await db.table("departments").select("*").eq("id", department_id).maybe_single().execute()
+            result = (
+                await db.table("departments")
+                .select("*")
+                .eq("id", department_id)
+                .maybe_single()
+                .execute()
+            )
             return result.data
         except Exception as e:
             logger.error(f"获取部门详情失败: {e}")
@@ -138,14 +189,24 @@ class OrganizationService:
             raise RuntimeError("数据库连接不可用")
         try:
             # 优先查 employees，兜底查 users
-            employees = await db.table("employees").select("*").eq("department_id", department_id).execute()
+            employees = (
+                await db.table("employees")
+                .select("*")
+                .eq("department_id", department_id)
+                .execute()
+            )
             if employees.data:
                 return employees.data
 
             # 尝试根据名称匹配 (部分版本 users 表存的是 department 名称)
             dept = await self.get_department(department_id, db=db)
             if dept:
-                users = await db.table("users").select("*").eq("department", dept["name"]).execute()
+                users = (
+                    await db.table("users")
+                    .select("*")
+                    .eq("department", dept["name"])
+                    .execute()
+                )
                 return users.data or []
             return []
         except Exception as e:
@@ -159,7 +220,9 @@ class OrganizationService:
             return []
 
         nodes = {
-            d["id"]: OrgNode(d["id"], d["name"], d.get("parent_id"), manager_id=d.get("manager_id"))
+            d["id"]: OrgNode(
+                d["id"], d["name"], d.get("parent_id"), manager_id=d.get("manager_id")
+            )
             for d in departments
         }
         tree = []
@@ -193,7 +256,11 @@ class OrganizationService:
                 .order("sort_order", desc=False)
             )
             if parent_id is not None:
-                query = query.is_("parent_id", "null") if parent_id == "root" else query.eq("parent_id", parent_id)
+                query = (
+                    query.is_("parent_id", "null")
+                    if parent_id == "root"
+                    else query.eq("parent_id", parent_id)
+                )
             result = await query.execute()
             return result.data or []
         except Exception as e:
@@ -230,12 +297,19 @@ class OrganizationService:
             logger.error(f"创建部门失败: {e}")
             raise
 
-    async def update_department(self, department_id: str, updates: dict, db=None) -> dict:
+    async def update_department(
+        self, department_id: str, updates: dict, db=None
+    ) -> dict:
         """更新部门"""
         if not db:
             raise RuntimeError("数据库连接不可用")
         try:
-            result = await db.table("departments").update(updates).eq("id", department_id).execute()
+            result = (
+                await db.table("departments")
+                .update(updates)
+                .eq("id", department_id)
+                .execute()
+            )
             if result.data:
                 org_id = result.data[0].get("organization_id")
                 invalidate_cache(f"org:cache:*list_departments*{org_id}*")
@@ -247,7 +321,9 @@ class OrganizationService:
 
     async def delete_department(self, department_id: str, db=None) -> dict:
         """软删除部门"""
-        return await self.update_department(department_id, {"status": "dissolved"}, db=db)
+        return await self.update_department(
+            department_id, {"status": "dissolved"}, db=db
+        )
 
     # ========================================================================
     # 汇报线与层级
@@ -324,7 +400,9 @@ class OrganizationService:
     # 职位与员工 (保持原有逻辑)
     # ========================================================================
 
-    async def list_positions(self, org_id: str, department_id: str | None = None, db=None) -> list[dict]:
+    async def list_positions(
+        self, org_id: str, department_id: str | None = None, db=None
+    ) -> list[dict]:
         if not db:
             return []
         query = db.table("positions").select("*").eq("organization_id", org_id)
@@ -333,20 +411,30 @@ class OrganizationService:
         res = await query.execute()
         return res.data or []
 
-    async def list_employees(self, org_id: str, filters: dict | None = None, db=None) -> list[dict]:
+    async def list_employees(
+        self, org_id: str, filters: dict | None = None, db=None
+    ) -> list[dict]:
         # 简化版实现，保留核心
         if not db:
             return []
         query = db.table("users").select("*").eq("organization_id", org_id)
         if filters and filters.get("search"):
-            query = query.or_(f"name.ilike.%{filters['search']}%,role.ilike.%{filters['search']}%")
+            query = query.or_(
+                f"name.ilike.%{filters['search']}%,role.ilike.%{filters['search']}%"
+            )
         res = await query.execute()
         return res.data or []
 
     async def get_employee_detail(self, employee_id: str, db=None) -> dict | None:
         if not db:
             return None
-        res = await db.table("users").select("*").eq("id", employee_id).maybe_single().execute()
+        res = (
+            await db.table("users")
+            .select("*")
+            .eq("id", employee_id)
+            .maybe_single()
+            .execute()
+        )
         return res.data
 
     async def update_employee(self, employee_id: str, updates: dict, db=None) -> dict:

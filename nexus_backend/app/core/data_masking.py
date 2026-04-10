@@ -221,7 +221,11 @@ class DataMaskingMiddleware(BaseHTTPMiddleware):
             masked_body = json.dumps(masked_data, ensure_ascii=False).encode("utf-8")
 
             # 移除原始 Content-Length，让 Starlette 根据新 body 重新计算
-            headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+            headers = {
+                k: v
+                for k, v in response.headers.items()
+                if k.lower() != "content-length"
+            }
             return Response(
                 content=masked_body,
                 status_code=response.status_code,

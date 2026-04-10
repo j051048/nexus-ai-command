@@ -170,9 +170,15 @@ class AutoTriggerService:
     def _register_default_handlers(self):
         """Register default action handlers."""
         self.register_handler(TriggerAction.START_ANALYSIS, self._handle_start_analysis)
-        self.register_handler(TriggerAction.GENERATE_REPORT, self._handle_generate_report)
-        self.register_handler(TriggerAction.SEND_NOTIFICATION, self._handle_send_notification)
-        self.register_handler(TriggerAction.UPDATE_DASHBOARD, self._handle_update_dashboard)
+        self.register_handler(
+            TriggerAction.GENERATE_REPORT, self._handle_generate_report
+        )
+        self.register_handler(
+            TriggerAction.SEND_NOTIFICATION, self._handle_send_notification
+        )
+        self.register_handler(
+            TriggerAction.UPDATE_DASHBOARD, self._handle_update_dashboard
+        )
         self.register_handler(TriggerAction.PROCESS_DATA, self._handle_process_data)
         self.register_handler(TriggerAction.SCHEDULE_TASK, self._handle_schedule_task)
 
@@ -217,7 +223,10 @@ class AutoTriggerService:
 
                 # Check time-based triggers
                 for _trigger_id, trigger in self._triggers.items():
-                    if trigger.trigger_type == TriggerType.TIME_BASED and trigger.enabled:
+                    if (
+                        trigger.trigger_type == TriggerType.TIME_BASED
+                        and trigger.enabled
+                    ):
                         await self._check_time_trigger(trigger, now)
 
                 # Smart business reminders (heartbeat)
@@ -289,7 +298,9 @@ class AutoTriggerService:
                         should_trigger = True
 
                     if should_trigger:
-                        await self._execute_trigger(trigger, {"metric": metric, "value": value})
+                        await self._execute_trigger(
+                            trigger, {"metric": metric, "value": value}
+                        )
 
     async def check_behavior_trigger(self, user_id: str, behavior_data: dict):
         """
@@ -331,7 +342,9 @@ class AutoTriggerService:
                 if "page" in condition and context.get("page") == condition["page"]:
                     time_on_page = context.get("time_on_page", 0)
                     if time_on_page >= condition.get("time_on_page", 0):
-                        await self._execute_trigger(trigger, {"user_id": user_id, "page": context["page"]})
+                        await self._execute_trigger(
+                            trigger, {"user_id": user_id, "page": context["page"]}
+                        )
 
     async def _execute_trigger(self, trigger: AutoTrigger, context: dict = None):
         """Execute a trigger's action."""
@@ -372,7 +385,9 @@ class AutoTriggerService:
                 )
             )
 
-            logger.info(f"Executed trigger {trigger.trigger_id}: {trigger.action.value}")
+            logger.info(
+                f"Executed trigger {trigger.trigger_id}: {trigger.action.value}"
+            )
 
         except Exception as e:
             logger.error(f"Trigger execution failed: {e}")
@@ -389,7 +404,9 @@ class AutoTriggerService:
         logger.info(f"Auto-starting analysis: {analysis_type} for user={user_id}")
 
         prompt = f"请对当前业务数据进行 {analysis_type} 分析，给出关键发现和建议。"
-        result = await self._invoke_agent(prompt, user_id, org_id, scene_code="auto_analysis")
+        result = await self._invoke_agent(
+            prompt, user_id, org_id, scene_code="auto_analysis"
+        )
 
         # Notify user with the analysis result
         await self._notify_user(
@@ -398,7 +415,10 @@ class AutoTriggerService:
             content=result.get("response", "分析已完成")[:500],
         )
 
-        return {"status": "completed" if result["success"] else "failed", "analysis_type": analysis_type}
+        return {
+            "status": "completed" if result["success"] else "failed",
+            "analysis_type": analysis_type,
+        }
 
     async def _handle_generate_report(self, params: dict) -> dict:
         """Use AI agent to generate a report and notify."""
@@ -415,7 +435,9 @@ class AutoTriggerService:
             "monthly": "请生成本月工作月报，包含：月度目标达成情况、核心业绩、趋势分析、改进建议。",
         }
         prompt = prompt_map.get(report_type, f"请生成一份 {report_type} 报告。")
-        result = await self._invoke_agent(prompt, user_id, org_id, scene_code="auto_report")
+        result = await self._invoke_agent(
+            prompt, user_id, org_id, scene_code="auto_report"
+        )
 
         await self._notify_user(
             user_id=user_id,
@@ -423,7 +445,10 @@ class AutoTriggerService:
             content=f"AI 已自动生成{report_type}报告，请在聊天中查看详情。",
         )
 
-        return {"status": "generated" if result["success"] else "failed", "report_type": report_type}
+        return {
+            "status": "generated" if result["success"] else "failed",
+            "report_type": report_type,
+        }
 
     async def _handle_send_notification(self, params: dict) -> dict:
         """Send notification to user."""
@@ -460,7 +485,9 @@ class AutoTriggerService:
 
         if auto_analyze and user_id:
             prompt = "用户上传了新文档，请分析文档内容并提取关键信息要点。"
-            result = await self._invoke_agent(prompt, user_id, org_id, scene_code="doc_analysis")
+            result = await self._invoke_agent(
+                prompt, user_id, org_id, scene_code="doc_analysis"
+            )
             await self._notify_user(
                 user_id=user_id,
                 title="文档分析完成",
@@ -513,7 +540,14 @@ class AutoTriggerService:
             if supabase:
                 await (
                     supabase.table("notifications")
-                    .insert({"user_id": user_id, "title": title, "content": content, "type": "info"})
+                    .insert(
+                        {
+                            "user_id": user_id,
+                            "title": title,
+                            "content": content,
+                            "type": "info",
+                        }
+                    )
                     .execute()
                 )
         except Exception as e:
@@ -526,7 +560,11 @@ class AutoTriggerService:
             "trigger_count": len(self._triggers),
             "enabled_count": sum(1 for t in self._triggers.values() if t.enabled),
             "recent_executions": [
-                {"trigger_id": e.trigger_id, "action": e.action.value, "triggered_at": e.triggered_at}
+                {
+                    "trigger_id": e.trigger_id,
+                    "action": e.action.value,
+                    "triggered_at": e.triggered_at,
+                }
                 for e in self._trigger_history[-10:]
             ],
         }
@@ -564,7 +602,9 @@ class AutoTriggerService:
         # Lazy cleanup: remove expired keys when dict gets large
         if len(self._memory_cooldowns) > 500:
             now = datetime.utcnow()
-            self._memory_cooldowns = {k: v for k, v in self._memory_cooldowns.items() if v > now}
+            self._memory_cooldowns = {
+                k: v for k, v in self._memory_cooldowns.items() if v > now
+            }
 
     def _check_push_dedup(self, user_id: str, content: str) -> bool:
         """Check if identical content was already pushed recently. Returns True if duplicate."""
@@ -579,7 +619,9 @@ class AutoTriggerService:
         # Lazy cleanup
         if len(self._recent_push_hashes) > 1000:
             now = datetime.utcnow()
-            self._recent_push_hashes = {k: v for k, v in self._recent_push_hashes.items() if v > now}
+            self._recent_push_hashes = {
+                k: v for k, v in self._recent_push_hashes.items() if v > now
+            }
         return False
 
     async def _check_smart_reminders(self):
@@ -609,7 +651,9 @@ class AutoTriggerService:
                 self._set_memory_cooldown(sr_cooldown_key, self._REMINDER_COOLDOWN)
                 return
         except Exception as e:
-            logger.debug("Redis cooldown check unavailable: %s", e)  # proceed with memory-only cooldown
+            logger.debug(
+                "Redis cooldown check unavailable: %s", e
+            )  # proceed with memory-only cooldown
 
         try:
             await self._remind_pending_approvals(supabase, now)
@@ -619,9 +663,13 @@ class AutoTriggerService:
             # Set both Redis and in-memory cooldowns
             self._set_memory_cooldown(sr_cooldown_key, self._REMINDER_COOLDOWN)
             try:
-                await cache_service.set(sr_cooldown_key, "1", ttl=self._REMINDER_COOLDOWN)
+                await cache_service.set(
+                    sr_cooldown_key, "1", ttl=self._REMINDER_COOLDOWN
+                )
             except Exception as e:
-                logger.debug("Redis cooldown set unavailable: %s", e)  # memory cooldown is our safety net
+                logger.debug(
+                    "Redis cooldown set unavailable: %s", e
+                )  # memory cooldown is our safety net
             self._last_triggered["_smart_reminders"] = datetime.utcnow()
         except Exception as e:
             logger.error("[SmartReminder] Check failed: %s", e, exc_info=True)
@@ -669,7 +717,9 @@ class AutoTriggerService:
                     int(
                         (
                             now
-                            - datetime.fromisoformat(oldest["submitted_at"].replace("Z", "+00:00")).astimezone(CN_TZ)
+                            - datetime.fromisoformat(
+                                oldest["submitted_at"].replace("Z", "+00:00")
+                            ).astimezone(CN_TZ)
                         ).total_seconds()
                         / 3600
                     ),
@@ -744,7 +794,11 @@ class AutoTriggerService:
                 if total > 6:
                     lines.append(f"  ...共 {total} 项待处理")
 
-                message = "⏰ 任务到期提醒\n\n" + "\n".join(lines) + "\n\n请及时完成或调整截止日期。"
+                message = (
+                    "⏰ 任务到期提醒\n\n"
+                    + "\n".join(lines)
+                    + "\n\n请及时完成或调整截止日期。"
+                )
 
                 await self._push_proactive_reminder(
                     user_id=user_id,
@@ -772,14 +826,22 @@ class AutoTriggerService:
             all_leads = result.data or []
             # Exclude terminal stages regardless of column name
             terminal = {"won", "lost", "closed", "converted"}
-            leads = [l for l in all_leads if (l.get("stage") or l.get("status") or "").lower() not in terminal][:50]
+            leads = [
+                l
+                for l in all_leads
+                if (l.get("stage") or l.get("status") or "").lower() not in terminal
+            ][:50]
             if not leads:
                 return
 
             # Group by owner — try common column names for owner field
             user_map: dict[str, list] = {}
             for lead in leads:
-                uid = lead.get("owner_id") or lead.get("user_id") or lead.get("assigned_to")
+                uid = (
+                    lead.get("owner_id")
+                    or lead.get("user_id")
+                    or lead.get("assigned_to")
+                )
                 if uid:
                     user_map.setdefault(uid, []).append(lead)
 
@@ -799,7 +861,9 @@ class AutoTriggerService:
                         int(
                             (
                                 now
-                                - datetime.fromisoformat(lead["updated_at"].replace("Z", "+00:00")).astimezone(CN_TZ)
+                                - datetime.fromisoformat(
+                                    lead["updated_at"].replace("Z", "+00:00")
+                                ).astimezone(CN_TZ)
                             ).total_seconds()
                             / 86400
                         ),
@@ -826,7 +890,9 @@ class AutoTriggerService:
         except Exception as e:
             logger.error("[SmartReminder] Lead followup check failed: %s", e)
 
-    async def _push_proactive_reminder(self, user_id: str, title: str, message: str, reminder_type: str):
+    async def _push_proactive_reminder(
+        self, user_id: str, title: str, message: str, reminder_type: str
+    ):
         """Push a smart reminder as proactive chat message + notification."""
         cooldown_key = f"auto_trigger:cooldown:_reminder_{reminder_type}_{user_id}"
 
@@ -836,7 +902,9 @@ class AutoTriggerService:
 
         # Layer 2: Content-based dedup (prevent identical messages)
         if self._check_push_dedup(user_id, message):
-            logger.debug("[SmartReminder] Skipped duplicate content for %s", user_id[:8])
+            logger.debug(
+                "[SmartReminder] Skipped duplicate content for %s", user_id[:8]
+            )
             return
 
         # Layer 3: Redis cooldown (for multi-instance safety)
@@ -848,7 +916,9 @@ class AutoTriggerService:
                 self._set_memory_cooldown(cooldown_key, 14400)
                 return
         except Exception as e:
-            logger.debug("Redis cooldown check unavailable: %s", e)  # memory cooldown is our safety net
+            logger.debug(
+                "Redis cooldown check unavailable: %s", e
+            )  # memory cooldown is our safety net
 
         try:
             from app.services.agent_result_pusher import push_agent_result
@@ -858,7 +928,11 @@ class AutoTriggerService:
                 title=title,
                 message=message,
                 agent_name="smart_reminder",
-                metadata={"source": "smart_reminder", "task_name": title, "reminder_type": reminder_type},
+                metadata={
+                    "source": "smart_reminder",
+                    "task_name": title,
+                    "reminder_type": reminder_type,
+                },
             )
 
             # Set both memory and Redis cooldowns
@@ -868,7 +942,9 @@ class AutoTriggerService:
                 await cache_service.set(cooldown_key, "1", ttl=14400)  # 4 hours
             except Exception as e:
                 logger.debug("Redis cooldown set unavailable: %s", e)
-            logger.info("[SmartReminder] Sent '%s' to user %s", reminder_type, user_id[:8])
+            logger.info(
+                "[SmartReminder] Sent '%s' to user %s", reminder_type, user_id[:8]
+            )
         except Exception as e:
             logger.error("[SmartReminder] Push failed for %s: %s", user_id[:8], e)
 

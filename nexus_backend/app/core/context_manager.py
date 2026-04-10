@@ -35,7 +35,9 @@ class SimpleContextManager:
         )
         return False
 
-    async def get_recent_messages(self, conversation_id: str, limit: int = None) -> list[dict]:
+    async def get_recent_messages(
+        self, conversation_id: str, limit: int = None
+    ) -> list[dict]:
         """
         安全的上下文滑动窗口：获取最近 N 条消息记录，以组装 Prompt
 

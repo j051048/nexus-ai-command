@@ -3,7 +3,13 @@
 AGENT_CODE = "operation_agent"
 AGENT_NAME = "私域运营Agent"
 RECOMMENDED_MODEL_TIER = "medium"
-SCENE_CODES = ["private_domain", "community_operation", "membership", "customer_journey", "retention"]
+SCENE_CODES = [
+    "private_domain",
+    "community_operation",
+    "membership",
+    "customer_journey",
+    "retention",
+]
 
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "提升客户留存率至90%+，耗材复购率提升20%"

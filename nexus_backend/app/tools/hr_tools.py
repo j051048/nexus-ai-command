@@ -24,7 +24,10 @@ class AttendanceQueryTool(BaseTool):
     description = "查询指定员工的考勤记录和出勤统计。当用户说'我的考勤'、'出勤情况'时调用。注意：查个人考勤用此工具，查团队考勤用 query_team_attendance。"
     required_role = "all"
     examples = [
-        {"input": {"query_type": "my_record", "month": "2026-03"}, "output_summary": "返回当月个人考勤明细"},
+        {
+            "input": {"query_type": "my_record", "month": "2026-03"},
+            "output_summary": "返回当月个人考勤明细",
+        },
         {
             "input": {"query_type": "monthly_summary", "employee_name": "[员工姓名]"},
             "output_summary": "返回该员工的月度出勤汇总（需管理者权限）",
@@ -50,13 +53,21 @@ class AttendanceQueryTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         args.get("month", datetime.now().strftime("%Y-%m"))
         employee_name = args.get("employee_name")
 
         client = _get_client(config)
         # 获取用户信息
-        user_res = await client.table("users").select("name, role").eq("id", user_id).maybe_single().execute()
+        user_res = (
+            await client.table("users")
+            .select("name, role")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         if not user_res.data:
             return "❌ 无法获取用户信息"
 
@@ -78,7 +89,10 @@ class TeamAttendanceTool(BaseTool):
     required_role = "manager"
     examples = [
         {"input": {"view_type": "overview"}, "output_summary": "返回团队出勤总览"},
-        {"input": {"view_type": "abnormal_alert"}, "output_summary": "返回迟到早退等异常预警列表"},
+        {
+            "input": {"view_type": "abnormal_alert"},
+            "output_summary": "返回迟到早退等异常预警列表",
+        },
     ]
     related_tools = ["query_attendance", "get_team_insight"]
     gotchas = "仅管理者及以上角色可用。考勤系统暂未接入，当前返回占位提示。"
@@ -95,7 +109,9 @@ class TeamAttendanceTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
 
         # F4: Check if user is manager (not boss) - filter to own department only
@@ -130,7 +146,11 @@ class EmployeeProfileTool(BaseTool):
             "output_summary": "返回李四的基本画像，不含风险分析",
         },
     ]
-    related_tools = ["get_employee_detail", "create_performance_review", "query_attendance"]
+    related_tools = [
+        "get_employee_detail",
+        "create_performance_review",
+        "query_attendance",
+    ]
     gotchas = "按姓名模糊匹配，重名时只返回第一个结果。include_risk_analysis 默认为真，会调用大模型生成分析。"
 
     parameters = {
@@ -145,14 +165,21 @@ class EmployeeProfileTool(BaseTool):
         "required": ["employee_name"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         employee_name = args.get("employee_name")
         include_risk = args.get("include_risk_analysis", True)
 
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
         # 查找员工 — 必须限定本组织
-        query = client.table("users").select("*").ilike("name", f"%{employee_name}%").limit(1)
+        query = (
+            client.table("users")
+            .select("*")
+            .ilike("name", f"%{employee_name}%")
+            .limit(1)
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         emp_res = await query.execute()
@@ -172,13 +199,20 @@ class EmployeeProfileTool(BaseTool):
         attendance_info = "暂无考勤数据"
         try:
             att_res = (
-                await client.table("hr_attendance").select("status", count="exact").eq("user_id", emp_id).execute()
+                await client.table("hr_attendance")
+                .select("status", count="exact")
+                .eq("user_id", emp_id)
+                .execute()
             )
             if att_res.data:
                 total_days = len(att_res.data)
-                normal_days = sum(1 for a in att_res.data if a.get("status") in ("present", "normal"))
+                normal_days = sum(
+                    1 for a in att_res.data if a.get("status") in ("present", "normal")
+                )
                 late_days = sum(1 for a in att_res.data if a.get("status") == "late")
-                absent_days = sum(1 for a in att_res.data if a.get("status") == "absent")
+                absent_days = sum(
+                    1 for a in att_res.data if a.get("status") == "absent"
+                )
                 rate = round(normal_days / max(total_days, 1) * 100, 1)
                 attendance_info = f"出勤率 {rate}% (正常{normal_days}天, 迟到{late_days}天, 缺勤{absent_days}天)"
         except Exception as e:
@@ -188,7 +222,10 @@ class EmployeeProfileTool(BaseTool):
         sales_info = ""
         try:
             sales_res = (
-                await client.table("sales_metrics").select("revenue, leads_count").eq("user_id", emp_id).execute()
+                await client.table("sales_metrics")
+                .select("revenue, leads_count")
+                .eq("user_id", emp_id)
+                .execute()
             )
             if sales_res.data:
                 total_rev = sum(float(s.get("revenue", 0)) for s in sales_res.data)
@@ -212,7 +249,9 @@ class EmployeeProfileTool(BaseTool):
                 task_lines = []
                 for t in tasks_res.data:
                     status_icon = "✅" if t.get("status") == "completed" else "🔄"
-                    task_lines.append(f"  {status_icon} {t.get('title', '未命名')} [{t.get('priority', 'medium')}]")
+                    task_lines.append(
+                        f"  {status_icon} {t.get('title', '未命名')} [{t.get('priority', 'medium')}]"
+                    )
                 tasks_info = "\n**近期任务**\n" + "\n".join(task_lines)
         except Exception as e:
             logger.debug("近期任务查询失败: %s", e)
@@ -245,7 +284,8 @@ class EmployeeProfileTool(BaseTool):
                     f"角色: {emp.get('role', '员工')}"
                 )
                 risk_analysis = await AIService.call_llm(
-                    risk_prompt, "你是HR分析专家。基于数据给出客观分析，不要编造数据。中文回复。"
+                    risk_prompt,
+                    "你是HR分析专家。基于数据给出客观分析，不要编造数据。中文回复。",
                 )
                 response += f"\n🤖 **AI 风险分析**\n{risk_analysis}\n"
             except Exception:
@@ -262,9 +302,17 @@ class PerformanceReviewTool(BaseTool):
     description = "发起绩效评估或查看团队绩效排行。当用户说'绩效考核'、'发起考评'、'团队绩效排名'时调用。"
     required_role = "manager"
     examples = [
-        {"input": {"action": "view_team"}, "output_summary": "返回团队绩效排行榜前十名"},
         {
-            "input": {"action": "submit_rating", "employee_name": "张三", "rating": 4, "comment": "表现优秀"},
+            "input": {"action": "view_team"},
+            "output_summary": "返回团队绩效排行榜前十名",
+        },
+        {
+            "input": {
+                "action": "submit_rating",
+                "employee_name": "张三",
+                "rating": 4,
+                "comment": "表现优秀",
+            },
             "output_summary": "提交张三的绩效评分4星（80分）",
         },
     ]
@@ -286,14 +334,21 @@ class PerformanceReviewTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         action = args.get("action", "view_team")
         org_id = config.get("org_id") if config else None
 
         if action == "view_team":
             client = _get_client(config)
             # 获取团队绩效概览 — 限定本组织
-            query = client.table("users").select("name, score, rank, total_bonus").order("score", desc=True).limit(10)
+            query = (
+                client.table("users")
+                .select("name, score, rank, total_bonus")
+                .order("score", desc=True)
+                .limit(10)
+            )
             if org_id:
                 query = query.eq("organization_id", org_id)
             team_res = await query.execute()
@@ -307,7 +362,9 @@ class PerformanceReviewTool(BaseTool):
                 medal = medals[i] if i < 3 else f"{i + 1}."
                 bar_len = int(member.get("score", 0) / 10)
                 bar = "█" * bar_len + "░" * (10 - bar_len)
-                response += f"{medal} {member['name']:<8} {bar} {member.get('score', 0)}分\n"
+                response += (
+                    f"{medal} {member['name']:<8} {bar} {member.get('score', 0)}分\n"
+                )
 
             response += """
 💡 **AI 洞察**:
@@ -336,7 +393,12 @@ class PerformanceReviewTool(BaseTool):
             client = _get_client(config)
 
             # Find the employee — 限定本组织
-            query = client.table("users").select("id, name, score").ilike("name", f"%{employee_name}%").limit(1)
+            query = (
+                client.table("users")
+                .select("id, name, score")
+                .ilike("name", f"%{employee_name}%")
+                .limit(1)
+            )
             if org_id:
                 query = query.eq("organization_id", org_id)
             emp_res = await query.execute()
@@ -353,7 +415,9 @@ class PerformanceReviewTool(BaseTool):
             # Update user score in DB
             # RLS policy "users_manager_update" allows manager+ in same org
             try:
-                await client.table("users").update({"score": new_score}).eq("id", emp_id).execute()
+                await client.table("users").update({"score": new_score}).eq(
+                    "id", emp_id
+                ).execute()
             except Exception as e:
                 return safe_tool_error(e, "绩效评分更新")
 
@@ -394,17 +458,22 @@ class RecruitmentTool(BaseTool):
 
     name = "manage_recruitment"
     domain = "hr"
-    description = (
-        "管理招聘流程，包含创建职位、查看候选人、安排面试和解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
-    )
+    description = "管理招聘流程，包含创建职位、查看候选人、安排面试和解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
     required_role = "manager"
     examples = [
         {
-            "input": {"action": "schedule_interview", "candidate_name": "[候选人]", "interview_time": "明天下午3点"},
+            "input": {
+                "action": "schedule_interview",
+                "candidate_name": "[候选人]",
+                "interview_time": "明天下午3点",
+            },
             "output_summary": "安排候选人的面试并发送邀请",
         },
         {
-            "input": {"action": "parse_resume", "resume_text": "本人拥有5年开发经验..."},
+            "input": {
+                "action": "parse_resume",
+                "resume_text": "本人拥有5年开发经验...",
+            },
             "output_summary": "返回简历分析评分",
         },
     ]
@@ -416,19 +485,32 @@ class RecruitmentTool(BaseTool):
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["create_job", "view_candidates", "schedule_interview", "parse_resume"],
+                "enum": [
+                    "create_job",
+                    "view_candidates",
+                    "schedule_interview",
+                    "parse_resume",
+                ],
                 "description": "操作类型",
             },
             "job_title": {"type": "string", "description": "职位名称"},
             "candidate_name": {"type": "string", "description": "候选人姓名"},
             "interview_time": {"type": "string", "description": "面试时间"},
-            "resume_text": {"type": "string", "description": "简历文本内容（parse_resume时必填）"},
-            "job_requirements": {"type": "string", "description": "岗位要求（parse_resume时可选）"},
+            "resume_text": {
+                "type": "string",
+                "description": "简历文本内容（parse_resume时必填）",
+            },
+            "job_requirements": {
+                "type": "string",
+                "description": "岗位要求（parse_resume时可选）",
+            },
         },
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         action = args.get("action", "view_candidates")
 
         if action == "view_candidates":

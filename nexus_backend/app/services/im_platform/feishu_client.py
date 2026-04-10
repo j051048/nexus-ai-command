@@ -102,7 +102,9 @@ class FeishuClient(IMPlatformClient):
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPStatusError as e:
-            logger.error(f"[feishu] HTTP {e.response.status_code} for {method} {url}: {e.response.text[:200]}")
+            logger.error(
+                f"[feishu] HTTP {e.response.status_code} for {method} {url}: {e.response.text[:200]}"
+            )
             raise
         except httpx.RequestError as e:
             logger.error(f"[feishu] Request error for {method} {url}: {e}")
@@ -112,7 +114,9 @@ class FeishuClient(IMPlatformClient):
         code = data.get("code", 0)
         if code != 0:
             msg = data.get("msg", "unknown error")
-            logger.error(f"[feishu] API business error: code={code}, msg={msg}, url={url}")
+            logger.error(
+                f"[feishu] API business error: code={code}, msg={msg}, url={url}"
+            )
             raise Exception(f"feishu API error (code={code}): {msg}")
 
         return data
@@ -148,7 +152,9 @@ class FeishuClient(IMPlatformClient):
                 for dept in items:
                     all_departments.append(
                         {
-                            "id": dept.get("department_id", dept.get("open_department_id", "")),
+                            "id": dept.get(
+                                "department_id", dept.get("open_department_id", "")
+                            ),
                             "name": dept.get("name", ""),
                             "parentid": dept.get("parent_department_id", "0"),
                             "order": dept.get("order", "0"),
@@ -210,14 +216,18 @@ class FeishuClient(IMPlatformClient):
                 has_more = data.get("data", {}).get("has_more", False)
                 page_token = data.get("data", {}).get("page_token", "")
             except Exception as e:
-                logger.error(f"[feishu] Failed to get users for dept {department_id}: {e}")
+                logger.error(
+                    f"[feishu] Failed to get users for dept {department_id}: {e}"
+                )
                 break
 
         return all_users
 
     # ── Attendance ────────────────────────────────────────────────
 
-    async def get_attendance_records(self, user_ids: list[str], start_date: str, end_date: str) -> list[dict]:
+    async def get_attendance_records(
+        self, user_ids: list[str], start_date: str, end_date: str
+    ) -> list[dict]:
         """
         获取考勤打卡数据。
         POST /attendance/v1/user_tasks/query
@@ -394,7 +404,9 @@ class FeishuClient(IMPlatformClient):
             token_data = token_resp.json()
 
             if token_data.get("code", -1) != 0:
-                raise Exception(f"Failed to get user access token: {token_data.get('msg')}")
+                raise Exception(
+                    f"Failed to get user access token: {token_data.get('msg')}"
+                )
 
             user_access_token = token_data.get("data", {}).get("access_token", "")
 

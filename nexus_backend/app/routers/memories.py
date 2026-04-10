@@ -113,7 +113,9 @@ class PolicyBatchBody(BaseModel):
     policies: list[PolicyItem]
 
 
-async def _get_org_id_and_role(request: Request, user_id: str) -> tuple[str | None, str | None]:
+async def _get_org_id_and_role(
+    request: Request, user_id: str
+) -> tuple[str | None, str | None]:
     """Extract org_id and user role from request state."""
     org_id = getattr(request.state, "org_id", None)
     role = getattr(request.state, "role", None)
@@ -123,7 +125,13 @@ async def _get_org_id_and_role(request: Request, user_id: str) -> tuple[str | No
         from app.core.database import supabase
 
         if supabase:
-            res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
+            res = (
+                await supabase.table("users")
+                .select("role")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
             role = res.data.get("role") if res and res.data else None
 
     return org_id, role
@@ -173,7 +181,9 @@ async def save_org_policies(
         _require_admin(role)
 
         if not org_id:
-            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "未关联组织，无法设置行为准则")
+            raise api_error(
+                ErrorCode.AUTH_PERMISSION_DENIED, "未关联组织，无法设置行为准则"
+            )
 
         db = getattr(request.state, "db", None)
         saved = []
@@ -276,7 +286,9 @@ async def save_business_rules(
         _require_admin(role)
 
         if not org_id:
-            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "未关联组织，无法设置业务规则")
+            raise api_error(
+                ErrorCode.AUTH_PERMISSION_DENIED, "未关联组织，无法设置业务规则"
+            )
 
         db = getattr(request.state, "db", None)
         saved = []
@@ -356,7 +368,9 @@ async def get_entity_profile(
     try:
         org_id = getattr(request.state, "org_id", None)
         if not org_id:
-            return api_success(data={"entity": entity, "triples": []}, message="未关联组织")
+            return api_success(
+                data={"entity": entity, "triples": []}, message="未关联组织"
+            )
 
         from app.core.database import supabase as db
 

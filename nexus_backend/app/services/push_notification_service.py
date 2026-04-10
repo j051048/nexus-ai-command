@@ -64,7 +64,11 @@ class PushNotificationService:
                 "user_agent": user_agent,
             }
 
-            result = await client.table("push_subscriptions").upsert(data, on_conflict="user_id,endpoint").execute()
+            result = (
+                await client.table("push_subscriptions")
+                .upsert(data, on_conflict="user_id,endpoint")
+                .execute()
+            )
 
             return {
                 "success": True,
@@ -81,7 +85,9 @@ class PushNotificationService:
             return False
 
         try:
-            await client.table("push_subscriptions").delete().eq("user_id", user_id).eq("endpoint", endpoint).execute()
+            await client.table("push_subscriptions").delete().eq("user_id", user_id).eq(
+                "endpoint", endpoint
+            ).execute()
             return True
         except Exception as e:
             logger.error(f"Failed to delete push subscription: {e}")
@@ -105,7 +111,12 @@ class PushNotificationService:
             return 0
 
         try:
-            result = await client.table("push_subscriptions").select("*").eq("user_id", user_id).execute()
+            result = (
+                await client.table("push_subscriptions")
+                .select("*")
+                .eq("user_id", user_id)
+                .execute()
+            )
             subscriptions = result.data or []
         except Exception as e:
             logger.error(f"Failed to fetch push subscriptions: {e}")
@@ -121,7 +132,9 @@ class PushNotificationService:
                 # 推送失败（可能订阅已过期），删除订阅
                 if "410" in str(e) or "404" in str(e):
                     try:
-                        await client.table("push_subscriptions").delete().eq("id", sub["id"]).execute()
+                        await client.table("push_subscriptions").delete().eq(
+                            "id", sub["id"]
+                        ).execute()
                         logger.info(f"Removed expired subscription {sub['id']}")
                     except Exception as del_err:
                         logger.warning(f"Failed to delete expired sub: {del_err}")
@@ -145,7 +158,12 @@ class PushNotificationService:
             return 0
 
         try:
-            result = await client.table("push_subscriptions").select("user_id").eq("organization_id", org_id).execute()
+            result = (
+                await client.table("push_subscriptions")
+                .select("user_id")
+                .eq("organization_id", org_id)
+                .execute()
+            )
             user_ids = list({row["user_id"] for row in (result.data or [])})
         except Exception as e:
             logger.error(f"Failed to fetch org subscriptions: {e}")
@@ -188,7 +206,9 @@ class PushNotificationService:
                 },
                 data=payload,
                 vapid_private_key=self._vapid_private_key,
-                vapid_claims={"sub": f"mailto:{getattr(settings, 'SMTP_FROM', 'noreply@nexus.ai')}"},
+                vapid_claims={
+                    "sub": f"mailto:{getattr(settings, 'SMTP_FROM', 'noreply@nexus.ai')}"
+                },
             )
         except ImportError:
             logger.debug("pywebpush not installed, push notification skipped")

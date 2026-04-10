@@ -43,7 +43,9 @@ async def list_organizations(
 ):
     """列出所有组织（支持搜索和状态筛选）"""
     try:
-        result = await super_admin_service.list_organizations(page=page, limit=limit, search=search, status=status)
+        result = await super_admin_service.list_organizations(
+            page=page, limit=limit, search=search, status=status
+        )
         return api_list(
             items=result["organizations"],
             total=result["total"],
@@ -83,7 +85,9 @@ async def suspend_organization(
     try:
         success = await super_admin_service.suspend_organization(org_id, body.reason)
         if success:
-            return api_success(data={"org_id": org_id, "status": "suspended"}, message="组织已暂停")
+            return api_success(
+                data={"org_id": org_id, "status": "suspended"}, message="组织已暂停"
+            )
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "组织不存在或操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -101,7 +105,9 @@ async def unsuspend_organization(
     try:
         success = await super_admin_service.unsuspend_organization(org_id)
         if success:
-            return api_success(data={"org_id": org_id, "status": "active"}, message="组织已恢复")
+            return api_success(
+                data={"org_id": org_id, "status": "active"}, message="组织已恢复"
+            )
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "组织不存在或操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -161,7 +167,9 @@ async def list_audit_logs(
         if date_to:
             filters["date_to"] = date_to
 
-        logs = await super_admin_service.list_audit_logs_global(filters=filters, limit=limit, offset=offset)
+        logs = await super_admin_service.list_audit_logs_global(
+            filters=filters, limit=limit, offset=offset
+        )
         return api_success(data=logs)
     except Exception as e:
         logger.error(f"获取审计日志失败: {e}")

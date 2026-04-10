@@ -42,7 +42,11 @@ async def save_org_memory(
         embedding = await generate_embedding(value, org_id)
         if embedding:
             record["embedding"] = embedding
-        res = await supabase.table("org_memories").upsert(record, on_conflict="organization_id,category,key").execute()
+        res = (
+            await supabase.table("org_memories")
+            .upsert(record, on_conflict="organization_id,category,key")
+            .execute()
+        )
         return res.data[0] if res.data else record
     except Exception as e:
         logger.error("Failed to save org memory: %s", e)
@@ -107,7 +111,9 @@ async def search_org_memories(
     if len(results) < limit:
         try:
             # 转义特殊字符，避免 PostgREST 解析错误
-            safe_query = query.replace("%", "\\%").replace("_", "\\_").replace('"', '\\"')
+            safe_query = (
+                query.replace("%", "\\%").replace("_", "\\_").replace('"', '\\"')
+            )
             kw_res = (
                 await supabase.table("org_memories")
                 .select("*")
@@ -136,7 +142,9 @@ async def delete_org_memory(
     if not supabase:
         return False
     try:
-        await supabase.table("org_memories").delete().eq("id", memory_id).eq("organization_id", org_id).execute()
+        await supabase.table("org_memories").delete().eq("id", memory_id).eq(
+            "organization_id", org_id
+        ).execute()
         return True
     except Exception as e:
         if hasattr(e, "code") and str(getattr(e, "code", "")) == "204":

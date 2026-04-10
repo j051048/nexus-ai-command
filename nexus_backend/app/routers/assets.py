@@ -169,8 +169,12 @@ async def update_asset(
         db = getattr(req.state, "db", None)
         updates = body.model_dump(exclude_none=True)
         if not updates:
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "请提供至少一个要更新的字段")
-        asset = await asset_service.update_asset(asset_id=asset_id, updates=updates, db=db)
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD, "请提供至少一个要更新的字段"
+            )
+        asset = await asset_service.update_asset(
+            asset_id=asset_id, updates=updates, db=db
+        )
         return api_success(data={"asset": asset}, message="资产更新成功")
     except Exception as e:
         logger.error(f"Failed to update asset: {e}")

@@ -12,7 +12,9 @@ from app.services.llm_gateway import get_llm
 logger = logging.getLogger(__name__)
 
 
-async def check_expense_anomaly(user_id: str, amount: float, expense_type: str, org_id: str):
+async def check_expense_anomaly(
+    user_id: str, amount: float, expense_type: str, org_id: str
+):
     """检测报销异常"""
     try:
         # 获取用户近30天报销记录
@@ -37,7 +39,9 @@ async def check_expense_anomaly(user_id: str, amount: float, expense_type: str, 
         if records:
             avg_amount = sum(r.get("amount", 0) for r in records) / len(records)
             if amount > avg_amount * 3:
-                warnings.append(f"本次金额{amount}元,超过历史平均{avg_amount:.0f}元的3倍")
+                warnings.append(
+                    f"本次金额{amount}元,超过历史平均{avg_amount:.0f}元的3倍"
+                )
 
         # 3. AI 深度分析
         if warnings:
@@ -50,7 +54,12 @@ async def check_expense_anomaly(user_id: str, amount: float, expense_type: str, 
 请判断风险等级(低/中/高)并给出建议,限50字内。"""
 
             analysis = await llm.ainvoke(prompt)
-            return {"has_anomaly": True, "risk": "medium", "warnings": warnings, "suggestion": str(analysis)}
+            return {
+                "has_anomaly": True,
+                "risk": "medium",
+                "warnings": warnings,
+                "suggestion": str(analysis),
+            }
 
         return {"has_anomaly": False}
 

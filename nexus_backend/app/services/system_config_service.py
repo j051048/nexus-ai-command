@@ -131,11 +131,15 @@ class SystemConfigService:
             }
 
             result = await (
-                db.table("system_configs").upsert(data, on_conflict="organization_id,config_type,config_key").execute()
+                db.table("system_configs")
+                .upsert(data, on_conflict="organization_id,config_type,config_key")
+                .execute()
             )
 
             if result.data and len(result.data) > 0:
-                logger.info(f"配置已保存: org={org_id}, type={config_type}, key={config_key}")
+                logger.info(
+                    f"配置已保存: org={org_id}, type={config_type}, key={config_key}"
+                )
                 return result.data[0]
 
             raise RuntimeError("配置保存失败")
@@ -177,7 +181,9 @@ class SystemConfigService:
             )
 
             if result.data:
-                logger.info(f"配置已删除: org={org_id}, type={config_type}, key={config_key}")
+                logger.info(
+                    f"配置已删除: org={org_id}, type={config_type}, key={config_key}"
+                )
                 return True
             return False
 
@@ -207,9 +213,15 @@ class SystemConfigService:
         # 默认工单类型
         work_order_types = [
             ("repair", {"label": "设备报修", "color": "#F59E0B", "icon": "wrench"}),
-            ("complaint", {"label": "客户投诉", "color": "#EF4444", "icon": "alert-circle"}),
+            (
+                "complaint",
+                {"label": "客户投诉", "color": "#EF4444", "icon": "alert-circle"},
+            ),
             ("request", {"label": "物资申请", "color": "#3B82F6", "icon": "package"}),
-            ("consultation", {"label": "咨询", "color": "#8B5CF6", "icon": "help-circle"}),
+            (
+                "consultation",
+                {"label": "咨询", "color": "#8B5CF6", "icon": "help-circle"},
+            ),
         ]
 
         # 默认优先级

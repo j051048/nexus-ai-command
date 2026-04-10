@@ -15,7 +15,11 @@ async def send_dingtalk_notification(webhook: str, message: str):
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(webhook, json={"msgtype": "text", "text": {"content": message}}, timeout=5.0)
+            response = await client.post(
+                webhook,
+                json={"msgtype": "text", "text": {"content": message}},
+                timeout=5.0,
+            )
             return response.status_code == 200
     except Exception as e:
         logger.error(f"发送钉钉通知失败: {e}")

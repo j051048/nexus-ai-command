@@ -54,7 +54,11 @@ class _JSONFormatter(logging.Formatter):
         return _json.dumps(log_obj, ensure_ascii=False)
 
 
-def setup_logging(level: str | None = None, format_string: str | None = None, json_output: bool | None = None) -> None:
+def setup_logging(
+    level: str | None = None,
+    format_string: str | None = None,
+    json_output: bool | None = None,
+) -> None:
     """
     Configure logging for the entire application.
 
@@ -95,7 +99,9 @@ def setup_logging(level: str | None = None, format_string: str | None = None, js
     # Reduce noise from third-party libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING if IS_PRODUCTION else logging.INFO)
+    logging.getLogger("uvicorn.access").setLevel(
+        logging.WARNING if IS_PRODUCTION else logging.INFO
+    )
 
     # P0 Security: Prevent HTTP/2 libraries from leaking sensitive headers
     # (Authorization, apikey) in DEBUG logs
@@ -153,26 +159,43 @@ class SecurityLogger:
 
     def auth_success(self, user_id: str, method: str = "jwt"):
         """Log successful authentication"""
-        self.logger.info("AUTH_SUCCESS", extra={"user_id": user_id, "event": f"method={method}"})
+        self.logger.info(
+            "AUTH_SUCCESS", extra={"user_id": user_id, "event": f"method={method}"}
+        )
 
     def auth_failure(self, reason: str, ip: str | None = None):
         """Log failed authentication attempt"""
-        self.logger.warning("AUTH_FAILURE", extra={"ip": ip, "event": f"reason={reason}"})
+        self.logger.warning(
+            "AUTH_FAILURE", extra={"ip": ip, "event": f"reason={reason}"}
+        )
 
     def access_denied(self, user_id: str, resource: str, reason: str):
         """Log access denied event"""
         self.logger.warning(
-            "ACCESS_DENIED", extra={"user_id": user_id, "resource": resource, "event": f"reason={reason}"}
+            "ACCESS_DENIED",
+            extra={
+                "user_id": user_id,
+                "resource": resource,
+                "event": f"reason={reason}",
+            },
         )
 
     def rate_limited(self, identifier: str, endpoint: str):
         """Log rate limit hit"""
-        self.logger.warning("RATE_LIMITED", extra={"event": f"identifier={identifier} endpoint={endpoint}"})
+        self.logger.warning(
+            "RATE_LIMITED",
+            extra={"event": f"identifier={identifier} endpoint={endpoint}"},
+        )
 
     def suspicious_activity(self, user_id: str | None, activity: str, details: str):
         """Log suspicious activity for investigation"""
         self.logger.error(
-            "SUSPICIOUS_ACTIVITY", extra={"user_id": user_id, "activity": activity, "event": f"details={details}"}
+            "SUSPICIOUS_ACTIVITY",
+            extra={
+                "user_id": user_id,
+                "activity": activity,
+                "event": f"details={details}",
+            },
         )
 
     def security_config(self, event: str, details: str):

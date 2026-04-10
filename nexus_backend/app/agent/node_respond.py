@@ -29,36 +29,87 @@ _SENSITIVE_FIELD_RULES = [
     # (pattern, mask_replacement, minimum_role_level)
     # Role levels: guest=0, employee=1, manager=2, boss=3, founder=4
     # --- 薪资/工资 (中文 + 英文 + 变体) ---
-    (_re.compile(r"(薪[资酬水]|工资|月薪|年薪|底薪|基本工资)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[薪资信息已隐藏]", 3),
-    (_re.compile(r"(月收入|年收入|税前收入|税后收入|到手)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[薪资信息已隐藏]", 3),
     (
-        _re.compile(r"\b(salary|wage|pay|income|compensation)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE),
+        _re.compile(
+            r"(薪[资酬水]|工资|月薪|年薪|底薪|基本工资)\s*[:：]?\s*[\d,.]+\s*[元万千]?"
+        ),
+        "[薪资信息已隐藏]",
+        3,
+    ),
+    (
+        _re.compile(
+            r"(月收入|年收入|税前收入|税后收入|到手)\s*[:：]?\s*[\d,.]+\s*[元万千]?"
+        ),
+        "[薪资信息已隐藏]",
+        3,
+    ),
+    (
+        _re.compile(
+            r"\b(salary|wage|pay|income|compensation)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+",
+            _re.IGNORECASE,
+        ),
         "[SALARY HIDDEN]",
         3,
     ),
     # --- 奖金/提成 ---
-    (_re.compile(r"(提成|奖金|绩效奖|年终奖)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[奖金信息已隐藏]", 3),
-    (_re.compile(r"\b(bonus|commission|incentive)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[BONUS HIDDEN]", 3),
-    # --- 社保/公积金 ---
-    (_re.compile(r"(社保|公积金|五险一金)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[社保信息已隐藏]", 3),
-    # --- 合同金额 ---
-    (_re.compile(r"(合同金额|签约金额|合同价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[合同金额已隐藏]", 2),
     (
-        _re.compile(r"\b(contract\s*(?:amount|value|price))\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE),
+        _re.compile(r"(提成|奖金|绩效奖|年终奖)\s*[:：]?\s*[\d,.]+\s*[元万千]?"),
+        "[奖金信息已隐藏]",
+        3,
+    ),
+    (
+        _re.compile(
+            r"\b(bonus|commission|incentive)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+",
+            _re.IGNORECASE,
+        ),
+        "[BONUS HIDDEN]",
+        3,
+    ),
+    # --- 社保/公积金 ---
+    (
+        _re.compile(r"(社保|公积金|五险一金)\s*[:：]?\s*[\d,.]+\s*[元万千]?"),
+        "[社保信息已隐藏]",
+        3,
+    ),
+    # --- 合同金额 ---
+    (
+        _re.compile(r"(合同金额|签约金额|合同价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"),
+        "[合同金额已隐藏]",
+        2,
+    ),
+    (
+        _re.compile(
+            r"\b(contract\s*(?:amount|value|price))\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+",
+            _re.IGNORECASE,
+        ),
         "[CONTRACT AMOUNT HIDDEN]",
         2,
     ),
     # --- 成本价 ---
-    (_re.compile(r"(成本价|进货价|底价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[成本信息已隐藏]", 2),
     (
-        _re.compile(r"\b(cost\s*price|wholesale\s*price|unit\s*cost)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE),
+        _re.compile(r"(成本价|进货价|底价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"),
+        "[成本信息已隐藏]",
+        2,
+    ),
+    (
+        _re.compile(
+            r"\b(cost\s*price|wholesale\s*price|unit\s*cost)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+",
+            _re.IGNORECASE,
+        ),
         "[COST HIDDEN]",
         2,
     ),
     # --- 利润率 ---
-    (_re.compile(r"(利润率|毛利率|净利率)\s*[:：]?\s*[\d,.]+\s*%?"), "[利润信息已隐藏]", 2),
     (
-        _re.compile(r"\b(profit\s*margin|gross\s*margin|net\s*margin)\s*[:=]?\s*[\d,.]+\s*%?", _re.IGNORECASE),
+        _re.compile(r"(利润率|毛利率|净利率)\s*[:：]?\s*[\d,.]+\s*%?"),
+        "[利润信息已隐藏]",
+        2,
+    ),
+    (
+        _re.compile(
+            r"\b(profit\s*margin|gross\s*margin|net\s*margin)\s*[:=]?\s*[\d,.]+\s*%?",
+            _re.IGNORECASE,
+        ),
         "[MARGIN HIDDEN]",
         2,
     ),
@@ -135,7 +186,9 @@ _KEY_METRIC = _re.compile(
 )
 
 # Pattern: consecutive items separated by 、(for list conversion)
-_CONSECUTIVE_ITEMS = _re.compile(r"(?:(?:[\u4e00-\u9fff\w]+)(?:、))+(?:[\u4e00-\u9fff\w]+)")
+_CONSECUTIVE_ITEMS = _re.compile(
+    r"(?:(?:[\u4e00-\u9fff\w]+)(?:、))+(?:[\u4e00-\u9fff\w]+)"
+)
 
 
 def _strip_redundant_phrases(text: str) -> str:
@@ -219,7 +272,8 @@ async def simple_respond_node(state: AgentState) -> dict:
     lc_msgs = list(lc_msgs)  # make mutable copy
     if lc_msgs and isinstance(lc_msgs[0], SystemMessage):
         lc_msgs[0] = SystemMessage(
-            content=lc_msgs[0].content + "\n\n【重要】你没有联网能力，不知道当前的电影、新闻、天气、股价等实时信息。"
+            content=lc_msgs[0].content
+            + "\n\n【重要】你没有联网能力，不知道当前的电影、新闻、天气、股价等实时信息。"
             "如果用户询问此类信息，请坦诚说明你无法获取实时数据，建议用户使用搜索引擎或相关APP查看。"
             "严禁编造具体的电影名、新闻事件、天气数据或股价数字。"
         )
@@ -355,7 +409,9 @@ async def error_node(state: AgentState) -> dict:
     recovery_level = state.get("error_recovery_level", 0)
     iteration = state.get("iteration", 0)
 
-    logger.error(f"[ErrorNode] Handling error: {error_msg} (level={recovery_level}, iter={iteration})")
+    logger.error(
+        f"[ErrorNode] Handling error: {error_msg} (level={recovery_level}, iter={iteration})"
+    )
 
     # ── Persist failure for analytics ──
     try:
@@ -382,10 +438,14 @@ async def error_node(state: AgentState) -> dict:
         await failure_log_service.log_failure(
             org_id=getattr(config, "org_id", None) if config else None,
             user_id=getattr(config, "user_id", None) if config else None,
-            conversation_id=getattr(config, "conversation_id", None) if config else None,
+            conversation_id=(
+                getattr(config, "conversation_id", None) if config else None
+            ),
             user_message=user_message or str(error_msg),
             intent_summary=state.get("intent_summary"),
-            complexity=state.get("complexity", "").value if state.get("complexity") else None,
+            complexity=(
+                state.get("complexity", "").value if state.get("complexity") else None
+            ),
             error_type=error_type,
             error_detail=str(error_msg)[:2000],
             severity="high" if recovery_level >= 2 else "medium",
@@ -397,7 +457,11 @@ async def error_node(state: AgentState) -> dict:
     try:
         await plugin_system_service.run_hooks(
             ExtensionPoint.ON_ERROR,
-            {"error": error_msg, "recovery_level": recovery_level, "iteration": iteration},
+            {
+                "error": error_msg,
+                "recovery_level": recovery_level,
+                "iteration": iteration,
+            },
         )
     except Exception as e:
         logger.error(f"[ErrorNode] ON_ERROR hook error: {e}")

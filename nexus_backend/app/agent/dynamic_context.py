@@ -23,7 +23,9 @@ class DynamicContextManager:
             QueryComplexity.CRITICAL: 30,
         }.get(complexity, 10)
 
-    async def inject_business_context(self, user_id: str, query: str, org_id: str = "default") -> str:
+    async def inject_business_context(
+        self, user_id: str, query: str, org_id: str = "default"
+    ) -> str:
         """自动注入相关业务数据"""
         context_parts = []
 

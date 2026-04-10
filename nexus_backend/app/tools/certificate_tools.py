@@ -28,15 +28,25 @@ class ListCertificatesTool(BaseTool):
     """查询证照列表"""
 
     name = "list_certificates"
-    description = "查询证照列表，支持按类型和持有者筛选。当用户说'查看证照'、'证照列表'时调用。"
+    description = (
+        "查询证照列表，支持按类型和持有者筛选。当用户说'查看证照'、'证照列表'时调用。"
+    )
     domain = "admin"
     examples = [
         {"input": {}, "output_summary": "返回全部证照列表"},
-        {"input": {"holder_type": "company"}, "output_summary": "返回公司持有的全部证照"},
-        {"input": {"cert_type": "营业执照", "holder_type": "company"}, "output_summary": "返回公司持有的营业执照"},
+        {
+            "input": {"holder_type": "company"},
+            "output_summary": "返回公司持有的全部证照",
+        },
+        {
+            "input": {"cert_type": "营业执照", "holder_type": "company"},
+            "output_summary": "返回公司持有的营业执照",
+        },
     ]
     related_tools = ["create_certificate", "expiring_certificates", "renew_certificate"]
-    gotchas = "holder_type只支持company和employee两个值。holder_id必须是有效的UUID格式。"
+    gotchas = (
+        "holder_type只支持company和employee两个值。holder_id必须是有效的UUID格式。"
+    )
 
     parameters = {
         "type": "object",
@@ -58,7 +68,9 @@ class ListCertificatesTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -96,8 +108,12 @@ class ListCertificatesTool(BaseTool):
 
             lines = [f"📜 共找到 {len(certs)} 个证照:\n"]
             for cert in certs:
-                status = status_labels.get(cert.get("status", ""), cert.get("status", ""))
-                holder = holder_labels.get(cert.get("holder_type", ""), cert.get("holder_type", ""))
+                status = status_labels.get(
+                    cert.get("status", ""), cert.get("status", "")
+                )
+                holder = holder_labels.get(
+                    cert.get("holder_type", ""), cert.get("holder_type", "")
+                )
                 expire = str(cert.get("expire_date", "无期限"))[:10]
                 lines.append(
                     f"- **{cert.get('name', '未知')}** | 类型: {cert.get('cert_type', '未知')} | "
@@ -116,7 +132,9 @@ class CreateCertificateTool(BaseTool):
     """创建证照记录"""
 
     name = "create_certificate"
-    description = "创建新的证照登记记录，需要管理员权限。当用户说'登记证照'、'添加证照'时调用。"
+    description = (
+        "创建新的证照登记记录，需要管理员权限。当用户说'登记证照'、'添加证照'时调用。"
+    )
     domain = "admin"
     examples = [
         {
@@ -171,10 +189,20 @@ class CreateCertificateTool(BaseTool):
                 "description": "到期日期 YYYY-MM-DD",
             },
         },
-        "required": ["cert_type", "cert_no", "name", "holder_type", "holder_id", "issue_date", "expire_date"],
+        "required": [
+            "cert_type",
+            "cert_no",
+            "name",
+            "holder_type",
+            "holder_id",
+            "issue_date",
+            "expire_date",
+        ],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -188,7 +216,9 @@ class CreateCertificateTool(BaseTool):
         issue_date = args.get("issue_date", "").strip()
         expire_date = args.get("expire_date", "").strip()
 
-        if not all([name, cert_type, cert_no, holder_type, holder_id, issue_date, expire_date]):
+        if not all(
+            [name, cert_type, cert_no, holder_type, holder_id, issue_date, expire_date]
+        ):
             return "❌ 所有必填字段不能为空"
 
         if err := _validate_uuid(holder_id, "holder_id"):
@@ -229,7 +259,9 @@ class ExpiringCertsTool(BaseTool):
     """获取即将到期的证照"""
 
     name = "expiring_certificates"
-    description = "查询指定天数内即将到期的证照。当用户说'证照到期'、'哪些证照快到期了'时调用。"
+    description = (
+        "查询指定天数内即将到期的证照。当用户说'证照到期'、'哪些证照快到期了'时调用。"
+    )
     domain = "admin"
     examples = [
         {"input": {}, "output_summary": "返回未来30天内即将到期的证照（默认）"},
@@ -251,7 +283,9 @@ class ExpiringCertsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -276,7 +310,9 @@ class ExpiringCertsTool(BaseTool):
 
             lines = [f"⚠️ 未来 {days} 天内即将到期的证照 ({len(certs)} 个):\n"]
             for cert in certs:
-                holder = holder_labels.get(cert.get("holder_type", ""), cert.get("holder_type", ""))
+                holder = holder_labels.get(
+                    cert.get("holder_type", ""), cert.get("holder_type", "")
+                )
                 lines.append(
                     f"- 🔴 **{cert.get('name', '未知')}** | 类型: {cert.get('cert_type', '未知')} | "
                     f"持有者: {holder} | 到期: {str(cert.get('expire_date', ''))[:10]} | "
@@ -322,7 +358,9 @@ class RenewCertificateTool(BaseTool):
         "required": ["cert_id", "new_expire_date"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
 
         cert_id = args.get("cert_id", "").strip()

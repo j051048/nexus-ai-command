@@ -9,7 +9,12 @@ from fastapi import APIRouter, Query
 from app.core.config import settings
 from app.core.errors import api_success
 
-from ._shared import AvailableModel, AvailableModelsResponse, ModelCategory, _get_admin_client
+from ._shared import (
+    AvailableModel,
+    AvailableModelsResponse,
+    ModelCategory,
+    _get_admin_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +88,9 @@ def _classify_model(model_id: str) -> tuple[str, str, str]:
     """返回 (provider_code, provider_label, icon)"""
     for prefixes, code, label, icon in _PROVIDER_RULES:
         for prefix in prefixes:
-            if model_id.startswith(prefix) or model_id.lower().startswith(prefix.lower()):
+            if model_id.startswith(prefix) or model_id.lower().startswith(
+                prefix.lower()
+            ):
                 return code, label, icon
     return "other", "其他", "🔘"
 
@@ -93,7 +100,10 @@ def _infer_model_type(model_id: str) -> str:
     mid = model_id.lower()
     if any(kw in mid for kw in ["embedding", "bge-m3", "bge-reranker"]):
         return "embedding"
-    if any(kw in mid for kw in ["dall-e", "flux-", "gpt-image", "seedream", "sora", "chatgpt-image"]):
+    if any(
+        kw in mid
+        for kw in ["dall-e", "flux-", "gpt-image", "seedream", "sora", "chatgpt-image"]
+    ):
         return "image"
     if any(kw in mid for kw in ["tts-"]):
         return "tts"
@@ -406,7 +416,9 @@ async def list_available_models(
     # 1. 查询已添加的模型 codes（admin 客户端是异步的，需要 await）
     try:
         client = _get_admin_client()
-        added_res = await client.table("llm_model_config").select("model_code").execute()
+        added_res = (
+            await client.table("llm_model_config").select("model_code").execute()
+        )
         added_codes = {r["model_code"] for r in (added_res.data or [])}
     except Exception as e:
         logger.warning(f"Failed to query added models, treating all as unadded: {e}")
@@ -460,7 +472,9 @@ async def list_available_models(
 
         model_objs = [AvailableModel(**m) for m in models_in_cat]
         total_count += len(model_objs)
-        filtered_categories.append(ModelCategory(name=cat_label, icon=cat_icon, models=model_objs))
+        filtered_categories.append(
+            ModelCategory(name=cat_label, icon=cat_icon, models=model_objs)
+        )
 
     # 剩余未归类的
     for cat_code, models_in_cat in sorted(grouped.items()):
@@ -471,7 +485,9 @@ async def list_available_models(
         cat_icon = provider_icons.get(cat_code, "🔘")
         model_objs = [AvailableModel(**m) for m in models_in_cat]
         total_count += len(model_objs)
-        filtered_categories.append(ModelCategory(name=cat_label, icon=cat_icon, models=model_objs))
+        filtered_categories.append(
+            ModelCategory(name=cat_label, icon=cat_icon, models=model_objs)
+        )
 
     return api_success(
         data=AvailableModelsResponse(

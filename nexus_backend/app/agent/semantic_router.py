@@ -193,7 +193,9 @@ class SemanticRouter:
             async def _embed(text: str) -> list[float] | None:
                 return await vector_service.embed_text(text, org_id or "default")
 
-            results = await asyncio.gather(*[_embed(t[2]) for t in tasks], return_exceptions=True)
+            results = await asyncio.gather(
+                *[_embed(t[2]) for t in tasks], return_exceptions=True
+            )
 
             embeddings: dict[str, list[np.ndarray]] = {}
             for (intent, _, _), result in zip(tasks, results, strict=False):
@@ -214,7 +216,9 @@ class SemanticRouter:
         finally:
             self._initializing = False
 
-    async def classify(self, query: str, org_id: str | None = None) -> tuple[str | None, float, list[str]]:
+    async def classify(
+        self, query: str, org_id: str | None = None
+    ) -> tuple[str | None, float, list[str]]:
         """Classify query intent via embedding cosine similarity.
 
         Returns:
@@ -241,7 +245,9 @@ class SemanticRouter:
             for intent, emb_list in self._exemplar_embeddings.items():
                 for emb in emb_list:
                     # Cosine similarity
-                    score = float(np.dot(query_vec, emb) / (query_norm * np.linalg.norm(emb)))
+                    score = float(
+                        np.dot(query_vec, emb) / (query_norm * np.linalg.norm(emb))
+                    )
                     if score > best_score:
                         best_score = score
                         best_intent = intent

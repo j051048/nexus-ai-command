@@ -27,8 +27,14 @@ class SummaryService:
             Summary string
         """
         api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
-        base_url = (config or {}).get("base_url") or settings.AI_BASE_URL or "https://api.openai.com/v1"
-        model = (config or {}).get("model") or getattr(settings, "AI_DEFAULT_MODEL", "gpt-4o")
+        base_url = (
+            (config or {}).get("base_url")
+            or settings.AI_BASE_URL
+            or "https://api.openai.com/v1"
+        )
+        model = (config or {}).get("model") or getattr(
+            settings, "AI_DEFAULT_MODEL", "gpt-4o"
+        )
 
         if not api_key:
             # Fallback: simple extraction of key points
@@ -86,7 +92,11 @@ class SummaryService:
     @staticmethod
     def _simple_summary(messages: list[dict]) -> str:
         """Fallback: extract last few user messages as summary."""
-        user_msgs = [m.get("content", "")[:100] for m in messages if m.get("role") == "user" and m.get("content")]
+        user_msgs = [
+            m.get("content", "")[:100]
+            for m in messages
+            if m.get("role") == "user" and m.get("content")
+        ]
         if not user_msgs:
             return "（无可用的对话历史摘要）"
         recent = user_msgs[-3:]

@@ -25,9 +25,16 @@ class BiddingSearchTool(BaseTool):
     domain = "tender"
     description = "搜索国内招投标和政府采购公告数据，支持按关键词和日期筛选"
     examples = [
-        {"input": {"keyword": "人工智能"}, "output_summary": "返回最近30天内与人工智能相关的招投标项目列表"},
         {
-            "input": {"keyword": "服务器采购", "start_date": "2026-01-01", "end_date": "2026-03-01"},
+            "input": {"keyword": "人工智能"},
+            "output_summary": "返回最近30天内与人工智能相关的招投标项目列表",
+        },
+        {
+            "input": {
+                "keyword": "服务器采购",
+                "start_date": "2026-01-01",
+                "end_date": "2026-03-01",
+            },
             "output_summary": "返回指定日期范围内的服务器采购招标公告",
         },
     ]
@@ -39,7 +46,9 @@ class BiddingSearchTool(BaseTool):
     def parameters(self) -> dict:
         """动态生成参数 schema，注入当前日期提示以避免 LLM 使用训练数据日期。"""
         today = datetime.now(_CN_TZ).strftime("%Y-%m-%d")
-        thirty_days_ago = (datetime.now(_CN_TZ) - timedelta(days=30)).strftime("%Y-%m-%d")
+        thirty_days_ago = (datetime.now(_CN_TZ) - timedelta(days=30)).strftime(
+            "%Y-%m-%d"
+        )
         return {
             "type": "object",
             "properties": {
@@ -67,7 +76,9 @@ class BiddingSearchTool(BaseTool):
             "required": ["keyword"],
         }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         keyword = args.get("keyword", "").strip()
         if not keyword:
             return "请提供招投标搜索关键词。"
@@ -82,7 +93,9 @@ class BiddingSearchTool(BaseTool):
         if not start_date:
             start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
 
-        logger.info(f"BiddingSearchTool: keyword={keyword}, date={start_date}~{end_date}")
+        logger.info(
+            f"BiddingSearchTool: keyword={keyword}, date={start_date}~{end_date}"
+        )
 
         try:
             result = await bidding_service.search_projects(
@@ -105,7 +118,9 @@ class BiddingSearchTool(BaseTool):
         if not projects:
             return f"未找到与「{keyword}」相关的招投标项目，可尝试调整关键词或扩大时间范围。"
 
-        lines = [f"为您找到 **{total}** 条招投标记录（展示前 {min(len(projects), 10)} 条）：\n"]
+        lines = [
+            f"为您找到 **{total}** 条招投标记录（展示前 {min(len(projects), 10)} 条）：\n"
+        ]
 
         for i, item in enumerate(projects[:10], 1):
             title = item.get("title", "未知标题")

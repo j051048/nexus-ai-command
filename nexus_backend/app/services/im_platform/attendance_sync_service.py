@@ -70,13 +70,17 @@ class AttendanceSyncService:
             # 1. 获取平台客户端
             client = await self._contact_sync._get_client(org_id, platform, db)
             if not client:
-                stats["errors"].append(f"Failed to create {platform} client for org {org_id}")
+                stats["errors"].append(
+                    f"Failed to create {platform} client for org {org_id}"
+                )
                 return stats
 
             # 2. 获取该组织在该平台上的所有映射用户
             user_mappings = await self._get_user_mappings(org_id, platform, db)
             if not user_mappings:
-                logger.info(f"[AttendanceSync] No user mappings found for org={org_id}, platform={platform}")
+                logger.info(
+                    f"[AttendanceSync] No user mappings found for org={org_id}, platform={platform}"
+                )
                 return stats
 
             # 3. 拉取考勤数据
@@ -134,7 +138,9 @@ class AttendanceSyncService:
                         stats["records_updated"] += 1
 
                 except Exception as e:
-                    logger.warning(f"[AttendanceSync] Failed to upsert attendance for user {platform_user_id}: {e}")
+                    logger.warning(
+                        f"[AttendanceSync] Failed to upsert attendance for user {platform_user_id}: {e}"
+                    )
                     stats["errors"].append(f"User {platform_user_id}: {str(e)[:100]}")
 
             logger.info(
@@ -171,7 +177,9 @@ class AttendanceSyncService:
             logger.error(f"[AttendanceSync] Failed to get user mappings: {e}")
             return []
 
-    async def _normalize_attendance(self, platform: str, raw_records: list[dict]) -> list[dict]:
+    async def _normalize_attendance(
+        self, platform: str, raw_records: list[dict]
+    ) -> list[dict]:
         """
         将不同平台的考勤数据标准化为统一格式。
 
@@ -224,7 +232,11 @@ class AttendanceSyncService:
             checkin_time = record.get("checkin_time", 0)
             exception_type = record.get("exception_type", "")
 
-            time_str = datetime.fromtimestamp(checkin_time, tz=UTC).isoformat() if checkin_time else None
+            time_str = (
+                datetime.fromtimestamp(checkin_time, tz=UTC).isoformat()
+                if checkin_time
+                else None
+            )
 
             # 企微: checkin_type 区分上班/下班
             if "上班" in checkin_type or checkin_type == "":
@@ -255,7 +267,9 @@ class AttendanceSyncService:
 
             if checkin_time:
                 if isinstance(checkin_time, int | float):
-                    time_str = datetime.fromtimestamp(checkin_time / 1000, tz=UTC).isoformat()
+                    time_str = datetime.fromtimestamp(
+                        checkin_time / 1000, tz=UTC
+                    ).isoformat()
                 else:
                     time_str = str(checkin_time)
             else:

@@ -30,8 +30,14 @@ class ListApprovalFlowsTool(BaseTool):
     name = "list_approval_flows"
     description = "查询当前组织的审批流模板列表。当用户说'查看审批流'、'审批流列表'时调用。可按触发类型筛选。"
     examples = [
-        {"input": {}, "output_summary": "返回组织下所有审批流模板，含名称、触发类型、步骤数、状态"},
-        {"input": {"trigger_type": "expense"}, "output_summary": "返回报销类型的审批流模板列表"},
+        {
+            "input": {},
+            "output_summary": "返回组织下所有审批流模板，含名称、触发类型、步骤数、状态",
+        },
+        {
+            "input": {"trigger_type": "expense"},
+            "output_summary": "返回报销类型的审批流模板列表",
+        },
     ]
     related_tools = ["create_approval_flow"]
     gotchas = "必须已登录且有组织信息，否则会返回错误。"
@@ -48,7 +54,9 @@ class ListApprovalFlowsTool(BaseTool):
     }
     domain = "approval"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -75,7 +83,9 @@ class ListApprovalFlowsTool(BaseTool):
 
             lines = [f"📋 共找到 {len(flows)} 个审批流模板:\n"]
             for flow in flows:
-                ttype = trigger_labels.get(flow.get("trigger_type", ""), flow.get("trigger_type", ""))
+                ttype = trigger_labels.get(
+                    flow.get("trigger_type", ""), flow.get("trigger_type", "")
+                )
                 steps_count = len(flow.get("steps", []))
                 is_active = "启用" if flow.get("is_active") else "停用"
                 lines.append(
@@ -141,7 +151,9 @@ class CreateApprovalFlowTool(BaseTool):
     }
     domain = "approval"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:

@@ -48,10 +48,14 @@ if SUPABASE_URL:
 
 # P0 Security: Validate critical secrets in production
 if IS_PRODUCTION and not SUPABASE_JWT_SECRET and not JWT_SECRET and not _jwks_client:
-    raise RuntimeError("CRITICAL: JWT secret or JWKS URL must be configured in production")
+    raise RuntimeError(
+        "CRITICAL: JWT secret or JWKS URL must be configured in production"
+    )
 
 
-async def get_current_user_id(request: Request = None, authorization: str | None = Header(None)) -> str:
+async def get_current_user_id(
+    request: Request = None, authorization: str | None = Header(None)
+) -> str:
     """
     P0 Security: Authenticate user via JWT with strict security controls.
 
@@ -66,13 +70,19 @@ async def get_current_user_id(request: Request = None, authorization: str | None
     - Removed test: prefix authentication
     """
     # Check if API Key middleware already authenticated this request
-    if request and hasattr(request, "state") and getattr(request.state, "api_key_auth", False):
+    if (
+        request
+        and hasattr(request, "state")
+        and getattr(request.state, "api_key_auth", False)
+    ):
         user_id = getattr(request.state, "user_id", None)
         if user_id:
             return user_id
 
     if not authorization:
-        raise HTTPException(status_code=401, detail="缺少身份认证信息 (Missing Authorization Header)")
+        raise HTTPException(
+            status_code=401, detail="缺少身份认证信息 (Missing Authorization Header)"
+        )
 
     try:
         # P0 Security Fix #8: Remove test: prefix authentication entirely
@@ -99,7 +109,9 @@ async def get_current_user_id(request: Request = None, authorization: str | None
             if claimed_alg not in ALLOWED_ALGORITHMS:
                 logger.warning(f"Token claims unsupported algorithm: {claimed_alg}")
         except Exception:
-            logger.error("Failed to parse JWT header for algorithm check, proceeding with verification")
+            logger.error(
+                "Failed to parse JWT header for algorithm check, proceeding with verification"
+            )
 
         payload = None
         last_error = None
@@ -171,7 +183,9 @@ async def get_current_user_id(request: Request = None, authorization: str | None
         if not payload:
             error_msg = "身份验签失败 (Authentication failed)"
             if last_error:
-                logger.warning(f"Auth failure reason: {type(last_error).__name__}: {last_error}")
+                logger.warning(
+                    f"Auth failure reason: {type(last_error).__name__}: {last_error}"
+                )
             raise HTTPException(status_code=401, detail=error_msg)
 
         user_id = payload.get("sub") or payload.get("id")
@@ -187,12 +201,16 @@ async def get_current_user_id(request: Request = None, authorization: str | None
         raise
     except Exception as e:
         logger.exception(f"Unexpected auth error: {e}")
-        raise HTTPException(status_code=401, detail="认证执行异常 (Authentication error)")
+        raise HTTPException(
+            status_code=401, detail="认证执行异常 (Authentication error)"
+        )
 
 
 async def get_current_org_id(request: Request) -> str:
     """Extract organization ID from X-Org-ID header."""
     org_id = request.headers.get("X-Org-ID")
     if not org_id:
-        raise HTTPException(status_code=400, detail="缺少租户ID (Missing X-Org-ID header)")
+        raise HTTPException(
+            status_code=400, detail="缺少租户ID (Missing X-Org-ID header)"
+        )
     return org_id

@@ -32,11 +32,19 @@ class ListAssetsTool(BaseTool):
     description = "查询资产列表，支持按类型、状态、部门筛选"
     examples = [
         {"input": {}, "output_summary": "返回全部资产列表"},
-        {"input": {"asset_type": "vehicle", "status": "idle"}, "output_summary": "返回闲置状态的车辆资产"},
-        {"input": {"search": "笔记本"}, "output_summary": "按关键词搜索包含'笔记本'的资产"},
+        {
+            "input": {"asset_type": "vehicle", "status": "idle"},
+            "output_summary": "返回闲置状态的车辆资产",
+        },
+        {
+            "input": {"search": "笔记本"},
+            "output_summary": "按关键词搜索包含'笔记本'的资产",
+        },
     ]
     related_tools = ["get_asset_detail", "create_asset", "asset_statistics"]
-    gotchas = "状态可选值：idle/in_use/maintenance/scrapped。不传筛选条件则返回全部资产。"
+    gotchas = (
+        "状态可选值：idle/in_use/maintenance/scrapped。不传筛选条件则返回全部资产。"
+    )
 
     parameters = {
         "type": "object",
@@ -62,7 +70,9 @@ class ListAssetsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -99,7 +109,9 @@ class ListAssetsTool(BaseTool):
 
             lines = [f"📋 共找到 {len(assets)} 项资产:\n"]
             for asset in assets:
-                status = status_labels.get(asset.get("status", ""), asset.get("status", ""))
+                status = status_labels.get(
+                    asset.get("status", ""), asset.get("status", "")
+                )
                 user = asset.get("current_user", {})
                 user_name = user.get("name", "无") if user else "无"
                 value = asset.get("value") or 0
@@ -125,7 +137,10 @@ class GetAssetDetailTool(BaseTool):
     domain = "asset"
     description = "查询指定资产的详细信息，包括使用人、部门和附加字段"
     examples = [
-        {"input": {"asset_id": "uuid-xxxx"}, "output_summary": "返回资产的完整信息，包括名称、编号、状态、使用人等"},
+        {
+            "input": {"asset_id": "uuid-xxxx"},
+            "output_summary": "返回资产的完整信息，包括名称、编号、状态、使用人等",
+        },
     ]
     related_tools = ["list_assets", "update_asset", "transfer_asset"]
     gotchas = "asset_id必须是有效的UUID格式。返回结果包含metadata附加字段（如车牌号、序列号）。"
@@ -141,7 +156,9 @@ class GetAssetDetailTool(BaseTool):
         "required": ["asset_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         asset_id = args.get("asset_id")
 
@@ -205,7 +222,11 @@ class CreateAssetTool(BaseTool):
     description = "创建新资产记录，适用于车辆、电脑、设备、办公家具等任意类型"
     examples = [
         {
-            "input": {"asset_code": "PC-2026-001", "name": "联想笔记本", "asset_type": "computer"},
+            "input": {
+                "asset_code": "PC-2026-001",
+                "name": "联想笔记本",
+                "asset_type": "computer",
+            },
             "output_summary": "创建一台电脑类型的资产",
         },
         {
@@ -265,7 +286,9 @@ class CreateAssetTool(BaseTool):
         "required": ["asset_code", "name", "asset_type"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -278,7 +301,9 @@ class CreateAssetTool(BaseTool):
         if not asset_code or not name or not asset_type:
             return "❌ 资产编号、名称、类型不能为空"
 
-        if args.get("department_id") and (err := _validate_uuid(args["department_id"], "department_id")):
+        if args.get("department_id") and (
+            err := _validate_uuid(args["department_id"], "department_id")
+        ):
             return f"❌ {err}"
 
         data = {
@@ -320,9 +345,16 @@ class UpdateAssetTool(BaseTool):
     domain = "asset"
     description = "更新指定资产的信息或状态，支持修改名称、状态、部门和使用人"
     examples = [
-        {"input": {"asset_id": "uuid-xxxx", "status": "maintenance"}, "output_summary": "将资产状态更新为维修中"},
         {
-            "input": {"asset_id": "uuid-xxxx", "current_user_id": "uuid-yyyy", "status": "in_use"},
+            "input": {"asset_id": "uuid-xxxx", "status": "maintenance"},
+            "output_summary": "将资产状态更新为维修中",
+        },
+        {
+            "input": {
+                "asset_id": "uuid-xxxx",
+                "current_user_id": "uuid-yyyy",
+                "status": "in_use",
+            },
             "output_summary": "将资产分配给指定用户并设为使用中",
         },
     ]
@@ -359,7 +391,9 @@ class UpdateAssetTool(BaseTool):
         "required": ["asset_id"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         asset_id = args.get("asset_id")
 
@@ -405,15 +439,27 @@ class TransferAssetTool(BaseTool):
     description = "执行资产领用、归还、转移或报废操作，自动记录流转历史"
     examples = [
         {
-            "input": {"asset_id": "uuid-xxxx", "transfer_type": "allocate", "to_user_id": "uuid-yyyy"},
+            "input": {
+                "asset_id": "uuid-xxxx",
+                "transfer_type": "allocate",
+                "to_user_id": "uuid-yyyy",
+            },
             "output_summary": "将资产领用给指定员工",
         },
         {
-            "input": {"asset_id": "uuid-xxxx", "transfer_type": "return", "reason": "项目结束"},
+            "input": {
+                "asset_id": "uuid-xxxx",
+                "transfer_type": "return",
+                "reason": "项目结束",
+            },
             "output_summary": "归还资产并记录原因",
         },
         {
-            "input": {"asset_id": "uuid-xxxx", "transfer_type": "scrap", "reason": "设备老化无法使用"},
+            "input": {
+                "asset_id": "uuid-xxxx",
+                "transfer_type": "scrap",
+                "reason": "设备老化无法使用",
+            },
             "output_summary": "报废指定资产",
         },
     ]
@@ -451,7 +497,9 @@ class TransferAssetTool(BaseTool):
         "required": ["asset_id", "transfer_type"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -471,7 +519,9 @@ class TransferAssetTool(BaseTool):
 
         if to_user_id and (err := _validate_uuid(to_user_id, "to_user_id")):
             return f"❌ {err}"
-        if to_department_id and (err := _validate_uuid(to_department_id, "to_department_id")):
+        if to_department_id and (
+            err := _validate_uuid(to_department_id, "to_department_id")
+        ):
             return f"❌ {err}"
 
         type_labels = {
@@ -522,7 +572,10 @@ class AssetStatisticsTool(BaseTool):
     description = "获取资产统计数据，包括总量、各状态数量、利用率和总价值"
     examples = [
         {"input": {}, "output_summary": "返回全部资产的统计概况"},
-        {"input": {"asset_type": "computer"}, "output_summary": "返回电脑类资产的统计数据"},
+        {
+            "input": {"asset_type": "computer"},
+            "output_summary": "返回电脑类资产的统计数据",
+        },
     ]
     related_tools = ["list_assets", "get_asset_detail"]
     gotchas = "不传asset_type则统计全部类型。返回的utilization_rate为百分比数值。"
@@ -538,7 +591,9 @@ class AssetStatisticsTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:

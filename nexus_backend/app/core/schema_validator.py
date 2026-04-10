@@ -47,7 +47,9 @@ async def _get_table_columns(supabase, table_name: str) -> set[str] | None:
             ).execute()
             if rpc_res.data:
                 return {
-                    row.get("column_name") for row in rpc_res.data if isinstance(row, dict) and row.get("column_name")
+                    row.get("column_name")
+                    for row in rpc_res.data
+                    if isinstance(row, dict) and row.get("column_name")
                 }
         except Exception:
             pass
@@ -81,7 +83,9 @@ async def validate_schema() -> list[str]:
 
         if existing_columns is None:
             # 无法确定列信息（空表或表不存在），跳过
-            logger.info(f"[SchemaValidator] 表 '{table_name}' 无数据或无法访问，跳过列验证")
+            logger.info(
+                f"[SchemaValidator] 表 '{table_name}' 无数据或无法访问，跳过列验证"
+            )
             continue
 
         # 检查缺失的列
@@ -94,6 +98,8 @@ async def validate_schema() -> list[str]:
     if not warnings:
         logger.info("[SchemaValidator] 所有关键表列验证通过")
     else:
-        logger.warning(f"[SchemaValidator] 发现 {len(warnings)} 个 schema 问题，请检查数据库迁移是否完整")
+        logger.warning(
+            f"[SchemaValidator] 发现 {len(warnings)} 个 schema 问题，请检查数据库迁移是否完整"
+        )
 
     return warnings

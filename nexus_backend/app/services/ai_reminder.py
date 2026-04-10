@@ -15,7 +15,13 @@ async def generate_reminder_strategy(request_id: str, org_id: str):
     """分析延迟原因并生成催办策略"""
     try:
         # 获取审批详情
-        request = await supabase.table("approval_requests").select("*").eq("id", request_id).single().execute()
+        request = (
+            await supabase.table("approval_requests")
+            .select("*")
+            .eq("id", request_id)
+            .single()
+            .execute()
+        )
 
         if not request.data:
             return {"error": "Request not found"}
@@ -24,9 +30,9 @@ async def generate_reminder_strategy(request_id: str, org_id: str):
         request.data.get("timeout_at")
 
         # 分析审批人历史审批速度
-        await supabase.table("approval_requests").select("*").eq("current_approver", approver_id).eq(
-            "status", "approved"
-        ).limit(10).execute()
+        await supabase.table("approval_requests").select("*").eq(
+            "current_approver", approver_id
+        ).eq("status", "approved").limit(10).execute()
 
         avg_time = "2小时"  # 简化计算
         pending_count = 5  # 简化计算

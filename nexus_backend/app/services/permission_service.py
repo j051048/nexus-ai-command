@@ -352,7 +352,9 @@ class PermissionService:
             user_role = user_info.get("role", "employee")
 
             # 1. 检查角色是否在允许列表中
-            if user_role not in rule["roles"] and not self._role_has_hierarchy_access(user_role, rule["roles"]):
+            if user_role not in rule["roles"] and not self._role_has_hierarchy_access(
+                user_role, rule["roles"]
+            ):
                 return False
 
             # 2. 如果有条件约束，评估条件
@@ -361,7 +363,9 @@ class PermissionService:
                 # 条件采用 OR 逻辑：满足任一条件即可
                 condition_met = False
                 for condition in conditions:
-                    if await self._evaluate_condition(condition, user_id, user_info, resource, db):
+                    if await self._evaluate_condition(
+                        condition, user_id, user_info, resource, db
+                    ):
                         condition_met = True
                         break
 
@@ -422,7 +426,9 @@ class PermissionService:
             evaluated_conditions = []
 
             # 检查角色
-            role_allowed = user_role in rule["roles"] or self._role_has_hierarchy_access(user_role, rule["roles"])
+            role_allowed = user_role in rule[
+                "roles"
+            ] or self._role_has_hierarchy_access(user_role, rule["roles"])
             if not role_allowed:
                 return PermissionResult(
                     granted=False,
@@ -434,7 +440,9 @@ class PermissionService:
             conditions = rule.get("conditions", [])
             if conditions and resource:
                 for condition in conditions:
-                    result = await self._evaluate_condition(condition, user_id, user_info, resource, db)
+                    result = await self._evaluate_condition(
+                        condition, user_id, user_info, resource, db
+                    )
                     evaluated_conditions.append(
                         {
                             "condition": condition,
@@ -489,7 +497,9 @@ class PermissionService:
             permissions = []
 
             for perm_key, rule in self.PERMISSION_RULES.items():
-                granted = user_role in rule["roles"] or self._role_has_hierarchy_access(user_role, rule["roles"])
+                granted = user_role in rule["roles"] or self._role_has_hierarchy_access(
+                    user_role, rule["roles"]
+                )
                 has_conditions = bool(rule.get("conditions"))
 
                 permissions.append(
@@ -538,7 +548,9 @@ class PermissionService:
         """
         permissions = []
         for perm_key, rule in self.PERMISSION_RULES.items():
-            if role in rule["roles"] or self._role_has_hierarchy_access(role, rule["roles"]):
+            if role in rule["roles"] or self._role_has_hierarchy_access(
+                role, rule["roles"]
+            ):
                 permissions.append(perm_key)
         return permissions
 
@@ -569,11 +581,15 @@ class PermissionService:
             if condition == "is_owner":
                 return await self._check_is_owner(user_id, resource, db)
             elif condition == "same_department":
-                return await self._check_same_department(user_id, user_info, resource, db)
+                return await self._check_same_department(
+                    user_id, user_info, resource, db
+                )
             elif condition == "is_approver":
                 return await self._check_is_approver(user_id, resource, db)
             elif condition == "is_self":
-                target_user_id = resource.get("user_id") or resource.get("target_user_id")
+                target_user_id = resource.get("user_id") or resource.get(
+                    "target_user_id"
+                )
                 return user_id == target_user_id
             else:
                 logger.warning(f"Unknown permission condition: {condition}")
@@ -648,7 +664,9 @@ class PermissionService:
 
         return False
 
-    async def _check_is_approver(self, user_id: str, resource: dict[str, Any], db) -> bool:
+    async def _check_is_approver(
+        self, user_id: str, resource: dict[str, Any], db
+    ) -> bool:
         """检查用户是否是某审批请求的审批人"""
         approval_id = resource.get("id") or resource.get("approval_id")
         if not approval_id:
@@ -711,7 +729,9 @@ class PermissionService:
 
         return None
 
-    def _role_has_hierarchy_access(self, user_role: str, allowed_roles: list[str]) -> bool:
+    def _role_has_hierarchy_access(
+        self, user_role: str, allowed_roles: list[str]
+    ) -> bool:
         """
         检查用户角色是否通过层级继承拥有权限。
         高层级角色自动拥有低层级角色的权限。

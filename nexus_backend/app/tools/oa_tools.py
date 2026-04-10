@@ -42,7 +42,11 @@ class LeaveRequestTool(BaseTool):
             "output_summary": "提交2天年假申请，系统自动匹配审批链",
         },
         {
-            "input": {"leave_type": "sick", "start_date": "2026-03-21", "end_date": "2026-03-21"},
+            "input": {
+                "leave_type": "sick",
+                "start_date": "2026-03-21",
+                "end_date": "2026-03-21",
+            },
             "output_summary": "提交1天病假，短时间自动批准",
         },
     ]
@@ -82,7 +86,9 @@ class LeaveRequestTool(BaseTool):
     }
     domain = "oa_leave"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
 
         leave_type = args.get("leave_type", "personal")
@@ -99,7 +105,9 @@ class LeaveRequestTool(BaseTool):
             # Reject dates that are clearly in the wrong year
             now = datetime.now()
             if start.year < now.year - 1 or start.year > now.year + 1:
-                logger.warning(f"Suspicious leave date: {start_date} (current: {now.strftime('%Y-%m-%d')})")
+                logger.warning(
+                    f"Suspicious leave date: {start_date} (current: {now.strftime('%Y-%m-%d')})"
+                )
                 return (
                     f"日期异常：您提交的请假开始日期是 {start_date}，"
                     f"但当前日期是 {now.strftime('%Y-%m-%d')}。\n\n"
@@ -114,14 +122,20 @@ class LeaveRequestTool(BaseTool):
 
             days = (end - start).days + 1
             # 排除周末（简化计算）
-            work_days = sum(1 for i in range(days) if (start + timedelta(days=i)).weekday() < 5)
+            work_days = sum(
+                1 for i in range(days) if (start + timedelta(days=i)).weekday() < 5
+            )
         except ValueError as e:
             logger.warning(f"Date parsing error: {e}")
             return "日期格式错误，请使用 YYYY-MM-DD 格式"
 
         # 获取用户信息
         user_res = (
-            await client.table("users").select("name, department, role").eq("id", user_id).maybe_single().execute()
+            await client.table("users")
+            .select("name, department, role")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
         )
         if not user_res.data:
             return "❌ 无法获取用户信息"
@@ -154,7 +168,11 @@ class LeaveRequestTool(BaseTool):
         handover_id = None
         if handover_to:
             handover_res = (
-                await client.table("users").select("id, name").ilike("name", f"%{handover_to}%").limit(1).execute()
+                await client.table("users")
+                .select("id, name")
+                .ilike("name", f"%{handover_to}%")
+                .limit(1)
+                .execute()
             )
             if handover_res.data:
                 handover_id = handover_res.data[0]["id"]
@@ -175,7 +193,9 @@ class LeaveRequestTool(BaseTool):
             remaining = 10 - used_days
             if work_days > remaining:
                 return f"❌ 年假余额不足。您今年已使用 {used_days} 天，剩余 {remaining} 天，本次申请 {work_days} 天。"
-            leave_balance_info = f"（年假余额: {remaining}天 → {remaining - work_days}天）"
+            leave_balance_info = (
+                f"（年假余额: {remaining}天 → {remaining - work_days}天）"
+            )
 
         # 请假类型中文映射
         type_names = {
@@ -190,7 +210,13 @@ class LeaveRequestTool(BaseTool):
         # ── 审批链匹配：用天数作为 amount 走请假审批链 ──
         from app.services.approval_chain import approval_chain_service
 
-        org_id_res = await client.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
+        org_id_res = (
+            await client.table("users")
+            .select("organization_id")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         org_id = org_id_res.data.get("organization_id") if org_id_res.data else None
 
         chain_result = await approval_chain_service.match_and_bind_chain(
@@ -208,7 +234,9 @@ class LeaveRequestTool(BaseTool):
         _chain_name = chain_result.get("chain_name", "请假审批链")
         final_status = "approved" if auto_approve else "pending"
 
-        approval_note = "系统自动批准" if auto_approve else f"需{approval_level}级别审批"
+        approval_note = (
+            "系统自动批准" if auto_approve else f"需{approval_level}级别审批"
+        )
 
         # 创建请假记录（OA 业务表）
         leave_data = {
@@ -261,17 +289,27 @@ class LeaveRequestTool(BaseTool):
                 approval_insert["timeout_at"] = timeout_at
             if org_id:
                 approval_insert["organization_id"] = org_id
-            approval_result = await client.table("approval_requests").insert(approval_insert).execute()
+            approval_result = (
+                await client.table("approval_requests")
+                .insert(approval_insert)
+                .execute()
+            )
             if not approval_result.data:
-                logger.warning(f"Approval request insert returned no data for leave {leave_id}")
+                logger.warning(
+                    f"Approval request insert returned no data for leave {leave_id}"
+                )
         except Exception as e:
-            logger.warning(f"Failed to create approval_request for leave {leave_id}: {e}")
+            logger.warning(
+                f"Failed to create approval_request for leave {leave_id}: {e}"
+            )
 
         # 同步写入 calendar_events 表
         try:
             CN_TZ = timezone(timedelta(hours=8))
             cal_start = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=CN_TZ)
-            cal_end = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=CN_TZ)
+            cal_end = datetime.strptime(end_date, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59, tzinfo=CN_TZ
+            )
             cal_data = {
                 "user_id": user_id,
                 "title": f"{type_names.get(leave_type, leave_type)} ({work_days}天)",
@@ -337,8 +375,14 @@ class LeaveQueryTool(BaseTool):
     description = "查询请假申请状态或假期余额。当用户说'请假记录'、'年假还剩几天'、'假期余额'时调用。"
     required_role = "all"
     examples = [
-        {"input": {"query_type": "my_requests"}, "output_summary": "返回最近5条请假记录，含类型、天数、状态"},
-        {"input": {"query_type": "balance"}, "output_summary": "返回年假、调休、病假的剩余天数"},
+        {
+            "input": {"query_type": "my_requests"},
+            "output_summary": "返回最近5条请假记录，含类型、天数、状态",
+        },
+        {
+            "input": {"query_type": "balance"},
+            "output_summary": "返回年假、调休、病假的剩余天数",
+        },
     ]
     related_tools = ["create_leave_request"]
     gotchas = "team_schedule 查询类型暂未实现。年假余额为简化计算（默认总额10天）。"
@@ -356,7 +400,9 @@ class LeaveQueryTool(BaseTool):
     }
     domain = "oa_leave"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         query_type = args.get("query_type", "my_requests")
 
@@ -422,7 +468,11 @@ class MeetingBookingTool(BaseTool):
     required_role = "all"
     examples = [
         {
-            "input": {"title": "周会", "datetime": "明天下午3点", "attendees": ["[姓名A]", "[姓名B]"]},
+            "input": {
+                "title": "周会",
+                "datetime": "明天下午3点",
+                "attendees": ["[姓名A]", "[姓名B]"],
+            },
             "output_summary": "预约会议室并通知参会人",
         },
         {
@@ -464,7 +514,9 @@ class MeetingBookingTool(BaseTool):
     }
     domain = "oa_leave"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         title = args.get("title", "会议")
         duration = args.get("duration_minutes", 60)
         attendees = args.get("attendees", [])
@@ -481,7 +533,9 @@ class MeetingBookingTool(BaseTool):
         except (ValueError, TypeError):
             # Fallback: default to tomorrow afternoon if parsing fails
             meeting_time = datetime.now(CN_TZ) + timedelta(days=1)
-            meeting_time = meeting_time.replace(hour=15, minute=0, second=0, microsecond=0)
+            meeting_time = meeting_time.replace(
+                hour=15, minute=0, second=0, microsecond=0
+            )
 
         end_time = meeting_time + timedelta(minutes=duration)
 
@@ -504,11 +558,15 @@ class MeetingBookingTool(BaseTool):
                     c_start = c.get("start_time", "")
                     try:
                         c_time = (
-                            datetime.fromisoformat(c_start.replace("Z", "+00:00")).astimezone(CN_TZ).strftime("%H:%M")
+                            datetime.fromisoformat(c_start.replace("Z", "+00:00"))
+                            .astimezone(CN_TZ)
+                            .strftime("%H:%M")
                         )
                     except Exception:
                         c_time = "?"
-                    conflict_lines.append(f"  - {c_time} {c['title']} ({c['event_type']})")
+                    conflict_lines.append(
+                        f"  - {c_time} {c['title']} ({c['event_type']})"
+                    )
                 conflict_warning = "\n".join(conflict_lines) + "\n\n"
         except Exception as e:
             logger.debug(f"Calendar conflict check skipped: {e}")
@@ -517,7 +575,13 @@ class MeetingBookingTool(BaseTool):
         attendee_ids = []
         attendee_names = []
         for name in attendees:
-            user_res = await client.table("users").select("id, name").ilike("name", f"%{name}%").limit(1).execute()
+            user_res = (
+                await client.table("users")
+                .select("id, name")
+                .ilike("name", f"%{name}%")
+                .limit(1)
+                .execute()
+            )
             if user_res.data:
                 attendee_ids.append(user_res.data[0]["id"])
                 attendee_names.append(user_res.data[0]["name"])
@@ -556,7 +620,13 @@ class MeetingBookingTool(BaseTool):
         try:
             org_id = None
             try:
-                u_res = await client.table("users").select("organization_id").eq("id", user_id).limit(1).execute()
+                u_res = (
+                    await client.table("users")
+                    .select("organization_id")
+                    .eq("id", user_id)
+                    .limit(1)
+                    .execute()
+                )
                 if u_res.data:
                     org_id = u_res.data[0].get("organization_id")
             except Exception:
@@ -611,11 +681,18 @@ class TaskAssignmentTool(BaseTool):
     """任务分配工具"""
 
     name = "assign_task"
-    description = "创建任务并分配给指定人员。当用户说'安排个任务'、'让某某做某事'时调用。"
+    description = (
+        "创建任务并分配给指定人员。当用户说'安排个任务'、'让某某做某事'时调用。"
+    )
     required_role = "all"
     examples = [
         {
-            "input": {"title": "准备报告", "assignee": "[姓名]", "due_date": "2026-03-28", "priority": "high"},
+            "input": {
+                "title": "准备报告",
+                "assignee": "[姓名]",
+                "due_date": "2026-03-28",
+                "priority": "high",
+            },
             "output_summary": "创建高优先级任务并通知负责人",
         },
         {
@@ -644,7 +721,9 @@ class TaskAssignmentTool(BaseTool):
     }
     domain = "oa_task"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         title = args.get("title")
         description = args.get("description", "")
         assignee_name = args.get("assignee")
@@ -655,7 +734,11 @@ class TaskAssignmentTool(BaseTool):
         client = _get_client(config)
         # 查找负责人
         assignee_res = (
-            await client.table("users").select("id, name").ilike("name", f"%{assignee_name}%").limit(1).execute()
+            await client.table("users")
+            .select("id, name")
+            .ilike("name", f"%{assignee_name}%")
+            .limit(1)
+            .execute()
         )
         if not assignee_res.data:
             return f"❌ 找不到名为「{assignee_name}」的同事。请确认姓名是否正确。"
@@ -664,15 +747,27 @@ class TaskAssignmentTool(BaseTool):
 
         # 获取当前用户信息（含 org_id）
         creator_res = (
-            await client.table("users").select("name, organization_id").eq("id", user_id).maybe_single().execute()
+            await client.table("users")
+            .select("name, organization_id")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
         )
-        creator_name = creator_res.data.get("name", "某人") if creator_res.data else "某人"
+        creator_name = (
+            creator_res.data.get("name", "某人") if creator_res.data else "某人"
+        )
         org_id = creator_res.data.get("organization_id") if creator_res.data else None
 
         # 查找项目
         project_id = None
         if project_name:
-            proj_res = await client.table("projects").select("id").ilike("name", f"%{project_name}%").limit(1).execute()
+            proj_res = (
+                await client.table("projects")
+                .select("id")
+                .ilike("name", f"%{project_name}%")
+                .limit(1)
+                .execute()
+            )
             if proj_res.data:
                 project_id = proj_res.data[0]["id"]
 
@@ -708,7 +803,10 @@ class TaskAssignmentTool(BaseTool):
                     content=f"{creator_name} 给您分配了任务: {title}\n截止日期: {due_date}",
                     target_user_id=assignee["id"],
                     channel=NotificationChannel.IN_APP,
-                    metadata={"action_url": "/oa?tab=task", "organization_id": org_id or ""},
+                    metadata={
+                        "action_url": "/oa?tab=task",
+                        "organization_id": org_id or "",
+                    },
                 )
             )
         except Exception as e:
@@ -741,12 +839,18 @@ class WorkHandoverTool(BaseTool):
             "output_summary": "将所有待办任务转交给李四并发送通知",
         },
         {
-            "input": {"handover_to": "王五", "reason": "调岗", "items": ["季度报告", "客户跟进"]},
+            "input": {
+                "handover_to": "王五",
+                "reason": "调岗",
+                "items": ["季度报告", "客户跟进"],
+            },
             "output_summary": "将指定工作项转交给王五",
         },
     ]
     related_tools = ["assign_task", "create_leave_request"]
-    gotchas = "会将当前用户所有待办和进行中的任务全部转移给交接人。交接人姓名需在系统中存在。"
+    gotchas = (
+        "会将当前用户所有待办和进行中的任务全部转移给交接人。交接人姓名需在系统中存在。"
+    )
 
     parameters = {
         "type": "object",
@@ -766,7 +870,9 @@ class WorkHandoverTool(BaseTool):
     }
     domain = "oa_leave"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         handover_to_name = args.get("handover_to")
         reason = args.get("reason", "临时交接")
         items = args.get("items", [])
@@ -774,7 +880,11 @@ class WorkHandoverTool(BaseTool):
         client = _get_client(config)
         # 查找交接人
         handover_res = (
-            await client.table("users").select("id, name").ilike("name", f"%{handover_to_name}%").limit(1).execute()
+            await client.table("users")
+            .select("id, name")
+            .ilike("name", f"%{handover_to_name}%")
+            .limit(1)
+            .execute()
         )
         if not handover_res.data:
             return f"❌ 找不到名为「{handover_to_name}」的同事。"
@@ -798,11 +908,19 @@ class WorkHandoverTool(BaseTool):
         # 转移任务 (RLS policy "oa_tasks_org_isolation" allows org members)
         transferred = 0
         for task in task_list:
-            await client.table("oa_tasks").update({"assignee_id": handover_to["id"]}).eq("id", task["id"]).execute()
+            await client.table("oa_tasks").update(
+                {"assignee_id": handover_to["id"]}
+            ).eq("id", task["id"]).execute()
             transferred += 1
 
         # 通知交接人
-        user_res = await client.table("users").select("name").eq("id", user_id).maybe_single().execute()
+        user_res = (
+            await client.table("users")
+            .select("name")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         user_name = user_res.data.get("name", "同事") if user_res.data else "同事"
 
         await (
@@ -837,16 +955,21 @@ class OnboardingChecklistTool(BaseTool):
     """AI 自动生成入职清单"""
 
     name = "generate_onboarding_checklist"
-    description = (
-        "根据岗位类型自动生成新员工入职清单并创建对应任务。当用户说'入职清单'、'新员工入职'时调用。需要经理权限。"
-    )
+    description = "根据岗位类型自动生成新员工入职清单并创建对应任务。当用户说'入职清单'、'新员工入职'时调用。需要经理权限。"
     required_role = "manager"
     examples = [
         {
-            "input": {"job_title": "工程师", "department": "部门", "employee_name": "[员工姓名]"},
+            "input": {
+                "job_title": "工程师",
+                "department": "部门",
+                "employee_name": "[员工姓名]",
+            },
             "output_summary": "生成入职待办任务清单",
         },
-        {"input": {"job_title": "销售经理"}, "output_summary": "根据岗位生成入职清单，使用默认员工名和部门"},
+        {
+            "input": {"job_title": "销售经理"},
+            "output_summary": "根据岗位生成入职清单，使用默认员工名和部门",
+        },
     ]
     related_tools = ["assign_task"]
     gotchas = "依赖大语言模型生成清单内容，结果可能因模型响应格式异常而降级为纯文本输出。最多创建15项任务。"
@@ -862,7 +985,9 @@ class OnboardingChecklistTool(BaseTool):
     }
     domain = "oa_leave"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         import json as _json
 
         from app.services.ai_service import AIService
@@ -872,7 +997,9 @@ class OnboardingChecklistTool(BaseTool):
         employee_name = args.get("employee_name", "新员工")
         client = _get_client(config)
 
-        prompt = f"岗位: {job_title}, 部门: {department or '未指定'}, 员工: {employee_name}"
+        prompt = (
+            f"岗位: {job_title}, 部门: {department or '未指定'}, 员工: {employee_name}"
+        )
         system = (
             "你是HR入职专家。生成入职清单，包含入职前准备、第一天、第一周、第一个月的待办事项。\n"
             "严格以JSON数组格式返回，每个元素包含 title, description, priority (high/medium/low) 三个字段。\n"
@@ -918,7 +1045,9 @@ class OnboardingChecklistTool(BaseTool):
             # 生成可读清单
             checklist_display = ""
             for i, item in enumerate(items, 1):
-                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(item.get("priority", "medium"), "🟡")
+                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(
+                    item.get("priority", "medium"), "🟡"
+                )
                 checklist_display += f"{i}. {priority_icon} {item.get('title', '')}\n"
                 if item.get("description"):
                     checklist_display += f"   {item['description']}\n"
@@ -945,20 +1074,32 @@ class SendNotificationTool(BaseTool):
     required_role = "all"
     is_irreversible = True  # HITL: 发送通知后无法撤回，属于外部副作用操作
     examples = [
-        {"input": {"recipient_name": "[姓名]", "content": "记得交报告"}, "output_summary": "向指定人员发送站内通知"},
         {
-            "input": {"recipient_name": "李经理", "content": "客户已确认合同", "priority": "important"},
+            "input": {"recipient_name": "[姓名]", "content": "记得交报告"},
+            "output_summary": "向指定人员发送站内通知",
+        },
+        {
+            "input": {
+                "recipient_name": "李经理",
+                "content": "客户已确认合同",
+                "priority": "important",
+            },
             "output_summary": "向李经理发送重要通知",
         },
     ]
     related_tools = ["assign_task", "book_meeting"]
-    gotchas = "通知发送后无法撤回。模糊匹配超过5人时需提供更精确的姓名。仅限同组织内发送。"
+    gotchas = (
+        "通知发送后无法撤回。模糊匹配超过5人时需提供更精确的姓名。仅限同组织内发送。"
+    )
 
     parameters = {
         "type": "object",
         "properties": {
             "recipient_name": {"type": "string", "description": "收件人姓名"},
-            "title": {"type": "string", "description": "通知标题（可选，默认自动生成）"},
+            "title": {
+                "type": "string",
+                "description": "通知标题（可选，默认自动生成）",
+            },
             "content": {"type": "string", "description": "通知内容"},
             "priority": {
                 "type": "string",
@@ -969,7 +1110,9 @@ class SendNotificationTool(BaseTool):
         "required": ["recipient_name", "content"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         recipient_name = args.get("recipient_name", "")
         content = args.get("content", "")
         title = args.get("title", "来自同事的通知")
@@ -982,7 +1125,11 @@ class SendNotificationTool(BaseTool):
         org_id = config.get("org_id") if config else None
 
         # 查找收件人
-        query = client.table("users").select("id, name").ilike("name", f"%{recipient_name}%")
+        query = (
+            client.table("users")
+            .select("id, name")
+            .ilike("name", f"%{recipient_name}%")
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         res = await query.execute()
@@ -995,12 +1142,22 @@ class SendNotificationTool(BaseTool):
             return f"找到多位匹配的同事（{names}…），请提供更精确的姓名"
 
         # 查发送者姓名
-        sender_res = await client.table("users").select("name").eq("id", user_id).single().execute()
+        sender_res = (
+            await client.table("users")
+            .select("name")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
         sender_name = sender_res.data.get("name", "同事") if sender_res.data else "同事"
 
         # 发送通知（通过统一 NotificationService，支持多渠道分发）
         icon = "📢" if priority == "normal" else "⚠️"
-        prio = NotificationPriority.NORMAL if priority == "normal" else NotificationPriority.HIGH
+        prio = (
+            NotificationPriority.NORMAL
+            if priority == "normal"
+            else NotificationPriority.HIGH
+        )
         for user in users:
             try:
                 await notification_service.send(

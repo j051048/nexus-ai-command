@@ -82,7 +82,9 @@ async def _create_orchestrator_llm(
             base_url=resolved.get("base_url", config.base_url),
             temperature=temperature,
             timeout=resolved.get("timeout", timeout),
-            callbacks=_get_langfuse_callbacks(**(trace_ctx or {}), tags=["orchestrator"]),
+            callbacks=_get_langfuse_callbacks(
+                **(trace_ctx or {}), tags=["orchestrator"]
+            ),
         )
     return ChatOpenAI(
         model=fallback_model,
@@ -94,7 +96,9 @@ async def _create_orchestrator_llm(
     )
 
 
-async def orchestrate_node(state: AgentState, runnable_config: dict | None = None) -> dict:
+async def orchestrate_node(
+    state: AgentState, runnable_config: dict | None = None
+) -> dict:
     """
     LangGraph node: Execute WBS sub-tasks by delegating to appropriate agent roles.
 
@@ -194,14 +198,16 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
 
                 # Attempt 1: Normal execution
                 try:
-                    result, tokens_in, tokens_out, tool_calls_data = await _execute_sub_task(
-                        config=config,
-                        agent_code=agent_code,
-                        task_title=task_title,
-                        task_description=task_description,
-                        dependencies=task.get("dependencies", []),
-                        blackboard=blackboard,
-                        original_messages=_messages_copy,
+                    result, tokens_in, tokens_out, tool_calls_data = (
+                        await _execute_sub_task(
+                            config=config,
+                            agent_code=agent_code,
+                            task_title=task_title,
+                            task_description=task_description,
+                            dependencies=task.get("dependencies", []),
+                            blackboard=blackboard,
+                            original_messages=_messages_copy,
+                        )
                     )
 
                     # Quality gate: detect empty or error-like results
@@ -226,18 +232,22 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         "tool_calls": tool_calls_data,
                     }
                 except Exception as e1:
-                    logger.warning(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) first attempt failed: {e1}")
+                    logger.warning(
+                        f"[Orchestrate] Sub-task {task_idx} ({agent_code}) first attempt failed: {e1}"
+                    )
 
                 # Attempt 2: Retry
                 try:
-                    result, tokens_in, tokens_out, tool_calls_data = await _execute_sub_task(
-                        config=config,
-                        agent_code=agent_code,
-                        task_title=task_title,
-                        task_description=task_description,
-                        dependencies=task.get("dependencies", []),
-                        blackboard=blackboard,
-                        original_messages=_messages_copy,
+                    result, tokens_in, tokens_out, tool_calls_data = (
+                        await _execute_sub_task(
+                            config=config,
+                            agent_code=agent_code,
+                            task_title=task_title,
+                            task_description=task_description,
+                            dependencies=task.get("dependencies", []),
+                            blackboard=blackboard,
+                            original_messages=_messages_copy,
+                        )
                     )
 
                     # Quality gate (same as Attempt 1)
@@ -265,13 +275,15 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
 
                 # Attempt 3: Degraded (mini_model, no tools)
                 try:
-                    result, tokens_in, tokens_out, tool_calls_data = await _execute_sub_task_degraded(
-                        config=config,
-                        task_title=task_title,
-                        task_description=task_description,
-                        dependencies=task.get("dependencies", []),
-                        blackboard=blackboard,
-                        original_messages=_messages_copy,
+                    result, tokens_in, tokens_out, tool_calls_data = (
+                        await _execute_sub_task_degraded(
+                            config=config,
+                            task_title=task_title,
+                            task_description=task_description,
+                            dependencies=task.get("dependencies", []),
+                            blackboard=blackboard,
+                            original_messages=_messages_copy,
+                        )
                     )
                     return {
                         **_base_result,
@@ -282,7 +294,9 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         "tool_calls": tool_calls_data,
                     }
                 except Exception as e3:
-                    logger.error(f"[Orchestrate] Sub-task {task_idx} all attempts exhausted: {e3}")
+                    logger.error(
+                        f"[Orchestrate] Sub-task {task_idx} all attempts exhausted: {e3}"
+                    )
                     return {
                         **_base_result,
                         "status": "failed",
@@ -309,7 +323,10 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                 }
             result = await _run_task_with_semaphore(idx)
             # Check if this is a FATAL error
-            if result.get("status") == "failed" and "fatal" in result.get("result", "").lower():
+            if (
+                result.get("status") == "failed"
+                and "fatal" in result.get("result", "").lower()
+            ):
                 _cancel.set()  # Signal other tasks to stop
             return result
 
@@ -353,7 +370,11 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                 )
             )
 
-            status_labels = {"completed": "完成", "degraded": "降级完成", "failed": "失败"}
+            status_labels = {
+                "completed": "完成",
+                "degraded": "降级完成",
+                "failed": "失败",
+            }
             status_label = status_labels.get(lr["status"], lr["status"])
             thinking_steps.append(
                 ThinkingStep(
@@ -382,7 +403,10 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
 
         # P1: Orchestration-level token budget guard
         orchestration_tokens = total_input_tokens + total_output_tokens
-        if orchestration_tokens >= _ORCHESTRATION_TOKEN_BUDGET and layer_idx < len(execution_layers) - 1:
+        if (
+            orchestration_tokens >= _ORCHESTRATION_TOKEN_BUDGET
+            and layer_idx < len(execution_layers) - 1
+        ):
             remaining_layers = len(execution_layers) - layer_idx - 1
             thinking_steps.append(
                 ThinkingStep(
@@ -395,12 +419,19 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
 
         # P1-4: Dynamic replanning — check if layer anomaly rate is too high
         if layer_idx < len(execution_layers) - 1:
-            valid_results = [lr for lr in layer_results if not isinstance(lr, Exception)]
+            valid_results = [
+                lr for lr in layer_results if not isinstance(lr, Exception)
+            ]
             layer_failed = sum(1 for lr in valid_results if lr["status"] == "failed")
-            layer_degraded = sum(1 for lr in valid_results if lr["status"] == "degraded")
+            layer_degraded = sum(
+                1 for lr in valid_results if lr["status"] == "degraded"
+            )
             layer_anomalies = layer_failed + layer_degraded
 
-            if valid_results and layer_anomalies / len(valid_results) > _REPLAN_FAILURE_THRESHOLD:
+            if (
+                valid_results
+                and layer_anomalies / len(valid_results) > _REPLAN_FAILURE_THRESHOLD
+            ):
                 thinking_steps.append(
                     ThinkingStep(
                         phase="orchestrate",
@@ -451,8 +482,16 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                 {
                     "type": "complete",
                     "total_tasks": total_tasks,
-                    "completed": len([r for r in delegation_results if r["status"] in ("completed", "degraded")]),
-                    "failed": len([r for r in delegation_results if r["status"] == "failed"]),
+                    "completed": len(
+                        [
+                            r
+                            for r in delegation_results
+                            if r["status"] in ("completed", "degraded")
+                        ]
+                    ),
+                    "failed": len(
+                        [r for r in delegation_results if r["status"] == "failed"]
+                    ),
                 }
             ),
         )
@@ -473,7 +512,9 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
         blackboard=blackboard,
     )
 
-    completed_count = len([r for r in delegation_results if r["status"] in ("completed", "degraded")])
+    completed_count = len(
+        [r for r in delegation_results if r["status"] in ("completed", "degraded")]
+    )
     thinking_steps.append(
         ThinkingStep(
             phase="orchestrate",
@@ -502,7 +543,11 @@ async def _compress_sub_result(config: AgentConfig, task_title: str, text: str) 
     """Compress a verbose sub-task result into a concise summary using mini_model."""
     try:
         llm = await _create_orchestrator_llm(
-            config, use_mini=True, temperature=0.2, timeout=20.0, trace_ctx=_get_trace_context(config)
+            config,
+            use_mini=True,
+            temperature=0.2,
+            timeout=20.0,
+            trace_ctx=_get_trace_context(config),
         )
         prompt = (
             f"请将以下子任务「{task_title}」的执行结果精炼为不超过500字的摘要。\n"
@@ -514,15 +559,21 @@ async def _compress_sub_result(config: AgentConfig, task_title: str, text: str) 
 
         resp = await llm.ainvoke(
             [
-                _SM(content="你是信息压缩专家，擅长提炼关键信息。只输出摘要，不加前缀。"),
+                _SM(
+                    content="你是信息压缩专家，擅长提炼关键信息。只输出摘要，不加前缀。"
+                ),
                 _HM(content=prompt),
             ]
         )
         compressed = resp.content or text
-        logger.debug(f"[Orchestrate] Compressed result for '{task_title}': {len(text)} -> {len(compressed)} chars")
+        logger.debug(
+            f"[Orchestrate] Compressed result for '{task_title}': {len(text)} -> {len(compressed)} chars"
+        )
         return compressed
     except Exception as e:
-        logger.warning(f"[Orchestrate] Result compression failed for '{task_title}': {e}")
+        logger.warning(
+            f"[Orchestrate] Result compression failed for '{task_title}': {e}"
+        )
         return text[:_RESULT_COMPRESS_THRESHOLD] + "..."
 
 
@@ -551,7 +602,9 @@ async def _execute_sub_task(
     system_prompt = role_config.system_prompt
     # Ensure sub-agents always have security guardrails
     if "身份保护" not in system_prompt and "数据安全" not in system_prompt:
-        system_prompt = system_prompt.rstrip() + f"\n\n## 安全规则\n{SECURITY_GUARDRAILS}"
+        system_prompt = (
+            system_prompt.rstrip() + f"\n\n## 安全规则\n{SECURITY_GUARDRAILS}"
+        )
     # Inject user context so sub-agents know who they are serving
     user_role = config.user_role or "employee"
     user_id_short = config.user_id[:8] if config.user_id else "unknown"
@@ -589,7 +642,9 @@ async def _execute_sub_task(
     tool_schemas = role_config.get_tool_schemas()
 
     # 4. P2-9: Create LLM via unified factory
-    llm = await _create_orchestrator_llm(config, agent_code=agent_code, trace_ctx=_get_trace_context(config))
+    llm = await _create_orchestrator_llm(
+        config, agent_code=agent_code, trace_ctx=_get_trace_context(config)
+    )
     llm_with_tools = llm.bind_tools(tool_schemas) if tool_schemas else llm
 
     # 5. P0-1: Multi-round tool calling loop
@@ -672,7 +727,9 @@ async def _execute_sub_task(
             result_text = ai_msg.content or ""
 
     duration = int((time.time() - start) * 1000)
-    logger.info(f"[Orchestrate] Sub-task {agent_code}:{task_title} completed in {duration}ms")
+    logger.info(
+        f"[Orchestrate] Sub-task {agent_code}:{task_title} completed in {duration}ms"
+    )
 
     # P2: Compress verbose results before returning to blackboard
     if result_text and len(result_text) > _RESULT_COMPRESS_THRESHOLD:
@@ -723,7 +780,11 @@ async def _execute_sub_task_degraded(
 
     # P2-9: Use unified LLM factory
     llm = await _create_orchestrator_llm(
-        config, use_mini=True, temperature=0.7, timeout=30.0, trace_ctx=_get_trace_context(config)
+        config,
+        use_mini=True,
+        temperature=0.7,
+        timeout=30.0,
+        trace_ctx=_get_trace_context(config),
     )
 
     ai_msg = await llm.ainvoke(messages)
@@ -732,7 +793,12 @@ async def _execute_sub_task_degraded(
     result_text = ai_msg.content or ""
     result_text = f"[基于AI分析的参考回答，非实时数据]\n{result_text}"
 
-    return result_text, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0), []
+    return (
+        result_text,
+        usage.get("prompt_tokens", 0),
+        usage.get("completion_tokens", 0),
+        [],
+    )
 
 
 # P0-1: Enhanced tool execution with retry
@@ -751,9 +817,18 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
             import jsonschema
 
             if isinstance(ve, jsonschema.ValidationError):
-                field_path = " → ".join(str(p) for p in ve.absolute_path) if ve.absolute_path else "(root)"
-                return f"参数校验失败 [{tool_name}]: 字段 {field_path} - {ve.message}" + (
-                    f" (允许值: {ve.schema['enum']})" if ve.schema and "enum" in ve.schema else ""
+                field_path = (
+                    " → ".join(str(p) for p in ve.absolute_path)
+                    if ve.absolute_path
+                    else "(root)"
+                )
+                return (
+                    f"参数校验失败 [{tool_name}]: 字段 {field_path} - {ve.message}"
+                    + (
+                        f" (允许值: {ve.schema['enum']})"
+                        if ve.schema and "enum" in ve.schema
+                        else ""
+                    )
                 )
         except Exception:
             pass
@@ -766,7 +841,9 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
 
     # Tenant isolation: reject tools that require org_id without one
     if getattr(tool, "requires_org_id", True) and not config.org_id:
-        logger.warning(f"[Orchestrate] Tool {tool_name} requires org_id but none provided")
+        logger.warning(
+            f"[Orchestrate] Tool {tool_name} requires org_id but none provided"
+        )
         return "❌ 无法获取组织信息(org_id缺失)，请确保已正确登录。"
 
     # Execute with single retry
@@ -790,10 +867,14 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
         except Exception as e:
             last_error = e
             if attempt == 0:
-                logger.warning(f"[Orchestrate] Tool {tool_name} attempt 1 failed: {e}, retrying")
+                logger.warning(
+                    f"[Orchestrate] Tool {tool_name} attempt 1 failed: {e}, retrying"
+                )
                 await asyncio.sleep(0.5)
 
-    logger.warning(f"[Orchestrate] Tool {tool_name} failed after 2 attempts: {last_error}")
+    logger.warning(
+        f"[Orchestrate] Tool {tool_name} failed after 2 attempts: {last_error}"
+    )
     return f"Error: {str(last_error)[:200]}"
 
 
@@ -815,7 +896,9 @@ async def _check_and_adjust_plan(
     failed_summaries = []
     for r in delegation_results:
         if r["status"] == "failed":
-            failed_summaries.append(f"- {r['title']} ({r['agent_code']}): {r['result'][:150]}")
+            failed_summaries.append(
+                f"- {r['title']} ({r['agent_code']}): {r['result'][:150]}"
+            )
 
     if not failed_summaries:
         return None
@@ -824,7 +907,9 @@ async def _check_and_adjust_plan(
     for idx in remaining_indices:
         if idx < len(sub_tasks):
             t = sub_tasks[idx]
-            remaining_summaries.append(f"- [{idx}] {t.get('title', '?')}: {t.get('description', '')[:100]}")
+            remaining_summaries.append(
+                f"- [{idx}] {t.get('title', '?')}: {t.get('description', '')[:100]}"
+            )
 
     prompt = f"""以下子任务已失败:
 {chr(10).join(failed_summaries)}
@@ -842,12 +927,18 @@ async def _check_and_adjust_plan(
     try:
         # P2-9: Use unified LLM factory
         llm = await _create_orchestrator_llm(
-            config, use_mini=True, temperature=0.3, timeout=30.0, trace_ctx=_get_trace_context(config)
+            config,
+            use_mini=True,
+            temperature=0.3,
+            timeout=30.0,
+            trace_ctx=_get_trace_context(config),
         )
 
         ai_msg = await llm.ainvoke(
             [
-                SystemMessage(content="你是任务编排专家，负责根据执行情况动态调整任务计划。只返回JSON。"),
+                SystemMessage(
+                    content="你是任务编排专家，负责根据执行情况动态调整任务计划。只返回JSON。"
+                ),
                 HumanMessage(content=prompt),
             ]
         )
@@ -931,12 +1022,16 @@ async def _integrate_results(
             integration_prompt += f"\n### 工具调用数据摘要\n{tool_summary}\n"
 
     # P2-9: Use unified LLM factory
-    llm = await _create_orchestrator_llm(config, timeout=90.0, trace_ctx=_get_trace_context(config))
+    llm = await _create_orchestrator_llm(
+        config, timeout=90.0, trace_ctx=_get_trace_context(config)
+    )
 
     try:
         ai_msg = await llm.ainvoke(
             [
-                SystemMessage(content="你是一位资深市场总监，擅长整合多方信息形成完整方案。"),
+                SystemMessage(
+                    content="你是一位资深市场总监，擅长整合多方信息形成完整方案。"
+                ),
                 HumanMessage(content=integration_prompt),
             ]
         )
@@ -952,4 +1047,6 @@ async def _integrate_results(
 
 # ─── Dependency Resolution (extracted to dependency_resolver.py) ──────────────
 # Backward-compat alias:
-_resolve_execution_order = resolve_execution_layers  # noqa: F841 — kept for grep-ability
+_resolve_execution_order = (
+    resolve_execution_layers  # noqa: F841 — kept for grep-ability
+)

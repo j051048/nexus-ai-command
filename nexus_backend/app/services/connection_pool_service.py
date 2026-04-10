@@ -111,12 +111,17 @@ class ConnectionPoolService:
             import aiohttp
 
             connector = aiohttp.TCPConnector(
-                limit=self.http_pool_size, limit_per_host=20, ttl_dns_cache=300, enable_cleanup_closed=True
+                limit=self.http_pool_size,
+                limit_per_host=20,
+                ttl_dns_cache=300,
+                enable_cleanup_closed=True,
             )
 
             timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30)
 
-            self._http_client = aiohttp.ClientSession(connector=connector, timeout=timeout)
+            self._http_client = aiohttp.ClientSession(
+                connector=connector, timeout=timeout
+            )
 
             self._pool_stats["http"] = PoolStats(
                 pool_name="http",
@@ -170,7 +175,11 @@ class ConnectionPoolService:
 
     async def init_all(self, database_url: str = None, redis_url: str = None):
         """Initialize all connection pools."""
-        await asyncio.gather(self.init_db_pool(database_url), self.init_http_pool(), self.init_redis_pool(redis_url))
+        await asyncio.gather(
+            self.init_db_pool(database_url),
+            self.init_http_pool(),
+            self.init_redis_pool(redis_url),
+        )
 
     @property
     def db(self):
@@ -221,7 +230,9 @@ class ConnectionPoolService:
 
         # Check for connection leak (held too long)
         if acquire_time and time.time() - acquire_time > 300:  # 5 minutes
-            logger.warning(f"Potential connection leak: connection held for {time.time() - acquire_time:.1f}s")
+            logger.warning(
+                f"Potential connection leak: connection held for {time.time() - acquire_time:.1f}s"
+            )
 
         await self._db_pool.release(conn)
 
@@ -248,8 +259,16 @@ class ConnectionPoolService:
         # Add internal pool stats if available
         if self._db_pool:
             result["database"]["internal"] = {
-                "size": self._db_pool.get_size() if hasattr(self._db_pool, "get_size") else None,
-                "idle": self._db_pool.get_idle_size() if hasattr(self._db_pool, "get_idle_size") else None,
+                "size": (
+                    self._db_pool.get_size()
+                    if hasattr(self._db_pool, "get_size")
+                    else None
+                ),
+                "idle": (
+                    self._db_pool.get_idle_size()
+                    if hasattr(self._db_pool, "get_idle_size")
+                    else None
+                ),
             }
 
         return result

@@ -39,7 +39,11 @@ async def list_contracts(
         if search:
             filters["search"] = search
         contracts = await contract_service.list_contracts(
-            org_id=org_id, filters=filters if filters else None, db=db, skip=skip, limit=limit
+            org_id=org_id,
+            filters=filters if filters else None,
+            db=db,
+            skip=skip,
+            limit=limit,
         )
         return api_success(data={"contracts": contracts})
     except Exception as e:
@@ -100,7 +104,9 @@ async def get_expiring_contracts(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
-        contracts = await contract_service.get_expiring_contracts(org_id=org_id, days=days, db=db)
+        contracts = await contract_service.get_expiring_contracts(
+            org_id=org_id, days=days, db=db
+        )
         return api_success(data={"contracts": contracts})
     except Exception as e:
         logger.error(f"Failed to get expiring contracts: {e}")
@@ -132,7 +138,9 @@ async def update_contract(
     try:
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
-        result = await contract_service.update_contract(contract_id=contract_id, data=data, db=db)
+        result = await contract_service.update_contract(
+            contract_id=contract_id, data=data, db=db
+        )
         return api_success(data={"contract": result}, message="合同已更新")
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "合同参数校验失败")
@@ -150,7 +158,9 @@ async def get_contract_events(
     """获取合同事件时间线"""
     try:
         db = getattr(req.state, "db", None)
-        events = await contract_service.get_contract_events(contract_id=contract_id, db=db)
+        events = await contract_service.get_contract_events(
+            contract_id=contract_id, db=db
+        )
         return api_success(data={"events": events})
     except Exception as e:
         logger.error(f"Failed to get contract events: {e}")
@@ -193,12 +203,20 @@ async def delete_contract(
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Verify contract exists
-        existing = await db.table("contracts").select("id,status").eq("id", contract_id).maybe_single().execute()
+        existing = (
+            await db.table("contracts")
+            .select("id,status")
+            .eq("id", contract_id)
+            .maybe_single()
+            .execute()
+        )
         if not existing.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "合同不存在")
 
         # Soft delete: update status to cancelled
-        await db.table("contracts").update({"status": "cancelled"}).eq("id", contract_id).execute()
+        await db.table("contracts").update({"status": "cancelled"}).eq(
+            "id", contract_id
+        ).execute()
 
         # Record deletion event
         await contract_service.add_contract_event(

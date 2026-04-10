@@ -19,12 +19,16 @@ def _generate_cache_key(user_id: str, query: str, org_id: str = None) -> str:
 
 
 @cache(ttl=1800)
-async def get_cached_agent_result(user_id: str, query: str, org_id: str = None) -> dict | None:
+async def get_cached_agent_result(
+    user_id: str, query: str, org_id: str = None
+) -> dict | None:
     """Get cached agent result. Returns None if not cached."""
     return None
 
 
-async def cache_agent_result(user_id: str, query: str, result: dict, org_id: str = None):
+async def cache_agent_result(
+    user_id: str, query: str, result: dict, org_id: str = None
+):
     """Cache agent result for 30 minutes."""
     from app.core.cache import redis_client
 

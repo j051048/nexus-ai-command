@@ -21,7 +21,9 @@ def _get_admin_db():
 
 
 @router.get("/history")
-async def list_vmd_compliance_history(req: Request, user_id: str = Depends(get_current_user_id)):
+async def list_vmd_compliance_history(
+    req: Request, user_id: str = Depends(get_current_user_id)
+):
     """获取合规审计历史列表"""
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
@@ -44,7 +46,9 @@ async def list_vmd_compliance_history(req: Request, user_id: str = Depends(get_c
 
 
 @router.get("/rules")
-async def list_vmd_compliance_rules(req: Request, user_id: str = Depends(get_current_user_id)):
+async def list_vmd_compliance_rules(
+    req: Request, user_id: str = Depends(get_current_user_id)
+):
     """获取合规检查规则"""
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
@@ -53,7 +57,12 @@ async def list_vmd_compliance_rules(req: Request, user_id: str = Depends(get_cur
     db = _get_admin_db()
 
     try:
-        result = await db.table("compliance_rule").select("*").eq("tenant_id", str(org_id)).execute()
+        result = (
+            await db.table("compliance_rule")
+            .select("*")
+            .eq("tenant_id", str(org_id))
+            .execute()
+        )
         return api_success(data=result.data or [])
     except Exception as e:
         logger.error(f"Failed to list compliance rules: {e}")

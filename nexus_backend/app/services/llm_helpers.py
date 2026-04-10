@@ -17,8 +17,23 @@ logger = logging.getLogger(__name__)
 # Model codes too weak for power/flagship complexity tasks.
 # Matched as whole "segments" delimited by `-` to avoid false positives
 # (e.g. "mini" must NOT match "ge-mini" in "gemini").
-_WEAK_MODEL_PATTERNS = {"mini", "flash", "turbo-mini", "haiku", "lite", "nano", "small", "instant"}
-_WEAK_MODEL_CODES = {"deepseek-chat", "qwen-plus-latest", "qwen-turbo", "glm-4-flash", "yi-lightning"}
+_WEAK_MODEL_PATTERNS = {
+    "mini",
+    "flash",
+    "turbo-mini",
+    "haiku",
+    "lite",
+    "nano",
+    "small",
+    "instant",
+}
+_WEAK_MODEL_CODES = {
+    "deepseek-chat",
+    "qwen-plus-latest",
+    "qwen-turbo",
+    "glm-4-flash",
+    "yi-lightning",
+}
 
 # Models that contain weak-sounding substrings but are actually capable.
 # Exact matches checked first, then prefix patterns for version resilience.
@@ -42,7 +57,9 @@ _STRONG_MODEL_PREFIXES = (
 
 # Pre-compiled regex: match weak patterns as whole segments between `-` or
 # at string boundaries.  E.g. "mini" matches "gpt-4o-mini" but NOT "gemini".
-_WEAK_SEGMENT_RE = re.compile(r"(?:^|-)(" + "|".join(re.escape(p) for p in _WEAK_MODEL_PATTERNS) + r")(?:-|$)")
+_WEAK_SEGMENT_RE = re.compile(
+    r"(?:^|-)(" + "|".join(re.escape(p) for p in _WEAK_MODEL_PATTERNS) + r")(?:-|$)"
+)
 
 
 def is_weak_model(model_name: str) -> bool:
@@ -73,7 +90,12 @@ def is_weak_model(model_name: str) -> bool:
 # ─── Auto Tier Detection ─────────────────────────────────────────────────────
 
 # Scenes that always require higher-tier models
-_POWER_SCENES = {"tender_analysis", "content_generation", "contract_review", "data_analysis"}
+_POWER_SCENES = {
+    "tender_analysis",
+    "content_generation",
+    "contract_review",
+    "data_analysis",
+}
 _FLAGSHIP_SCENES = {"task_decompose", "compliance_check"}
 
 
@@ -130,13 +152,17 @@ def _build_tier_fallback(tier: str, scene_code: str = "") -> dict | None:
         # 根据 provider 选择正确的 API Key 和 Base URL
         provider = config.get("provider", "openai").lower()
         if provider == "anthropic":
-            api_key = os.getenv("ANTHROPIC_API_KEY") or getattr(settings, "ANTHROPIC_API_KEY", "")
+            api_key = os.getenv("ANTHROPIC_API_KEY") or getattr(
+                settings, "ANTHROPIC_API_KEY", ""
+            )
             base_url = os.getenv("ANTHROPIC_BASE_URL") or getattr(
                 settings, "ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"
             )
         else:  # openai or compatible
             api_key = os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY
-            base_url = os.getenv("AI_BASE_URL") or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+            base_url = os.getenv("AI_BASE_URL") or getattr(
+                settings, "AI_BASE_URL", "https://api.openai.com/v1"
+            )
 
         return {
             "api_key": api_key,
@@ -193,7 +219,9 @@ async def resolve_model_config(
 
                 # Guard: if power/flagship tier but Gateway returned a weak model,
                 # fall through to tier-aware hardcoded fallback instead.
-                if complexity_tier in ("power", "flagship") and is_weak_model(resolved_model):
+                if complexity_tier in ("power", "flagship") and is_weak_model(
+                    resolved_model
+                ):
                     logger.info(
                         "Gateway returned weak model %s for %s tier, using tier fallback",
                         resolved_model,
@@ -271,7 +299,8 @@ async def resolve_embedding_config(org_id: str = "default") -> dict:
     yaml_config = get_embedding_config()
     return {
         "api_key": os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY,
-        "base_url": os.getenv("AI_BASE_URL") or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
+        "base_url": os.getenv("AI_BASE_URL")
+        or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
         "model": yaml_config.get("model", "text-embedding-3-large"),
     }
 

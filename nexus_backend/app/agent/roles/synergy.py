@@ -3,7 +3,12 @@
 AGENT_CODE = "synergy_agent"
 AGENT_NAME = "研产销协同Agent"
 RECOMMENDED_MODEL_TIER = "medium"
-SCENE_CODES = ["rd_marketing_sync", "production_planning", "cross_dept_coordination", "product_launch"]
+SCENE_CODES = [
+    "rd_marketing_sync",
+    "production_planning",
+    "cross_dept_coordination",
+    "product_launch",
+]
 
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "打通研产销信息壁垒，需求传递周期<48小时，跨部门满意度>80%"

@@ -35,13 +35,18 @@ async def analyze_data_with_nl(
     """
     try:
         from app.core.database import supabase
-        from app.services.llm_helpers import get_langchain_llm_sync, resolve_model_config
+        from app.services.llm_helpers import (
+            get_langchain_llm_sync,
+            resolve_model_config,
+        )
 
         # 1. 获取数据库 schema
         schema_info = await _get_schema_info(org_id)
 
         # 2. 使用 LLM 生成 SQL
-        config = await resolve_model_config(scene_code="analysis", complexity_tier="balanced")
+        config = await resolve_model_config(
+            scene_code="analysis", complexity_tier="balanced"
+        )
         llm = get_langchain_llm_sync(**config)
 
         prompt = f"""你是一个SQL专家。根据用户的自然语言查询生成安全的SQL语句。
@@ -99,8 +104,18 @@ async def _get_schema_info(org_id: str) -> str:
 def _is_safe_sql(sql: str) -> bool:
     """检查SQL是否安全"""
     sql_lower = sql.lower()
-    dangerous_keywords = ["drop", "delete", "update", "insert", "alter", "create", "truncate"]
-    return not any(kw in sql_lower for kw in dangerous_keywords) and "select" in sql_lower
+    dangerous_keywords = [
+        "drop",
+        "delete",
+        "update",
+        "insert",
+        "alter",
+        "create",
+        "truncate",
+    ]
+    return (
+        not any(kw in sql_lower for kw in dangerous_keywords) and "select" in sql_lower
+    )
 
 
 async def _generate_insight(llm, query: str, data: list) -> str:

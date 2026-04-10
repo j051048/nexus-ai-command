@@ -33,7 +33,12 @@ class WorkOrderService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = db.table("work_orders").select("*").eq("organization_id", org_id).order("created_at", desc=True)
+            query = (
+                db.table("work_orders")
+                .select("*")
+                .eq("organization_id", org_id)
+                .order("created_at", desc=True)
+            )
 
             if filters:
                 if filters.get("order_type"):
@@ -49,9 +54,16 @@ class WorkOrderService:
                 if filters.get("search"):
                     search = filters["search"]
                     # 清理用户输入，防止 PostgREST 过滤注入
-                    sanitized = search.replace(",", "").replace(".", "").replace("(", "").replace(")", "")
+                    sanitized = (
+                        search.replace(",", "")
+                        .replace(".", "")
+                        .replace("(", "")
+                        .replace(")", "")
+                    )
                     if sanitized:
-                        query = query.or_(f"title.ilike.%{sanitized}%,description.ilike.%{sanitized}%")
+                        query = query.or_(
+                            f"title.ilike.%{sanitized}%,description.ilike.%{sanitized}%"
+                        )
 
             result = await query.execute()
             return result.data or []
@@ -79,7 +91,13 @@ class WorkOrderService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await db.table("work_orders").select("*").eq("id", order_id).maybe_single().execute()
+            result = (
+                await db.table("work_orders")
+                .select("*")
+                .eq("id", order_id)
+                .maybe_single()
+                .execute()
+            )
 
             return result.data
 
@@ -129,7 +147,9 @@ class WorkOrderService:
 
                 if type_result.data and type_result.data.get("sla_hours"):
                     sla_hours = type_result.data["sla_hours"]
-                    data["due_date"] = (datetime.now(UTC) + timedelta(hours=sla_hours)).isoformat()
+                    data["due_date"] = (
+                        datetime.now(UTC) + timedelta(hours=sla_hours)
+                    ).isoformat()
 
             result = await db.table("work_orders").insert(data).execute()
 
@@ -169,7 +189,12 @@ class WorkOrderService:
 
         try:
             # 更新工单
-            result = await db.table("work_orders").update(updates).eq("id", order_id).execute()
+            result = (
+                await db.table("work_orders")
+                .update(updates)
+                .eq("id", order_id)
+                .execute()
+            )
 
             if not result.data or len(result.data) == 0:
                 raise RuntimeError("工单更新失败")
@@ -180,15 +205,21 @@ class WorkOrderService:
                     "order_id": order_id,
                     "user_id": user_id,
                     "content": comment or "",
-                    "comment_type": "status_change" if updates.get("status") else "comment",
+                    "comment_type": (
+                        "status_change" if updates.get("status") else "comment"
+                    ),
                     "metadata": {},
                 }
 
                 if updates.get("status"):
-                    comment_data["metadata"]["status_change"] = {"to": updates["status"]}
+                    comment_data["metadata"]["status_change"] = {
+                        "to": updates["status"]
+                    }
 
                 if updates.get("assignee_id"):
-                    comment_data["metadata"]["assignee_change"] = {"to": updates["assignee_id"]}
+                    comment_data["metadata"]["assignee_change"] = {
+                        "to": updates["assignee_id"]
+                    }
 
                 await db.table("work_order_comments").insert(comment_data).execute()
 
@@ -279,23 +310,41 @@ class WorkOrderService:
             response_times = []
             for order in orders:
                 if order.get("status") in ["processing", "resolved", "closed"]:
-                    created_at = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
-                    updated_at = datetime.fromisoformat(order["updated_at"].replace("Z", "+00:00"))
-                    response_times.append((updated_at - created_at).total_seconds() / 3600)
+                    created_at = datetime.fromisoformat(
+                        order["created_at"].replace("Z", "+00:00")
+                    )
+                    updated_at = datetime.fromisoformat(
+                        order["updated_at"].replace("Z", "+00:00")
+                    )
+                    response_times.append(
+                        (updated_at - created_at).total_seconds() / 3600
+                    )
 
-            avg_response_hours = round(sum(response_times) / len(response_times), 2) if response_times else 0
+            avg_response_hours = (
+                round(sum(response_times) / len(response_times), 2)
+                if response_times
+                else 0
+            )
 
             # SLA 达标率
             sla_met_count = 0
             for order in orders:
                 if order.get("due_date") and order.get("resolved_at"):
-                    due_date = datetime.fromisoformat(order["due_date"].replace("Z", "+00:00"))
-                    resolved_at = datetime.fromisoformat(order["resolved_at"].replace("Z", "+00:00"))
+                    due_date = datetime.fromisoformat(
+                        order["due_date"].replace("Z", "+00:00")
+                    )
+                    resolved_at = datetime.fromisoformat(
+                        order["resolved_at"].replace("Z", "+00:00")
+                    )
                     if resolved_at <= due_date:
                         sla_met_count += 1
 
             resolved_total = resolved_count + closed_count
-            sla_rate = round(sla_met_count / resolved_total * 100, 2) if resolved_total > 0 else 0
+            sla_rate = (
+                round(sla_met_count / resolved_total * 100, 2)
+                if resolved_total > 0
+                else 0
+            )
 
             return {
                 "total_count": total_count,
@@ -330,7 +379,12 @@ class WorkOrderService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await db.table("work_order_types").select("*").eq("organization_id", org_id).execute()
+            result = (
+                await db.table("work_order_types")
+                .select("*")
+                .eq("organization_id", org_id)
+                .execute()
+            )
 
             return result.data or []
 

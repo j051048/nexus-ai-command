@@ -11,7 +11,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.agent.graph import get_agent_graph
-from app.agent.state import CURRENT_SCHEMA_VERSION, AgentConfig, AgentPhase, QueryComplexity
+from app.agent.state import (
+    CURRENT_SCHEMA_VERSION,
+    AgentConfig,
+    AgentPhase,
+    QueryComplexity,
+)
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -129,7 +134,9 @@ async def run_proactive_agent(
 
     try:
         final_state = await asyncio.wait_for(
-            _agent_graph.run(initial_state, thread_id=f"proactive_{agent_name}_{user_id}"),
+            _agent_graph.run(
+                initial_state, thread_id=f"proactive_{agent_name}_{user_id}"
+            ),
             timeout=timeout,
         )
 
@@ -153,7 +160,9 @@ async def run_proactive_agent(
         }
 
     except TimeoutError:
-        logger.error(f"[ProactiveRunner] Agent timed out after {timeout}s for user {user_id}")
+        logger.error(
+            f"[ProactiveRunner] Agent timed out after {timeout}s for user {user_id}"
+        )
         return {
             "success": False,
             "response": "后台任务执行超时",

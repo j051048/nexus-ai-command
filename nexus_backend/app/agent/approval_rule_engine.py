@@ -37,7 +37,9 @@ class SessionApprovalCache:
     """会话级审批缓存 — 同类操作在同一会话内只需确认一次。"""
 
     def __init__(self) -> None:
-        self._cache: dict[str, set[str]] = {}  # session_id -> set of approved operation patterns
+        self._cache: dict[str, set[str]] = (
+            {}
+        )  # session_id -> set of approved operation patterns
         self._lock = threading.Lock()
 
     def is_approved(self, session_id: str, operation_pattern: str) -> bool:
@@ -45,7 +47,9 @@ class SessionApprovalCache:
         with self._lock:
             return operation_pattern in self._cache.get(session_id, set())
 
-    def approve(self, session_id: str, operation_pattern: str, scope: ApprovalScope) -> None:
+    def approve(
+        self, session_id: str, operation_pattern: str, scope: ApprovalScope
+    ) -> None:
         """记录审批决策。"""
         if scope == ApprovalScope.ONCE:
             return  # 单次审批不缓存
@@ -135,7 +139,9 @@ async def _load_rules(org_id: str, db: Any = None) -> list[dict]:
         rules = result.data or []
         _ORG_RULES_CACHE[org_id] = (rules, now)
         if rules:
-            logger.debug(f"[ApprovalRuleEngine] Loaded {len(rules)} rules for org {org_id}")
+            logger.debug(
+                f"[ApprovalRuleEngine] Loaded {len(rules)} rules for org {org_id}"
+            )
         return rules
     except Exception as e:
         logger.error(f"[ApprovalRuleEngine] Failed to load rules for org {org_id}: {e}")
@@ -194,7 +200,10 @@ async def check_dynamic_rules(
         # So violation means: the condition is NOT met → needs manual approval
         op_fn = _OPS.get(op)
         if op_fn and not op_fn(val, threshold):
-            reason = f"[动态规则] {rule_name}: {field}={val} 不满足自动审批条件 " f"({field} {op} {threshold})"
+            reason = (
+                f"[动态规则] {rule_name}: {field}={val} 不满足自动审批条件 "
+                f"({field} {op} {threshold})"
+            )
             logger.info(
                 "[ApprovalRuleEngine] BLOCKED %s: %s (org=%s)",
                 tool_name,

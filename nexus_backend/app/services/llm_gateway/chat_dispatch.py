@@ -69,7 +69,9 @@ class ChatDispatchMixin:
         # --- Resolve model ---
         model_code = await self._resolve_model(scene_code, agent_code, org_id)
         if not model_code:
-            return self._error_response(request_id, "", "No model configured for this scene/agent")
+            return self._error_response(
+                request_id, "", "No model configured for this scene/agent"
+            )
 
         # --- Try primary model, then backup on failure ---
         response = await self._try_chat_with_model(
@@ -90,9 +92,13 @@ class ChatDispatchMixin:
 
         if response.finish_reason == "error":
             # Attempt backup model
-            backup_code = await self._get_backup_model(scene_code, agent_code, org_id, exclude=model_code)
+            backup_code = await self._get_backup_model(
+                scene_code, agent_code, org_id, exclude=model_code
+            )
             if backup_code:
-                logger.info(f"Retrying with backup model '{backup_code}' after primary '{model_code}' failed")
+                logger.info(
+                    f"Retrying with backup model '{backup_code}' after primary '{model_code}' failed"
+                )
                 backup_response = await self._try_chat_with_model(
                     model_code=backup_code,
                     org_id=org_id,
@@ -160,12 +166,17 @@ class ChatDispatchMixin:
             )
 
         if quota_result.warning:
-            logger.warning(f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}")
+            logger.warning(
+                f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}"
+            )
 
         # --- P0: Hard cost gate per request ---
         # Estimate cost based on message lengths and model pricing
         try:
-            est_input_tokens = sum(len(m.get("content", "")) // 4 for m in messages) + len(system_prompt) // 4
+            est_input_tokens = (
+                sum(len(m.get("content", "")) // 4 for m in messages)
+                + len(system_prompt) // 4
+            )
             est_output_tokens = max_tokens or 4096
             est_cost = estimate_cost(est_input_tokens, est_output_tokens, model_code)
             if not await token_budget_manager.check_request_cost(est_cost):
@@ -179,7 +190,9 @@ class ChatDispatchMixin:
                     model_code = mini_model
                     adapter, config = await self._create_adapter(model_code, org_id)
                     if not adapter or not config:
-                        return self._error_response(request_id, model_code, "Cost gate: mini model unavailable")
+                        return self._error_response(
+                            request_id, model_code, "Cost gate: mini model unavailable"
+                        )
         except Exception as e:
             logger.debug(f"[CostGate] Pre-call cost estimation skipped: {e}")
 
@@ -200,7 +213,9 @@ class ChatDispatchMixin:
                 latency_ms=latency,
                 error_msg="Circuit breaker is open",
             )
-            return self._error_response(request_id, model_code, "Model circuit breaker is open")
+            return self._error_response(
+                request_id, model_code, "Model circuit breaker is open"
+            )
 
         # --- Create adapter ---
         adapter, config = await self._create_adapter(model_code, org_id)
@@ -218,7 +233,11 @@ class ChatDispatchMixin:
         if adapter.config.model_code != config.model_code:
             adapter, config = await self._create_adapter(model_code, org_id)
             if not adapter or not config:
-                return self._error_response(request_id, model_code, f"Failed to load upgraded model {model_code}")
+                return self._error_response(
+                    request_id,
+                    model_code,
+                    f"Failed to load upgraded model {model_code}",
+                )
 
         # --- Build request ---
         chat_request = ChatRequest(
@@ -332,7 +351,9 @@ class ChatDispatchMixin:
         # --- Resolve model ---
         model_code = await self._resolve_model(scene_code, agent_code, org_id)
         if not model_code:
-            yield self._error_response(request_id, "", "No model configured for this scene/agent")
+            yield self._error_response(
+                request_id, "", "No model configured for this scene/agent"
+            )
             return
 
         # --- Quota check ---
@@ -350,11 +371,15 @@ class ChatDispatchMixin:
             return
 
         if quota_result.warning:
-            logger.warning(f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}")
+            logger.warning(
+                f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}"
+            )
 
         # --- Circuit breaker check ---
         if not circuit_breaker_manager.is_allowed(model_code):
-            yield self._error_response(request_id, model_code, "Model circuit breaker is open")
+            yield self._error_response(
+                request_id, model_code, "Model circuit breaker is open"
+            )
             return
 
         # --- Create adapter ---
@@ -374,7 +399,11 @@ class ChatDispatchMixin:
         if adapter.config.model_code != config.model_code:
             adapter, config = await self._create_adapter(model_code, org_id)
             if not adapter or not config:
-                yield self._error_response(request_id, model_code, f"Failed to load upgraded model {model_code}")
+                yield self._error_response(
+                    request_id,
+                    model_code,
+                    f"Failed to load upgraded model {model_code}",
+                )
                 return
 
         # --- Build request ---
@@ -401,7 +430,9 @@ class ChatDispatchMixin:
                 chunk.exec_time_ms = int((time.monotonic() - start_ts) * 1000)
 
                 total_input_tokens = chunk.usage.get("input_tokens", total_input_tokens)
-                total_output_tokens = chunk.usage.get("output_tokens", total_output_tokens)
+                total_output_tokens = chunk.usage.get(
+                    "output_tokens", total_output_tokens
+                )
                 total_cost = chunk.usage.get("call_cost", total_cost)
 
                 yield chunk
@@ -458,10 +489,16 @@ class ChatDispatchMixin:
             )
 
             # --- Backup model retry ---
-            backup_code = await self._get_backup_model(scene_code, agent_code, org_id, exclude=model_code)
+            backup_code = await self._get_backup_model(
+                scene_code, agent_code, org_id, exclude=model_code
+            )
             if backup_code:
-                logger.info(f"Stream retrying with backup model '{backup_code}' after primary '{model_code}' failed")
-                backup_adapter, backup_config = await self._create_adapter(backup_code, org_id)
+                logger.info(
+                    f"Stream retrying with backup model '{backup_code}' after primary '{model_code}' failed"
+                )
+                backup_adapter, backup_config = await self._create_adapter(
+                    backup_code, org_id
+                )
                 if backup_adapter and backup_config:
                     backup_request = ChatRequest(
                         scene_code=scene_code,
@@ -478,12 +515,16 @@ class ChatDispatchMixin:
                     try:
                         backup_start = time.monotonic()
                         async for chunk in backup_adapter.stream_chat(backup_request):
-                            chunk.exec_time_ms = int((time.monotonic() - backup_start) * 1000)
+                            chunk.exec_time_ms = int(
+                                (time.monotonic() - backup_start) * 1000
+                            )
                             yield chunk
                         circuit_breaker_manager.record_success(backup_code)
                         return
                     except Exception as backup_e:
-                        logger.error(f"Backup stream also failed for model={backup_code}: {backup_e}")
+                        logger.error(
+                            f"Backup stream also failed for model={backup_code}: {backup_e}"
+                        )
                         circuit_breaker_manager.record_failure(backup_code)
 
             yield self._error_response(request_id, model_code, error_msg)

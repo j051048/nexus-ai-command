@@ -57,8 +57,16 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
         payload = {
             "model": self.config.model_id or self.config.model_code,
             "messages": messages,
-            "temperature": request.temperature if request.temperature is not None else self.config.default_temperature,
-            "top_p": request.top_p if request.top_p is not None else self.config.default_top_p,
+            "temperature": (
+                request.temperature
+                if request.temperature is not None
+                else self.config.default_temperature
+            ),
+            "top_p": (
+                request.top_p
+                if request.top_p is not None
+                else self.config.default_top_p
+            ),
         }
 
         # Optional max_tokens
@@ -80,7 +88,12 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
     def _parse_usage(self, usage_data: dict | None) -> dict:
         """Parse usage info from API response."""
         if not usage_data:
-            return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "call_cost": 0.0}
+            return {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "call_cost": 0.0,
+            }
 
         input_tokens = usage_data.get("prompt_tokens", 0)
         output_tokens = usage_data.get("completion_tokens", 0)
@@ -91,7 +104,9 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
         try:
             from app.services.token_service import token_counter
 
-            call_cost = token_counter.estimate_cost(input_tokens, output_tokens, self.config.model_code)
+            call_cost = token_counter.estimate_cost(
+                input_tokens, output_tokens, self.config.model_code
+            )
         except Exception:
             pass
 
@@ -143,7 +158,10 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                     error_text = response.text[:500]
                     logger.error(
                         f"OpenAI-compatible API error ({response.status_code}): {error_text}",
-                        extra={"model_code": self.config.model_code, "request_id": request_id},
+                        extra={
+                            "model_code": self.config.model_code,
+                            "request_id": request_id,
+                        },
                     )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return ChatResponse(
@@ -232,7 +250,9 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                     async for chunk in response.aiter_text():
                         error_text += chunk
                     error_text = error_text[:500]
-                    logger.error(f"OpenAI-compatible streaming error ({response.status_code}): {error_text}")
+                    logger.error(
+                        f"OpenAI-compatible streaming error ({response.status_code}): {error_text}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     yield ChatResponse(
                         request_id=request_id,
@@ -294,9 +314,13 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                                     accumulated_tool_calls[idx]["id"] = tc_delta["id"]
                                 fn = tc_delta.get("function", {})
                                 if fn.get("name"):
-                                    accumulated_tool_calls[idx]["function"]["name"] = fn["name"]
+                                    accumulated_tool_calls[idx]["function"]["name"] = (
+                                        fn["name"]
+                                    )
                                 if fn.get("arguments"):
-                                    accumulated_tool_calls[idx]["function"]["arguments"] += fn["arguments"]
+                                    accumulated_tool_calls[idx]["function"][
+                                        "arguments"
+                                    ] += fn["arguments"]
 
                         # Check for usage in streaming response (some providers include it)
                         if chunk_data.get("usage"):
@@ -308,7 +332,11 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                             request_id=request_id,
                             model_code=self.config.model_code,
                             content=delta_content,
-                            tool_calls=accumulated_tool_calls if accumulated_tool_calls else None,
+                            tool_calls=(
+                                accumulated_tool_calls
+                                if accumulated_tool_calls
+                                else None
+                            ),
                             usage=self._parse_usage(usage_data if usage_data else None),
                             exec_time_ms=exec_time_ms,
                             finish_reason=chunk_finish or "",
@@ -355,7 +383,9 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
 
                 if response.status_code != 200:
                     error_text = response.text[:500]
-                    logger.error(f"Embedding API error ({response.status_code}): {error_text}")
+                    logger.error(
+                        f"Embedding API error ({response.status_code}): {error_text}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return EmbeddingResponse(
                         request_id=request_id,
@@ -406,7 +436,11 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
             latency_ms = int((time.monotonic() - start_time) * 1000)
 
             if result.finish_reason == "error":
-                return {"success": False, "latency_ms": latency_ms, "error": result.content}
+                return {
+                    "success": False,
+                    "latency_ms": latency_ms,
+                    "error": result.content,
+                }
 
             return {"success": True, "latency_ms": latency_ms, "error": None}
 

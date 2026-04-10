@@ -18,7 +18,9 @@ async def _get_user_profile(client, user_id: str):
     """Cached user profile query."""
     res = (
         await client.table("users")
-        .select("id, name, email, role, department, position, avatar_url, employee_number, job_title, created_at")
+        .select(
+            "id, name, email, role, department, position, avatar_url, employee_number, job_title, created_at"
+        )
         .eq("id", user_id)
         .limit(1)
         .execute()
@@ -62,7 +64,9 @@ async def update_profile(
         updates = body.model_dump(exclude_none=True)
 
         if not updates:
-            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
+            raise api_error(
+                ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update"
+            )
 
         await client.table("users").update(updates).eq("id", user_id).execute()
 
@@ -112,7 +116,9 @@ async def update_ai_settings(
         updates = body.model_dump(exclude_none=True)
 
         if not updates:
-            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
+            raise api_error(
+                ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update"
+            )
 
         updates["user_id"] = user_id
         await client.table("ai_settings").upsert(updates).execute()

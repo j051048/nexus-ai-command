@@ -70,7 +70,19 @@ def _check_data_source_primacy(ai_content: str, completed_tools: list) -> str | 
     # Enterprise-sensitive domains → data indicator keywords + expected tool prefixes
     _SENSITIVE_DOMAINS: dict[str, tuple[list[str], list[str]]] = {
         "finance": (
-            ["元", "¥", "万元", "报销", "预算", "薪资", "工资", "发票", "费用", "收入", "利润"],
+            [
+                "元",
+                "¥",
+                "万元",
+                "报销",
+                "预算",
+                "薪资",
+                "工资",
+                "发票",
+                "费用",
+                "收入",
+                "利润",
+            ],
             [
                 "query_budget",
                 "query_salary",
@@ -147,7 +159,9 @@ def _check_data_source_primacy(ai_content: str, completed_tools: list) -> str | 
     # Collect tool names actually called (success or not)
     called_tools: set[str] = set()
     for t in completed_tools:
-        name = t.get("tool_name") if isinstance(t, dict) else getattr(t, "tool_name", None)
+        name = (
+            t.get("tool_name") if isinstance(t, dict) else getattr(t, "tool_name", None)
+        )
         if name:
             called_tools.add(name)
 
@@ -213,7 +227,9 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
         text = re.sub(r"\d{1,2}\s*:\s*\d{1,2}(?:\s*:\s*\d{1,2})?", "", text)
         # Also strip ISO timestamps and UUIDs which contain many numbers
         text = re.sub(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "", text)
-        text = re.sub(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "", text)
+        text = re.sub(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "", text
+        )
         return text
 
     clean_ai_response = _strip_dates(ai_response)
@@ -221,13 +237,21 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
     # Extract numbers from AI response — support Chinese units like 428万
     _num_pattern = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?(?:[万亿千百kKmM%])?")
     ai_raw_numbers = _num_pattern.findall(clean_ai_response)
-    ai_numbers = [(_normalize_number(n), n) for n in ai_raw_numbers if _normalize_number(n) is not None]
+    ai_numbers = [
+        (_normalize_number(n), n)
+        for n in ai_raw_numbers
+        if _normalize_number(n) is not None
+    ]
 
     # Get all numbers from tool results (also strip dates to avoid false positives)
     tool_numbers: list[float] = []
     for tool in tool_results:
         # P1 fix: Handle both ToolCallRecord objects and dicts
-        result_text = tool.get("result", "") if isinstance(tool, dict) else getattr(tool, "result", "")
+        result_text = (
+            tool.get("result", "")
+            if isinstance(tool, dict)
+            else getattr(tool, "result", "")
+        )
         if result_text:
             clean_result = _strip_dates(str(result_text))
             for raw in _num_pattern.findall(clean_result):
@@ -286,7 +310,8 @@ async def reflect_node(state: AgentState) -> dict:
         max_reflections = min(max_reflections + 1, 4)
     if reflection_count >= max_reflections:
         logger.info(
-            f"[ReflectNode] Reflection budget exhausted " f"({reflection_count}/{max_reflections}), skipping to respond"
+            f"[ReflectNode] Reflection budget exhausted "
+            f"({reflection_count}/{max_reflections}), skipping to respond"
         )
         # Extract last AI content for final_response
         last_content = ""
@@ -322,9 +347,13 @@ async def reflect_node(state: AgentState) -> dict:
             org_id = config.org_id or "default"
             scene_code = state.get("scene_code", "")
             agent_code = state.get("agent_code", "")
-            resolved = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier=complexity.model_tier)
+            resolved = await resolve_model_config(
+                org_id, scene_code, agent_code, complexity_tier=complexity.model_tier
+            )
         except Exception:
-            logger.debug("LLM gateway model config unavailable in reflect_node, using default")
+            logger.debug(
+                "LLM gateway model config unavailable in reflect_node, using default"
+            )
 
     # Extract the last AI message
     last_ai_content = ""
@@ -365,20 +394,26 @@ async def reflect_node(state: AgentState) -> dict:
         if isinstance(msg, HumanMessage):
             last_user_msg_text = msg.content if isinstance(msg.content, str) else ""
             break
-    if last_user_msg_text and any(kw in last_user_msg_text for kw in _NEGATIVE_KEYWORDS):
+    if last_user_msg_text and any(
+        kw in last_user_msg_text for kw in _NEGATIVE_KEYWORDS
+    ):
         # Fire-and-forget: demote recent memories for this user
         import asyncio
 
         asyncio.create_task(_demote_recent_memories(config.user_id))
 
     # ── Layer 1: Empty response check ──
-    if (not last_ai_content.strip() or len(last_ai_content.strip()) < 5) and completed_tools:
+    if (
+        not last_ai_content.strip() or len(last_ai_content.strip()) < 5
+    ) and completed_tools:
         should_replan = iteration < config.max_iterations
         return {
             "reflection": "回复内容为空，需要整合工具结果重新回答。",
             "needs_replanning": should_replan,
             "iteration": iteration + 1 if should_replan else iteration,
-            "current_phase": AgentPhase.PLANNING if should_replan else AgentPhase.RESPONDING,
+            "current_phase": (
+                AgentPhase.PLANNING if should_replan else AgentPhase.RESPONDING
+            ),
             "thinking_steps": [
                 ThinkingStep(
                     phase=AgentPhase.REFLECTING.value,
@@ -396,11 +431,14 @@ async def reflect_node(state: AgentState) -> dict:
     from app.agent.node_helpers import sanitize_prompt_field
 
     intent = sanitize_prompt_field(intent)
-    is_creative_writing = any(kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案", "推广"))
+    is_creative_writing = any(
+        kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案", "推广")
+    )
 
     if (
         not is_creative_writing
-        and complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+        and complexity
+        in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
         and not completed_tools
     ):
         hallucination_keywords = [
@@ -420,14 +458,18 @@ async def reflect_node(state: AgentState) -> dict:
             # Additional check: does it contain specific numbers/data or entity names?
             number_pattern = r"\d+(?:\.\d+)?(?:万|千|百|元|个|%|位)?"
             entity_pattern = r"[\u4e00-\u9fff]{2,}(?:公司|集团|科技|企业|有限)"
-            if re.search(number_pattern, last_ai_content) or re.search(entity_pattern, last_ai_content):
+            if re.search(number_pattern, last_ai_content) or re.search(
+                entity_pattern, last_ai_content
+            ):
                 is_hallucination = True
                 hallucination_reason = "查询类问题未调用工具却产出了具体数据或实体名"
 
     # ── Layer 3: Tool result grounding verification ──
     # P1 Fix: Verify that numerical data in response matches tool results
     if not is_creative_writing and completed_tools and last_ai_content:
-        grounding_issues = await _verify_tool_grounding(last_ai_content, completed_tools)
+        grounding_issues = await _verify_tool_grounding(
+            last_ai_content, completed_tools
+        )
         if grounding_issues:
             is_hallucination = True
             hallucination_reason = f"回复数据与工具返回不一致: {grounding_issues}"
@@ -460,13 +502,29 @@ async def reflect_node(state: AgentState) -> dict:
     has_any_tool_attempts = len(completed_tools) > 0
 
     # Broader pattern matching for failed/empty RAG results
-    _rag_empty_patterns = ("搜索失败", "缺少", "未找到", "没有找到", "无相关", "暂无", "不存在")
+    _rag_empty_patterns = (
+        "搜索失败",
+        "缺少",
+        "未找到",
+        "没有找到",
+        "无相关",
+        "暂无",
+        "不存在",
+    )
     rag_search_failed = (
-        not rag_context or any(p in rag_context for p in _rag_empty_patterns) or len(rag_context.strip()) < 20
+        not rag_context
+        or any(p in rag_context for p in _rag_empty_patterns)
+        or len(rag_context.strip()) < 20
     )
 
     # Skip Layer 4 when: tools were attempted (query is tool-oriented), OR RAG returned nothing useful
-    if rag_context and last_ai_content and not is_hallucination and not has_any_tool_attempts and not rag_search_failed:
+    if (
+        rag_context
+        and last_ai_content
+        and not is_hallucination
+        and not has_any_tool_attempts
+        and not rag_search_failed
+    ):
         prompt = f"""[事实核查任务]
 请比较【参考知识】与【AI回复】，判断回复是否完全基于背景知识，是否存在编造或矛盾。
 请严格按照以下 JSON 格式返回，不要输出其他内容:
@@ -512,7 +570,9 @@ AI回复:
         and not is_hallucination
         and not has_any_tool_attempts
     ):
-        messages_text = "\n".join([f"{m.type}: {m.content[:200]}" for m in messages[-3:]])
+        messages_text = "\n".join(
+            [f"{m.type}: {m.content[:200]}" for m in messages[-3:]]
+        )
         prompt = f"""请评估 AI 的最新回复是否包含编造的信息（幻觉）。
 
 检查要点:
@@ -581,27 +641,42 @@ AI 回复:
         guidance_parts.append(f"**问题类型**: {hallucination_reason}")
 
         if "未调用工具却产出了具体数据" in hallucination_reason:
-            guidance_parts.append("**修正策略**: 必须调用相关工具获取真实数据，禁止凭空编造数值")
+            guidance_parts.append(
+                "**修正策略**: 必须调用相关工具获取真实数据，禁止凭空编造数值"
+            )
             guidance_parts.append("**建议**: 根据用户查询意图选择数据查询类工具")
         elif "工具返回不一致" in hallucination_reason:
-            guidance_parts.append("**修正策略**: 严格引用工具返回的原始数据，不做未经授权的数值修改")
-        elif "事实偏差" in hallucination_reason or "Ungrounded" in str(hallucination_reason):
-            guidance_parts.append("**修正策略**: 回复必须完全基于检索到的参考知识，移除无依据的陈述")
+            guidance_parts.append(
+                "**修正策略**: 严格引用工具返回的原始数据，不做未经授权的数值修改"
+            )
+        elif "事实偏差" in hallucination_reason or "Ungrounded" in str(
+            hallucination_reason
+        ):
+            guidance_parts.append(
+                "**修正策略**: 回复必须完全基于检索到的参考知识，移除无依据的陈述"
+            )
         else:
             guidance_parts.append("**修正策略**: 重新审视回复，确保所有信息有据可查")
 
         if completed_tools:
             tool_summary = []
             for t in completed_tools[-3:]:
-                t_name = t.tool_name if hasattr(t, "tool_name") else t.get("tool_name", "")
-                t_result = (t.result if hasattr(t, "result") else t.get("result", ""))[:200]
+                t_name = (
+                    t.tool_name if hasattr(t, "tool_name") else t.get("tool_name", "")
+                )
+                t_result = (t.result if hasattr(t, "result") else t.get("result", ""))[
+                    :200
+                ]
                 tool_summary.append(f"  - {t_name}: {t_result}")
             guidance_parts.append("**可用工具结果**:\n" + "\n".join(tool_summary))
 
         # Deep reflection (Tree of Thoughts): when COMPLEX/CRITICAL queries
         # fail multiple iterations, generate alternative approaches via LLM
         _deep_thinking_steps = []
-        if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and iteration >= 2:
+        if (
+            complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+            and iteration >= 2
+        ):
             try:
                 from app.agent.deep_reflect import deep_reflector
 
@@ -625,9 +700,13 @@ AI 回复:
                 if alternatives:
                     best = deep_reflector.select_best(alternatives)
                     if best and best.get("approach"):
-                        guidance_parts.append(f"**深度反思推荐方案**: {best['approach']}")
+                        guidance_parts.append(
+                            f"**深度反思推荐方案**: {best['approach']}"
+                        )
                         if best.get("tools"):
-                            guidance_parts.append(f"**建议工具链**: {', '.join(str(t) for t in best['tools'][:5])}")
+                            guidance_parts.append(
+                                f"**建议工具链**: {', '.join(str(t) for t in best['tools'][:5])}"
+                            )
                         _deep_thinking_steps.append(
                             ThinkingStep(
                                 phase="reflecting",
@@ -682,7 +761,13 @@ AI 回复:
                 _backtrack_extras = {
                     k: v
                     for k, v in bt_updates.items()
-                    if k in ("backtrack_depth", "candidate_plans", "completed_tool_calls", "pending_tool_calls")
+                    if k
+                    in (
+                        "backtrack_depth",
+                        "candidate_plans",
+                        "completed_tool_calls",
+                        "pending_tool_calls",
+                    )
                 }
                 # Override reflection_guidance with backtrack-aware guidance
                 if bt_updates.get("reflection_guidance"):
@@ -739,7 +824,13 @@ AI 回复:
                 **{
                     k: v
                     for k, v in bt_updates.items()
-                    if k in ("backtrack_depth", "candidate_plans", "completed_tool_calls", "pending_tool_calls")
+                    if k
+                    in (
+                        "backtrack_depth",
+                        "candidate_plans",
+                        "completed_tool_calls",
+                        "pending_tool_calls",
+                    )
                 },
             }
 
@@ -801,7 +892,9 @@ async def critic_node(state: AgentState) -> dict:
     for tc in state.get("completed_tool_calls", []):
         result_preview = (getattr(tc, "result", "") or "")[:200]
         tool_results_summary.append(f"- {tc.tool_name}: {result_preview}")
-    tool_context = "\n".join(tool_results_summary[:5]) if tool_results_summary else "无工具调用"
+    tool_context = (
+        "\n".join(tool_results_summary[:5]) if tool_results_summary else "无工具调用"
+    )
 
     # Inject historical failure lessons into critic prompt (few-shot from failure_log)
     history_lessons = ""
@@ -810,7 +903,9 @@ async def critic_node(state: AgentState) -> dict:
 
         _org_id = getattr(config, "org_id", None)
         if _org_id:
-            failures = await failure_log_service.get_top_failures(_org_id, days=7, limit=5)
+            failures = await failure_log_service.get_top_failures(
+                _org_id, days=7, limit=5
+            )
             if failures:
                 # Filter out saturated signals — systemic issues that
                 # repeating in the prompt won't help fix
@@ -822,7 +917,9 @@ async def critic_node(state: AgentState) -> dict:
                         pattern = f.get("pattern_key", "")
                         count = f.get("count", 1)
                         err_detail = (f.get("error_detail") or "")[:100]
-                        lesson_lines.append(f"- [{err_type}] {err_detail} (模式: {pattern}, 出现{count}次)")
+                        lesson_lines.append(
+                            f"- [{err_type}] {err_detail} (模式: {pattern}, 出现{count}次)"
+                        )
                     history_lessons = "\n".join(lesson_lines) + "\n\n"
     except Exception:
         pass  # 非关键路径
@@ -860,9 +957,13 @@ async def critic_node(state: AgentState) -> dict:
                 org_id = config.org_id or "default"
                 scene_code = state.get("scene_code", "")
                 agent_code = state.get("agent_code", "")
-                resolved_critic = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier="economy")
+                resolved_critic = await resolve_model_config(
+                    org_id, scene_code, agent_code, complexity_tier="economy"
+                )
             except Exception:
-                logger.debug("LLM gateway unavailable in critic_node, using default mini_model")
+                logger.debug(
+                    "LLM gateway unavailable in critic_node, using default mini_model"
+                )
 
         if resolved_critic:
             # Validate api_key — Gateway may return empty key for misconfigured models
@@ -874,7 +975,9 @@ async def critic_node(state: AgentState) -> dict:
                 base_url=critic_base_url,
                 temperature=0.1,
                 max_tokens=300,
-                callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["reflect"]),
+                callbacks=_get_langfuse_callbacks(
+                    **_get_trace_context(config), tags=["reflect"]
+                ),
             )
         else:
             critic_llm = ChatOpenAI(
@@ -883,7 +986,9 @@ async def critic_node(state: AgentState) -> dict:
                 base_url=config.base_url,
                 temperature=0.1,
                 max_tokens=300,
-                callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["reflect"]),
+                callbacks=_get_langfuse_callbacks(
+                    **_get_trace_context(config), tags=["reflect"]
+                ),
             )
         # Avoid with_structured_output — many proxied/non-OpenAI APIs reject
         # additionalProperties in the JSON schema.  Parse JSON manually instead.
@@ -922,9 +1027,7 @@ async def critic_node(state: AgentState) -> dict:
     except Exception as e:
         logger.warning(f"[CriticNode] Failed to persist quality score: {e}")
 
-    critic_feedback = (
-        f"完整性: {result.completeness:.0%}, 相关性: {result.relevance:.0%}, 准确性: {result.accuracy:.0%}"
-    )
+    critic_feedback = f"完整性: {result.completeness:.0%}, 相关性: {result.relevance:.0%}, 准确性: {result.accuracy:.0%}"
     if result.improvement_suggestion:
         critic_feedback += f" | 建议: {result.improvement_suggestion}"
 
@@ -933,7 +1036,9 @@ async def critic_node(state: AgentState) -> dict:
         return {
             "critic_passed": True,
             "critic_feedback": critic_feedback,
-            "confidence_score": min(result.completeness, result.relevance, result.accuracy),
+            "confidence_score": min(
+                result.completeness, result.relevance, result.accuracy
+            ),
             "current_phase": AgentPhase.RESPONDING,
             "thinking_steps": [
                 ThinkingStep(
@@ -1051,6 +1156,8 @@ async def _demote_recent_memories(user_id: str, penalty: float = 0.3) -> None:
                     .execute()
                 )
         demoted = len(resp.data)
-        logger.info(f"[AgeMem] Demoted {demoted} memories for user {user_id} (penalty={penalty})")
+        logger.info(
+            f"[AgeMem] Demoted {demoted} memories for user {user_id} (penalty={penalty})"
+        )
     except Exception as e:
         logger.error(f"[AgeMem] Memory demotion failed (non-fatal): {e}")

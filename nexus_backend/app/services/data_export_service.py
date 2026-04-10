@@ -164,10 +164,34 @@ class DataExportService:
             "notes": "角色可选值: employee, manager, boss; 邮箱必填且唯一",
         },
         "customers": {
-            "headers": ["客户名称", "联系人", "联系电话", "邮箱", "公司", "来源", "备注"],
+            "headers": [
+                "客户名称",
+                "联系人",
+                "联系电话",
+                "邮箱",
+                "公司",
+                "来源",
+                "备注",
+            ],
             "sample_rows": [
-                ["ABC科技", "王总", "13900139001", "wang@abc.com", "ABC科技有限公司", "推荐", "重要客户"],
-                ["XYZ贸易", "刘经理", "13900139002", "liu@xyz.com", "XYZ贸易公司", "网络", ""],
+                [
+                    "ABC科技",
+                    "王总",
+                    "13900139001",
+                    "wang@abc.com",
+                    "ABC科技有限公司",
+                    "推荐",
+                    "重要客户",
+                ],
+                [
+                    "XYZ贸易",
+                    "刘经理",
+                    "13900139002",
+                    "liu@xyz.com",
+                    "XYZ贸易公司",
+                    "网络",
+                    "",
+                ],
             ],
             "description": "客户批量导入模板",
             "notes": "客户名称必填; 来源可选: 推荐/网络/电话/展会/其他",
@@ -184,7 +208,14 @@ class DataExportService:
         "sales": {
             "headers": ["客户名称", "金额", "产品", "销售代表邮箱", "状态", "备注"],
             "sample_rows": [
-                ["ABC科技", "50000", "企业版", "zhangsan@example.com", "进行中", "Q1跟进"],
+                [
+                    "ABC科技",
+                    "50000",
+                    "企业版",
+                    "zhangsan@example.com",
+                    "进行中",
+                    "Q1跟进",
+                ],
                 ["XYZ贸易", "30000", "标准版", "lisi@example.com", "已成交", ""],
             ],
             "description": "销售数据导入模板",
@@ -220,7 +251,9 @@ class DataExportService:
 
         config = self.EXPORT_CONFIGS.get(export_type)
         if not config:
-            raise ValueError(f"不支持的导出类型: {export_type}，可选: {', '.join(self.EXPORT_CONFIGS.keys())}")
+            raise ValueError(
+                f"不支持的导出类型: {export_type}，可选: {', '.join(self.EXPORT_CONFIGS.keys())}"
+            )
 
         try:
             # 构建查询
@@ -341,7 +374,9 @@ class DataExportService:
                 "updated_at",
             ]
 
-            return self._generate_csv(headers=headers, columns=columns, rows=processed_rows)
+            return self._generate_csv(
+                headers=headers, columns=columns, rows=processed_rows
+            )
 
         except Exception as e:
             logger.error(f"Export approvals failed: {e}")
@@ -429,7 +464,9 @@ class DataExportService:
                 "notes",
             ]
 
-            return self._generate_csv(headers=headers, columns=columns, rows=processed_rows)
+            return self._generate_csv(
+                headers=headers, columns=columns, rows=processed_rows
+            )
 
         except Exception as e:
             logger.error(f"Export attendance failed: {e}")
@@ -524,7 +561,9 @@ class DataExportService:
                 "notes",
             ]
 
-            return self._generate_csv(headers=headers, columns=columns, rows=processed_rows)
+            return self._generate_csv(
+                headers=headers, columns=columns, rows=processed_rows
+            )
 
         except Exception as e:
             logger.error(f"Export sales data failed: {e}")
@@ -545,7 +584,9 @@ class DataExportService:
         """
         template = self.IMPORT_TEMPLATES.get(template_type)
         if not template:
-            raise ValueError(f"不支持的模板类型: {template_type}，可选: {', '.join(self.IMPORT_TEMPLATES.keys())}")
+            raise ValueError(
+                f"不支持的模板类型: {template_type}，可选: {', '.join(self.IMPORT_TEMPLATES.keys())}"
+            )
 
         output = io.StringIO()
         # 添加 BOM 以支持 Excel 正确识别 UTF-8
@@ -699,7 +740,9 @@ class DataExportService:
             header_len = sum(2 if ord(c) > 127 else 1 for c in str(header))
             if header_len > max_len:
                 max_len = header_len
-            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 4, 60)
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(
+                max_len + 4, 60
+            )
 
         output = io.BytesIO()
         wb.save(output)
@@ -730,7 +773,9 @@ class DataExportService:
 
         config = self.EXPORT_CONFIGS.get(export_type)
         if not config:
-            raise ValueError(f"不支持的导出类型: {export_type}，可选: {', '.join(self.EXPORT_CONFIGS.keys())}")
+            raise ValueError(
+                f"不支持的导出类型: {export_type}，可选: {', '.join(self.EXPORT_CONFIGS.keys())}"
+            )
 
         try:
             columns_str = ", ".join(config["columns"])

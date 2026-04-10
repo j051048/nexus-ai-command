@@ -57,7 +57,9 @@ class ContractAnalysisTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         contract_id = args.get("contract_id")
         contract_text = args.get("contract_text", "")
         focus = args.get("focus", "full")
@@ -72,7 +74,13 @@ class ContractAnalysisTool(BaseTool):
                 return f"contract_id '{contract_id}' 不是有效的UUID格式。"
 
             try:
-                res = await client.table("contracts").select("*").eq("id", contract_id).maybe_single().execute()
+                res = (
+                    await client.table("contracts")
+                    .select("*")
+                    .eq("id", contract_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if res.data:
                     contract = res.data
                     contract_text = (

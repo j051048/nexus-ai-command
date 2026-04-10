@@ -65,7 +65,9 @@ class ContextEngine:
         self._providers = [p for p in self._providers if p.name != provider.name]
         self._providers.append(provider)
         self._providers.sort(key=lambda p: p.priority)
-        logger.debug(f"[ContextEngine] Registered provider: {provider.name} (priority={provider.priority})")
+        logger.debug(
+            f"[ContextEngine] Registered provider: {provider.name} (priority={provider.priority})"
+        )
 
     def unregister(self, name: str) -> None:
         self._providers = [p for p in self._providers if p.name != name]
@@ -107,7 +109,10 @@ class ContextEngine:
                 )
                 return prov, text or ""
             except Exception as exc:
-                logger.warning(f"[ContextEngine] Provider '{prov.name}' failed: {exc}", exc_info=True)
+                logger.warning(
+                    f"[ContextEngine] Provider '{prov.name}' failed: {exc}",
+                    exc_info=True,
+                )
                 return prov, ""
 
         results = await asyncio.gather(*[_safe_get(p) for p in sorted_providers])
@@ -160,7 +165,9 @@ class ChatHistoryProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 1500
 
-    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
         session_id: str | None = kwargs.get("session_id")
         if not user_id or not session_id:
             return ""
@@ -209,7 +216,9 @@ class ChatHistoryProvider(ContextProvider):
             cleaned_rows = []
             for r in rows:
                 content = r.get("content") or ""
-                if r.get("role") == "assistant" and any(p in content for p in _ERROR_PHRASES):
+                if r.get("role") == "assistant" and any(
+                    p in content for p in _ERROR_PHRASES
+                ):
                     # Also remove the preceding user message if it exists
                     if cleaned_rows and cleaned_rows[-1].get("role") == "user":
                         cleaned_rows.pop()
@@ -255,7 +264,9 @@ class ChatHistoryProvider(ContextProvider):
                             continue
                         # Flush pending duplicates
                         if dup_count > 0:
-                            lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                            lines.append(
+                                f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）"
+                            )
                             dup_count = 0
                         lines.append(f"用户: {content}")
                         lines.append(f"助手: {assistant_content}")
@@ -264,7 +275,9 @@ class ChatHistoryProvider(ContextProvider):
                     else:
                         # User message without following assistant (incomplete turn)
                         if dup_count > 0:
-                            lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                            lines.append(
+                                f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）"
+                            )
                             dup_count = 0
                         lines.append(f"用户: {content}")
                         prev_turn_key = None
@@ -272,14 +285,18 @@ class ChatHistoryProvider(ContextProvider):
                 else:
                     # Standalone assistant message
                     if dup_count > 0:
-                        lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                        lines.append(
+                            f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）"
+                        )
                         dup_count = 0
                     lines.append(f"助手: {content}")
                     prev_turn_key = None
                     i += 1
 
             if dup_count > 0:
-                lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                lines.append(
+                    f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）"
+                )
 
             if not lines:
                 return ""
@@ -304,7 +321,9 @@ class UserProfileProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 200
 
-    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
         if not user_id:
             return ""
         try:
@@ -312,7 +331,13 @@ class UserProfileProvider(ContextProvider):
 
             parts: list[str] = []
 
-            user_res = await supabase.table("users").select("name, role").eq("id", user_id).limit(1).execute()
+            user_res = (
+                await supabase.table("users")
+                .select("name, role")
+                .eq("id", user_id)
+                .limit(1)
+                .execute()
+            )
             if user_res.data:
                 name = user_res.data[0].get("name", "")
                 role = user_res.data[0].get("role", "employee")
@@ -322,7 +347,11 @@ class UserProfileProvider(ContextProvider):
             if org_id:
                 try:
                     emp_res = (
-                        await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
+                        await supabase.table("users")
+                        .select("department")
+                        .eq("id", user_id)
+                        .maybe_single()
+                        .execute()
                     )
                     if emp_res.data:
                         dept_name = emp_res.data.get("department")
@@ -346,11 +375,15 @@ class SemanticMemoryProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 500
 
-    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
         if not user_id or not query:
             return ""
         try:
-            from app.services.conversation_memory_service import conversation_memory_service
+            from app.services.conversation_memory_service import (
+                conversation_memory_service,
+            )
 
             ctx = await conversation_memory_service.build_memory_context(
                 user_id=user_id,
@@ -383,7 +416,9 @@ class KnowledgeBaseProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 200  # Reduced from 1000 — index is much smaller than full RAG
 
-    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
         if not user_id or not query:
             return ""
         # Only inject index when org has a knowledge base
@@ -407,7 +442,9 @@ class CompletedTasksProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 300
 
-    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
         if not user_id:
             return ""
         try:
@@ -430,7 +467,9 @@ class CompletedTasksProvider(ContextProvider):
             if not tasks:
                 return ""
 
-            lines = ["以下是你近期为该用户完成的任务，当用户询问「你帮我做过什么」时请据实回答："]
+            lines = [
+                "以下是你近期为该用户完成的任务，当用户询问「你帮我做过什么」时请据实回答："
+            ]
             for t in tasks:
                 date_str = (t.get("updated_at") or "")[:10]
                 title = t.get("title", "")
@@ -454,7 +493,9 @@ class BusinessRuleProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 400
 
-    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
         if not org_id:
             return ""
         try:
@@ -495,7 +536,9 @@ class CorrectionHistoryProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 300
 
-    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
         if not user_id:
             return ""
         try:
@@ -523,7 +566,9 @@ class CorrectionHistoryProvider(ContextProvider):
 
             lines = ["以下是用户之前对你执行步骤的纠偏记录，请避免重复同类错误："]
             for c in corrections[:5]:
-                lines.append(f"- 步骤{c.get('step_index', '?')}: {c.get('correction_text', '')}")
+                lines.append(
+                    f"- 步骤{c.get('step_index', '?')}: {c.get('correction_text', '')}"
+                )
             return "\n".join(lines)
         except Exception as e:
             logger.error(f"[CorrectionHistoryProvider] Failed: {e}")
@@ -539,7 +584,9 @@ class SoulDocumentProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 600
 
-    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
         if not org_id:
             return ""
         try:

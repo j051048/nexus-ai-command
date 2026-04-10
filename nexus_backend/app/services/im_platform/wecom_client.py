@@ -118,7 +118,9 @@ class WecomClient(IMPlatformClient):
         """
         url = f"{self.BASE_URL}/user/list"
         try:
-            data = await self._api_request("GET", url, params={"department_id": department_id})
+            data = await self._api_request(
+                "GET", url, params={"department_id": department_id}
+            )
             user_list = data.get("userlist", [])
             return [
                 {
@@ -135,12 +137,16 @@ class WecomClient(IMPlatformClient):
                 for user in user_list
             ]
         except Exception as e:
-            logger.error(f"[wecom] Failed to get users for department {department_id}: {e}")
+            logger.error(
+                f"[wecom] Failed to get users for department {department_id}: {e}"
+            )
             return []
 
     # ── Attendance ────────────────────────────────────────────────
 
-    async def get_attendance_records(self, user_ids: list[str], start_date: str, end_date: str) -> list[dict]:
+    async def get_attendance_records(
+        self, user_ids: list[str], start_date: str, end_date: str
+    ) -> list[dict]:
         """
         获取考勤打卡数据。
         POST /checkin/getcheckindata
@@ -158,7 +164,9 @@ class WecomClient(IMPlatformClient):
         # 转换日期为 Unix 时间戳
         try:
             start_ts = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp())
-            end_ts = int(datetime.strptime(end_date, "%Y-%m-%d").timestamp()) + 86399  # 当天 23:59:59
+            end_ts = (
+                int(datetime.strptime(end_date, "%Y-%m-%d").timestamp()) + 86399
+            )  # 当天 23:59:59
         except ValueError as e:
             logger.error(f"[wecom] Invalid date format: {e}")
             return []
@@ -305,7 +313,9 @@ class WecomClient(IMPlatformClient):
                 "user_ticket": data.get("user_ticket", ""),
                 "openid": data.get("openid", data.get("OpenId", "")),
             }
-            logger.info(f"[wecom] OAuth user resolved: {result.get('userid', 'external')}")
+            logger.info(
+                f"[wecom] OAuth user resolved: {result.get('userid', 'external')}"
+            )
             return result
         except Exception as e:
             logger.error(f"[wecom] Failed to get user by auth code: {e}")
@@ -313,7 +323,9 @@ class WecomClient(IMPlatformClient):
 
     # ── Card Callback Update ──────────────────────────────────────
 
-    async def update_template_card(self, user_id: str, response_code: str, card: dict) -> bool:
+    async def update_template_card(
+        self, user_id: str, response_code: str, card: dict
+    ) -> bool:
         """
         更新模板卡片内容（用户点击按钮后更新卡片状态）。
         POST /message/update_template_card

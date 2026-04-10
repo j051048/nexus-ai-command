@@ -49,7 +49,9 @@ class UserProfileManager:
     def __init__(self):
         self._snapshot_cache: dict[str, str] = {}  # user_id -> frozen prompt block
 
-    async def build_profile_snapshot(self, user_id: str, org_id: str = "default") -> str:
+    async def build_profile_snapshot(
+        self, user_id: str, org_id: str = "default"
+    ) -> str:
         """构建用户画像快照，用于注入 system prompt。
 
         在 session 开始时调用一次，结果缓存在内存中。
@@ -99,7 +101,9 @@ class UserProfileManager:
             snapshot = "\n".join(parts)
 
             self._snapshot_cache[cache_key] = snapshot
-            logger.info(f"[UserProfile] Built snapshot for {user_id} ({len(parts) - 2} entries, {total_chars} chars)")
+            logger.info(
+                f"[UserProfile] Built snapshot for {user_id} ({len(parts) - 2} entries, {total_chars} chars)"
+            )
             return snapshot
 
         except Exception as e:
@@ -111,7 +115,9 @@ class UserProfileManager:
         cache_key = f"{user_id}:{org_id}"
         self._snapshot_cache.pop(cache_key, None)
 
-    async def learn_from_feedback(self, user_id: str, feedback_type: str, content: Any, org_id: str = "default"):
+    async def learn_from_feedback(
+        self, user_id: str, feedback_type: str, content: Any, org_id: str = "default"
+    ):
         """从用户反馈学习（支持 dict/str 等任意 JSON 可序列化值）"""
         try:
             await supabase.table("user_preferences").upsert(
@@ -129,7 +135,9 @@ class UserProfileManager:
         except Exception as e:
             logger.error(f"[UserProfile] Failed to learn preference: {e}")
 
-    async def learn_from_conversation(self, user_id: str, messages: list[dict], org_id: str = "default"):
+    async def learn_from_conversation(
+        self, user_id: str, messages: list[dict], org_id: str = "default"
+    ):
         """从对话历史中自动提取用户偏好。
 
         在 session 结束时异步调用，分析对话模式。
@@ -204,7 +212,11 @@ class UserProfileManager:
             return {}
 
     async def auto_extract_preferences(
-        self, user_id: str, user_message: str, assistant_response: str, org_id: str = "default"
+        self,
+        user_id: str,
+        user_message: str,
+        assistant_response: str,
+        org_id: str = "default",
     ) -> None:
         """从对话中自动提取用户偏好（后台异步执行，不阻塞响应）。
 
@@ -240,21 +252,37 @@ class UserProfileManager:
         combined = user_message.lower()
 
         for keyword, value in style_hints.items():
-            if keyword in combined and any(v in combined for v in ["喜欢", "偏好", "以后", "总是", "习惯"]):
-                await self.learn_from_feedback(user_id, "communication_style", value, org_id)
-                logger.info(f"[UserProfile] Extracted communication_style={value} for {user_id}")
+            if keyword in combined and any(
+                v in combined for v in ["喜欢", "偏好", "以后", "总是", "习惯"]
+            ):
+                await self.learn_from_feedback(
+                    user_id, "communication_style", value, org_id
+                )
+                logger.info(
+                    f"[UserProfile] Extracted communication_style={value} for {user_id}"
+                )
                 break
 
         for keyword, value in format_hints.items():
-            if keyword in combined and any(v in combined for v in ["用", "展示", "显示", "格式"]):
+            if keyword in combined and any(
+                v in combined for v in ["用", "展示", "显示", "格式"]
+            ):
                 await self.learn_from_feedback(user_id, "report_format", value, org_id)
-                logger.info(f"[UserProfile] Extracted report_format={value} for {user_id}")
+                logger.info(
+                    f"[UserProfile] Extracted report_format={value} for {user_id}"
+                )
                 break
 
         for keyword, value in lang_hints.items():
-            if keyword in combined and any(v in combined for v in ["用", "以后", "总是", "偏好", "回答"]):
-                await self.learn_from_feedback(user_id, "language_preference", value, org_id)
-                logger.info(f"[UserProfile] Extracted language_preference={value} for {user_id}")
+            if keyword in combined and any(
+                v in combined for v in ["用", "以后", "总是", "偏好", "回答"]
+            ):
+                await self.learn_from_feedback(
+                    user_id, "language_preference", value, org_id
+                )
+                logger.info(
+                    f"[UserProfile] Extracted language_preference={value} for {user_id}"
+                )
                 break
 
 

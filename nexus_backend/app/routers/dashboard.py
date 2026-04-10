@@ -26,18 +26,29 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
     client = request.state.db
 
     if not client:
-        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable")
+        raise api_error(
+            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
+        )
 
     try:
         # Verify user has boss role
-        user_res = await client.table("users").select("role").eq("id", user_id).single().execute()
+        user_res = (
+            await client.table("users")
+            .select("role")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
 
         if not user_res.data or user_res.data.get("role") != "boss":
             raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅领导可访问此仪表板")
 
         # 1. Pending Approvals Count
         pending_res = (
-            await client.table("approval_requests").select("count", count="exact").eq("status", "pending").execute()
+            await client.table("approval_requests")
+            .select("count", count="exact")
+            .eq("status", "pending")
+            .execute()
         )
         pending_count = pending_res.count if pending_res.count is not None else 0
 
@@ -70,7 +81,11 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
 
         # 3. Top Performers
         users_res = (
-            await client.table("users").select("name, score, total_bonus").order("score", desc=True).limit(3).execute()
+            await client.table("users")
+            .select("name, score, total_bonus")
+            .order("score", desc=True)
+            .limit(3)
+            .execute()
         )
 
         top_performers = [u["name"] for u in users_res.data]
@@ -92,20 +107,29 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
 
 
 @router.get("/alerts")
-async def dashboard_alerts(request: Request, user_id: str = Depends(get_current_user_id)):
+async def dashboard_alerts(
+    request: Request, user_id: str = Depends(get_current_user_id)
+):
     """跨域数据一致性预警 — 返回当前存在的数据异常。"""
     from datetime import datetime, timedelta, timezone
 
     client = request.state.db
     if not client:
-        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable")
+        raise api_error(
+            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
+        )
 
     CN_TZ = timezone(timedelta(hours=8))
     alerts: list[dict] = []
 
     # Rule 1: 已成交客户无活跃合同
     try:
-        won = await client.table("customers").select("id, name").eq("stage", "customer").execute()
+        won = (
+            await client.table("customers")
+            .select("id, name")
+            .eq("stage", "customer")
+            .execute()
+        )
         if won.data:
             ids = [c["id"] for c in won.data]
             active = (
@@ -124,7 +148,9 @@ async def dashboard_alerts(request: Request, user_id: str = Depends(get_current_
                         "severity": "warning",
                         "title": "已成交客户无活跃合同",
                         "message": f"{len(missing)} 个已成交客户没有活跃合同",
-                        "items": [{"id": c["id"], "name": c["name"]} for c in missing[:10]],
+                        "items": [
+                            {"id": c["id"], "name": c["name"]} for c in missing[:10]
+                        ],
                         "action_url": "/crm",
                     }
                 )
@@ -148,7 +174,10 @@ async def dashboard_alerts(request: Request, user_id: str = Depends(get_current_
                     "severity": "error",
                     "title": "合同已过期未更新",
                     "message": f"{len(stale.data)} 个合同已过期但状态仍为活跃",
-                    "items": [{"id": c["id"], "title": c["title"], "end_date": c["end_date"]} for c in stale.data[:10]],
+                    "items": [
+                        {"id": c["id"], "title": c["title"], "end_date": c["end_date"]}
+                        for c in stale.data[:10]
+                    ],
                     "action_url": "/contracts",
                 }
             )
@@ -175,7 +204,8 @@ async def dashboard_alerts(request: Request, user_id: str = Depends(get_current_
                     "title": "合同即将到期",
                     "message": f"{len(expiring.data)} 个合同将在30天内到期",
                     "items": [
-                        {"id": c["id"], "title": c["title"], "end_date": c["end_date"]} for c in expiring.data[:10]
+                        {"id": c["id"], "title": c["title"], "end_date": c["end_date"]}
+                        for c in expiring.data[:10]
                     ],
                     "action_url": "/contracts",
                 }
@@ -187,18 +217,26 @@ async def dashboard_alerts(request: Request, user_id: str = Depends(get_current_
 
 
 @router.get("/ai-stats")
-async def ai_activity_stats(request: Request, user_id: str = Depends(get_current_user_id)):
+async def ai_activity_stats(
+    request: Request, user_id: str = Depends(get_current_user_id)
+):
     """AI 活跃度统计 — 本周完成任务数、预估节省时间、活跃 Agent 数。"""
     from datetime import datetime, timedelta, timezone
 
     client = request.state.db
     if not client:
-        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable")
+        raise api_error(
+            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
+        )
 
     CN_TZ = timezone(timedelta(hours=8))
     now = datetime.now(CN_TZ)
     # Start of this week (Monday)
-    week_start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0).isoformat()
+    week_start = (
+        (now - timedelta(days=now.weekday()))
+        .replace(hour=0, minute=0, second=0)
+        .isoformat()
+    )
 
     tasks_completed = 0
     active_agents = 0
@@ -218,9 +256,16 @@ async def ai_activity_stats(request: Request, user_id: str = Depends(get_current
 
     try:
         # Count distinct active agent sessions this week
-        res = await client.table("agent_tasks").select("conversation_id").gte("created_at", week_start).execute()
+        res = (
+            await client.table("agent_tasks")
+            .select("conversation_id")
+            .gte("created_at", week_start)
+            .execute()
+        )
         if res.data:
-            active_agents = len({r.get("conversation_id") for r in res.data if r.get("conversation_id")})
+            active_agents = len(
+                {r.get("conversation_id") for r in res.data if r.get("conversation_id")}
+            )
     except Exception as e:
         logger.error("AI stats agents query failed: %s", e)
 

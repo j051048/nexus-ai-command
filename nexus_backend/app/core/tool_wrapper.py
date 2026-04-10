@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 async def execute_tool_safely(
-    tool_func: Callable, params: dict[str, Any], timeout: int = 30, tool_name: str = None
+    tool_func: Callable,
+    params: dict[str, Any],
+    timeout: int = 30,
+    tool_name: str = None,
 ) -> dict[str, Any]:
     """
     统一的工具执行包装器
@@ -59,7 +62,9 @@ def safe_tool(timeout: int = 30):
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            return await execute_tool_safely(func, kwargs, timeout=timeout, tool_name=func.__name__)
+            return await execute_tool_safely(
+                func, kwargs, timeout=timeout, tool_name=func.__name__
+            )
 
         return wrapper
 

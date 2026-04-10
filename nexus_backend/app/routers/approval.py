@@ -40,7 +40,11 @@ class SubmitWithFormRequest(BaseModel):
 class AdvanceDecisionRequest(BaseModel):
     """推进审批链的请求体"""
 
-    decision: str = Field(..., pattern="^(approved|rejected)$", description="审批决定: approved 或 rejected")
+    decision: str = Field(
+        ...,
+        pattern="^(approved|rejected)$",
+        description="审批决定: approved 或 rejected",
+    )
     comment: str | None = Field(None, description="审批备注（可选）")
 
 
@@ -95,7 +99,9 @@ async def get_approval_type_config(
 
         # 首次访问无数据 → 自动 seed
         if not result.data:
-            await client.rpc("seed_default_approval_types", {"p_org_id": org_id}).execute()
+            await client.rpc(
+                "seed_default_approval_types", {"p_org_id": org_id}
+            ).execute()
             result = (
                 await client.table("approval_type_config")
                 .select("*")
@@ -184,7 +190,11 @@ async def list_approvals(
                         "amount": item.get("amount"),
                         "status": item.get("status", ""),
                         "submitted_by": item.get("submitted_by", ""),
-                        "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
+                        "submitter_name": (
+                            submitter.get("name")
+                            if isinstance(submitter, dict)
+                            else None
+                        ),
                         "created_at": item.get("created_at", ""),
                     }
                 )
@@ -216,7 +226,11 @@ async def list_approvals(
                         "amount": None,
                         "status": item.get("status", ""),
                         "submitted_by": item.get("user_id", ""),
-                        "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
+                        "submitter_name": (
+                            submitter.get("name")
+                            if isinstance(submitter, dict)
+                            else None
+                        ),
                         "created_at": item.get("created_at", ""),
                         "leave_type": item.get("type"),
                         "start_date": item.get("start_date"),
@@ -232,7 +246,12 @@ async def list_approvals(
         paginated = items[start : start + page_size]
 
         return api_success(
-            data={"items": paginated, "total": total, "page": page, "page_size": page_size},
+            data={
+                "items": paginated,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+            },
             message="审批列表获取成功",
         )
     except HTTPException:
@@ -285,7 +304,12 @@ async def get_tab_counts(
             .execute()
         )
         # mine: oa_leave_requests
-        lr_mine = await client.table("oa_leave_requests").select("id", count="exact").eq("user_id", user_id).execute()
+        lr_mine = (
+            await client.table("oa_leave_requests")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .execute()
+        )
         mine_count = (ar_mine.count or 0) + (lr_mine.count or 0)
 
         return api_success(
@@ -303,7 +327,9 @@ async def get_tab_counts(
 
 
 @router.post("/process", response_model=StandardResponse)
-async def process_approval(request: ApprovalRequest, user_id: str = Depends(get_current_user_id)):
+async def process_approval(
+    request: ApprovalRequest, user_id: str = Depends(get_current_user_id)
+):
     """
     Process approval request via AI analysis and intelligent rule enforcement.
 
@@ -345,7 +371,9 @@ async def submit_with_form(
 
     try:
         # 1. Load form schema for this approval type
-        schema = await form_schema_service.get_schema_for_type(org_id, body.type, db=client)
+        schema = await form_schema_service.get_schema_for_type(
+            org_id, body.type, db=client
+        )
 
         form_schema_id = None
 
@@ -355,7 +383,9 @@ async def submit_with_form(
 
             # 2. Validate form_data against schema
             if schema_fields and body.form_data:
-                validation_errors = form_schema_service.validate_form_data(schema_fields, body.form_data)
+                validation_errors = form_schema_service.validate_form_data(
+                    schema_fields, body.form_data
+                )
                 if validation_errors:
                     raise api_error(
                         ErrorCode.VALIDATION_INVALID_INPUT,
@@ -364,7 +394,9 @@ async def submit_with_form(
                     )
             elif schema_fields:
                 # Schema exists but no form_data provided: check required fields
-                validation_errors = form_schema_service.validate_form_data(schema_fields, {})
+                validation_errors = form_schema_service.validate_form_data(
+                    schema_fields, {}
+                )
                 if validation_errors:
                     raise api_error(
                         ErrorCode.VALIDATION_INVALID_INPUT,
@@ -423,15 +455,25 @@ async def submit_with_form(
         if not result.data:
             raise api_error(ErrorCode.DB_QUERY_ERROR, "审批请求创建失败")
 
-        created_request = result.data[0] if isinstance(result.data, list) else result.data
+        created_request = (
+            result.data[0] if isinstance(result.data, list) else result.data
+        )
         request_id = created_request.get("id")
 
         # 5. Notify the correct approver (not broadcast)
         if not auto_approve:
             try:
                 # Get requester name for notification
-                user_res = await client.table("users").select("name").eq("id", user_id).maybe_single().execute()
-                requester_name = user_res.data.get("name", "员工") if user_res.data else "员工"
+                user_res = (
+                    await client.table("users")
+                    .select("name")
+                    .eq("id", user_id)
+                    .maybe_single()
+                    .execute()
+                )
+                requester_name = (
+                    user_res.data.get("name", "员工") if user_res.data else "员工"
+                )
 
                 from app.tools.approval_tools import _notify_next_approver
 
@@ -579,10 +621,18 @@ async def get_approval_progress(
 
     try:
         # 获取审批请求
-        req_result = await client.table("approval_requests").select("*").eq("id", request_id).maybe_single().execute()
+        req_result = (
+            await client.table("approval_requests")
+            .select("*")
+            .eq("id", request_id)
+            .maybe_single()
+            .execute()
+        )
 
         if not req_result.data:
-            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"审批请求 {request_id} 不存在")
+            raise api_error(
+                ErrorCode.RESOURCE_NOT_FOUND, f"审批请求 {request_id} 不存在"
+            )
 
         request_data = req_result.data
         chain_id = request_data.get("chain_id")
@@ -703,7 +753,9 @@ async def submit_smart_approval(
         if not result.data:
             raise api_error(ErrorCode.DB_QUERY_ERROR, "审批请求创建失败")
 
-        created_request = result.data[0] if isinstance(result.data, list) else result.data
+        created_request = (
+            result.data[0] if isinstance(result.data, list) else result.data
+        )
         request_id = created_request.get("id")
 
         # 3. 发出事件
@@ -813,7 +865,9 @@ async def create_auto_rule(
         org_id = getattr(request.state, "org_id", None)
         role = getattr(request.state, "role", None)
         if role not in ("boss", "founder", "super_admin"):
-            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅管理员可管理自动审批规则")
+            raise api_error(
+                ErrorCode.AUTH_PERMISSION_DENIED, "仅管理员可管理自动审批规则"
+            )
         if not org_id:
             raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "未关联组织")
 
@@ -835,7 +889,9 @@ async def create_auto_rule(
             .execute()
         )
 
-        return api_success(data=res.data[0] if res.data else None, message="自动审批规则已创建")
+        return api_success(
+            data=res.data[0] if res.data else None, message="自动审批规则已创建"
+        )
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
@@ -854,7 +910,9 @@ async def delete_auto_rule(
         org_id = getattr(request.state, "org_id", None)
         role = getattr(request.state, "role", None)
         if role not in ("boss", "founder", "super_admin"):
-            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅管理员可管理自动审批规则")
+            raise api_error(
+                ErrorCode.AUTH_PERMISSION_DENIED, "仅管理员可管理自动审批规则"
+            )
 
         from app.core.database import supabase
 

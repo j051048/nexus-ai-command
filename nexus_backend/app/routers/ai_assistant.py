@@ -18,16 +18,25 @@ router = APIRouter(prefix="/api/ai", tags=["ai-assistant"])
 async def parse_voice(text: str, current_user=Depends(get_current_user)):
     """解析语音意图"""
     result = await parse_voice_intent(
-        text=text, user_id=current_user["id"], org_id=current_user.get("org_id", "default")
+        text=text,
+        user_id=current_user["id"],
+        org_id=current_user.get("org_id", "default"),
     )
     return result
 
 
 @router.post("/batch-approval-suggestions")
-async def batch_approval_suggestions(request_ids: list[str], current_user=Depends(get_current_user)):
+async def batch_approval_suggestions(
+    request_ids: list[str], current_user=Depends(get_current_user)
+):
     """AI批量审批建议"""
     # 获取申请详情
-    requests = await supabase.table("approval_requests").select("*").in_("id", request_ids).execute()
+    requests = (
+        await supabase.table("approval_requests")
+        .select("*")
+        .in_("id", request_ids)
+        .execute()
+    )
 
     # AI分析
     llm = get_llm(org_id=current_user.get("org_id", "default"))

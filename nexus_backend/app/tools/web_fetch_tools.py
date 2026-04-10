@@ -129,7 +129,9 @@ class WebFetchTool(BaseTool):
         "required": ["url"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         import json
 
         url = (args.get("url") or "").strip()

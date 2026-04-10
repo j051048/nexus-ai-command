@@ -42,7 +42,9 @@ async def _safe_query(
 @router.get("/business")
 async def get_business_context(
     req: Request,
-    scene: str = Query("default", description="场景: approval|sales|boss|performance|default"),
+    scene: str = Query(
+        "default", description="场景: approval|sales|boss|performance|default"
+    ),
     user_id: str = Depends(get_current_user_id),
 ):
     """根据场景聚合返回相关业务数据"""
@@ -56,7 +58,8 @@ async def get_business_context(
 
         if scene not in VALID_SCENES:
             raise api_error(
-                ErrorCode.VALIDATION_MISSING_FIELD, f"无效的 scene: {scene}，可选值: {', '.join(VALID_SCENES)}"
+                ErrorCode.VALIDATION_MISSING_FIELD,
+                f"无效的 scene: {scene}，可选值: {', '.join(VALID_SCENES)}",
             )
 
         context = {"scene": scene}

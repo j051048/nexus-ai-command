@@ -56,7 +56,9 @@ class ConversationMemoryService:
             **kwargs,
         )
 
-    async def _generate_embedding(self, text: str, org_id: str | None = None) -> list[float] | None:
+    async def _generate_embedding(
+        self, text: str, org_id: str | None = None
+    ) -> list[float] | None:
         """Generate embedding vector for memory text. Returns None on failure."""
         return await generate_embedding(text, org_id)
 
@@ -68,7 +70,9 @@ class ConversationMemoryService:
         db: Any = None,
     ) -> list[dict]:
         """获取用户记忆列表"""
-        return await retrieval.get_memories(user_id=user_id, category=category, limit=limit, db=db)
+        return await retrieval.get_memories(
+            user_id=user_id, category=category, limit=limit, db=db
+        )
 
     async def search_memories(
         self,
@@ -163,7 +167,9 @@ class ConversationMemoryService:
         db: Any = None,
     ) -> list[dict]:
         """Get organization-level memories."""
-        return await org_memory.get_org_memories(org_id=org_id, category=category, limit=limit, db=db)
+        return await org_memory.get_org_memories(
+            org_id=org_id, category=category, limit=limit, db=db
+        )
 
     async def search_org_memories(
         self,
@@ -173,7 +179,9 @@ class ConversationMemoryService:
         db: Any = None,
     ) -> list[dict]:
         """Search organization memories by keyword."""
-        return await org_memory.search_org_memories(org_id=org_id, query=query, limit=limit, db=db)
+        return await org_memory.search_org_memories(
+            org_id=org_id, query=query, limit=limit, db=db
+        )
 
     async def delete_org_memory(
         self,
@@ -182,7 +190,9 @@ class ConversationMemoryService:
         db: Any = None,
     ) -> bool:
         """Delete a specific organization memory."""
-        return await org_memory.delete_org_memory(org_id=org_id, memory_id=memory_id, db=db)
+        return await org_memory.delete_org_memory(
+            org_id=org_id, memory_id=memory_id, db=db
+        )
 
     async def build_org_memory_context(
         self,
@@ -191,7 +201,9 @@ class ConversationMemoryService:
         db: Any = None,
     ) -> str:
         """Build organization memory context string for injection into system prompt."""
-        return await org_memory.build_org_memory_context(org_id=org_id, query=query, db=db)
+        return await org_memory.build_org_memory_context(
+            org_id=org_id, query=query, db=db
+        )
 
     async def extract_org_memories(
         self,

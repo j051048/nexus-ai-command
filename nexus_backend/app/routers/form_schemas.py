@@ -120,7 +120,9 @@ async def get_by_type(
 
     try:
         client = getattr(request.state, "db", None)
-        schema = await form_schema_service.get_schema_for_type(org_id, approval_type, db=client)
+        schema = await form_schema_service.get_schema_for_type(
+            org_id, approval_type, db=client
+        )
         if not schema:
             raise api_error(
                 ErrorCode.RESOURCE_NOT_FOUND,

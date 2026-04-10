@@ -61,7 +61,11 @@ async def cleanup_demo_data(org_id: str) -> dict[str, int]:
 
     # Fetch demo employee IDs first – needed for dependent tables
     emp_result = (
-        await db.table("users").select("id").eq("organization_id", org_id).like("email", "%@demo.local").execute()
+        await db.table("users")
+        .select("id")
+        .eq("organization_id", org_id)
+        .like("email", "%@demo.local")
+        .execute()
     )
     demo_emp_ids = [row["id"] for row in (emp_result.data or [])]
 
@@ -89,25 +93,50 @@ async def cleanup_demo_data(org_id: str) -> dict[str, int]:
 
     # 3. Sales leads (by demo owner IDs)
     if demo_emp_ids:
-        res = await db.table("sales_leads").delete().in_("owner_id", demo_emp_ids).execute()
+        res = (
+            await db.table("sales_leads")
+            .delete()
+            .in_("owner_id", demo_emp_ids)
+            .execute()
+        )
         deleted["sales_leads"] = len(res.data or [])
 
     # 4. Contracts (by org + demo tag)
-    res = await db.table("contracts").delete().eq("organization_id", org_id).contains("tags", ["demo"]).execute()
+    res = (
+        await db.table("contracts")
+        .delete()
+        .eq("organization_id", org_id)
+        .contains("tags", ["demo"])
+        .execute()
+    )
     deleted["contracts"] = len(res.data or [])
 
     # 5. Projects (by demo owner IDs)
     if demo_emp_ids:
-        res = await db.table("projects").delete().in_("owner_id", demo_emp_ids).execute()
+        res = (
+            await db.table("projects").delete().in_("owner_id", demo_emp_ids).execute()
+        )
         deleted["projects"] = len(res.data or [])
 
     # 6. Customers (by org + demo tag)
-    res = await db.table("customers").delete().eq("organization_id", org_id).contains("tags", ["demo"]).execute()
+    res = (
+        await db.table("customers")
+        .delete()
+        .eq("organization_id", org_id)
+        .contains("tags", ["demo"])
+        .execute()
+    )
     deleted["customers"] = len(res.data or [])
 
     # 7. Demo employees (last – other tables reference them)
     if demo_emp_ids:
-        res = await db.table("users").delete().eq("organization_id", org_id).like("email", "%@demo.local").execute()
+        res = (
+            await db.table("users")
+            .delete()
+            .eq("organization_id", org_id)
+            .like("email", "%@demo.local")
+            .execute()
+        )
         deleted["employees"] = len(res.data or [])
 
     logger.info("[DemoData] Cleanup complete for org=%s: %s", org_id, deleted)
@@ -264,11 +293,36 @@ _DEMO_PROJECTS = [
 ]
 
 _DEMO_APPROVALS = [
-    {"type": "expense", "amount": 3500, "description": "团建餐饮费用报销", "status": "pending"},
-    {"type": "travel", "amount": 8200, "description": "上海客户拜访差旅申请", "status": "pending"},
-    {"type": "purchase", "amount": 15000, "description": "团队年度 SaaS 工具订阅", "status": "approved"},
-    {"type": "leave", "amount": 0, "description": "年假申请 3 天（3/15-3/17）", "status": "pending"},
-    {"type": "expense", "amount": 1200, "description": "客户招待晚宴费用", "status": "approved"},
+    {
+        "type": "expense",
+        "amount": 3500,
+        "description": "团建餐饮费用报销",
+        "status": "pending",
+    },
+    {
+        "type": "travel",
+        "amount": 8200,
+        "description": "上海客户拜访差旅申请",
+        "status": "pending",
+    },
+    {
+        "type": "purchase",
+        "amount": 15000,
+        "description": "团队年度 SaaS 工具订阅",
+        "status": "approved",
+    },
+    {
+        "type": "leave",
+        "amount": 0,
+        "description": "年假申请 3 天（3/15-3/17）",
+        "status": "pending",
+    },
+    {
+        "type": "expense",
+        "amount": 1200,
+        "description": "客户招待晚宴费用",
+        "status": "approved",
+    },
 ]
 
 _DEMO_CONTRACTS = [
@@ -286,7 +340,13 @@ _DEMO_CONTRACTS = [
         "amount": 1100000,
         "days_offset": -5,
     },
-    {"title": "云翼信息技术合作 NDA", "contract_type": "nda", "status": "active", "amount": 0, "days_offset": -90},
+    {
+        "title": "云翼信息技术合作 NDA",
+        "contract_type": "nda",
+        "status": "active",
+        "amount": 0,
+        "days_offset": -90,
+    },
     {
         "title": "创新智能 POC 服务协议",
         "contract_type": "service",
@@ -320,7 +380,10 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
     # Idempotency: clean up leftover demo data if it exists
     # ------------------------------------------------------------------
     if await _demo_data_exists(db, org_id):
-        logger.info("[DemoData] Existing demo data detected for org=%s – cleaning up first", org_id)
+        logger.info(
+            "[DemoData] Existing demo data detected for org=%s – cleaning up first",
+            org_id,
+        )
         await cleanup_demo_data(org_id)
 
     now = datetime.utcnow()
@@ -358,7 +421,9 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
                 .execute()
             )
         summary["employees"] = len(employee_ids)
-        logger.info("[DemoData] Created %d employees for org=%s", len(employee_ids), org_id)
+        logger.info(
+            "[DemoData] Created %d employees for org=%s", len(employee_ids), org_id
+        )
 
         # ------------------------------------------------------------------
         # 2. Customers (CRM)
@@ -454,14 +519,26 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
                 "match_score": 0.92,
                 "stage": "qualified",
             },
-            {"company_name": "供应链智能化趋势报告", "match_score": 0.85, "stage": "new"},
+            {
+                "company_name": "供应链智能化趋势报告",
+                "match_score": 0.85,
+                "stage": "new",
+            },
             {
                 "company_name": "零售行业 SaaS 市场分析",
                 "match_score": 0.78,
                 "stage": "contacted",
             },
-            {"company_name": "制造业降本增效方案集", "match_score": 0.88, "stage": "won"},
-            {"company_name": "金融科技合规框架研究", "match_score": 0.71, "stage": "new"},
+            {
+                "company_name": "制造业降本增效方案集",
+                "match_score": 0.88,
+                "stage": "won",
+            },
+            {
+                "company_name": "金融科技合规框架研究",
+                "match_score": 0.71,
+                "stage": "new",
+            },
         ]
         for idx, lead in enumerate(lead_data):
             lid = str(uuid.uuid4())
@@ -523,8 +600,12 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
                 d = today - timedelta(days=day_offset)
                 if d.weekday() >= 5:  # Skip weekends
                     continue
-                check_in = datetime.combine(d, datetime.min.time().replace(hour=8, minute=55))
-                check_out = datetime.combine(d, datetime.min.time().replace(hour=18, minute=10))
+                check_in = datetime.combine(
+                    d, datetime.min.time().replace(hour=8, minute=55)
+                )
+                check_out = datetime.combine(
+                    d, datetime.min.time().replace(hour=18, minute=10)
+                )
                 attendance_batch.append(
                     {
                         "id": str(uuid.uuid4()),

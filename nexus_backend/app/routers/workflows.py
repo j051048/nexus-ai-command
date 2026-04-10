@@ -27,13 +27,21 @@ class WorkflowCreateBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="Workflow name")
     description: str | None = Field(None, max_length=1000)
     # Backend native format
-    applies_to: list[str] | None = Field(None, description="Approval types this workflow handles")
-    steps: list[dict] | None = Field(None, description="Workflow step definitions (JSONB)")
+    applies_to: list[str] | None = Field(
+        None, description="Approval types this workflow handles"
+    )
+    steps: list[dict] | None = Field(
+        None, description="Workflow step definitions (JSONB)"
+    )
     conditions: list[dict] | None = Field(None, description="Condition branch rules")
     canvas_layout: dict | None = Field(None, description="Frontend canvas layout data")
     # Frontend format (accepted as alternative)
-    approval_type: str | None = Field(None, description="Single approval type (frontend format)")
-    definition: dict | None = Field(None, description="Nested {steps, conditions} (frontend format)")
+    approval_type: str | None = Field(
+        None, description="Single approval type (frontend format)"
+    )
+    definition: dict | None = Field(
+        None, description="Nested {steps, conditions} (frontend format)"
+    )
 
 
 class WorkflowUpdateBody(BaseModel):
@@ -50,7 +58,9 @@ class WorkflowUpdateBody(BaseModel):
 # --- Format Normalization ---
 
 
-def _normalize_create_body(body: WorkflowCreateBody) -> tuple[list[str], list[dict], list[dict] | None]:
+def _normalize_create_body(
+    body: WorkflowCreateBody,
+) -> tuple[list[str], list[dict], list[dict] | None]:
     """Transform frontend format to backend format.
 
     Frontend sends: approval_type (str) + definition ({steps, conditions})
@@ -67,7 +77,9 @@ def _normalize_create_body(body: WorkflowCreateBody) -> tuple[list[str], list[di
             conditions = body.definition.get("conditions")
 
     if not steps:
-        raise ValueError("Workflow must contain steps (either as 'steps' or 'definition.steps')")
+        raise ValueError(
+            "Workflow must contain steps (either as 'steps' or 'definition.steps')"
+        )
 
     # Applies_to: prefer 'applies_to', fallback to wrapping 'approval_type'
     applies_to = body.applies_to
@@ -148,9 +160,13 @@ async def list_workflows(
         db = getattr(request.state, "db", None)
 
         if not org_id:
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required")
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required"
+            )
 
-        workflows = await workflow_definition_service.list_workflows(org_id=org_id, db=db)
+        workflows = await workflow_definition_service.list_workflows(
+            org_id=org_id, db=db
+        )
         return api_success(data=[_enrich_response(w) for w in workflows])
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -171,7 +187,9 @@ async def create_workflow(
         db = getattr(request.state, "db", None)
 
         if not org_id:
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required")
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required"
+            )
 
         applies_to, steps, conditions = _normalize_create_body(body)
 
@@ -211,9 +229,13 @@ async def get_workflow(
     try:
         db = getattr(request.state, "db", None)
 
-        workflow = await workflow_definition_service.get_workflow(workflow_id=workflow_id, db=db)
+        workflow = await workflow_definition_service.get_workflow(
+            workflow_id=workflow_id, db=db
+        )
         if not workflow:
-            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Workflow {workflow_id} not found")
+            raise api_error(
+                ErrorCode.RESOURCE_NOT_FOUND, f"Workflow {workflow_id} not found"
+            )
 
         return api_success(data=_enrich_response(workflow))
     except Exception as e:
@@ -267,9 +289,13 @@ async def delete_workflow(
     try:
         db = getattr(request.state, "db", None)
 
-        deleted = await workflow_definition_service.delete_workflow(workflow_id=workflow_id, db=db)
+        deleted = await workflow_definition_service.delete_workflow(
+            workflow_id=workflow_id, db=db
+        )
         if not deleted:
-            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Workflow {workflow_id} not found")
+            raise api_error(
+                ErrorCode.RESOURCE_NOT_FOUND, f"Workflow {workflow_id} not found"
+            )
 
         return api_success(data={"deleted": workflow_id}, message="Workflow deleted")
     except Exception as e:
@@ -289,7 +315,9 @@ async def toggle_workflow(
     try:
         db = getattr(request.state, "db", None)
 
-        workflow = await workflow_definition_service.toggle_workflow(workflow_id=workflow_id, db=db)
+        workflow = await workflow_definition_service.toggle_workflow(
+            workflow_id=workflow_id, db=db
+        )
         return api_success(data=_enrich_response(workflow), message="Workflow toggled")
     except RuntimeError:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流操作失败")
@@ -312,10 +340,16 @@ async def set_default(
         db = getattr(request.state, "db", None)
 
         if not org_id:
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required")
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required"
+            )
 
-        workflow = await workflow_definition_service.set_default(workflow_id=workflow_id, org_id=org_id, db=db)
-        return api_success(data=_enrich_response(workflow), message="Workflow set as default")
+        workflow = await workflow_definition_service.set_default(
+            workflow_id=workflow_id, org_id=org_id, db=db
+        )
+        return api_success(
+            data=_enrich_response(workflow), message="Workflow set as default"
+        )
     except RuntimeError:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流操作失败")
     except Exception as e:

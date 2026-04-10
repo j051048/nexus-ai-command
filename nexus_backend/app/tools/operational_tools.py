@@ -30,7 +30,9 @@ class PerformanceReportTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
         target_id = args.get("user_id") or user_id
@@ -62,9 +64,7 @@ class PerformanceReportTool(BaseTool):
             metrics_res = type("R", (), {"data": []})()
 
         report = f"用户: {user.get('name', '未知')}\n"
-        report += (
-            f"当前得分: {user.get('score', 0)} | 排名: {user.get('rank', 0)} | 总奖金: ¥{user.get('total_bonus', 0)}\n"
-        )
+        report += f"当前得分: {user.get('score', 0)} | 排名: {user.get('rank', 0)} | 总奖金: ¥{user.get('total_bonus', 0)}\n"
         if metrics_res.data:
             total_revenue = sum(float(m.get("revenue", 0)) for m in metrics_res.data)
             total_leads = sum(int(m.get("leads_count", 0)) for m in metrics_res.data)
@@ -81,12 +81,18 @@ class CompanyStatsTool(BaseTool):
     examples = [
         {"input": {}, "output_summary": "返回公司总人数和各部门人数分布"},
     ]
-    related_tools = ["get_performance_report", "get_team_insight", "get_business_dashboard"]
+    related_tools = [
+        "get_performance_report",
+        "get_team_insight",
+        "get_business_dashboard",
+    ]
     gotchas = "只返回人力统计数据，不包含营收等经营数据。查经营数据请用get_business_dashboard。"
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         import asyncio
 
         client = _get_client(config)
@@ -120,8 +126,14 @@ class KnowledgeBaseTool(BaseTool):
     description = "检索企业知识库中的政策、产品手册和业务文档。当用户问公司规定、产品参数、流程制度等事实性问题时调用。"
     domain = "knowledge"
     examples = [
-        {"input": {"query": "报销流程"}, "output_summary": "返回与报销流程相关的知识库内容"},
-        {"input": {"query": "产品A技术参数"}, "output_summary": "返回产品A的技术参数文档"},
+        {
+            "input": {"query": "报销流程"},
+            "output_summary": "返回与报销流程相关的知识库内容",
+        },
+        {
+            "input": {"query": "产品A技术参数"},
+            "output_summary": "返回产品A的技术参数文档",
+        },
     ]
     related_tools = ["get_performance_report", "get_company_stats"]
     gotchas = "基于向量语义搜索，查询词越具体结果越准确。返回结果包含引用来源。"
@@ -132,11 +144,15 @@ class KnowledgeBaseTool(BaseTool):
         "required": ["query"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         query = args.get("query")
         org_id = config.get("org_id") if config else None
         # P1: Grounding ensured by vector_service.search which now returns citations
-        result = await vector_service.search(query, user_id, config=config, org_id=org_id)
+        result = await vector_service.search(
+            query, user_id, config=config, org_id=org_id
+        )
         return result
 
 
@@ -145,7 +161,10 @@ class AwardBadgeTool(BaseTool):
     description = "为员工颁发荣誉徽章并发送通知。当用户说'颁发徽章'、'奖励员工'时调用。"
     domain = "hr"
     examples = [
-        {"input": {"user_id": "uuid-xxx", "badge_name": "销售冠军"}, "output_summary": "为指定员工颁发销售冠军徽章"},
+        {
+            "input": {"user_id": "uuid-xxx", "badge_name": "销售冠军"},
+            "output_summary": "为指定员工颁发销售冠军徽章",
+        },
         {
             "input": {"user_id": "uuid-xxx", "badge_name": "拼命三郎", "icon": "fire"},
             "output_summary": "颁发拼命三郎徽章并使用fire图标",
@@ -172,7 +191,9 @@ class AwardBadgeTool(BaseTool):
         "required": ["user_id", "badge_name"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         target_id = args.get("user_id")
         badge_name = args.get("badge_name", "")[:100]
         icon = args.get("icon", "sparkles")[:50]

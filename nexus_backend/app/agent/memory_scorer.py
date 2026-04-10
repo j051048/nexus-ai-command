@@ -39,7 +39,12 @@ _BUSINESS_KEYWORDS = [
 ]
 
 # 高价值分类（这些分类的记忆衰减更慢）
-_HIGH_VALUE_CATEGORIES = {"completed_task", "tool_correction", "user_preference", "skill"}
+_HIGH_VALUE_CATEGORIES = {
+    "completed_task",
+    "tool_correction",
+    "user_preference",
+    "skill",
+}
 _HIGH_VALUE_HALF_LIFE_MULTIPLIER = 2.0  # 高价值记忆半衰期翻倍
 
 
@@ -64,7 +69,9 @@ class MemoryImportanceScorer:
             score += 0.4
 
         # 2. 引用频率 (+0.3)
-        ref_count = memory.get("reference_count", 0) or memory.get("access_count", 0) or 0
+        ref_count = (
+            memory.get("reference_count", 0) or memory.get("access_count", 0) or 0
+        )
         score += min(ref_count / 10, 0.3)
 
         # 3. 业务关键词 (+0.3)
@@ -87,7 +94,11 @@ class MemoryImportanceScorer:
         - 最低不低于 _MIN_RETENTION
         """
         # 优先使用 last_accessed_at（表示"最近一次被回忆"）
-        last_ts = memory.get("last_accessed_at") or memory.get("updated_at") or memory.get("created_at")
+        last_ts = (
+            memory.get("last_accessed_at")
+            or memory.get("updated_at")
+            or memory.get("created_at")
+        )
         if not last_ts:
             return 1.0
 

@@ -19,7 +19,9 @@ class CompetitorService:
 
     # ─── 竞品公司 CRUD ─────────────────────────────────────
 
-    async def list_competitors(self, org_id: str, *, active_only: bool = True, db=None) -> list[dict]:
+    async def list_competitors(
+        self, org_id: str, *, active_only: bool = True, db=None
+    ) -> list[dict]:
         query = db.table("competitors").select("*").eq("organization_id", org_id)
         if active_only:
             query = query.eq("is_active", True)
@@ -27,7 +29,13 @@ class CompetitorService:
         return res.data or []
 
     async def get_competitor(self, competitor_id: str, *, db=None) -> dict | None:
-        res = await db.table("competitors").select("*").eq("id", competitor_id).maybe_single().execute()
+        res = (
+            await db.table("competitors")
+            .select("*")
+            .eq("id", competitor_id)
+            .maybe_single()
+            .execute()
+        )
         return res.data
 
     async def find_by_name(self, name: str, org_id: str, *, db=None) -> dict | None:
@@ -54,7 +62,9 @@ class CompetitorService:
         )
         return res.data[0] if res.data else None
 
-    async def create_competitor(self, org_id: str, user_id: str, data: dict, *, db=None) -> dict:
+    async def create_competitor(
+        self, org_id: str, user_id: str, data: dict, *, db=None
+    ) -> dict:
         if not data.get("name"):
             raise ValueError("竞品名称不能为空")
 
@@ -86,7 +96,9 @@ class CompetitorService:
         res = await db.table("competitors").insert(competitor).execute()
         return res.data[0] if res.data else competitor
 
-    async def update_competitor(self, competitor_id: str, data: dict, *, db=None) -> dict:
+    async def update_competitor(
+        self, competitor_id: str, data: dict, *, db=None
+    ) -> dict:
         update_data = {
             k: v
             for k, v in data.items()
@@ -110,12 +122,20 @@ class CompetitorService:
         if not update_data:
             raise ValueError("没有可更新的字段")
 
-        if "threat_level" in update_data and update_data["threat_level"] not in THREAT_LEVELS:
+        if (
+            "threat_level" in update_data
+            and update_data["threat_level"] not in THREAT_LEVELS
+        ):
             raise ValueError(f"无效的威胁等级: {update_data['threat_level']}")
 
         update_data["updated_at"] = datetime.now(UTC).isoformat()
 
-        res = await db.table("competitors").update(update_data).eq("id", competitor_id).execute()
+        res = (
+            await db.table("competitors")
+            .update(update_data)
+            .eq("id", competitor_id)
+            .execute()
+        )
         return res.data[0] if res.data else update_data
 
     async def delete_competitor(self, competitor_id: str, *, db=None) -> bool:
@@ -134,7 +154,9 @@ class CompetitorService:
         )
         return res.data or []
 
-    async def create_product(self, competitor_id: str, org_id: str, data: dict, *, db=None) -> dict:
+    async def create_product(
+        self, competitor_id: str, org_id: str, data: dict, *, db=None
+    ) -> dict:
         if not data.get("name"):
             raise ValueError("产品名称不能为空")
 
@@ -176,7 +198,12 @@ class CompetitorService:
             }
         }
         update_data["updated_at"] = datetime.now(UTC).isoformat()
-        res = await db.table("competitor_products").update(update_data).eq("id", product_id).execute()
+        res = (
+            await db.table("competitor_products")
+            .update(update_data)
+            .eq("id", product_id)
+            .execute()
+        )
         return res.data[0] if res.data else update_data
 
     async def delete_product(self, product_id: str, *, db=None) -> bool:
@@ -195,7 +222,9 @@ class CompetitorService:
         )
         return res.data or []
 
-    async def upsert_feature(self, competitor_id: str, org_id: str, data: dict, *, db=None) -> dict:
+    async def upsert_feature(
+        self, competitor_id: str, org_id: str, data: dict, *, db=None
+    ) -> dict:
         if not data.get("dimension"):
             raise ValueError("对比维度不能为空")
 
@@ -213,7 +242,12 @@ class CompetitorService:
         }
 
         if data.get("id"):
-            res = await db.table("competitor_features").update(feature).eq("id", data["id"]).execute()
+            res = (
+                await db.table("competitor_features")
+                .update(feature)
+                .eq("id", data["id"])
+                .execute()
+            )
         else:
             feature["id"] = str(uuid.uuid4())
             feature["created_at"] = datetime.now(UTC).isoformat()
@@ -230,13 +264,22 @@ class CompetitorService:
     async def list_documents(self, competitor_id: str, *, db=None) -> list[dict]:
         res = (
             await db.table("competitor_documents")
-            .select("*, document:document_id(id, title, file_type, file_size, created_at)")
+            .select(
+                "*, document:document_id(id, title, file_type, file_size, created_at)"
+            )
             .eq("competitor_id", competitor_id)
             .execute()
         )
         return res.data or []
 
-    async def link_document(self, competitor_id: str, document_id: str, doc_type: str = "general", *, db=None) -> bool:
+    async def link_document(
+        self,
+        competitor_id: str,
+        document_id: str,
+        doc_type: str = "general",
+        *,
+        db=None,
+    ) -> bool:
         await (
             db.table("competitor_documents")
             .upsert(
@@ -250,7 +293,9 @@ class CompetitorService:
         )
         return True
 
-    async def unlink_document(self, competitor_id: str, document_id: str, *, db=None) -> bool:
+    async def unlink_document(
+        self, competitor_id: str, document_id: str, *, db=None
+    ) -> bool:
         await (
             db.table("competitor_documents")
             .delete()

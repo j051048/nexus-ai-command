@@ -55,7 +55,9 @@ class WecomNotificationAdapter(BaseNotificationAdapter):
                 "Wecom notifications will be disabled until configured."
             )
         else:
-            logger.info(f"Wecom notification adapter initialized: url={self.webhook_url[:50]}...")
+            logger.info(
+                f"Wecom notification adapter initialized: url={self.webhook_url[:50]}..."
+            )
 
     async def send(self, notification: Notification) -> bool:
         """
@@ -205,7 +207,9 @@ class WecomNotificationAdapter(BaseNotificationAdapter):
             # 计算 md5（简化处理，生产环境需实际计算）
             import hashlib
 
-            md5 = hashlib.md5(notification.metadata["image_base64"].encode()).hexdigest()
+            md5 = hashlib.md5(
+                notification.metadata["image_base64"].encode()
+            ).hexdigest()
             image_data["md5"] = md5
         elif "image_md5" in notification.metadata:
             image_data["md5"] = notification.metadata["image_md5"]

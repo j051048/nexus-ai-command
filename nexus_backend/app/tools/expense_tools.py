@@ -30,12 +30,17 @@ class SubmitExpenseTool(BaseTool):
     name = "submit_expense"
     description = "提交报销申请，支持差旅、餐饮、办公用品、交通等类型"
     examples = [
-        {"input": {"expense_type": "travel", "total_amount": 3500}, "output_summary": "提交一笔3500元的差旅费报销"},
+        {
+            "input": {"expense_type": "travel", "total_amount": 3500},
+            "output_summary": "提交一笔3500元的差旅费报销",
+        },
         {
             "input": {
                 "expense_type": "meal",
                 "total_amount": 280,
-                "items": [{"description": "客户午餐", "amount": 280, "date": "2026-03-15"}],
+                "items": [
+                    {"description": "客户午餐", "amount": 280, "date": "2026-03-15"}
+                ],
             },
             "output_summary": "提交一笔带明细的餐饮费报销",
         },
@@ -67,7 +72,10 @@ class SubmitExpenseTool(BaseTool):
                     "properties": {
                         "description": {"type": "string", "description": "费用说明"},
                         "amount": {"type": "number", "description": "金额"},
-                        "date": {"type": "string", "description": "消费日期 YYYY-MM-DD"},
+                        "date": {
+                            "type": "string",
+                            "description": "消费日期 YYYY-MM-DD",
+                        },
                     },
                 },
             },
@@ -76,7 +84,9 @@ class SubmitExpenseTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -132,7 +142,10 @@ class ListExpensesTool(BaseTool):
     examples = [
         {"input": {}, "output_summary": "返回全部报销记录"},
         {"input": {"status": "pending"}, "output_summary": "返回待审批的报销记录"},
-        {"input": {"start_date": "2026-03-01", "end_date": "2026-03-31"}, "output_summary": "返回本月的报销记录"},
+        {
+            "input": {"start_date": "2026-03-01", "end_date": "2026-03-31"},
+            "output_summary": "返回本月的报销记录",
+        },
     ]
     related_tools = ["submit_expense", "approve_expense", "check_budget"]
     gotchas = "状态可选值：pending/approved/rejected。不传筛选条件则返回全部记录。日期格式为YYYY-MM-DD。"
@@ -158,7 +171,9 @@ class ListExpensesTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -197,7 +212,9 @@ class ListExpensesTool(BaseTool):
             lines = [f"💰 共找到 {len(claims)} 条报销记录:\n"]
             for c in claims:
                 status = status_labels.get(c.get("status", ""), c.get("status", ""))
-                etype = type_labels.get(c.get("expense_type", ""), c.get("expense_type", ""))
+                etype = type_labels.get(
+                    c.get("expense_type", ""), c.get("expense_type", "")
+                )
                 lines.append(
                     f"- **{etype}** | 单号: {c.get('claim_no', '')} | "
                     f"金额: ¥{c.get('total_amount', 0):,.2f} | "
@@ -218,11 +235,19 @@ class ApproveExpenseTool(BaseTool):
     description = "审批报销单，支持通过或驳回操作，需管理员权限"
     examples = [
         {
-            "input": {"expense_id": "uuid-xxxx", "action": "approve", "comment": "符合报销标准"},
+            "input": {
+                "expense_id": "uuid-xxxx",
+                "action": "approve",
+                "comment": "符合报销标准",
+            },
             "output_summary": "通过报销单并添加审批意见",
         },
         {
-            "input": {"expense_id": "uuid-xxxx", "action": "reject", "comment": "缺少发票附件"},
+            "input": {
+                "expense_id": "uuid-xxxx",
+                "action": "reject",
+                "comment": "缺少发票附件",
+            },
             "output_summary": "驳回报销单并说明原因",
         },
     ]
@@ -254,7 +279,9 @@ class ApproveExpenseTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -326,7 +353,9 @@ class CheckBudgetTool(BaseTool):
     }
     domain = "finance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:

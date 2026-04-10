@@ -36,12 +36,16 @@ def _dsar_cache_cleanup() -> None:
     if len(_dsar_requests) <= _DSAR_CACHE_MAXSIZE:
         return
     now = time.time()
-    expired_keys = [k for k, v in _dsar_requests.items() if now - v.get("_ts", 0) > _DSAR_CACHE_TTL]
+    expired_keys = [
+        k for k, v in _dsar_requests.items() if now - v.get("_ts", 0) > _DSAR_CACHE_TTL
+    ]
     for k in expired_keys:
         del _dsar_requests[k]
     # If still over limit after TTL eviction, remove oldest entries
     if len(_dsar_requests) > _DSAR_CACHE_MAXSIZE:
-        sorted_keys = sorted(_dsar_requests, key=lambda k: _dsar_requests[k].get("_ts", 0))
+        sorted_keys = sorted(
+            _dsar_requests, key=lambda k: _dsar_requests[k].get("_ts", 0)
+        )
         for k in sorted_keys[: len(_dsar_requests) - _DSAR_CACHE_MAXSIZE]:
             del _dsar_requests[k]
 
@@ -66,11 +70,15 @@ def _get_dsar_service() -> DSARService:
 
 
 class DSARExportRequest(BaseModel):
-    reason: str | None = Field(None, description="Optional reason for the data export request")
+    reason: str | None = Field(
+        None, description="Optional reason for the data export request"
+    )
 
 
 class DSARDeleteRequest(BaseModel):
-    reason: str = Field(..., min_length=1, description="Reason for data deletion request")
+    reason: str = Field(
+        ..., min_length=1, description="Reason for data deletion request"
+    )
     confirm: bool = Field(False, description="Must be true to confirm deletion")
 
 

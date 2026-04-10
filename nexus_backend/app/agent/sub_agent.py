@@ -43,7 +43,10 @@ class SubAgent:
             # 添加30秒超时控制
             result = await asyncio.wait_for(
                 self.graph.ainvoke(
-                    {"messages": [{"role": "user", "content": task["description"]}], "config": task.get("config", {})}
+                    {
+                        "messages": [{"role": "user", "content": task["description"]}],
+                        "config": task.get("config", {}),
+                    }
                 ),
                 timeout=30.0,
             )
@@ -61,9 +64,17 @@ class SupervisorAgent:
 
     def __init__(self):
         self.sub_agents = {
-            "content_writer": SubAgent("content_writer", ["write_article", "edit_content"], "你是内容创作专家"),
-            "data_analyst": SubAgent("data_analyst", ["analyze_data", "generate_report"], "你是数据分析专家"),
-            "customer_service": SubAgent("customer_service", ["reply_customer", "handle_complaint"], "你是客服专家"),
+            "content_writer": SubAgent(
+                "content_writer", ["write_article", "edit_content"], "你是内容创作专家"
+            ),
+            "data_analyst": SubAgent(
+                "data_analyst", ["analyze_data", "generate_report"], "你是数据分析专家"
+            ),
+            "customer_service": SubAgent(
+                "customer_service",
+                ["reply_customer", "handle_complaint"],
+                "你是客服专家",
+            ),
         }
 
     async def delegate(self, task: dict) -> dict:

@@ -89,8 +89,17 @@ from app.agent.nodes import (
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
-from app.agent.safety_guards import SLO_THRESHOLDS, has_irreversible_tool, is_mutation_fast_path
-from app.agent.state import AgentState, QueryComplexity, get_completed_tools, get_task_steps
+from app.agent.safety_guards import (
+    SLO_THRESHOLDS,
+    has_irreversible_tool,
+    is_mutation_fast_path,
+)
+from app.agent.state import (
+    AgentState,
+    QueryComplexity,
+    get_completed_tools,
+    get_task_steps,
+)
 from app.core.agent_metrics import record_agent_execution
 from app.core.config import settings
 from app.core.timeout import with_timeout
@@ -145,14 +154,20 @@ def _after_plan(state: AgentState) -> str:
     # Item 33: Reflection budget — skip reflect when budget exhausted
     reflection_count = state.get("reflection_count", 0)
     if reflection_count >= 2:
-        logger.info(f"[Graph] Reflection budget exhausted ({reflection_count}/2), skipping to respond")
+        logger.info(
+            f"[Graph] Reflection budget exhausted ({reflection_count}/2), skipping to respond"
+        )
         return "respond"
     # MODERATE with direct text (no tools needed) — skip reflect for speed
-    if state.get("complexity") == QueryComplexity.MODERATE and not get_completed_tools(state):
+    if state.get("complexity") == QueryComplexity.MODERATE and not get_completed_tools(
+        state
+    ):
         return "respond"
     # Fast-path: mutation-only tools with all-success → skip reflect+critic
     if _is_mutation_fast_path(state):
-        logger.info("[Graph] Mutation fast-path: all tools succeeded & irreversible, skipping reflect+critic")
+        logger.info(
+            "[Graph] Mutation fast-path: all tools succeeded & irreversible, skipping reflect+critic"
+        )
         return "respond"
     return "reflect"
 
@@ -199,7 +214,8 @@ def _after_execute(state: AgentState) -> str:
     completed = get_completed_tools(state)
     tool_summary = (
         ", ".join(
-            f"{tc.tool_name}={'ok' if tc.status == 'success' else tc.status}" for tc in completed[-5:]  # last 5 tools
+            f"{tc.tool_name}={'ok' if tc.status == 'success' else tc.status}"
+            for tc in completed[-5:]  # last 5 tools
         )
         if completed
         else "none"
@@ -224,7 +240,8 @@ def _after_execute(state: AgentState) -> str:
         if not state.get("_loop_escape_attempted"):
             # First loop: inject strategy-reset guidance, give LLM one chance to try differently
             logger.warning(
-                f"[Graph] Loop detected after {iteration} iterations, " f"attempting strategy reset (escape chance)"
+                f"[Graph] Loop detected after {iteration} iterations, "
+                f"attempting strategy reset (escape chance)"
             )
             state["_loop_escape_attempted"] = True
             state["reflection_guidance"] = (
@@ -236,7 +253,9 @@ def _after_execute(state: AgentState) -> str:
             return "plan"
 
         # Second loop: real circuit break
-        logger.warning(f"[Graph] Loop persists after strategy reset (iter={iteration}), forcing circuit break")
+        logger.warning(
+            f"[Graph] Loop persists after strategy reset (iter={iteration}), forcing circuit break"
+        )
         # Set structured circuit break reason for frontend event
         state["circuit_break_reason"] = "loop_detected"
         # Persist loop failure for analytics
@@ -255,7 +274,11 @@ def _after_execute(state: AgentState) -> str:
                     user_id=getattr(config, "user_id", None) if config else None,
                     user_message=user_message or "loop detected",
                     intent_summary=state.get("intent_summary"),
-                    complexity=state.get("complexity", "").value if state.get("complexity") else None,
+                    complexity=(
+                        state.get("complexity", "").value
+                        if state.get("complexity")
+                        else None
+                    ),
                     error_type="loop",
                     error_detail=f"Loop after {iteration} iterations",
                     severity="medium",
@@ -281,7 +304,9 @@ def _after_execute(state: AgentState) -> str:
             # skip critic review — user intent is clear, avoid SLO timeout
             config = state.get("config")
             if config and config.system_confirmed:
-                logger.info("[Graph] Irreversible tool succeeded + user confirmed → fast synthesize (skip reflect)")
+                logger.info(
+                    "[Graph] Irreversible tool succeeded + user confirmed → fast synthesize (skip reflect)"
+                )
                 return "synthesize"
             logger.info(
                 "[Graph] All tools succeeded but irreversible tool detected → reflect (G1: Critic review required)"
@@ -291,13 +316,19 @@ def _after_execute(state: AgentState) -> str:
         return "synthesize"
 
     # Some tools failed → back to plan with structured error guidance
-    failed_tools = [tc for tc in completed if (getattr(tc, "status", None) or tc.get("status")) == "error"]
+    failed_tools = [
+        tc
+        for tc in completed
+        if (getattr(tc, "status", None) or tc.get("status")) == "error"
+    ]
     if failed_tools:
         lines = ["以下工具执行失败，请根据错误类型调整策略："]
         for ft in failed_tools[:5]:
             name = getattr(ft, "tool_name", None) or ft.get("tool_name", "unknown")
             result = (getattr(ft, "result", "") or ft.get("result", "") or "")[:300]
-            err_type = getattr(ft, "error_type", None) or ft.get("error_type", "unknown")
+            err_type = getattr(ft, "error_type", None) or ft.get(
+                "error_type", "unknown"
+            )
             if err_type == "param_error":
                 lines.append(f"- {name} [参数错误]: {result}")
                 lines.append("  -> 检查参数格式和必填字段，修正后重试")
@@ -325,7 +356,9 @@ def _proactive_compress(state: AgentState) -> None:
         return
     compacted = _micro_compact_lc_messages(messages)
     state["messages"] = compacted
-    logger.info(f"[Graph] Proactive mid-reasoning compress applied ({len(messages)} messages)")
+    logger.info(
+        f"[Graph] Proactive mid-reasoning compress applied ({len(messages)} messages)"
+    )
 
 
 def _gc_state(state: AgentState) -> None:
@@ -379,7 +412,9 @@ def _after_reflect(state: AgentState) -> str:
         elapsed = time.time() - wall_clock_start
         slo = _SLO_THRESHOLDS.get(state.get("complexity"), 10.0)
         if elapsed > slo * 0.8:
-            logger.warning(f"[SLO] after_reflect: {elapsed:.1f}s > 80% of {slo}s, skipping to respond")
+            logger.warning(
+                f"[SLO] after_reflect: {elapsed:.1f}s > 80% of {slo}s, skipping to respond"
+            )
             return "respond"
 
     needs_replan = state.get("needs_replanning")
@@ -402,12 +437,16 @@ def _after_reflect(state: AgentState) -> str:
             # ToT backtrack logging
             backtrack_depth = state.get("backtrack_depth", 0)
             if backtrack_depth > 0:
-                logger.info(f"[Graph:ToT] Backtracking to alternative plan (depth={backtrack_depth})")
+                logger.info(
+                    f"[Graph:ToT] Backtracking to alternative plan (depth={backtrack_depth})"
+                )
             # Proactive compression: shrink messages mid-reasoning to save tokens
             if iteration >= 3:
                 _proactive_compress(state)
             return "plan"
-        logger.warning("[Graph] Needs replanning but max iterations reached, responding anyway")
+        logger.warning(
+            "[Graph] Needs replanning but max iterations reached, responding anyway"
+        )
 
     # P1-5: Route COMPLEX/CRITICAL through critic, but only when reflect
     # skipped its LLM layers (i.e., tools were involved). When reflect
@@ -480,7 +519,9 @@ def _after_error(state: AgentState) -> str:
     if not error:
         # Recovery succeeded — but guard against infinite recovery loops
         if iteration >= max_iter:
-            logger.warning("[Graph] Error cleared but max iterations reached, responding")
+            logger.warning(
+                "[Graph] Error cleared but max iterations reached, responding"
+            )
             return "respond"
         return "plan"
 
@@ -489,7 +530,8 @@ def _after_error(state: AgentState) -> str:
     # Level 2+: recovery exhausted, respond with best-effort
     if recovery_level >= 2:
         logger.warning(
-            f"[Graph] Error recovery exhausted (level={recovery_level}), " f"responding with graceful degradation"
+            f"[Graph] Error recovery exhausted (level={recovery_level}), "
+            f"responding with graceful degradation"
         )
     return "respond"
 
@@ -526,7 +568,10 @@ def _after_router(state: AgentState) -> str:
 
     # Parallel optimization: for COMPLEX/CRITICAL queries with RAG enabled,
     # run context retrieval concurrently with planning
-    if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and settings.LANGGRAPH_ENABLE_RAG_INJECT:
+    if (
+        complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+        and settings.LANGGRAPH_ENABLE_RAG_INJECT
+    ):
         config = state.get("config")
         if config and config.enable_rag_inject:
             return "parallel_plan"
@@ -557,7 +602,9 @@ def _after_critic(state: AgentState) -> str:
         elapsed = time.time() - wall_clock_start
         slo = _SLO_THRESHOLDS.get(state.get("complexity"), 10.0)
         if elapsed > slo * 0.9:
-            logger.warning(f"[SLO] after_critic: {elapsed:.1f}s > 90% of {slo}s, force respond")
+            logger.warning(
+                f"[SLO] after_critic: {elapsed:.1f}s > 90% of {slo}s, force respond"
+            )
             return "respond"
 
     if not state.get("critic_passed", True):
@@ -566,7 +613,9 @@ def _after_critic(state: AgentState) -> str:
         iteration = state.get("iteration", 0)
         if iteration < max_iter:
             return "plan"
-        logger.warning("[Graph] Critic failed but max iterations reached, responding anyway")
+        logger.warning(
+            "[Graph] Critic failed but max iterations reached, responding anyway"
+        )
     return "respond"
 
 
@@ -806,7 +855,9 @@ class AgentGraph:
         if self._checkpointer is None:
             self._checkpointer = get_checkpointer()
 
-        logger.info(f"[AgentGraph] Compiling LangGraph state machine (version {current_version})...")
+        logger.info(
+            f"[AgentGraph] Compiling LangGraph state machine (version {current_version})..."
+        )
         t0 = _time.monotonic()
         graph = build_agent_graph()
 
@@ -835,7 +886,9 @@ class AgentGraph:
         logger.info("[AgentGraph] Graph marked for reload on next access")
 
     @with_timeout(120)
-    async def run(self, initial_state: AgentState, thread_id: str = "default") -> AgentState:
+    async def run(
+        self, initial_state: AgentState, thread_id: str = "default"
+    ) -> AgentState:
         """
         Run the graph to completion and return the final state.
         Suitable for non-streaming use cases (tests, batch jobs).
@@ -844,7 +897,9 @@ class AgentGraph:
         messages = initial_state.get("messages", [])
         if len(messages) > 50:
             logger.warning("Conversation exceeded 50 turns, rejecting request")
-            initial_state["final_response"] = "对话轮次已达上限（50轮），请开始新的对话。"
+            initial_state["final_response"] = (
+                "对话轮次已达上限（50轮），请开始新的对话。"
+            )
             initial_state["error"] = "MAX_TURNS_EXCEEDED"
             return initial_state
 
@@ -862,7 +917,9 @@ class AgentGraph:
             duration = time.time() - start_time
 
             # Record token usage
-            tokens = result.get("total_input_tokens", 0) + result.get("total_output_tokens", 0)
+            tokens = result.get("total_input_tokens", 0) + result.get(
+                "total_output_tokens", 0
+            )
             cost = tokens * 0.00001  # Simplified cost calculation
 
             record_agent_execution(
@@ -904,7 +961,11 @@ class AgentGraph:
             yield event
 
     async def astream_events(
-        self, initial_state: AgentState, thread_id: str = "default", version: str = "v2", config: dict | None = None
+        self,
+        initial_state: AgentState,
+        thread_id: str = "default",
+        version: str = "v2",
+        config: dict | None = None,
     ):
         """
         Async generator for granular events (token streaming, etc.).
@@ -919,7 +980,9 @@ class AgentGraph:
         if config:
             # Merge configurable keys from caller (e.g. trace_logger)
             base_config["configurable"].update(config.get("configurable", {}))
-        async for event in self.compiled.astream_events(initial_state, config=base_config, version=version):
+        async for event in self.compiled.astream_events(
+            initial_state, config=base_config, version=version
+        ):
             yield event
 
     async def get_state(self, thread_id: str) -> AgentState | None:
@@ -964,13 +1027,21 @@ class AgentGraph:
                     {
                         "checkpoint_id": checkpoint_config.get("checkpoint_id"),
                         "checkpoint_ns": checkpoint_config.get("checkpoint_ns", ""),
-                        "values_summary": {k: str(v)[:200] for k, v in values.items() if k != "messages"},
+                        "values_summary": {
+                            k: str(v)[:200]
+                            for k, v in values.items()
+                            if k != "messages"
+                        },
                         "message_count": len(values.get("messages", [])),
-                        "next_nodes": list(state_snapshot.next) if state_snapshot.next else [],
+                        "next_nodes": (
+                            list(state_snapshot.next) if state_snapshot.next else []
+                        ),
                         "created_at": metadata.get("created_at"),
                         "step": metadata.get("step"),
                         "parent_checkpoint_id": (
-                            state_snapshot.parent_config.get("configurable", {}).get("checkpoint_id")
+                            state_snapshot.parent_config.get("configurable", {}).get(
+                                "checkpoint_id"
+                            )
                             if getattr(state_snapshot, "parent_config", None)
                             else None
                         ),
@@ -979,7 +1050,9 @@ class AgentGraph:
                 if len(states) >= limit:
                     break
         except Exception as e:
-            logger.warning(f"[AgentGraph] get_state_history failed for {thread_id}: {e}")
+            logger.warning(
+                f"[AgentGraph] get_state_history failed for {thread_id}: {e}"
+            )
 
         return states
 
@@ -1014,5 +1087,7 @@ def warmup_agent_graph() -> AgentGraph:
         # Trigger lazy compilation by accessing .compiled
         _ = _precompiled_graph.compiled
         elapsed_ms = int((_time.monotonic() - t0) * 1000)
-        logger.info("[Graph] Warm-up complete: agent graph pre-compiled in %d ms", elapsed_ms)
+        logger.info(
+            "[Graph] Warm-up complete: agent graph pre-compiled in %d ms", elapsed_ms
+        )
     return _precompiled_graph

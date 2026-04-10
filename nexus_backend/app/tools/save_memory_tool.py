@@ -92,7 +92,9 @@ class SaveMemoryTool(BaseTool):
             "required": ["key", "value"],
         }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] | None = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] | None = None
+    ) -> str:
         from app.services.conversation_memory_service import conversation_memory_service
 
         key = args["key"]
@@ -113,7 +115,9 @@ class SaveMemoryTool(BaseTool):
                 importance=importance,
                 org_id=org_id,
             )
-            logger.info(f"[SaveMemory] Agent actively saved: key={key}, category={category}, importance={importance}")
+            logger.info(
+                f"[SaveMemory] Agent actively saved: key={key}, category={category}, importance={importance}"
+            )
             snippet = value[:80] + ("…" if len(value) > 80 else "")
             return f"✅ 已记住: {key} = {snippet}"
         except Exception as e:

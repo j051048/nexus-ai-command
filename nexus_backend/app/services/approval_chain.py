@@ -81,7 +81,9 @@ DEFAULT_CHAINS: dict[str, ApprovalChainConfig] = {
         description="适用于各类请假申请",
         applies_to=["leave", "vacation", "sick_leave"],
         steps=[
-            ApprovalStep(ApprovalLevel.AUTO, 1, "system", timeout_hours=0),  # 1 day auto
+            ApprovalStep(
+                ApprovalLevel.AUTO, 1, "system", timeout_hours=0
+            ),  # 1 day auto
             ApprovalStep(ApprovalLevel.MANAGER, 5, "manager", timeout_hours=24),
             ApprovalStep(ApprovalLevel.DIRECTOR, 15, "director", timeout_hours=48),
             ApprovalStep(ApprovalLevel.CEO, float("inf"), "ceo", timeout_hours=72),
@@ -118,7 +120,9 @@ class ApprovalChainService:
                 return chain
         return self.chains["default"]
 
-    async def load_chain_from_db(self, org_id: str, approval_type: str, db=None) -> dict | None:
+    async def load_chain_from_db(
+        self, org_id: str, approval_type: str, db=None
+    ) -> dict | None:
         """
         Load the active workflow definition from DB for the given org and approval type.
         Falls back to DEFAULT_CHAINS if no DB definition is found.
@@ -158,7 +162,9 @@ class ApprovalChainService:
             if result.data:
                 chain_data = result.data[0]
                 chain_data["source"] = "database"
-                logger.info(f"Loaded workflow '{chain_data['name']}' from DB for org={org_id}, type={approval_type}")
+                logger.info(
+                    f"Loaded workflow '{chain_data['name']}' from DB for org={org_id}, type={approval_type}"
+                )
                 return chain_data
 
         except Exception as e:
@@ -182,7 +188,9 @@ class ApprovalChainService:
             "source": "default",
         }
 
-    def determine_approval_level(self, approval_type: str, amount: float) -> tuple[ApprovalStep, int]:
+    def determine_approval_level(
+        self, approval_type: str, amount: float
+    ) -> tuple[ApprovalStep, int]:
         """
         Determine which approval level is required based on type and amount.
         Returns (ApprovalStep, step_index)
@@ -196,7 +204,9 @@ class ApprovalChainService:
         # Return highest level if amount exceeds all thresholds
         return chain.steps[-1], len(chain.steps) - 1
 
-    async def get_approvers_for_step(self, step: ApprovalStep, requester_id: str) -> list[dict]:
+    async def get_approvers_for_step(
+        self, step: ApprovalStep, requester_id: str
+    ) -> list[dict]:
         """
         Get list of users who can approve at the given step.
         """
@@ -232,7 +242,11 @@ class ApprovalChainService:
         try:
             # P2: First try manager_id direct lookup
             user = (
-                await client.table("users").select("department, manager_id").eq("id", user_id).maybe_single().execute()
+                await client.table("users")
+                .select("department, manager_id")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
             )
 
             if not user.data:
@@ -243,7 +257,13 @@ class ApprovalChainService:
 
             # Strategy 1: Use manager_id if available
             if manager_id:
-                manager = await client.table("users").select("id, name").eq("id", manager_id).maybe_single().execute()
+                manager = (
+                    await client.table("users")
+                    .select("id, name")
+                    .eq("id", manager_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if manager.data:
                     return manager.data
 
@@ -262,7 +282,13 @@ class ApprovalChainService:
                     return manager.data[0]
 
             # Strategy 3: Fallback to any founder
-            founder = await client.table("users").select("id, name").eq("role", "founder").limit(1).execute()
+            founder = (
+                await client.table("users")
+                .select("id, name")
+                .eq("role", "founder")
+                .limit(1)
+                .execute()
+            )
 
             return founder.data[0] if founder.data else None
         except Exception as e:
@@ -377,7 +403,9 @@ class ApprovalChainService:
                     # Calculate timeout
                     timeout_hours = step.get("timeout_hours", 48)
                     if timeout_hours and timeout_hours > 0:
-                        timeout_at = (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat()
+                        timeout_at = (
+                            datetime.now(UTC) + timedelta(hours=timeout_hours)
+                        ).isoformat()
 
                 break
 
@@ -437,7 +465,9 @@ class ApprovalChainService:
             # Get approvers for this level
             approvers = await self.get_approvers_for_step(step, requester_id)
             result["approvers"] = approvers
-            result["reason"] = f"需要 {step.level.value} 级别审批 (限额: ¥{step.threshold})"
+            result["reason"] = (
+                f"需要 {step.level.value} 级别审批 (限额: ¥{step.threshold})"
+            )
 
             # Try to get direct manager first for manager-level approvals
             if step.level == ApprovalLevel.MANAGER:
@@ -559,7 +589,13 @@ class ApprovalChainService:
             raise ValueError("Database client unavailable")
 
         # Fetch current request
-        req_result = await client.table("approval_requests").select("*").eq("id", request_id).maybe_single().execute()
+        req_result = (
+            await client.table("approval_requests")
+            .select("*")
+            .eq("id", request_id)
+            .maybe_single()
+            .execute()
+        )
 
         if not req_result.data:
             raise RuntimeError(f"Approval request {request_id} not found")
@@ -576,7 +612,9 @@ class ApprovalChainService:
 
         # Optimistic lock: reject if already processed
         if current_status != "pending":
-            raise RuntimeError(f"Approval {request_id} already {current_status}, cannot advance")
+            raise RuntimeError(
+                f"Approval {request_id} already {current_status}, cannot advance"
+            )
 
         # Record this decision in history
         history_entry = {
@@ -605,9 +643,19 @@ class ApprovalChainService:
                 if current_step < len(chain_steps):
                     current_node_def = chain_steps[current_step]
 
-            reject_to = current_node_def.get("reject_to", "start") if current_node_def else "start"
+            reject_to = (
+                current_node_def.get("reject_to", "start")
+                if current_node_def
+                else "start"
+            )
             reject_to_step = (
-                0 if reject_to == "start" else self._find_step_index(chain_steps, reject_to) if chain_result.data else 0
+                0
+                if reject_to == "start"
+                else (
+                    self._find_step_index(chain_steps, reject_to)
+                    if chain_result.data
+                    else 0
+                )
             )
 
             update_data = {
@@ -630,8 +678,12 @@ class ApprovalChainService:
                 .execute()
             )
             if not result.data:
-                raise RuntimeError(f"Approval {request_id} was modified concurrently, please retry")
-            logger.info(f"Approval {request_id} rejected by {approver_id} at step {current_step}")
+                raise RuntimeError(
+                    f"Approval {request_id} was modified concurrently, please retry"
+                )
+            logger.info(
+                f"Approval {request_id} rejected by {approver_id} at step {current_step}"
+            )
             return result.data[0]
 
         # If approved, check if there are more steps in the chain
@@ -642,7 +694,11 @@ class ApprovalChainService:
         if chain_id:
             # Load the chain definition to check step count
             chain_result = (
-                await client.table("approval_chains").select("steps").eq("id", chain_id).maybe_single().execute()
+                await client.table("approval_chains")
+                .select("steps")
+                .eq("id", chain_id)
+                .maybe_single()
+                .execute()
             )
             if chain_result.data:
                 chain_steps = chain_result.data.get("steps", [])
@@ -655,7 +711,9 @@ class ApprovalChainService:
 
                     # Handle condition nodes: evaluate and skip to target
                     if next_step_type == "condition":
-                        target = await self.evaluate_condition(next_step_def, request_data)
+                        target = await self.evaluate_condition(
+                            next_step_def, request_data
+                        )
                         if target is not None:
                             # Find the target step index by ID
                             target_index = self._find_step_index(chain_steps, target)
@@ -706,7 +764,9 @@ class ApprovalChainService:
                                     .execute()
                                 )
                                 if not result.data:
-                                    raise RuntimeError(f"Approval {request_id} was modified concurrently, please retry")
+                                    raise RuntimeError(
+                                        f"Approval {request_id} was modified concurrently, please retry"
+                                    )
                                 logger.info(
                                     f"Approval {request_id} auto-approved at step {next_step} "
                                     f"(amount={amount}, threshold={threshold})"
@@ -770,21 +830,31 @@ class ApprovalChainService:
                     if next_step_type == "parallel_gateway":
                         mode = next_step_def.get("mode", "all")
                         approvers = next_step_def.get("approvers", [])
-                        min_approvals = next_step_def.get("min_approvals", len(approvers))
+                        min_approvals = next_step_def.get(
+                            "min_approvals", len(approvers)
+                        )
 
                         # Record this parallel decision
-                        await self._record_parallel_decision(request_id, approver_id, decision, next_step, client)
+                        await self._record_parallel_decision(
+                            request_id, approver_id, decision, next_step, client
+                        )
 
                         # Get all decisions for this step
-                        decisions = await self._get_parallel_decisions(request_id, next_step, client)
+                        decisions = await self._get_parallel_decisions(
+                            request_id, next_step, client
+                        )
 
                         # Check if approval condition is met
-                        approved_count = sum(1 for d in decisions if d["decision"] == "approved")
+                        approved_count = sum(
+                            1 for d in decisions if d["decision"] == "approved"
+                        )
 
                         if mode == "all":
                             # All must approve
                             if approved_count == len(approvers):
-                                logger.info(f"Parallel gateway all-approved for {request_id}")
+                                logger.info(
+                                    f"Parallel gateway all-approved for {request_id}"
+                                )
                                 # All approved, move to next step
                                 next_step += 1
                                 has_more_steps = next_step < len(chain_steps)
@@ -826,7 +896,10 @@ class ApprovalChainService:
                         _parallel_approvers = next_step_def.get("approvers", [])
                         # Check how many parallel approvals we have at this step
                         parallel_count = sum(
-                            1 for h in history if h.get("step") == next_step and h.get("decision") == "approved"
+                            1
+                            for h in history
+                            if h.get("step") == next_step
+                            and h.get("decision") == "approved"
                         )
                         if parallel_count < required_approvals:
                             # Still waiting for more parallel approvals
@@ -835,15 +908,21 @@ class ApprovalChainService:
 
                 if has_more_steps:
                     # Calculate timeout for next step
-                    next_step_def = chain_steps[next_step] if next_step < len(chain_steps) else {}
+                    next_step_def = (
+                        chain_steps[next_step] if next_step < len(chain_steps) else {}
+                    )
                     timeout_hours = next_step_def.get("timeout_hours", 48)
                     timeout_at = (
-                        (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat() if timeout_hours > 0 else None
+                        (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat()
+                        if timeout_hours > 0
+                        else None
                     )
 
                     update_data = {
                         "current_step": next_step,
-                        "approval_level": next_step_def.get("level", next_step_def.get("approver_role", "")),
+                        "approval_level": next_step_def.get(
+                            "level", next_step_def.get("approver_role", "")
+                        ),
                         "approval_history": history,
                         "timeout_at": timeout_at,
                     }
@@ -880,7 +959,9 @@ class ApprovalChainService:
         )
 
         if not result.data:
-            raise RuntimeError(f"Approval {request_id} was modified concurrently, please retry")
+            raise RuntimeError(
+                f"Approval {request_id} was modified concurrently, please retry"
+            )
 
         logger.info(
             f"Advanced approval {request_id}: step {current_step} -> {next_step}, "
@@ -1030,11 +1111,15 @@ class ApprovalChainService:
                                 if chain_result.data:
                                     steps = chain_result.data.get("steps", [])
                                     if new_step < len(steps):
-                                        timeout_hours = steps[new_step].get("timeout_hours", 48)
+                                        timeout_hours = steps[new_step].get(
+                                            "timeout_hours", 48
+                                        )
                             except Exception:
                                 pass
 
-                        new_timeout = (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat()
+                        new_timeout = (
+                            datetime.now(UTC) + timedelta(hours=timeout_hours)
+                        ).isoformat()
 
                         # Update the request with escalation info (optimistic lock)
                         esc_update_result = await (
@@ -1042,7 +1127,9 @@ class ApprovalChainService:
                             .update(
                                 {
                                     "current_step": new_step,
-                                    "approval_level": esc_result.get("approval_level", ""),
+                                    "approval_level": esc_result.get(
+                                        "approval_level", ""
+                                    ),
                                     "escalated": True,
                                     "timeout_at": new_timeout,
                                 }
@@ -1053,10 +1140,14 @@ class ApprovalChainService:
                             .execute()
                         )
                         if not esc_update_result.data:
-                            logger.info(f"Approval {request_id} already escalated concurrently, skipping")
+                            logger.info(
+                                f"Approval {request_id} already escalated concurrently, skipping"
+                            )
                             continue
                         escalated_count += 1
-                        logger.info(f"Escalated approval {request_id} from step {current_step} to {new_step}")
+                        logger.info(
+                            f"Escalated approval {request_id} from step {current_step} to {new_step}"
+                        )
                     else:
                         # Already at highest level, mark as escalated to prevent re-processing
                         await (
@@ -1065,7 +1156,9 @@ class ApprovalChainService:
                             .eq("id", request_id)
                             .execute()
                         )
-                        logger.warning(f"Approval {request_id} at highest level, cannot escalate further")
+                        logger.warning(
+                            f"Approval {request_id} at highest level, cannot escalate further"
+                        )
 
                 except Exception as e:
                     logger.error(f"Error escalating request {req.get('id')}: {e}")
@@ -1078,18 +1171,32 @@ class ApprovalChainService:
 
         return escalated_count
 
-    async def _record_execution(self, request_id: str, executor_id: str, action: str, evidence: str | None, db):
+    async def _record_execution(
+        self, request_id: str, executor_id: str, action: str, evidence: str | None, db
+    ):
         """记录执行确认"""
         client = db or supabase
         await client.table("workflow_executions").insert(
-            {"request_id": request_id, "executor_id": executor_id, "action": action, "evidence_url": evidence}
+            {
+                "request_id": request_id,
+                "executor_id": executor_id,
+                "action": action,
+                "evidence_url": evidence,
+            }
         ).execute()
 
-    async def _record_parallel_decision(self, request_id: str, approver_id: str, decision: str, step_index: int, db):
+    async def _record_parallel_decision(
+        self, request_id: str, approver_id: str, decision: str, step_index: int, db
+    ):
         """记录并行审批决策"""
         client = db or supabase
         await client.table("parallel_approval_decisions").insert(
-            {"request_id": request_id, "step_index": step_index, "approver_id": approver_id, "decision": decision}
+            {
+                "request_id": request_id,
+                "step_index": step_index,
+                "approver_id": approver_id,
+                "decision": decision,
+            }
         ).execute()
 
     async def _get_parallel_decisions(self, request_id: str, step_index: int, db):

@@ -22,8 +22,14 @@ _ERROR_CODE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"42703"), "column-not-found"),
     (re.compile(r"429|rate.?limit", re.IGNORECASE), "rate-limit"),
     (re.compile(r"timeout|timed?\s*out", re.IGNORECASE), "timeout"),
-    (re.compile(r"connection.?(?:refused|reset|error)", re.IGNORECASE), "connection-error"),
-    (re.compile(r"permission.?denied|403|forbidden", re.IGNORECASE), "permission-denied"),
+    (
+        re.compile(r"connection.?(?:refused|reset|error)", re.IGNORECASE),
+        "connection-error",
+    ),
+    (
+        re.compile(r"permission.?denied|403|forbidden", re.IGNORECASE),
+        "permission-denied",
+    ),
     (re.compile(r"not.?found|404", re.IGNORECASE), "not-found"),
 ]
 
@@ -55,7 +61,9 @@ def _derive_pattern_key(
     if tool_calls:
         first_tool = None
         for tc in tool_calls[:3]:
-            name = tc.get("tool_name") or tc.get("name") if isinstance(tc, dict) else None
+            name = (
+                tc.get("tool_name") or tc.get("name") if isinstance(tc, dict) else None
+            )
             if name:
                 first_tool = name
                 break
@@ -116,12 +124,16 @@ class FailureLogService:
                 row["error_detail"] = error_detail[:2000]
 
             await db.table("agent_failure_logs").insert(row).execute()
-            logger.info(f"[FailureLog] Recorded {error_type} failure (severity={severity}, pattern={pattern_key})")
+            logger.info(
+                f"[FailureLog] Recorded {error_type} failure (severity={severity}, pattern={pattern_key})"
+            )
         except Exception as e:
             # Never let logging failures crash the agent
             logger.warning(f"[FailureLog] Failed to write failure log: {e}")
 
-    async def get_top_failures(self, org_id: str, days: int = 7, limit: int = 10) -> list[dict]:
+    async def get_top_failures(
+        self, org_id: str, days: int = 7, limit: int = 10
+    ) -> list[dict]:
         """Get top failure patterns for an org in the last N days.
 
         Groups by pattern_key for better aggregation, falls back to
@@ -153,7 +165,9 @@ class FailureLogService:
             # Fetch recent failures with pattern_key
             result = await (
                 db.table("agent_failure_logs")
-                .select("error_type, severity, user_message, error_detail, pattern_key, created_at")
+                .select(
+                    "error_type, severity, user_message, error_detail, pattern_key, created_at"
+                )
                 .eq("organization_id", org_id)
                 .gte("created_at", since)
                 .order("created_at", desc=True)
@@ -189,7 +203,9 @@ class FailureLogService:
                     pg["saturated"] = True
 
             # Sort by count desc, return top N
-            sorted_patterns = sorted(pattern_groups.values(), key=lambda x: x["count"], reverse=True)
+            sorted_patterns = sorted(
+                pattern_groups.values(), key=lambda x: x["count"], reverse=True
+            )
             return sorted_patterns[:limit]
 
         except Exception as e:

@@ -24,7 +24,13 @@ async def get_dashboard_config(
     """获取仪表板配置"""
     try:
         db = getattr(req.state, "db", None)
-        result = await db.table("dashboard_configs").select("*").eq("user_id", user_id).maybe_single().execute()
+        result = (
+            await db.table("dashboard_configs")
+            .select("*")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
         return api_success(data={"config": result.data})
     except Exception as e:
         logger.error(f"Failed to get dashboard config: {e}")
@@ -42,7 +48,10 @@ async def upsert_dashboard_config(
         db = getattr(req.state, "db", None)
         data = {"user_id": user_id, "config": body.config}
         result = await db.table("dashboard_configs").upsert(data).execute()
-        return api_success(data={"config": result.data[0] if result.data else None}, message="配置已保存")
+        return api_success(
+            data={"config": result.data[0] if result.data else None},
+            message="配置已保存",
+        )
     except Exception as e:
         logger.error(f"Failed to upsert dashboard config: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "保存配置失败")
@@ -59,7 +68,12 @@ async def list_audit_logs(
         org_id = getattr(req.state, "org_id", None)
         db = getattr(req.state, "db", None)
 
-        query = db.table("audit_logs").select("*").order("created_at", desc=True).limit(min(limit, 200))
+        query = (
+            db.table("audit_logs")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(min(limit, 200))
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
 

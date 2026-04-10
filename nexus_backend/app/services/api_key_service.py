@@ -88,7 +88,9 @@ class APIKeyService:
 
             if result.data and len(result.data) > 0:
                 created = result.data[0]
-                logger.info(f"API Key 已创建: org={org_id}, name={name}, prefix={key_prefix}")
+                logger.info(
+                    f"API Key 已创建: org={org_id}, name={name}, prefix={key_prefix}"
+                )
                 return {
                     "id": created.get("id"),
                     "name": name,
@@ -106,7 +108,9 @@ class APIKeyService:
             logger.error(f"创建 API Key 失败: {e}")
             raise
 
-    async def validate_api_key(self, key_string: str, required_scope: str | None = None, db=None) -> dict | None:
+    async def validate_api_key(
+        self, key_string: str, required_scope: str | None = None, db=None
+    ) -> dict | None:
         """
         验证 API Key 并返回关联信息
 
@@ -130,7 +134,12 @@ class APIKeyService:
 
         try:
             result = await (
-                db.table("api_keys").select("*").eq("key_hash", key_hash).eq("is_active", True).maybe_single().execute()
+                db.table("api_keys")
+                .select("*")
+                .eq("key_hash", key_hash)
+                .eq("is_active", True)
+                .maybe_single()
+                .execute()
             )
 
             if not result.data:
@@ -143,7 +152,9 @@ class APIKeyService:
             if expires_at:
                 expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
                 if expiry < datetime.now(UTC):
-                    logger.warning(f"API Key 已过期: prefix={key_data.get('key_prefix')}")
+                    logger.warning(
+                        f"API Key 已过期: prefix={key_data.get('key_prefix')}"
+                    )
                     return None
 
             # 检查权限范围
@@ -229,7 +240,12 @@ class APIKeyService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await db.table("api_keys").update({"is_active": False}).eq("id", key_id).execute()
+            result = (
+                await db.table("api_keys")
+                .update({"is_active": False})
+                .eq("id", key_id)
+                .execute()
+            )
 
             if result.data:
                 logger.info(f"API Key 已撤销: {key_id}")
@@ -240,7 +256,9 @@ class APIKeyService:
             logger.error(f"撤销 API Key 失败: {e}")
             raise
 
-    async def get_api_usage(self, key_id: str, date_range: dict | None = None, db=None) -> dict:
+    async def get_api_usage(
+        self, key_id: str, date_range: dict | None = None, db=None
+    ) -> dict:
         """
         获取 API Key 使用统计
 
@@ -277,14 +295,23 @@ class APIKeyService:
                 if date_range.get("to"):
                     query = query.lte("created_at", date_range["to"])
 
-            logs_result = await query.order("created_at", desc=True).limit(500).execute()
+            logs_result = (
+                await query.order("created_at", desc=True).limit(500).execute()
+            )
             logs = logs_result.data or []
 
             # 计算统计
             total_calls = len(logs)
-            success_calls = sum(1 for log_entry in logs if 200 <= (log_entry.get("status_code") or 0) < 400)
+            success_calls = sum(
+                1
+                for log_entry in logs
+                if 200 <= (log_entry.get("status_code") or 0) < 400
+            )
             avg_response_time = (
-                sum(log_entry.get("response_time_ms", 0) for log_entry in logs) / total_calls if total_calls > 0 else 0
+                sum(log_entry.get("response_time_ms", 0) for log_entry in logs)
+                / total_calls
+                if total_calls > 0
+                else 0
             )
 
             # 按端点统计
@@ -312,7 +339,13 @@ class APIKeyService:
             raise
 
     async def log_api_usage(
-        self, key_id: str, endpoint: str, method: str, status_code: int, response_time_ms: int, db=None
+        self,
+        key_id: str,
+        endpoint: str,
+        method: str,
+        status_code: int,
+        response_time_ms: int,
+        db=None,
     ) -> None:
         """
         记录 API 使用日志

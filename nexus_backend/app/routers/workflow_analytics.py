@@ -49,9 +49,16 @@ async def get_department_expense_trend(
 
         return api_success(
             data={
-                "data": [{"month": month, "amount": amount} for month, amount in sorted(monthly_data.items())],
+                "data": [
+                    {"month": month, "amount": amount}
+                    for month, amount in sorted(monthly_data.items())
+                ],
                 "total": sum(monthly_data.values()),
-                "avg_per_month": sum(monthly_data.values()) / len(monthly_data) if monthly_data else 0,
+                "avg_per_month": (
+                    sum(monthly_data.values()) / len(monthly_data)
+                    if monthly_data
+                    else 0
+                ),
             }
         )
 

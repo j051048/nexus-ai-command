@@ -65,7 +65,13 @@ async def _get_user_role(user_id: str) -> str | None:
     # Fetch from database
     if supabase:
         try:
-            result = await supabase.table("users").select("role").eq("id", user_id).single().execute()
+            result = (
+                await supabase.table("users")
+                .select("role")
+                .eq("id", user_id)
+                .single()
+                .execute()
+            )
             if result.data:
                 role = result.data.get("role", "employee")
                 await cache_service.set_user_role(user_id, role)

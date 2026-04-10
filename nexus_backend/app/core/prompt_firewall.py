@@ -96,34 +96,74 @@ _JAILBREAK_PATTERNS: list[tuple[str, str, RiskLevel]] = [
         "jailbreak_mode_switch",
         RiskLevel.CRITICAL,
     ),
-    (r"from\s+now\s+on\s+you\s+(will|must|should|shall)\s+", "jailbreak_behaviour_reset", RiskLevel.HIGH),
+    (
+        r"from\s+now\s+on\s+you\s+(will|must|should|shall)\s+",
+        "jailbreak_behaviour_reset",
+        RiskLevel.HIGH,
+    ),
     (
         r"(forget|disregard|override)\s+(all\s+)?(your\s+)?(rules|restrictions?|safety|guidelines)",
         "jailbreak_forget_rules",
         RiskLevel.CRITICAL,
     ),
-    (r"do\s+(anything|whatever)\s+(i|we)\s+(say|ask|want)", "jailbreak_compliance_demand", RiskLevel.HIGH),
+    (
+        r"do\s+(anything|whatever)\s+(i|we)\s+(say|ask|want)",
+        "jailbreak_compliance_demand",
+        RiskLevel.HIGH,
+    ),
     (r"(no\s+)?content\s+policy", "jailbreak_policy_bypass", RiskLevel.HIGH),
     # Chinese
-    (r"忽略(之前|上面|以上|所有|先前)(的)?(指令|命令|提示|规则|限制)", "jailbreak_ignore_cn", RiskLevel.CRITICAL),
-    (r"你(现在|从现在开始)?(是|变成|扮演)\s*[^\s]{1,30}", "jailbreak_identity_cn", RiskLevel.HIGH),
+    (
+        r"忽略(之前|上面|以上|所有|先前)(的)?(指令|命令|提示|规则|限制)",
+        "jailbreak_ignore_cn",
+        RiskLevel.CRITICAL,
+    ),
+    (
+        r"你(现在|从现在开始)?(是|变成|扮演)\s*[^\s]{1,30}",
+        "jailbreak_identity_cn",
+        RiskLevel.HIGH,
+    ),
     (r"假装(你是|成为?|自己是)\s*", "jailbreak_pretend_cn", RiskLevel.CRITICAL),
-    (r"(开启|进入|切换到?)(开发者|调试|管理员|上帝|无限制)\s*模式", "jailbreak_mode_cn", RiskLevel.CRITICAL),
-    (r"不要?(遵守|遵循|执行|遵从)(任何|所有)?(规则|限制|安全)", "jailbreak_bypass_cn", RiskLevel.CRITICAL),
-    (r"忘记(之前|上面|以前)(的)?(设定|身份|角色|规则)", "jailbreak_forget_cn", RiskLevel.CRITICAL),
+    (
+        r"(开启|进入|切换到?)(开发者|调试|管理员|上帝|无限制)\s*模式",
+        "jailbreak_mode_cn",
+        RiskLevel.CRITICAL,
+    ),
+    (
+        r"不要?(遵守|遵循|执行|遵从)(任何|所有)?(规则|限制|安全)",
+        "jailbreak_bypass_cn",
+        RiskLevel.CRITICAL,
+    ),
+    (
+        r"忘记(之前|上面|以前)(的)?(设定|身份|角色|规则)",
+        "jailbreak_forget_cn",
+        RiskLevel.CRITICAL,
+    ),
 ]
 
 # Layer 2 — Prompt injection (hidden payloads)
 _INJECTION_PATTERNS: list[tuple[str, str, RiskLevel]] = [
     # Special token markers used to inject system-level context
-    (r"<\|(?:im_start|im_end|system|endoftext)\|>", "injection_special_token", RiskLevel.CRITICAL),
-    (r"\[INST\]|\[/INST\]|<<SYS>>|<</SYS>>", "injection_llama_token", RiskLevel.CRITICAL),
+    (
+        r"<\|(?:im_start|im_end|system|endoftext)\|>",
+        "injection_special_token",
+        RiskLevel.CRITICAL,
+    ),
+    (
+        r"\[INST\]|\[/INST\]|<<SYS>>|<</SYS>>",
+        "injection_llama_token",
+        RiskLevel.CRITICAL,
+    ),
     # Markdown comment hiding
     (r"<!--[\s\S]*?-->", "injection_html_comment", RiskLevel.HIGH),
     # Triple-backtick system block
     (r"```\s*(system|prompt|instruction)", "injection_code_block", RiskLevel.HIGH),
     # Markdown-heading injection
-    (r"###\s*(SYSTEM|INSTRUCTION|PROMPT|OVERRIDE)", "injection_heading", RiskLevel.HIGH),
+    (
+        r"###\s*(SYSTEM|INSTRUCTION|PROMPT|OVERRIDE)",
+        "injection_heading",
+        RiskLevel.HIGH,
+    ),
     # Double-bracket / angle-bracket / curly-bracket directives
     (r"\[\[\s*SYSTEM\b.*?\]\]", "injection_bracket_system", RiskLevel.CRITICAL),
     # Attempts to reveal system prompt
@@ -145,11 +185,27 @@ _ROLE_REVERSAL_PATTERNS: list[tuple[str, str, RiskLevel]] = [
     (r"act\s+as\s+(if|though|a|an)\s+", "role_act_as", RiskLevel.HIGH),
     (r"role[- ]?play\s+(as|that)\s+", "role_roleplay", RiskLevel.HIGH),
     (r"simulate\s+(being|a)\s+", "role_simulate", RiskLevel.MEDIUM),
-    (r"you\s+are\s+(a|an)\s+(?!(helpful|sales|assistant|AI))", "role_identity_change", RiskLevel.HIGH),
-    (r"(from\s+now\s+on\s+)?respond\s+(only\s+)?as\s+", "role_respond_as", RiskLevel.HIGH),
+    (
+        r"you\s+are\s+(a|an)\s+(?!(helpful|sales|assistant|AI))",
+        "role_identity_change",
+        RiskLevel.HIGH,
+    ),
+    (
+        r"(from\s+now\s+on\s+)?respond\s+(only\s+)?as\s+",
+        "role_respond_as",
+        RiskLevel.HIGH,
+    ),
     # Chinese
-    (r"(角色扮演|扮演|模拟|化身)(成|为|一个)?\s*", "role_reversal_cn", RiskLevel.MEDIUM),
-    (r"你(不再|不是)(一个?)?(AI|助手|人工智能)", "role_deny_identity_cn", RiskLevel.HIGH),
+    (
+        r"(角色扮演|扮演|模拟|化身)(成|为|一个)?\s*",
+        "role_reversal_cn",
+        RiskLevel.MEDIUM,
+    ),
+    (
+        r"你(不再|不是)(一个?)?(AI|助手|人工智能)",
+        "role_deny_identity_cn",
+        RiskLevel.HIGH,
+    ),
 ]
 
 
@@ -180,7 +236,9 @@ class PromptFirewall:
     def _compile(self) -> None:
         """Pre-compile regex banks."""
 
-        def _build(raw: list[tuple[str, str, RiskLevel]]) -> list[tuple[re.Pattern, str, RiskLevel]]:
+        def _build(
+            raw: list[tuple[str, str, RiskLevel]]
+        ) -> list[tuple[re.Pattern, str, RiskLevel]]:
             out = []
             for pat_str, name, level in raw:
                 try:
@@ -211,7 +269,9 @@ class PromptFirewall:
         violations found, and a sanitised version of the input.
         """
         if not text:
-            return FirewallResult(is_safe=True, risk_level=RiskLevel.LOW, sanitized_input=text or "")
+            return FirewallResult(
+                is_safe=True, risk_level=RiskLevel.LOW, sanitized_input=text or ""
+            )
 
         violations: list[FirewallViolation] = []
 
@@ -258,7 +318,9 @@ class PromptFirewall:
         aggregate_risk = max_risk.risk_level
 
         # is_safe = False when risk >= block_threshold
-        is_safe = _RISK_ORDER[aggregate_risk] < _RISK_ORDER[self._config.block_threshold]
+        is_safe = (
+            _RISK_ORDER[aggregate_risk] < _RISK_ORDER[self._config.block_threshold]
+        )
 
         # Sanitise: strip invisible chars, but keep visible text
         sanitized = self._strip_invisible(text)
@@ -341,7 +403,9 @@ class PromptFirewall:
         for m in b64_pattern.finditer(text):
             blob = m.group()
             try:
-                decoded = base64.b64decode(blob).decode("utf-8", errors="ignore").lower()
+                decoded = (
+                    base64.b64decode(blob).decode("utf-8", errors="ignore").lower()
+                )
             except Exception:
                 continue
 

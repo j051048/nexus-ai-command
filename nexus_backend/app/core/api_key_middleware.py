@@ -74,11 +74,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                     from app.core.database import supabase
 
                     if supabase:
-                        request.state.db = supabase.get_org_filtered_client(key_info["organization_id"])
+                        request.state.db = supabase.get_org_filtered_client(
+                            key_info["organization_id"]
+                        )
                     else:
                         request.state.db = None
 
-                    logger.debug(f"API Key 认证成功: key_id={key_info['key_id']}, org_id={key_info['organization_id']}")
+                    logger.debug(
+                        f"API Key 认证成功: key_id={key_info['key_id']}, org_id={key_info['organization_id']}"
+                    )
 
                     # 执行请求
                     response = await call_next(request)
@@ -97,7 +101,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                     return response
                 else:
                     # API Key 无效，不立即拒绝，让后续中间件尝试 JWT
-                    logger.warning(f"API Key 验证失败，降级到 JWT: path={request.url.path}")
+                    logger.warning(
+                        f"API Key 验证失败，降级到 JWT: path={request.url.path}"
+                    )
 
             except Exception as e:
                 logger.warning(f"API Key 中间件错误: {e}")

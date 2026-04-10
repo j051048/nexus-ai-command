@@ -28,7 +28,9 @@ async def get_subscription(
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
         raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
-    sub = await billing_service.get_subscription(org_id, db=getattr(req.state, "db", None))
+    sub = await billing_service.get_subscription(
+        org_id, db=getattr(req.state, "db", None)
+    )
     return api_success(data={"subscription": sub.__dict__ if sub else None})
 
 
@@ -47,12 +49,16 @@ async def subscribe(
         try:
             plan = BillingPlan(plan_name)
         except ValueError:
-            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"Invalid plan: {plan_name}")
+            raise api_error(
+                ErrorCode.VALIDATION_INVALID_INPUT, f"Invalid plan: {plan_name}"
+            )
 
         org_id = getattr(req.state, "org_id", None)
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
-        sub = await billing_service.create_subscription(org_id, plan, db=getattr(req.state, "db", None))
+        sub = await billing_service.create_subscription(
+            org_id, plan, db=getattr(req.state, "db", None)
+        )
         return api_success(data={"subscription": sub.__dict__})
     except Exception as e:
         logger.error(f"Subscription failed: {e}")
@@ -68,7 +74,9 @@ async def cancel_subscription(
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
         raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
-    success = await billing_service.cancel_subscription(org_id, db=getattr(req.state, "db", None))
+    success = await billing_service.cancel_subscription(
+        org_id, db=getattr(req.state, "db", None)
+    )
     return api_success(data={"cancelled": success})
 
 
@@ -81,7 +89,9 @@ async def billing_webhook(req: Request):
     """
     from app.services.payment_gateway import payment_gateway
 
-    logger.warning("Deprecated billing webhook endpoint called — use /api/webhooks/stripe instead")
+    logger.warning(
+        "Deprecated billing webhook endpoint called — use /api/webhooks/stripe instead"
+    )
 
     try:
         raw_body = await req.body()
@@ -89,7 +99,9 @@ async def billing_webhook(req: Request):
 
         if not signature:
             logger.warning("Billing webhook received without signature")
-            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Missing webhook signature")
+            raise api_error(
+                ErrorCode.AUTH_PERMISSION_DENIED, "Missing webhook signature"
+            )
 
         result = await payment_gateway.handle_webhook(raw_body, signature)
         return api_success(data=result)
@@ -115,5 +127,7 @@ async def start_trial(
     except Exception:
         days = 14
 
-    result = await billing_service.start_trial(org_id, days=days, db=getattr(req.state, "db", None))
+    result = await billing_service.start_trial(
+        org_id, days=days, db=getattr(req.state, "db", None)
+    )
     return api_success(data=result)

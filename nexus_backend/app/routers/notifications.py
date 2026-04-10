@@ -21,7 +21,9 @@ router = APIRouter(prefix="/api/notifications", tags=["Notification Center"])
 
 
 class MarkReadBody(BaseModel):
-    notification_ids: list[str] = Field(..., min_length=1, description="要标记已读的通知 ID 列表")
+    notification_ids: list[str] = Field(
+        ..., min_length=1, description="要标记已读的通知 ID 列表"
+    )
 
 
 class UpdatePreferencesBody(BaseModel):
@@ -30,7 +32,9 @@ class UpdatePreferencesBody(BaseModel):
     im_enabled: bool | None = None
     quiet_hours_start: str | None = Field(None, description="免打扰开始时间 (HH:MM)")
     quiet_hours_end: str | None = Field(None, description="免打扰结束时间 (HH:MM)")
-    categories: dict | None = Field(None, description="分类通知开关 {approval: bool, system: bool, ...}")
+    categories: dict | None = Field(
+        None, description="分类通知开关 {approval: bool, system: bool, ...}"
+    )
 
 
 # ─── Endpoints ───────────────────────────────────────────────

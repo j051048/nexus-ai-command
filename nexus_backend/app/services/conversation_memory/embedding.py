@@ -5,7 +5,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def generate_embedding(text: str, org_id: str | None = None) -> list[float] | None:
+async def generate_embedding(
+    text: str, org_id: str | None = None
+) -> list[float] | None:
     """Generate embedding vector for memory text. Returns None on failure."""
     try:
         from app.services.vector_service import vector_service

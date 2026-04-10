@@ -26,7 +26,8 @@ _REDIS_HOT_CACHE_TTL = 3600
 # Queries matching these patterns should bypass cache entirely
 # (creative writing, long-form content — users expect unique output each time)
 _CACHE_BYPASS_RE = re.compile(
-    r"\d{3,}\s*字|千字|万字|长文|软文|推广文|写一[篇份]" r"|方案书|策划案|创作|编写.{0,10}报告"
+    r"\d{3,}\s*字|千字|万字|长文|软文|推广文|写一[篇份]"
+    r"|方案书|策划案|创作|编写.{0,10}报告"
 )
 
 # Error/rejection prefixes — never cache these responses
@@ -45,7 +46,11 @@ class SemanticCacheService:
     """
 
     def __init__(self):
-        self.threshold = settings.SEMANTIC_CACHE_THRESHOLD if hasattr(settings, "SEMANTIC_CACHE_THRESHOLD") else 0.95
+        self.threshold = (
+            settings.SEMANTIC_CACHE_THRESHOLD
+            if hasattr(settings, "SEMANTIC_CACHE_THRESHOLD")
+            else 0.95
+        )
         self.ttl_hours = (
             settings.SEMANTIC_CACHE_TTL_HOURS
             if hasattr(settings, "SEMANTIC_CACHE_TTL_HOURS")
@@ -54,7 +59,11 @@ class SemanticCacheService:
         # Initialize OpenAI client for embeddings
         self.openai_client = AsyncOpenAI(
             api_key=settings.OPENAI_API_KEY,
-            base_url=(settings.AI_BASE_URL.split("/chat/completions")[0].rstrip("/") if settings.AI_BASE_URL else None),
+            base_url=(
+                settings.AI_BASE_URL.split("/chat/completions")[0].rstrip("/")
+                if settings.AI_BASE_URL
+                else None
+            ),
         )
         # Embedding model (will be dynamically resolved on first use)
         self._embedding_model = _DEFAULT_EMBEDDING_MODEL
@@ -81,7 +90,9 @@ class SemanticCacheService:
                     base_url=config.get("base_url"),
                 )
         except Exception as e:
-            logger.error(f"Semantic cache embedding resolution failed, using default: {e}")
+            logger.error(
+                f"Semantic cache embedding resolution failed, using default: {e}"
+            )
         self._embedding_resolved = True
 
     async def _get_redis(self):
@@ -186,7 +197,9 @@ class SemanticCacheService:
                 try:
                     cached_val = await r.get(_redis_cache_key(query_hash, user_id))
                     if cached_val:
-                        logger.info(f"Semantic Cache Redis-Hit: query='{query[:30]}...'")
+                        logger.info(
+                            f"Semantic Cache Redis-Hit: query='{query[:30]}...'"
+                        )
                         record_cache_hit()
                         self._hits += 1
                         return cached_val
@@ -243,7 +256,9 @@ class SemanticCacheService:
 
             if res.data and len(res.data) > 0:
                 match = res.data[0]
-                logger.info(f"Semantic Cache Hit: query='{query[:30]}...', similarity={match['similarity']:.4f}")
+                logger.info(
+                    f"Semantic Cache Hit: query='{query[:30]}...', similarity={match['similarity']:.4f}"
+                )
 
                 # Update hit count (Async, don't wait)
                 import asyncio
@@ -296,7 +311,13 @@ class SemanticCacheService:
             embedding = response.data[0].embedding
 
             # 2. Get org_id for multi-tenancy
-            u_res = await supabase.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
+            u_res = (
+                await supabase.table("users")
+                .select("organization_id")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
             org_id = u_res.data.get("organization_id") if u_res and u_res.data else None
 
             # 3. Upsert into cache (on conflict with query_hash, update response)
@@ -342,7 +363,9 @@ class SemanticCacheService:
         back to a non-atomic read/write cycle.
         """
         try:
-            await supabase.rpc("increment_cache_hit", {"p_cache_id": cache_id}).execute()
+            await supabase.rpc(
+                "increment_cache_hit", {"p_cache_id": cache_id}
+            ).execute()
         except Exception as e:
             # NOTE: We intentionally do NOT fall back to a read-then-write
             # pattern here because that introduces a race condition when
@@ -375,14 +398,19 @@ class SemanticCacheService:
         try:
             # 1. 查出该 org 下的缓存条目（需要 user_ids 来清 Redis）
             rows = (
-                await supabase.table("semantic_cache").select("id, query_text, user_id").eq("org_id", org_id).execute()
+                await supabase.table("semantic_cache")
+                .select("id, query_text, user_id")
+                .eq("org_id", org_id)
+                .execute()
             )
             entries = rows.data or []
             if not entries:
                 return 0
 
             # 2. 批量删除 DB 中该 org 的所有缓存
-            await supabase.table("semantic_cache").delete().eq("org_id", org_id).execute()
+            await supabase.table("semantic_cache").delete().eq(
+                "org_id", org_id
+            ).execute()
             deleted = len(entries)
 
             # 3. 清除 Redis 热缓存
@@ -401,7 +429,9 @@ class SemanticCacheService:
                 except Exception:
                     pass  # Redis failure is non-fatal
 
-            logger.info(f"[SemanticCache] Invalidated {deleted} entries for org={org_id}")
+            logger.info(
+                f"[SemanticCache] Invalidated {deleted} entries for org={org_id}"
+            )
 
         except Exception as e:
             logger.warning(f"Failed to invalidate semantic cache for org={org_id}: {e}")
@@ -423,7 +453,10 @@ class SemanticCacheService:
         try:
             # 查出该 org 的缓存并在 Python 端过滤关键词
             rows = (
-                await supabase.table("semantic_cache").select("id, query_text, user_id").eq("org_id", org_id).execute()
+                await supabase.table("semantic_cache")
+                .select("id, query_text, user_id")
+                .eq("org_id", org_id)
+                .execute()
             )
             entries = rows.data or []
             if not entries:
@@ -431,13 +464,19 @@ class SemanticCacheService:
 
             # 筛选包含任意关键词的条目
             kw_lower = [k.lower() for k in keywords]
-            matched = [e for e in entries if any(k in (e.get("query_text") or "").lower() for k in kw_lower)]
+            matched = [
+                e
+                for e in entries
+                if any(k in (e.get("query_text") or "").lower() for k in kw_lower)
+            ]
             if not matched:
                 return 0
 
             # 逐条删除匹配的缓存
             matched_ids = [e["id"] for e in matched]
-            await supabase.table("semantic_cache").delete().in_("id", matched_ids).execute()
+            await supabase.table("semantic_cache").delete().in_(
+                "id", matched_ids
+            ).execute()
             deleted = len(matched_ids)
 
             # 清除 Redis 热缓存
@@ -449,14 +488,17 @@ class SemanticCacheService:
                         uid = entry.get("user_id")
                         qt = entry.get("query_text")
                         if uid and qt:
-                            keys_to_del.append(_redis_cache_key(self._query_hash(qt), uid))
+                            keys_to_del.append(
+                                _redis_cache_key(self._query_hash(qt), uid)
+                            )
                     if keys_to_del:
                         await r.delete(*keys_to_del)
                 except Exception:
                     pass
 
             logger.info(
-                f"[SemanticCache] Keyword-invalidated {deleted} entries " f"for org={org_id}, keywords={keywords[:3]}"
+                f"[SemanticCache] Keyword-invalidated {deleted} entries "
+                f"for org={org_id}, keywords={keywords[:3]}"
             )
 
         except Exception as e:
@@ -491,13 +533,22 @@ class SemanticCacheService:
         cutoff = self._ttl_cutoff()
         try:
             # Fetch expired entry count first for logging
-            rows = await supabase.table("semantic_cache").select("id", count="exact").lt("created_at", cutoff).execute()
+            rows = (
+                await supabase.table("semantic_cache")
+                .select("id", count="exact")
+                .lt("created_at", cutoff)
+                .execute()
+            )
             count = rows.count or 0
             if count == 0:
                 return 0
             # Delete expired entries
-            await supabase.table("semantic_cache").delete().lt("created_at", cutoff).execute()
-            logger.info(f"[SemanticCache] Cleaned up {count} expired entries (TTL={self.ttl_hours}h)")
+            await supabase.table("semantic_cache").delete().lt(
+                "created_at", cutoff
+            ).execute()
+            logger.info(
+                f"[SemanticCache] Cleaned up {count} expired entries (TTL={self.ttl_hours}h)"
+            )
             return count
         except Exception as e:
             logger.warning(f"Failed to cleanup expired cache entries: {e}")

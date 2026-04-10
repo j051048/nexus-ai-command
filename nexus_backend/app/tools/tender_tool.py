@@ -35,7 +35,9 @@ class TenderAnalysisTool(BaseTool):
         "required": ["tender_text"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         text = args.get("tender_text", "")
         if not text:
             return "❌ 错误: 未提供招标文件内容。"

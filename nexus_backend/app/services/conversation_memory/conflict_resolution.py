@@ -159,7 +159,9 @@ async def resolve_memory_conflicts(
                         "recurrence_count": new_count,
                     }
                 )
-                logger.debug("[ConflictResolve] Pattern-key dedup: %s (count=%d)", pk, new_count)
+                logger.debug(
+                    "[ConflictResolve] Pattern-key dedup: %s (count=%d)", pk, new_count
+                )
                 continue
         except Exception as e:
             logger.error(f"Pattern-key dedup lookup failed for {pk}: {e}")
@@ -168,7 +170,9 @@ async def resolve_memory_conflicts(
 
     if not remaining_memories:
         if results:
-            logger.info(f"[ConflictResolve] user={user_id} all {len(results)} memories deduped by pattern_key")
+            logger.info(
+                f"[ConflictResolve] user={user_id} all {len(results)} memories deduped by pattern_key"
+            )
         return results
 
     # ── Step 1: Vector search + cosine similarity pre-filter ──────────
@@ -205,7 +209,11 @@ async def resolve_memory_conflicts(
             try:
                 from datetime import UTC, datetime
 
-                old_count = near_dup.get("recurrence_count") or near_dup.get("access_count") or 1
+                old_count = (
+                    near_dup.get("recurrence_count")
+                    or near_dup.get("access_count")
+                    or 1
+                )
                 new_count = old_count + 1
                 await (
                     client.table("conversation_memories")
@@ -261,7 +269,9 @@ async def resolve_memory_conflicts(
                     fact_type=mem.get("fact_type", "fact"),
                     confidence=mem.get("confidence", 1.0),
                 )
-                results.append({"id": saved.get("id"), "event": "ADD", "text": mem["value"]})
+                results.append(
+                    {"id": saved.get("id"), "event": "ADD", "text": mem["value"]}
+                )
                 # Audit log
                 await log_memory_change(
                     memory_id=str(saved.get("id", "")),
@@ -295,7 +305,9 @@ async def resolve_memory_conflicts(
                     valid_from=mem.get("valid_from"),
                     pattern_key=mem.get("pattern_key"),
                 )
-                results.append({"id": saved.get("id"), "event": "ADD", "text": mem["value"]})
+                results.append(
+                    {"id": saved.get("id"), "event": "ADD", "text": mem["value"]}
+                )
             except Exception as e2:
                 logger.warning(f"Fallback save failed: {e2}")
         return results
@@ -521,7 +533,9 @@ async def _update_existing_memory(
     try:
         old_result = (
             await client.table("conversation_memories")
-            .select("user_id, organization_id, category, key, importance, version, metadata")
+            .select(
+                "user_id, organization_id, category, key, importance, version, metadata"
+            )
             .eq("id", memory_id)
             .maybe_single()
             .execute()
@@ -555,9 +569,15 @@ async def _update_existing_memory(
 
     new_id = None
     try:
-        new_result = await client.table("conversation_memories").insert(insert_data).execute()
+        new_result = (
+            await client.table("conversation_memories").insert(insert_data).execute()
+        )
         if new_result.data:
-            row = new_result.data[0] if isinstance(new_result.data, list) else new_result.data
+            row = (
+                new_result.data[0]
+                if isinstance(new_result.data, list)
+                else new_result.data
+            )
             new_id = row.get("id")
     except Exception as e:
         logger.warning(f"[ConflictRes] Failed to insert new memory version: {e}")
@@ -600,7 +620,9 @@ async def _delete_existing_memory(
     if not client:
         return
 
-    await client.table("conversation_memories").delete().eq("id", memory_id).eq("user_id", user_id).execute()
+    await client.table("conversation_memories").delete().eq("id", memory_id).eq(
+        "user_id", user_id
+    ).execute()
 
 
 async def _find_matching_new_mem(text: str, new_memories: list[dict]) -> dict:
@@ -626,7 +648,9 @@ async def _find_matching_new_mem(text: str, new_memories: list[dict]) -> dict:
                 for mem in new_memories:
                     mem_emb = await vector_service.embed_text(mem.get("value", ""))
                     if mem_emb:
-                        score = sum(a * b for a, b in zip(text_emb, mem_emb, strict=False))
+                        score = sum(
+                            a * b for a, b in zip(text_emb, mem_emb, strict=False)
+                        )
                         if score > best_score:
                             best_score = score
                             best_match = mem

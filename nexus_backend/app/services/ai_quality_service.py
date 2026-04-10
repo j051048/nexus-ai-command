@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 class AIQualityService:
     """Aggregates agent execution quality metrics."""
 
-    async def aggregate_daily_metrics(self, tenant_id: str | None = None, db=None) -> dict:
+    async def aggregate_daily_metrics(
+        self, tenant_id: str | None = None, db=None
+    ) -> dict:
         """
         Aggregate today's metrics from agent_trace_service and persist to ai_quality_daily.
         Called by Celery beat task daily.
@@ -35,7 +37,9 @@ class AIQualityService:
         positive = 0
         negative = 0
         try:
-            today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0).isoformat()
+            today_start = (
+                datetime.now(UTC).replace(hour=0, minute=0, second=0).isoformat()
+            )
             fb_query = db.table("ai_feedback").select("rating", count="exact")
             if tenant_id:
                 fb_query = fb_query.eq("tenant_id", tenant_id)
@@ -69,8 +73,12 @@ class AIQualityService:
         }
 
         try:
-            await db.table("ai_quality_daily").upsert(record, on_conflict="tenant_id,metric_date").execute()
-            logger.info("AI quality metrics aggregated for %s: %s", tenant_id or "global", today)
+            await db.table("ai_quality_daily").upsert(
+                record, on_conflict="tenant_id,metric_date"
+            ).execute()
+            logger.info(
+                "AI quality metrics aggregated for %s: %s", tenant_id or "global", today
+            )
             return {"status": "ok", "date": today, "metrics": record}
         except Exception as e:
             logger.error("Failed to persist AI quality metrics: %s", e)
@@ -89,7 +97,12 @@ class AIQualityService:
 
         try:
             since = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
-            query = db.table("ai_quality_daily").select("*").gte("metric_date", since).order("metric_date", desc=False)
+            query = (
+                db.table("ai_quality_daily")
+                .select("*")
+                .gte("metric_date", since)
+                .order("metric_date", desc=False)
+            )
             if tenant_id:
                 query = query.eq("tenant_id", tenant_id)
 
@@ -122,17 +135,23 @@ class AIQualityService:
         completed = sum(d.get("completed_traces", 0) for d in trend)
         total_tokens = sum(d.get("total_tokens", 0) for d in trend)
         total_cost = sum(float(d.get("total_cost_usd", 0)) for d in trend)
-        durations = [d.get("avg_duration_ms", 0) for d in trend if d.get("avg_duration_ms")]
+        durations = [
+            d.get("avg_duration_ms", 0) for d in trend if d.get("avg_duration_ms")
+        ]
         pos = sum(d.get("positive_feedback", 0) for d in trend)
         neg = sum(d.get("negative_feedback", 0) for d in trend)
 
         return {
             "total_traces": total_traces,
-            "success_rate": round(completed / total_traces * 100, 1) if total_traces else 0,
+            "success_rate": (
+                round(completed / total_traces * 100, 1) if total_traces else 0
+            ),
             "avg_duration_ms": int(sum(durations) / len(durations)) if durations else 0,
             "total_tokens": total_tokens,
             "total_cost_usd": round(total_cost, 4),
-            "satisfaction_rate": round(pos / (pos + neg) * 100, 1) if (pos + neg) > 0 else 0,
+            "satisfaction_rate": (
+                round(pos / (pos + neg) * 100, 1) if (pos + neg) > 0 else 0
+            ),
             "positive_feedback": pos,
             "negative_feedback": neg,
             "days": days,

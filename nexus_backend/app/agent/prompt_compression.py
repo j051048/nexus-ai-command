@@ -13,7 +13,13 @@ Strategy:
 import logging
 import re
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +74,9 @@ def _micro_compact_lc_messages(messages: list[BaseMessage]) -> list[BaseMessage]
             lines = content.split("\n", 3)
             first_line = lines[0][:120] if lines else content[:120]
             line_count = content.count("\n") + 1
-            new_content = f"[已执行, {line_count} 行 / {len(content)} 字符] {first_line}..."
+            new_content = (
+                f"[已执行, {line_count} 行 / {len(content)} 字符] {first_line}..."
+            )
             result.append(SystemMessage(content=new_content))
             compacted_chars += len(new_content)
         elif isinstance(msg, AIMessage) and len(content) > _LC_ASSISTANT_MSG_THRESHOLD:
@@ -77,7 +85,11 @@ def _micro_compact_lc_messages(messages: list[BaseMessage]) -> list[BaseMessage]
             if len(new_content) > _LC_ASSISTANT_MSG_THRESHOLD:
                 head = _LC_ASSISTANT_MSG_THRESHOLD * 2 // 3
                 tail = _LC_ASSISTANT_MSG_THRESHOLD // 3
-                new_content = new_content[:head] + f"\n...(原文 {len(content)} 字符, 已省略)...\n" + new_content[-tail:]
+                new_content = (
+                    new_content[:head]
+                    + f"\n...(原文 {len(content)} 字符, 已省略)...\n"
+                    + new_content[-tail:]
+                )
             result.append(AIMessage(content=new_content))
             compacted_chars += len(new_content)
         else:
@@ -87,7 +99,8 @@ def _micro_compact_lc_messages(messages: list[BaseMessage]) -> list[BaseMessage]
     if compacted_chars < original_chars:
         saved = original_chars - compacted_chars
         logger.info(
-            f"[MicroCompact-LC] {len(messages)} msgs: " f"{original_chars} → {compacted_chars} chars (saved {saved})"
+            f"[MicroCompact-LC] {len(messages)} msgs: "
+            f"{original_chars} → {compacted_chars} chars (saved {saved})"
         )
 
     return result
@@ -249,7 +262,9 @@ async def _update_summary(
         )
         return summary
     except Exception as e:
-        logger.warning(f"[PromptCompression] Incremental update failed: {e}, appending new summary")
+        logger.warning(
+            f"[PromptCompression] Incremental update failed: {e}, appending new summary"
+        )
         # Fallback: 在已有摘要后追加新消息的简单摘要
         fallback = await _summarize_messages(new_messages, model=model)
         return f"{existing_summary}\n\n[后续补充]\n{fallback}"
@@ -315,14 +330,24 @@ async def _summarize_messages(
         )
         return summary
     except Exception as e:
-        logger.warning(f"[PromptCompression] LLM summarization failed: {e}, using truncation fallback")
+        logger.warning(
+            f"[PromptCompression] LLM summarization failed: {e}, using truncation fallback"
+        )
         # Fallback: simple truncation — take first and last messages
         fallback_parts = []
         if messages:
-            first_content = messages[0].content if isinstance(messages[0].content, str) else str(messages[0].content)
+            first_content = (
+                messages[0].content
+                if isinstance(messages[0].content, str)
+                else str(messages[0].content)
+            )
             fallback_parts.append(f"(对话开头) {first_content[:200]}")
         if len(messages) > 1:
-            last_content = messages[-1].content if isinstance(messages[-1].content, str) else str(messages[-1].content)
+            last_content = (
+                messages[-1].content
+                if isinstance(messages[-1].content, str)
+                else str(messages[-1].content)
+            )
             fallback_parts.append(f"(对话中间省略 {len(messages) - 2} 条消息)")
             fallback_parts.append(f"(最近一条) {last_content[:200]}")
         return " | ".join(fallback_parts)
@@ -384,7 +409,9 @@ def _deduplicate_consecutive_replies(messages: list[BaseMessage]) -> list[BaseMe
         )
 
     if len(result) < len(messages):
-        logger.info(f"[PromptCompression] Deduplicated {len(messages) - len(result)} repeated AI messages")
+        logger.info(
+            f"[PromptCompression] Deduplicated {len(messages) - len(result)} repeated AI messages"
+        )
 
     return result
 
@@ -409,7 +436,8 @@ def _fix_orphaned_tool_pairs(messages: list[BaseMessage]) -> list[BaseMessage]:
     filtered = [
         msg
         for msg in messages
-        if not isinstance(msg, ToolMessage) or getattr(msg, "tool_call_id", "") in valid_tool_call_ids
+        if not isinstance(msg, ToolMessage)
+        or getattr(msg, "tool_call_id", "") in valid_tool_call_ids
     ]
 
     removed = len(messages) - len(filtered)
@@ -486,7 +514,8 @@ async def compress_conversation_history(
         system_msgs = [
             msg
             for msg in system_msgs
-            if "[对话历史摘要" not in (msg.content if isinstance(msg.content, str) else str(msg.content))
+            if "[对话历史摘要"
+            not in (msg.content if isinstance(msg.content, str) else str(msg.content))
         ]
     else:
         summary = await _summarize_messages(older_msgs, model=model)
@@ -494,7 +523,11 @@ async def compress_conversation_history(
     # Reconstruct compressed message list
     compressed = list(system_msgs)
     if summary:
-        compressed.append(SystemMessage(content=f"[对话历史摘要（前 {len(older_msgs)} 条消息）]\n{summary}"))
+        compressed.append(
+            SystemMessage(
+                content=f"[对话历史摘要（前 {len(older_msgs)} 条消息）]\n{summary}"
+            )
+        )
     compressed.extend(recent_msgs)
 
     new_token_count = _count_messages_tokens(compressed)

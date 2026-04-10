@@ -51,7 +51,9 @@ class EmailNotificationAdapter(BaseNotificationAdapter):
         self.smtp_from: str | None = getattr(settings, "SMTP_FROM", None)
 
         # 检查配置完整性
-        self._config_complete = all([self.smtp_host, self.smtp_user, self.smtp_password, self.smtp_from])
+        self._config_complete = all(
+            [self.smtp_host, self.smtp_user, self.smtp_password, self.smtp_from]
+        )
 
         if not self._config_complete:
             logger.warning(
@@ -128,7 +130,9 @@ class EmailNotificationAdapter(BaseNotificationAdapter):
             )
             return False
 
-    def _build_message(self, notification: Notification, recipient_email: str) -> MIMEMultipart:
+    def _build_message(
+        self, notification: Notification, recipient_email: str
+    ) -> MIMEMultipart:
         """
         构建 MIME 邮件消息
 
@@ -187,7 +191,9 @@ class EmailNotificationAdapter(BaseNotificationAdapter):
             recipients.extend(message["Bcc"].split(", "))
 
         # 发送邮件
-        async with aiosmtplib.SMTP(hostname=self.smtp_host, port=self.smtp_port, use_tls=use_tls) as smtp:
+        async with aiosmtplib.SMTP(
+            hostname=self.smtp_host, port=self.smtp_port, use_tls=use_tls
+        ) as smtp:
             # 如果不是 SSL，使用 STARTTLS
             if not use_tls:
                 await smtp.starttls()

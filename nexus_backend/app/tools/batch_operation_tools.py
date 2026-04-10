@@ -94,7 +94,13 @@ async def batch_update_leads(
     try:
         from app.core.database import supabase
 
-        result = await supabase.table("crm_leads").update(updates).in_("id", lead_ids).eq("org_id", org_id).execute()
+        result = (
+            await supabase.table("crm_leads")
+            .update(updates)
+            .in_("id", lead_ids)
+            .eq("org_id", org_id)
+            .execute()
+        )
 
         return {
             "success": True,

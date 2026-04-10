@@ -236,7 +236,11 @@ class WorkflowTemplateService:
             client = db or supabase
             if client:
                 try:
-                    query = client.table("workflow_shared_templates").select("*").eq("organization_id", org_id)
+                    query = (
+                        client.table("workflow_shared_templates")
+                        .select("*")
+                        .eq("organization_id", org_id)
+                    )
                     if category:
                         query = query.eq("category", category)
                     result = await query.order("created_at", desc=True).execute()
@@ -330,7 +334,9 @@ class WorkflowTemplateService:
             except Exception as e:
                 logger.warning(f"Failed to increment template usage count: {e}")
 
-        logger.info(f"Created workflow '{workflow_name}' from template '{template_id}' for org {org_id}")
+        logger.info(
+            f"Created workflow '{workflow_name}' from template '{template_id}' for org {org_id}"
+        )
         return created
 
     async def share_workflow_as_template(
@@ -376,12 +382,20 @@ class WorkflowTemplateService:
             "created_at": datetime.now(UTC).isoformat(),
         }
 
-        insert_result = await client.table("workflow_shared_templates").insert(template_data).execute()
+        insert_result = (
+            await client.table("workflow_shared_templates")
+            .insert(template_data)
+            .execute()
+        )
 
         if not insert_result.data:
             raise RuntimeError("分享模板失败")
 
-        shared = insert_result.data[0] if isinstance(insert_result.data, list) else insert_result.data
+        shared = (
+            insert_result.data[0]
+            if isinstance(insert_result.data, list)
+            else insert_result.data
+        )
 
         logger.info(f"Shared workflow '{workflow_id}' as template for org {org_id}")
         return shared

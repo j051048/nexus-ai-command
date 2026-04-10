@@ -71,7 +71,9 @@ class VectorService:
 
     _EMBED_CACHE_MAX = 500  # max cached embeddings (in-process LRU)
     _EMBED_CACHE_TTL = 3600  # 1 hour TTL for embedding cache entries
-    _embed_cache: OrderedDict[str, tuple[list[float], float]] = OrderedDict()  # key -> (embedding, timestamp)
+    _embed_cache: OrderedDict[str, tuple[list[float], float]] = (
+        OrderedDict()
+    )  # key -> (embedding, timestamp)
 
     # Phase 1: TurboQuant quantizer (lazy init)
     _quantizer: TurboQuant | None = None
@@ -91,7 +93,9 @@ class VectorService:
         """Lazy init TurboQuant quantizer"""
         if cls._quantizer is None:
             cls._quantizer = TurboQuant(d=_EMBEDDING_DIMENSIONS, b=3.5)
-            logger.info(f"TurboQuant initialized: {cls._quantizer.compression_ratio():.1f}x compression")
+            logger.info(
+                f"TurboQuant initialized: {cls._quantizer.compression_ratio():.1f}x compression"
+            )
         return cls._quantizer
 
     @classmethod
@@ -111,7 +115,9 @@ class VectorService:
     _embedding_config_cache: dict = {}
 
     @classmethod
-    async def _get_embedding_config(cls, org_id: str = "default") -> tuple[str, str, str]:
+    async def _get_embedding_config(
+        cls, org_id: str = "default"
+    ) -> tuple[str, str, str]:
         """Resolve embedding model directly via settings (Bypass DB lookups for performance)."""
         return (
             settings.OPENAI_API_KEY,
@@ -128,7 +134,9 @@ class VectorService:
             doc_type = meta.get("doc_type", "")
         return VectorService._DOC_TYPE_LABELS.get(doc_type, "")
 
-    async def _rerank_with_api(self, query: str, documents: list[dict], top_n: int = 5) -> list[dict]:
+    async def _rerank_with_api(
+        self, query: str, documents: list[dict], top_n: int = 5
+    ) -> list[dict]:
         """
         Use dedicated reranker model (bge-reranker-v2-m3) via API proxy.
         Expected latency: ~100ms vs 2-8s for LLM reranking.
@@ -146,7 +154,9 @@ class VectorService:
         # Build rerank API URL from base URL
         base_url = (settings.AI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
         # Strip /v1 suffix to get the root, then append /v1/rerank
-        base_root = base_url.rsplit("/v1", 1)[0] if base_url.endswith("/v1") else base_url
+        base_root = (
+            base_url.rsplit("/v1", 1)[0] if base_url.endswith("/v1") else base_url
+        )
         url = f"{base_root}/v1/rerank"
 
         doc_texts = [doc.get("content", "")[:500] for doc in documents[:max_docs]]
@@ -283,23 +293,35 @@ class VectorService:
         # P0 Security: Enforce org_id requirement
         if not org_id:
             if require_org_id or settings.IS_PRODUCTION:
-                logger.error(f"P0 Security Violation: Vector search called without org_id (user_id={user_id})")
+                logger.error(
+                    f"P0 Security Violation: Vector search called without org_id (user_id={user_id})"
+                )
                 return "搜索失败：缺少组织信息。请确保您已正确登录并属于某个组织。"
             else:
-                logger.warning(f"Vector search called without org_id in development mode (user_id={user_id})")
+                logger.warning(
+                    f"Vector search called without org_id in development mode (user_id={user_id})"
+                )
 
         limit = min(max(1, limit), 10)
         api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
 
-        raw_url = (config or {}).get("base_url") or settings.AI_BASE_URL or "https://api.openai.com/v1"
-        base_url = raw_url.split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
+        raw_url = (
+            (config or {}).get("base_url")
+            or settings.AI_BASE_URL
+            or "https://api.openai.com/v1"
+        )
+        base_url = (
+            raw_url.split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
+        )
         if "/v1" not in base_url and "api.openai.com" not in base_url:
             base_url = f"{base_url}/v1"
 
         # Resolve embedding model dynamically via gateway
         embedding_model = EMBEDDING_MODEL
         try:
-            gw_api_key, gw_base_url, gw_model = await self._get_embedding_config(org_id or "default")
+            gw_api_key, gw_base_url, gw_model = await self._get_embedding_config(
+                org_id or "default"
+            )
             if gw_model:
                 embedding_model = gw_model
             if gw_api_key:
@@ -325,7 +347,12 @@ class VectorService:
 
         try:
             return await self._search_supabase(
-                query, user_id, limit, client, org_id=org_id, embedding_model=embedding_model
+                query,
+                user_id,
+                limit,
+                client,
+                org_id=org_id,
+                embedding_model=embedding_model,
             )
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
@@ -355,7 +382,9 @@ class VectorService:
         async def run_vector_search():
             try:
                 response = await client.embeddings.create(
-                    input=query, model=_embedding_model, dimensions=_EMBEDDING_DIMENSIONS
+                    input=query,
+                    model=_embedding_model,
+                    dimensions=_EMBEDDING_DIMENSIONS,
                 )
                 embedding = response.data[0].embedding
                 params = {
@@ -386,10 +415,14 @@ class VectorService:
                     ).execute()
                     return res.data or []
                 except Exception as rpc_err:
-                    logger.debug(f"Keyword search RPC not available, falling back: {rpc_err}")
+                    logger.debug(
+                        f"Keyword search RPC not available, falling back: {rpc_err}"
+                    )
 
                 # P0 Security: Fallback query also respects org_id
-                base_query = supabase.table("document_embeddings").select("*, documents!inner(*)")
+                base_query = supabase.table("document_embeddings").select(
+                    "*, documents!inner(*)"
+                )
 
                 # Always filter by user_id for security
                 base_query = base_query.eq("documents.owner_id", user_id)
@@ -415,7 +448,9 @@ class VectorService:
                 logger.warning(f"Keyword search failed completely: {e}")
                 return []
 
-        vector_res, keyword_res = await asyncio.gather(run_vector_search(), run_keyword_search())
+        vector_res, keyword_res = await asyncio.gather(
+            run_vector_search(), run_keyword_search()
+        )
 
         # Graceful degradation
         if not vector_res and keyword_res:
@@ -431,11 +466,15 @@ class VectorService:
                 type_label = self._get_doc_type_label(item)
                 prefix = f"[{type_label}] " if type_label else ""
                 results.append(f"{prefix}{content} [来源: {source}]")
-            return "为您检索到以下相关企业知识 (关键词匹配):\n\n- " + "\n- ".join(results)
+            return "为您检索到以下相关企业知识 (关键词匹配):\n\n- " + "\n- ".join(
+                results
+            )
 
         # RRF Fusion
         fused_docs = self._rrf_fusion([vector_res, keyword_res], k=60)
-        top_docs_unsorted = sorted(fused_docs.values(), key=lambda x: x["score"], reverse=True)[: limit * 2]
+        top_docs_unsorted = sorted(
+            fused_docs.values(), key=lambda x: x["score"], reverse=True
+        )[: limit * 2]
 
         # Reranking (if enabled and enough documents)
         # Item 42: Use unified RerankerService with cohere/bge/llm backends
@@ -444,7 +483,9 @@ class VectorService:
             try:
                 from app.services.reranker_service import reranker_service
 
-                result = await reranker_service.rerank(query, top_docs_unsorted, top_k=rerank_top_n)
+                result = await reranker_service.rerank(
+                    query, top_docs_unsorted, top_k=rerank_top_n
+                )
                 top_docs = result.documents
                 logger.info(
                     f"Reranked {len(top_docs_unsorted)} docs to {len(top_docs)} "
@@ -457,13 +498,15 @@ class VectorService:
             top_docs = top_docs_unsorted[:limit]
 
         if not top_docs:
-            return (
-                f"知识库中未找到与 '{query}' 相关的公开或个人信息。建议您可以尝试更换关键词，或者上传相关文档后再试。"
-            )
+            return f"知识库中未找到与 '{query}' 相关的公开或个人信息。建议您可以尝试更换关键词，或者上传相关文档后再试。"
 
         results = []
         # P2: Parent-document retriever — batch-fetch parent chunks to avoid N+1 queries
-        parent_id_set = {item.get("parent_chunk_id") for item in top_docs if item.get("parent_chunk_id")}
+        parent_id_set = {
+            item.get("parent_chunk_id")
+            for item in top_docs
+            if item.get("parent_chunk_id")
+        }
         parent_content_map: dict[str, str] = {}
         if parent_id_set:
             try:
@@ -475,7 +518,9 @@ class VectorService:
                 )
                 if parent_res.data:
                     for row in parent_res.data:
-                        parent_content_map[str(row["id"])] = row.get("content", "").strip()
+                        parent_content_map[str(row["id"])] = row.get(
+                            "content", ""
+                        ).strip()
             except Exception as e:
                 logger.error(f"Batch parent chunk lookup failed: {e}")
 
@@ -493,7 +538,9 @@ class VectorService:
             source = meta.get("source") or meta.get("file_name") or "公司知识库"
             type_label = self._get_doc_type_label(item)
             prefix = f"[{type_label}] " if type_label else ""
-            results.append(f"{prefix}{content} [来源: {source}] (相似度: {item['score']:.4f})")
+            results.append(
+                f"{prefix}{content} [来源: {source}] (相似度: {item['score']:.4f})"
+            )
 
         return "为您检索到以下相关企业知识:\n\n- " + "\n- ".join(results)
 
@@ -537,10 +584,14 @@ class VectorService:
                 results.append(f"{item['content']} [来源: 模拟数据]")
 
         return (
-            "为您检索到以下相关知识 (Mock):\n- " + "\n- ".join(results) if results else "知识库中未找到相关信息 (Mock)."
+            "为您检索到以下相关知识 (Mock):\n- " + "\n- ".join(results)
+            if results
+            else "知识库中未找到相关信息 (Mock)."
         )
 
-    async def embed_text(self, text: str, org_id: str = "default") -> list[float] | None:
+    async def embed_text(
+        self, text: str, org_id: str = "default"
+    ) -> list[float] | None:
         """Generate an embedding vector for a single text string.
 
         Used by ConversationMemoryService for memory embeddings.
@@ -570,12 +621,17 @@ class VectorService:
                 return None
 
             # G5 Optimization: Use a shared persistent client to avoid repeated TLS handshakes
-            if not hasattr(self, "_benchmark_client") or self._benchmark_client.is_closed:
+            if (
+                not hasattr(self, "_benchmark_client")
+                or self._benchmark_client.is_closed
+            ):
                 import httpx
 
                 self._benchmark_client = httpx.AsyncClient(
                     timeout=httpx.Timeout(_OPENAI_TIMEOUT, connect=30.0),
-                    limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
+                    limits=httpx.Limits(
+                        max_connections=50, max_keepalive_connections=20
+                    ),
                     http2=False,
                 )
 
@@ -584,18 +640,27 @@ class VectorService:
             endpoint = f"{clean_base}/embeddings"
             for attempt in range(3):
                 try:
-                    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+                    headers = {
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    }
                     payload = {
                         "input": truncated,
                         "model": model or _DEFAULT_EMBEDDING_MODEL,
                     }
 
                     # Use reused global client
-                    response = await self._benchmark_client.post(endpoint, headers=headers, json=payload)
-                    print(f"DEBUG VECTOR: POST {endpoint} STAT={response.status_code} REUSED_CLIENT=True")
+                    response = await self._benchmark_client.post(
+                        endpoint, headers=headers, json=payload
+                    )
+                    print(
+                        f"DEBUG VECTOR: POST {endpoint} STAT={response.status_code} REUSED_CLIENT=True"
+                    )
 
                     if response.status_code != 200:
-                        logger.warning(f"Embedding API error {response.status_code}: {response.text}")
+                        logger.warning(
+                            f"Embedding API error {response.status_code}: {response.text}"
+                        )
                         if attempt < 2:
                             await asyncio.sleep(2 * (attempt + 1))
                             continue
@@ -623,7 +688,9 @@ class VectorService:
     # Keep backward-compatible private alias
     _embed_text = embed_text
 
-    async def check_staleness(self, org_id: str, staleness_days: int = 30, db=None) -> list[dict]:
+    async def check_staleness(
+        self, org_id: str, staleness_days: int = 30, db=None
+    ) -> list[dict]:
         """
         #25 Knowledge Base Update Strategy: Check which documents have stale embeddings.
         Returns list of documents whose embeddings are older than staleness_days.
@@ -652,7 +719,9 @@ class VectorService:
                             "name": doc.get("name"),
                             "updated_at": updated_at,
                             "last_embedded_at": last_embedded,
-                            "reason": "never_embedded" if not last_embedded else "stale",
+                            "reason": (
+                                "never_embedded" if not last_embedded else "stale"
+                            ),
                         }
                     )
                 elif updated_at and last_embedded and updated_at > last_embedded:
@@ -695,7 +764,9 @@ class VectorService:
         # Resolve embedding model dynamically
         embedding_model = EMBEDDING_MODEL
         try:
-            gw_api_key, _gw_base_url, gw_model = await self._get_embedding_config(org_id or "default")
+            gw_api_key, _gw_base_url, gw_model = await self._get_embedding_config(
+                org_id or "default"
+            )
             if gw_model:
                 embedding_model = gw_model
             if gw_api_key:
@@ -765,16 +836,23 @@ class VectorService:
                         )
                         stats["updated"] += 1
                     else:
-                        await client.table("document_embeddings").insert(row_data).execute()
+                        await client.table("document_embeddings").insert(
+                            row_data
+                        ).execute()
                         stats["inserted"] += 1
 
             # 5. Delete orphan chunks (indices that no longer exist)
             for old_index, old_data in existing_map.items():
                 if old_index >= len(chunks):
                     try:
-                        await client.table("document_embeddings").delete().eq("id", old_data["id"]).execute()
+                        await client.table("document_embeddings").delete().eq(
+                            "id", old_data["id"]
+                        ).execute()
                     except Exception as del_e:
-                        if not (hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"):
+                        if not (
+                            hasattr(del_e, "code")
+                            and str(getattr(del_e, "code", "")) == "204"
+                        ):
                             raise
                     stats["deleted"] += 1
 

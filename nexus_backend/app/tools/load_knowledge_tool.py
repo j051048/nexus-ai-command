@@ -83,7 +83,9 @@ def _query_hash(query: str) -> str:
     return hashlib.md5(query.encode()).hexdigest()[:12]
 
 
-@register_tool(name="load_knowledge", category="knowledge", description="加载知识库技能详情")
+@register_tool(
+    name="load_knowledge", category="knowledge", description="加载知识库技能详情"
+)
 class LoadKnowledgeTool(BaseTool):
     name = "load_knowledge"
     description = (
@@ -96,7 +98,10 @@ class LoadKnowledgeTool(BaseTool):
             "input": {"query": "客户报价审批流程", "domain": "company_policy"},
             "output_summary": "从公司政策知识库中检索报价审批相关内容",
         },
-        {"input": {"query": "产品A的技术参数"}, "output_summary": "全域搜索产品A的技术参数信息"},
+        {
+            "input": {"query": "产品A的技术参数"},
+            "output_summary": "全域搜索产品A的技术参数信息",
+        },
     ]
     related_tools = ["search_long_term_memory", "web_search"]
     gotchas = "同一会话中重复查询相同内容会返回缓存提示而非重新检索；优先用 domain 缩小搜索范围以提高准确度。"
@@ -118,7 +123,9 @@ class LoadKnowledgeTool(BaseTool):
     category = "knowledge"
     domain = "knowledge"
 
-    async def execute(self, arguments: dict[str, Any], context: dict[str, Any] | None = None) -> str:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> str:
         ctx = context or {}
         user_id = ctx.get("user_id", "")
         session_id = ctx.get("session_id", "default")
@@ -160,5 +167,7 @@ class LoadKnowledgeTool(BaseTool):
             logger.error(f"[LoadKnowledge] Failed: {e}", exc_info=True)
             return safe_tool_error(e, "知识库检索")
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         return await self.execute(args, {"user_id": user_id, **(config or {})})

@@ -136,7 +136,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         # 到这里说明可能是 Cookie 认证的请求，需要 CSRF 检查
         # 但如果根本没有任何认证 cookie，说明是未认证请求，应由 auth 中间件处理
         cookies = request.cookies
-        has_auth_cookie = any(k.startswith("sb-") or k in ("session", "access_token", "refresh_token") for k in cookies)
+        has_auth_cookie = any(
+            k.startswith("sb-") or k in ("session", "access_token", "refresh_token")
+            for k in cookies
+        )
         if not has_auth_cookie:
             # 无 cookie 认证 → 不存在 CSRF 风险，放行到 auth 中间件
             return await call_next(request)
@@ -151,7 +154,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # CSRF 检查失败
-        logger.warning(f"[CSRF] 拒绝请求: {request.method} {path} - 缺少有效的 CSRF 令牌或 AJAX 标识")
+        logger.warning(
+            f"[CSRF] 拒绝请求: {request.method} {path} - 缺少有效的 CSRF 令牌或 AJAX 标识"
+        )
         return JSONResponse(
             status_code=403,
             content={

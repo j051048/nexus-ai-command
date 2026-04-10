@@ -96,7 +96,12 @@ async def parse_file(
 
         # 获取文件信息
         file_info = (
-            await supabase.table("file_uploads").select("*").eq("id", file_id).eq("org_id", org_id).single().execute()
+            await supabase.table("file_uploads")
+            .select("*")
+            .eq("id", file_id)
+            .eq("org_id", org_id)
+            .single()
+            .execute()
         )
 
         if not file_info.data:

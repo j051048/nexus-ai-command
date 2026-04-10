@@ -34,7 +34,9 @@ async def _retrieve_rag_context(state: AgentState) -> dict:
             content = msg.content
         elif isinstance(msg, dict):
             content = msg.get("content", "")
-        msg_type = getattr(msg, "type", None) or (msg.get("role") if isinstance(msg, dict) else None)
+        msg_type = getattr(msg, "type", None) or (
+            msg.get("role") if isinstance(msg, dict) else None
+        )
         if msg_type in ("human", "user"):
             last_user_msg = content
             break
@@ -64,7 +66,9 @@ async def _retrieve_rag_context(state: AgentState) -> dict:
     return {"rag_context": "", "rag_sources": []}
 
 
-async def parallel_context_and_plan(state: AgentState, config: RunnableConfig | None = None) -> dict:
+async def parallel_context_and_plan(
+    state: AgentState, config: RunnableConfig | None = None
+) -> dict:
     """
     Run RAG context retrieval in parallel with LLM planning.
 
@@ -99,7 +103,9 @@ async def parallel_context_and_plan(state: AgentState, config: RunnableConfig | 
         rag_task = asyncio.create_task(_retrieve_rag_context(state))
         plan_task = asyncio.create_task(plan_node(state, config))
 
-        rag_result, plan_result = await asyncio.gather(rag_task, plan_task, return_exceptions=True)
+        rag_result, plan_result = await asyncio.gather(
+            rag_task, plan_task, return_exceptions=True
+        )
 
         # Handle exceptions
         if isinstance(plan_result, Exception):
@@ -115,7 +121,8 @@ async def parallel_context_and_plan(state: AgentState, config: RunnableConfig | 
         if rag_context and not plan_result.get("rag_context"):
             plan_result["rag_context"] = rag_context
             logger.info(
-                f"[ParallelContext] Injected {len(rag_context)} chars of RAG context " f"from parallel retrieval"
+                f"[ParallelContext] Injected {len(rag_context)} chars of RAG context "
+                f"from parallel retrieval"
             )
 
         # Add parallel execution thinking step
@@ -125,6 +132,8 @@ async def parallel_context_and_plan(state: AgentState, config: RunnableConfig | 
         return plan_result
 
     except Exception as e:
-        logger.error(f"[ParallelContext] Parallel execution failed, falling back to sequential: {e}")
+        logger.error(
+            f"[ParallelContext] Parallel execution failed, falling back to sequential: {e}"
+        )
         # Fallback: run plan_node sequentially
         return await plan_node(state, config)

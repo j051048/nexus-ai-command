@@ -21,7 +21,9 @@ class CompactContextTool(BaseTool):
     )
     examples = [
         {
-            "input": {"summary": "用户查询了本月销售数据，共3个客户成交，总金额12万元。待办：跟进客户A的续约。"},
+            "input": {
+                "summary": "用户查询了本月销售数据，共3个客户成交，总金额12万元。待办：跟进客户A的续约。"
+            },
             "output_summary": "用摘要替代之前的冗长对话历史",
         },
     ]
@@ -33,7 +35,8 @@ class CompactContextTool(BaseTool):
             "summary": {
                 "type": "string",
                 "description": (
-                    "对之前所有对话和工具调用结果的精炼摘要。" "必须保留：关键数据点、已得出的结论、待完成的步骤。"
+                    "对之前所有对话和工具调用结果的精炼摘要。"
+                    "必须保留：关键数据点、已得出的结论、待完成的步骤。"
                 ),
             },
         },
@@ -42,11 +45,15 @@ class CompactContextTool(BaseTool):
     category = "system"
     domain = "system"
 
-    async def execute(self, arguments: dict[str, Any], context: dict[str, Any] | None = None) -> str:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> str:
         # This method should never be reached — node_execute.py intercepts
         # compact_context calls as a pseudo-tool.  If we get here, return
         # a harmless acknowledgement.
         return "[compact_context] 上下文压缩已完成。"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         return await self.execute(args)

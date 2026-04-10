@@ -135,7 +135,9 @@ async def get_work_order_detail(
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工单不存在")
 
         # 获取评论
-        comments = await work_order_service.get_work_order_comments(order_id=order_id, db=db)
+        comments = await work_order_service.get_work_order_comments(
+            order_id=order_id, db=db
+        )
         order["comments"] = comments
 
         return api_success(data={"work_order": order})

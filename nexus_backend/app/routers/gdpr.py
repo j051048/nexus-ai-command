@@ -59,10 +59,20 @@ async def export_user_data(
         )
         data["profile"] = profile.data
 
-        conversations = await supabase.table("chat_sessions").select("*").eq("user_id", user_id).execute()
+        conversations = (
+            await supabase.table("chat_sessions")
+            .select("*")
+            .eq("user_id", user_id)
+            .execute()
+        )
         data["conversations"] = conversations.data
 
-        memories = await supabase.table("conversation_memories").select("*").eq("user_id", user_id).execute()
+        memories = (
+            await supabase.table("conversation_memories")
+            .select("*")
+            .eq("user_id", user_id)
+            .execute()
+        )
         data["memories"] = memories.data
 
         logger.info(f"[GDPR] Exported data for user {user_id}")

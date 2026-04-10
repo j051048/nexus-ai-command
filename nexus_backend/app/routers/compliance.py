@@ -25,7 +25,9 @@ async def export_audit_logs(
     try:
         org_id = getattr(req.state, "org_id", None)
         if not org_id:
-            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Organization context required")
+            raise api_error(
+                ErrorCode.AUTH_PERMISSION_DENIED, "Organization context required"
+            )
 
         start_date = datetime.utcnow() - timedelta(days=days)
         logs = await audit_logger.query_logs(
@@ -39,7 +41,9 @@ async def export_audit_logs(
             return PlainTextResponse(
                 content=csv_content,
                 media_type="text/csv",
-                headers={"Content-Disposition": f"attachment; filename=audit_logs_{days}d.csv"},
+                headers={
+                    "Content-Disposition": f"attachment; filename=audit_logs_{days}d.csv"
+                },
             )
 
         return api_success(
@@ -68,18 +72,37 @@ async def data_subject_access_request(
         # P2 Security: DSAR only allowed for self or by admin of same org
         if target_user_id != user_id:
             if not client:
-                raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Database unavailable for permission check")
-            requester = await client.table("users").select("role, org_id").eq("id", user_id).maybe_single().execute()
-            target = await client.table("users").select("org_id").eq("id", target_user_id).maybe_single().execute()
+                raise api_error(
+                    ErrorCode.AUTH_PERMISSION_DENIED,
+                    "Database unavailable for permission check",
+                )
+            requester = (
+                await client.table("users")
+                .select("role, org_id")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            target = (
+                await client.table("users")
+                .select("org_id")
+                .eq("id", target_user_id)
+                .maybe_single()
+                .execute()
+            )
             req_role = requester.data.get("role") if requester.data else None
             req_org = requester.data.get("org_id") if requester.data else None
             tgt_org = target.data.get("org_id") if target.data else None
             if req_role not in ("admin", "boss") or req_org != tgt_org:
                 raise api_error(
-                    ErrorCode.AUTH_PERMISSION_DENIED, "DSAR for other users requires admin role in same organization"
+                    ErrorCode.AUTH_PERMISSION_DENIED,
+                    "DSAR for other users requires admin role in same organization",
                 )
 
-        report = {"user_id": target_user_id, "export_date": datetime.utcnow().isoformat()}
+        report = {
+            "user_id": target_user_id,
+            "export_date": datetime.utcnow().isoformat(),
+        }
 
         # Audit logs
         audit_logs = await audit_logger.query_logs(user_id=target_user_id, limit=10000)
@@ -89,7 +112,13 @@ async def data_subject_access_request(
         # User profile data
         if client:
             try:
-                user_res = await client.table("users").select("*").eq("id", target_user_id).maybe_single().execute()
+                user_res = (
+                    await client.table("users")
+                    .select("*")
+                    .eq("id", target_user_id)
+                    .maybe_single()
+                    .execute()
+                )
                 report["profile"] = user_res.data if user_res.data else {}
             except Exception:
                 report["profile"] = {}

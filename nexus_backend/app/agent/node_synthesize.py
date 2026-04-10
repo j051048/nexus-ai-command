@@ -44,7 +44,9 @@ def _strip_dates(text: str) -> str:
     return text
 
 
-def _verify_grounding(ai_response: str, tool_results: list, user_question: str = "") -> str | None:
+def _verify_grounding(
+    ai_response: str, tool_results: list, user_question: str = ""
+) -> str | None:
     """Quick grounding check: verify numbers in response match tool results.
 
     Numbers that also appear in the user's original question (e.g. product
@@ -58,7 +60,9 @@ def _verify_grounding(ai_response: str, tool_results: list, user_question: str =
     for tc in tool_results:
         result_text = tc.result if hasattr(tc, "result") else tc.get("result", "")
         if result_text:
-            tool_numbers.extend(re.findall(r"\d+(?:\.\d+)?", _strip_dates(str(result_text))))
+            tool_numbers.extend(
+                re.findall(r"\d+(?:\.\d+)?", _strip_dates(str(result_text)))
+            )
 
     # Numbers from the user's question are NOT hallucinated — exclude them
     user_numbers = set()
@@ -74,7 +78,10 @@ def _verify_grounding(ai_response: str, tool_results: list, user_question: str =
             continue
         if num in user_numbers:
             continue
-        found = any(abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.10 for tn in tool_numbers)
+        found = any(
+            abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.10
+            for tn in tool_numbers
+        )
         if not found:
             issues.append(f"数值 {num} 未见工具返回")
 
@@ -143,8 +150,14 @@ async def synthesize_node(state: AgentState) -> dict:
     for tc in completed_tools:
         name = tc.tool_name if hasattr(tc, "tool_name") else tc.get("tool_name", "")
         # COMPLEX gets more context per tool (1200 chars vs 800)
-        max_len = 1200 if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) else 800
-        result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[:max_len]
+        max_len = (
+            1200
+            if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+            else 800
+        )
+        result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[
+            :max_len
+        ]
         status = tc.status if hasattr(tc, "status") else tc.get("status", "")
         if status == "success":
             tool_parts.append(f"【{name}】\n{result}")
@@ -182,20 +195,28 @@ async def synthesize_node(state: AgentState) -> dict:
         )
         content = ai_msg.content or ""
     except Exception as e:
-        logger.error(f"[Synthesize] LLM call failed: {e}, falling back to raw tool output")
+        logger.error(
+            f"[Synthesize] LLM call failed: {e}, falling back to raw tool output"
+        )
         # Fallback: just format tool results directly
         content = tool_summary if tool_summary else "工具执行完成，但无法生成摘要。"
 
     # ── Inline grounding check (replaces reflect Layer 3 + critic for this path) ──
     if content and completed_tools:
-        grounding_issue = _verify_grounding(content, completed_tools, user_question=user_question)
+        grounding_issue = _verify_grounding(
+            content, completed_tools, user_question=user_question
+        )
         if grounding_issue:
             logger.warning(f"[Synthesize] Grounding issue detected: {grounding_issue}")
             record_hallucination("synthesize_node")
             # For COMPLEX, trigger replanning; for SIMPLE/MODERATE, just warn
             if is_complex:
                 return {
-                    "messages": [HumanMessage(content=f"[自我指引] 回复数据与工具返回不一致: {grounding_issue}")],
+                    "messages": [
+                        HumanMessage(
+                            content=f"[自我指引] 回复数据与工具返回不一致: {grounding_issue}"
+                        )
+                    ],
                     "reflection": f"Synthesize grounding check failed: {grounding_issue}",
                     "reflection_guidance": f"严格引用工具返回的原始数据，修正不一致数值: {grounding_issue}",
                     "is_hallucination": True,

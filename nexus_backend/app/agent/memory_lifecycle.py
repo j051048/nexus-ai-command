@@ -41,7 +41,10 @@ async def run_lifecycle_maintenance(
 
     try:
         l2 = await compress_semantic(
-            days_start=_LEVEL2_START_DAYS, days_end=_LEVEL3_START_DAYS, batch_size=batch_size, db=db
+            days_start=_LEVEL2_START_DAYS,
+            days_end=_LEVEL3_START_DAYS,
+            batch_size=batch_size,
+            db=db,
         )
         stats["level2_compressed"] = l2
     except Exception as e:
@@ -49,7 +52,9 @@ async def run_lifecycle_maintenance(
         stats["errors"] += 1
 
     try:
-        l3 = await expire_low_value_memories(days=_LEVEL3_START_DAYS, batch_size=batch_size, db=db)
+        l3 = await expire_low_value_memories(
+            days=_LEVEL3_START_DAYS, batch_size=batch_size, db=db
+        )
         stats["level3_expired"] = l3
     except Exception as e:
         logger.error(f"[Lifecycle] Level 3 expiration failed: {e}")
@@ -88,7 +93,9 @@ async def compress_semantic(
     try:
         result = (
             await client.table("conversation_memories")
-            .select("id, content, value, category, importance, user_marked_important, metadata")
+            .select(
+                "id, content, value, category, importance, user_marked_important, metadata"
+            )
             .gte("created_at", start_cutoff.isoformat())
             .lt("created_at", end_cutoff.isoformat())
             .eq("compressed", False)
@@ -129,7 +136,9 @@ async def compress_semantic(
         try:
             compressed_results = await _llm_compress_batch(chunk)
             for mem, compressed_text in zip(chunk, compressed_results, strict=False):
-                if compressed_text and len(compressed_text) < len(str(mem.get("value", ""))):
+                if compressed_text and len(compressed_text) < len(
+                    str(mem.get("value", ""))
+                ):
                     try:
                         update_data: dict[str, Any] = {
                             "value": compressed_text,
@@ -143,10 +152,14 @@ async def compress_semantic(
                             meta["compressed_at"] = datetime.now(UTC).isoformat()
                             update_data["metadata"] = meta
 
-                        await client.table("conversation_memories").update(update_data).eq("id", mem["id"]).execute()
+                        await client.table("conversation_memories").update(
+                            update_data
+                        ).eq("id", mem["id"]).execute()
                         compressed_count += 1
                     except Exception as e:
-                        logger.error(f"[Lifecycle] Failed to update compressed memory {mem['id']}: {e}")
+                        logger.error(
+                            f"[Lifecycle] Failed to update compressed memory {mem['id']}: {e}"
+                        )
         except Exception as e:
             logger.warning(f"[Lifecycle] LLM compression batch failed: {e}")
             # Fallback：对这批用规则压缩（不丢失关键信息）
@@ -165,7 +178,9 @@ async def compress_semantic(
                     pass
 
     if compressed_count:
-        logger.info(f"[Lifecycle] Level 2 compressed {compressed_count}/{len(compressible)} memories")
+        logger.info(
+            f"[Lifecycle] Level 2 compressed {compressed_count}/{len(compressible)} memories"
+        )
 
     return compressed_count
 
@@ -218,7 +233,9 @@ async def expire_low_value_memories(
             continue
 
         # 使用 memory_scorer 的动态评分决定是否过期
-        should_forget = await memory_scorer.should_forget(mem, threshold=_FORGET_THRESHOLD)
+        should_forget = await memory_scorer.should_forget(
+            mem, threshold=_FORGET_THRESHOLD
+        )
         if not should_forget:
             continue
 
@@ -243,7 +260,9 @@ async def expire_low_value_memories(
             logger.error(f"[Lifecycle] Failed to expire memory {mem['id']}: {e}")
 
     if expired_count:
-        logger.info(f"[Lifecycle] Level 3 expired {expired_count}/{len(memories)} low-value memories")
+        logger.info(
+            f"[Lifecycle] Level 3 expired {expired_count}/{len(memories)} low-value memories"
+        )
 
     return expired_count
 
@@ -271,7 +290,9 @@ async def cleanup_expired_memories(days: int = 180, db: Any = None) -> int:
         )
         count = len(result.data) if result.data else 0
         if count:
-            logger.info(f"[Lifecycle] Physically deleted {count} expired memories older than {days} days")
+            logger.info(
+                f"[Lifecycle] Physically deleted {count} expired memories older than {days} days"
+            )
         return count
     except Exception as e:
         logger.error(f"[Lifecycle] Physical cleanup failed: {e}")

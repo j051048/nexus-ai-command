@@ -141,10 +141,14 @@ class PromptVersionService:
         # Log change
         self._log_change("create", version, created_by)
 
-        logger.info(f"Created prompt version: {prompt_key} v{next_version} ({version_id})")
+        logger.info(
+            f"Created prompt version: {prompt_key} v{next_version} ({version_id})"
+        )
         return version
 
-    def activate_version(self, version_id: str, activated_by: str) -> PromptVersion | None:
+    def activate_version(
+        self, version_id: str, activated_by: str
+    ) -> PromptVersion | None:
         """Activate a specific version of a prompt."""
         version = self._version_cache.get(version_id)
         if not version:
@@ -195,13 +199,19 @@ class PromptVersionService:
         """Get a specific version by ID."""
         return self._version_cache.get(version_id)
 
-    def get_version_history(self, prompt_key: str, limit: int = 10) -> list[PromptVersion]:
+    def get_version_history(
+        self, prompt_key: str, limit: int = 10
+    ) -> list[PromptVersion]:
         """Get version history for a prompt."""
         versions = self._versions.get(prompt_key, [])
         return sorted(versions, key=lambda v: v.version_number, reverse=True)[:limit]
 
     def create_ab_test(
-        self, prompt_key: str, variants: dict[str, float], created_by: str, duration_hours: int = 24 * 7
+        self,
+        prompt_key: str,
+        variants: dict[str, float],
+        created_by: str,
+        duration_hours: int = 24 * 7,
     ) -> ABTestConfig:
         """Create an A/B test for prompt variants."""
         test_id = hashlib.md5(
@@ -218,7 +228,8 @@ class PromptVersionService:
             prompt_key=prompt_key,
             variants=normalized,
             start_time=datetime.now(),
-            end_time=datetime.now() + __import__("datetime").timedelta(hours=duration_hours),
+            end_time=datetime.now()
+            + __import__("datetime").timedelta(hours=duration_hours),
             created_by=created_by,
         )
 
@@ -234,7 +245,9 @@ class PromptVersionService:
         logger.info(f"Created A/B test: {test_id} for {prompt_key}")
         return ab_test
 
-    def get_ab_test_variant(self, prompt_key: str, user_id: str) -> PromptVersion | None:
+    def get_ab_test_variant(
+        self, prompt_key: str, user_id: str
+    ) -> PromptVersion | None:
         """Get the appropriate variant for a user based on A/B test."""
         # Find active A/B test for this prompt
         active_tests = [
@@ -248,7 +261,12 @@ class PromptVersionService:
 
         # Use deterministic assignment based on user_id
         test = active_tests[0]
-        user_hash = int(hashlib.md5(f"{test.test_id}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8], 16)
+        user_hash = int(
+            hashlib.md5(
+                f"{test.test_id}:{user_id}".encode(), usedforsecurity=False
+            ).hexdigest()[:8],
+            16,
+        )
         selection = (user_hash % 10000) / 10000
 
         # Select variant
@@ -264,7 +282,9 @@ class PromptVersionService:
             return self._version_cache.get(selected_version_id)
         return self.get_active_version(prompt_key)
 
-    def record_ab_test_metric(self, test_id: str, version_id: str, metric_name: str, value: float, db=None):
+    def record_ab_test_metric(
+        self, test_id: str, version_id: str, metric_name: str, value: float, db=None
+    ):
         """Record a metric for A/B test analysis. Auto-persists to DB if provided."""
         test = self._ab_tests.get(test_id)
         if not test:
@@ -356,7 +376,9 @@ class PromptVersionService:
             variant_stats[version_id] = {
                 "sample_size": n,
                 "avg_rating": round(avg_rating, 3) if avg_rating is not None else None,
-                "avg_response_time_ms": round(avg_time, 1) if avg_time is not None else None,
+                "avg_response_time_ms": (
+                    round(avg_time, 1) if avg_time is not None else None
+                ),
                 "positive_count": positive,
                 "total_ratings": len(ratings),
             }
@@ -389,7 +411,11 @@ class PromptVersionService:
             grand_total = sum(row_totals)
 
             if grand_total == 0:
-                return {"test_id": test_id, "status": "no_data", "variants": variant_stats}
+                return {
+                    "test_id": test_id,
+                    "status": "no_data",
+                    "variants": variant_stats,
+                }
 
             chi2 = 0.0
             for r in range(rows):
@@ -417,7 +443,9 @@ class PromptVersionService:
             is_significant = p_value < 0.05
 
             # Find winner
-            winner = max(variant_stats.items(), key=lambda x: x[1].get("avg_rating") or 0)
+            winner = max(
+                variant_stats.items(), key=lambda x: x[1].get("avg_rating") or 0
+            )
 
             return {
                 "test_id": test_id,
@@ -477,17 +505,25 @@ class PromptVersionService:
         """
         # Determine which version was used
         variant = self.get_ab_test_variant(prompt_key, user_id)
-        version_id = variant.version_id if variant else self._active_versions.get(prompt_key)
+        version_id = (
+            variant.version_id if variant else self._active_versions.get(prompt_key)
+        )
 
         if not version_id:
             return
 
         # Record to A/B test if applicable
         if variant and variant.ab_test_group:
-            self.record_ab_test_metric(variant.ab_test_group, version_id, "response_time_ms", response_time_ms)
-            self.record_ab_test_metric(variant.ab_test_group, version_id, "token_count", token_count)
+            self.record_ab_test_metric(
+                variant.ab_test_group, version_id, "response_time_ms", response_time_ms
+            )
+            self.record_ab_test_metric(
+                variant.ab_test_group, version_id, "token_count", token_count
+            )
             if user_rating is not None:
-                self.record_ab_test_metric(variant.ab_test_group, version_id, "user_rating", user_rating)
+                self.record_ab_test_metric(
+                    variant.ab_test_group, version_id, "user_rating", user_rating
+                )
 
         # Persist to DB
         if db:
@@ -567,7 +603,9 @@ class PromptVersionService:
                 if version.status == PromptStatus.ACTIVE:
                     self._active_versions[version.prompt_key] = version.version_id
 
-            logger.info(f"Loaded {len(self._version_cache)} prompt versions from database")
+            logger.info(
+                f"Loaded {len(self._version_cache)} prompt versions from database"
+            )
         except Exception as e:
             logger.error(f"Failed to load prompt versions: {e}")
 

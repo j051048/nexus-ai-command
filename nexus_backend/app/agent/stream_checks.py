@@ -36,8 +36,13 @@ async def run_pre_checks(
 
     # ── 1. Token budget check ──
     await usage_tracker.ensure_loaded(user_id)
-    messages_dicts = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages]
-    is_allowed, _input_tokens, reason = validate_request_tokens(messages_dicts, model, user_id)
+    messages_dicts = [
+        {"role": m.get("role", "user"), "content": m.get("content", "")}
+        for m in messages
+    ]
+    is_allowed, _input_tokens, reason = validate_request_tokens(
+        messages_dicts, model, user_id
+    )
     if not is_allowed:
         sse_events.append(_sse_content(f"⛔ 请求被拒绝 (超出限制): {reason}"))
         sse_events.append("data: [DONE]\n\n")
@@ -62,7 +67,9 @@ async def run_pre_checks(
     # ── 1c. Tenant credit quota check ──
     if org_id:
         try:
-            has_credit, credit_error = await tenant_credit_service.check_credit(org_id, CreditType.API_CALLS, 1)
+            has_credit, credit_error = await tenant_credit_service.check_credit(
+                org_id, CreditType.API_CALLS, 1
+            )
             if not has_credit:
                 sse_events.append(_sse_content(f"⚠️ 组织配额不足: {credit_error}"))
                 sse_events.append("data: [DONE]\n\n")
@@ -98,7 +105,9 @@ async def run_pre_checks(
 
     # 2a-ext. Sanitize PII in ALL user messages (not just the last one)
     if messages:
-        from app.services.content_moderation import sanitize_pii_for_llm as _sanitize_pii
+        from app.services.content_moderation import (
+            sanitize_pii_for_llm as _sanitize_pii,
+        )
 
         for msg in messages:
             if msg.get("role") == "user" and isinstance(msg.get("content"), str):

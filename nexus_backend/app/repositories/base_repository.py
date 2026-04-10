@@ -64,7 +64,9 @@ class BaseRepository:
         from app.core.database import supabase
 
         if not supabase:
-            raise RuntimeError(f"Supabase client unavailable for table '{self.table_name}'")
+            raise RuntimeError(
+                f"Supabase client unavailable for table '{self.table_name}'"
+            )
         return supabase
 
     def _apply_tenant_filter(self, query, tenant_id: str | None):
@@ -126,7 +128,11 @@ class BaseRepository:
         client = self._get_client()
 
         try:
-            query = client.table(self.table_name).select(columns).eq(self.id_column, record_id)
+            query = (
+                client.table(self.table_name)
+                .select(columns)
+                .eq(self.id_column, record_id)
+            )
             query = self._apply_tenant_filter(query, tenant_id)
             query = self._apply_soft_delete_filter(query)
 
@@ -248,7 +254,9 @@ class BaseRepository:
             return result.data or []
 
         except Exception as e:
-            logger.error(f"[{self.table_name}] create_many({len(records)} records) failed: {e}")
+            logger.error(
+                f"[{self.table_name}] create_many({len(records)} records) failed: {e}"
+            )
             raise
 
     async def update(
@@ -267,7 +275,9 @@ class BaseRepository:
         client = self._get_client()
 
         try:
-            query = client.table(self.table_name).update(data).eq(self.id_column, record_id)
+            query = (
+                client.table(self.table_name).update(data).eq(self.id_column, record_id)
+            )
             query = self._apply_tenant_filter(query, tenant_id)
 
             result = await query.execute()
@@ -296,9 +306,15 @@ class BaseRepository:
 
         try:
             if hard or not self.soft_delete:
-                query = client.table(self.table_name).delete().eq(self.id_column, record_id)
+                query = (
+                    client.table(self.table_name).delete().eq(self.id_column, record_id)
+                )
             else:
-                query = client.table(self.table_name).update({"is_deleted": True}).eq(self.id_column, record_id)
+                query = (
+                    client.table(self.table_name)
+                    .update({"is_deleted": True})
+                    .eq(self.id_column, record_id)
+                )
 
             query = self._apply_tenant_filter(query, tenant_id)
             result = await query.execute()

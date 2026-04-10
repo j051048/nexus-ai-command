@@ -19,7 +19,12 @@ class LearningSystem:
     """从错误中学习的系统"""
 
     async def record_failure(
-        self, tool_name: str, error_pattern: str, context: dict, user_id: str, org_id: str = "default"
+        self,
+        tool_name: str,
+        error_pattern: str,
+        context: dict,
+        user_id: str,
+        org_id: str = "default",
     ):
         """记录失败案例"""
         try:
@@ -35,9 +40,9 @@ class LearningSystem:
 
             if result.data:
                 # 增加频率
-                await supabase.table("agent_failures").update({"frequency": result.data[0]["frequency"] + 1}).eq(
-                    "id", result.data[0]["id"]
-                ).execute()
+                await supabase.table("agent_failures").update(
+                    {"frequency": result.data[0]["frequency"] + 1}
+                ).eq("id", result.data[0]["id"]).execute()
             else:
                 # 新建记录
                 await supabase.table("agent_failures").insert(
@@ -55,7 +60,9 @@ class LearningSystem:
         except Exception as e:
             logger.error(f"Failed to record failure: {e}")
 
-    async def record_success(self, tool_name: str, solution: str, context: dict, org_id: str = "default"):
+    async def record_success(
+        self, tool_name: str, solution: str, context: dict, org_id: str = "default"
+    ):
         """记录成功解决方案"""
         try:
             await supabase.table("agent_successes").insert(
@@ -70,7 +77,9 @@ class LearningSystem:
         except Exception as e:
             logger.error(f"Failed to record success: {e}")
 
-    async def get_learned_patterns(self, tool_name: str, org_id: str = "default") -> list[dict]:
+    async def get_learned_patterns(
+        self, tool_name: str, org_id: str = "default"
+    ) -> list[dict]:
         """获取历史经验"""
         try:
             result = (
@@ -87,7 +96,9 @@ class LearningSystem:
             logger.error(f"Failed to get learned patterns: {e}")
             return []
 
-    async def get_success_patterns(self, tool_name: str, org_id: str = "default") -> list[dict]:
+    async def get_success_patterns(
+        self, tool_name: str, org_id: str = "default"
+    ) -> list[dict]:
         """获取成功案例"""
         try:
             result = (

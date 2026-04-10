@@ -29,14 +29,20 @@ class PerformanceService:
         """
         try:
             today_str = date.today().isoformat()
-            current_stats = await PerformanceService._get_daily_stats(event.user_id, today_str)
+            current_stats = await PerformanceService._get_daily_stats(
+                event.user_id, today_str
+            )
 
             # Use data from event context if stats unavailable (fallback)
             if not current_stats and "daily_updates_count" in event.data:
-                current_stats = {"daily_updates_count": event.data["daily_updates_count"]}
+                current_stats = {
+                    "daily_updates_count": event.data["daily_updates_count"]
+                }
 
             # Use RuleEngine for score logic
-            score_delta = RuleEngine.calculate_performance_score(event, current_stats or {})
+            score_delta = RuleEngine.calculate_performance_score(
+                event, current_stats or {}
+            )
 
             new_total_score = 0.0
             if current_stats:
@@ -46,7 +52,9 @@ class PerformanceService:
                 new_total_score = score_delta
 
             if score_delta != 0:
-                await PerformanceService._update_score(event.user_id, today_str, score_delta, new_total_score)
+                await PerformanceService._update_score(
+                    event.user_id, today_str, score_delta, new_total_score
+                )
 
             triggered = []
             if new_total_score >= 85 and (new_total_score - score_delta) < 85:
@@ -60,7 +68,9 @@ class PerformanceService:
 
         except Exception as e:
             logger.error(f"Performance calculation failed: {e}")
-            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Performance calculation error")
+            raise api_error(
+                ErrorCode.SYSTEM_INTERNAL_ERROR, "Performance calculation error"
+            )
 
     @staticmethod
     async def _get_daily_stats(user_id: str, date_str: str) -> dict[str, Any] | None:
@@ -85,10 +95,14 @@ class PerformanceService:
             return None
 
     @staticmethod
-    async def _update_score(user_id: str, date_str: str, delta: float, new_total: float):
+    async def _update_score(
+        user_id: str, date_str: str, delta: float, new_total: float
+    ):
         """Persist score update to Supabase"""
         if not supabase:
-            logger.info(f"[Mock DB] Updated score for {user_id}: +{delta} -> {new_total}")
+            logger.info(
+                f"[Mock DB] Updated score for {user_id}: +{delta} -> {new_total}"
+            )
             return
 
         try:

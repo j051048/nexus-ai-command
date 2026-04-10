@@ -314,11 +314,15 @@ class OAuthService:
         }
 
         # P1 Fix: Persist tokens to DB for multi-instance deployments
-        await self._persist_token(access_token, refresh_token, client_id, auth_code.user_id, auth_code.scopes)
+        await self._persist_token(
+            access_token, refresh_token, client_id, auth_code.user_id, auth_code.scopes
+        )
 
         return token
 
-    async def refresh_token(self, refresh_tok: str, client_id: str) -> OAuthToken | None:
+    async def refresh_token(
+        self, refresh_tok: str, client_id: str
+    ) -> OAuthToken | None:
         """Refresh an expired access token."""
         rt_data = self._refresh_tokens.get(refresh_tok)
         if not rt_data:
@@ -446,7 +450,13 @@ class OAuthService:
             if not supabase:
                 return None
             token_hash = hashlib.sha256(access_token.encode()).hexdigest()
-            res = await supabase.table("oauth_tokens").select("*").eq("token_hash", token_hash).maybe_single().execute()
+            res = (
+                await supabase.table("oauth_tokens")
+                .select("*")
+                .eq("token_hash", token_hash)
+                .maybe_single()
+                .execute()
+            )
             if res.data:
                 return {
                     "client_id": res.data.get("client_id"),

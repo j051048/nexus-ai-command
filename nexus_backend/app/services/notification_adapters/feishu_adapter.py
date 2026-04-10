@@ -55,7 +55,9 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
                 "Feishu notifications will be disabled until configured."
             )
         else:
-            logger.info(f"Feishu notification adapter initialized: url={self.webhook_url[:50]}...")
+            logger.info(
+                f"Feishu notification adapter initialized: url={self.webhook_url[:50]}..."
+            )
 
     async def send(self, notification: Notification) -> bool:
         """
@@ -194,7 +196,11 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
 
         return {
             "msg_type": "post",
-            "content": {"post": {"zh_cn": {"title": notification.title, "content": post_content}}},
+            "content": {
+                "post": {
+                    "zh_cn": {"title": notification.title, "content": post_content}
+                }
+            },
         }
 
     def _build_interactive_payload(self, notification: Notification) -> dict[str, Any]:
@@ -219,10 +225,14 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
         # 添加 @信息
         at_text = self._build_at_text(notification)
         if at_text:
-            elements.append({"tag": "div", "text": {"tag": "plain_text", "content": at_text}})
+            elements.append(
+                {"tag": "div", "text": {"tag": "plain_text", "content": at_text}}
+            )
 
         # 添加主要内容（支持 markdown）
-        elements.append({"tag": "div", "text": {"tag": "lark_md", "content": notification.content}})
+        elements.append(
+            {"tag": "div", "text": {"tag": "lark_md", "content": notification.content}}
+        )
 
         # 添加分割线
         elements.append({"tag": "hr"})
@@ -230,7 +240,9 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
         # 添加元数据信息
         meta_info = self._build_meta_info(notification)
         if meta_info:
-            elements.append({"tag": "div", "text": {"tag": "lark_md", "content": meta_info}})
+            elements.append(
+                {"tag": "div", "text": {"tag": "lark_md", "content": meta_info}}
+            )
 
         # 添加自定义按钮（如果提供）
         actions = notification.metadata.get("actions", [])

@@ -33,7 +33,9 @@ ERROR_PREFIX_MAP = {
 }
 
 
-def format_error_log(code: str, message: str, details: dict = None, trace_id: str = None) -> str:
+def format_error_log(
+    code: str, message: str, details: dict = None, trace_id: str = None
+) -> str:
     """Format error message with prefix for better log parsing"""
     category = code.split("_")[0]
     prefix = ERROR_PREFIX_MAP.get(category, "[ERROR]")
@@ -287,7 +289,11 @@ def api_error(
     """
     status_code = ERROR_STATUS_MAP.get(code, 500)
     safe_message = ERROR_MESSAGES.get(code, "未知错误")
-    is_production = os.getenv("ENV", "production").lower() not in ("dev", "development", "test")
+    is_production = os.getenv("ENV", "production").lower() not in (
+        "dev",
+        "development",
+        "test",
+    )
 
     # Security: For 500-level errors in production, never expose str(e) to users.
     # The caller's `message` (usually str(e)) is logged but replaced with a safe default.
@@ -316,7 +322,9 @@ def api_error(
     return HTTPException(status_code=status_code, detail=error_body)
 
 
-def api_success(data: Any, message: str | None = None, meta: dict[str, Any] | None = None) -> dict[str, Any]:
+def api_success(
+    data: Any, message: str | None = None, meta: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """
     Create a standardized success response.
 

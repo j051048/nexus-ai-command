@@ -160,7 +160,9 @@ class AgentConfig(BaseModel):
     max_tokens_per_day: int = Field(default=1_000_000, gt=0, description="Must be > 0")
     temperature: float = Field(default=0.5, ge=0.0, le=2.0, description="0.0-2.0")
     # Pre-resolved model configs per tier (populated once at stream.py entry)
-    resolved_configs: dict = Field(default_factory=dict)  # tier -> {api_key, base_url, model, ...}
+    resolved_configs: dict = Field(
+        default_factory=dict
+    )  # tier -> {api_key, base_url, model, ...}
     # RAG auto-injection settings
     enable_rag_inject: bool = True
     rag_inject_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -170,9 +172,16 @@ class AgentConfig(BaseModel):
     # Tool execution settings
     tool_timeout: int = Field(default=15, gt=0, description="Seconds, must be > 0")
     gather_timeout: int = Field(default=120, gt=0, description="Seconds, must be > 0")
-    tool_max_retries: int = Field(default=2, ge=0, le=5, description="Max retry attempts for retryable tool errors")
+    tool_max_retries: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        description="Max retry attempts for retryable tool errors",
+    )
     # P0-1: Confidence gating
-    confidence_threshold: float = Field(default=0.85, ge=0.0, le=1.0, description="Min confidence for tool params")
+    confidence_threshold: float = Field(
+        default=0.85, ge=0.0, le=1.0, description="Min confidence for tool params"
+    )
     # P0-2: Dry-run mode
     dry_run: bool = False
 
@@ -257,7 +266,9 @@ class AgentConfig(BaseModel):
         return {
             "model": self.get_model_for_complexity(complexity),
             "temperature": overrides.get("temperature", self.temperature),
-            "timeout": overrides.get("timeout", self.tool_timeout * 10),  # fallback to higher limit
+            "timeout": overrides.get(
+                "timeout", self.tool_timeout * 10
+            ),  # fallback to higher limit
             "supports_tools": overrides.get("supports_tools", True),
             "tier": tier,
             "cost_multiplier": cost_multiplier,
@@ -328,7 +339,9 @@ class AgentState(TypedDict, total=False):
 
     # ── Final output ──
     final_response: str  # The text response to send to user
-    thinking_steps: Annotated[list[ThinkingStep], operator.add]  # Accumulate across nodes
+    thinking_steps: Annotated[
+        list[ThinkingStep], operator.add
+    ]  # Accumulate across nodes
 
     # ── Configuration (immutable, set once at start) ──
     config: AgentConfig
@@ -347,7 +360,9 @@ class AgentState(TypedDict, total=False):
     # instead of state, because it's not serializable (contains network connections).
 
     # ── Reflection & Critic (P0-3 / P1-5) ──
-    reflection_guidance: str  # Structured correction instructions from reflect/critic → plan
+    reflection_guidance: (
+        str  # Structured correction instructions from reflect/critic → plan
+    )
     critic_feedback: str  # Critic evaluation summary
     critic_passed: bool  # Whether critic approved the response
 
@@ -361,14 +376,22 @@ class AgentState(TypedDict, total=False):
     wbs_structure: dict | None  # WBS task decomposition structure
 
     # ── Confirmation gate ──
-    confirmation_pending: bool  # True when tools are blocked waiting for user confirmation
+    confirmation_pending: (
+        bool  # True when tools are blocked waiting for user confirmation
+    )
 
     # ── Reflection budget (Item 33) ──
-    reflection_count: int  # Number of reflect-node invocations this turn (budget: max 2)
+    reflection_count: (
+        int  # Number of reflect-node invocations this turn (budget: max 2)
+    )
 
     # ── Loop detection (P2) ──
-    _tool_call_history: Annotated[list[str], operator.add]  # Fingerprint hashes per execute round
-    _loop_escape_attempted: bool  # True after first loop → strategy reset before circuit break
+    _tool_call_history: Annotated[
+        list[str], operator.add
+    ]  # Fingerprint hashes per execute round
+    _loop_escape_attempted: (
+        bool  # True after first loop → strategy reset before circuit break
+    )
 
     # ── Context compaction (P0) ──
     context_compacted_summary: str  # Summary produced by compact_context pseudo-tool
@@ -379,17 +402,23 @@ class AgentState(TypedDict, total=False):
     _active_step_index: int  # Current step being executed (0-based)
 
     # ── SLO tracking ──
-    wall_clock_start: float  # time.time() at plan_node entry for dynamic SLO degradation
+    wall_clock_start: (
+        float  # time.time() at plan_node entry for dynamic SLO degradation
+    )
 
     # ── Circuit breaker (set by _after_execute on loop/iteration limit) ──
     circuit_break_reason: str | None
 
     # ── Slot filling / DST (Dialog State Tracking) ──
-    slot_context: dict | None  # {tool_name, tool_call_id, filled_slots, missing_slots, tool_schema}
+    slot_context: (
+        dict | None
+    )  # {tool_name, tool_call_id, filled_slots, missing_slots, tool_schema}
     slot_round: int  # 当前澄清轮次 (0=首次, max=3)
 
     # ── Tree-of-Thought (ToT) branch search ──
-    candidate_plans: list[dict]  # Top-N scored alternatives from self-consistency: [{sig, score, msg_snapshot}]
+    candidate_plans: list[
+        dict
+    ]  # Top-N scored alternatives from self-consistency: [{sig, score, msg_snapshot}]
     backtrack_depth: int  # Times we've backtracked to an alternative plan (max=1)
     best_plan_score: float  # Votes / n for the winning plan (0.0-1.0)
 
@@ -432,7 +461,11 @@ def migrate_state(state: dict) -> dict:
                 state[key] = default
 
     state["_schema_version"] = CURRENT_SCHEMA_VERSION
-    logger.info("[State] Migrated checkpoint from schema v%d → v%d", version, CURRENT_SCHEMA_VERSION)
+    logger.info(
+        "[State] Migrated checkpoint from schema v%d → v%d",
+        version,
+        CURRENT_SCHEMA_VERSION,
+    )
     return state
 
 
@@ -458,7 +491,9 @@ def get_completed_tools(state: "AgentState") -> list[ToolCallRecord]:
             try:
                 result.append(ToolCallRecord(**filtered))
             except TypeError:
-                logger.warning("[State] Skipping malformed tool call record: %s", filtered)
+                logger.warning(
+                    "[State] Skipping malformed tool call record: %s", filtered
+                )
         # silently skip other types
     return result
 

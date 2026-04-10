@@ -49,14 +49,24 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "首次登录后应该做的第一件事是什么？",
-                            "options": ["浏览系统功能", "修改初始密码", "设置头像", "查看公告"],
+                            "options": [
+                                "浏览系统功能",
+                                "修改初始密码",
+                                "设置头像",
+                                "查看公告",
+                            ],
                             "answer": 1,
                             "explanation": "为保障账户安全，首次登录后应立即修改密码。",
                         },
                         {
                             "id": "q2",
                             "question": "以下哪种方式可以增强账户安全性？",
-                            "options": ["使用简单密码", "共享账号", "开启两步验证", "关闭通知"],
+                            "options": [
+                                "使用简单密码",
+                                "共享账号",
+                                "开启两步验证",
+                                "关闭通知",
+                            ],
                             "answer": 2,
                             "explanation": "开启两步验证可以有效防止账号被盗用。",
                         },
@@ -83,7 +93,12 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "系统如何确定审批流转路径？",
-                            "options": ["手动指定", "随机分配", "根据规则自动匹配", "由AI决定"],
+                            "options": [
+                                "手动指定",
+                                "随机分配",
+                                "根据规则自动匹配",
+                                "由AI决定",
+                            ],
                             "answer": 2,
                             "explanation": "系统根据预设的审批规则自动匹配对应的审批链。",
                         },
@@ -109,7 +124,12 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "知识库的搜索方式是什么？",
-                            "options": ["仅支持关键词搜索", "AI 语义搜索", "仅支持文件名搜索", "不支持搜索"],
+                            "options": [
+                                "仅支持关键词搜索",
+                                "AI 语义搜索",
+                                "仅支持文件名搜索",
+                                "不支持搜索",
+                            ],
                             "answer": 1,
                             "explanation": "系统使用 AI 语义搜索技术，支持自然语言提问。",
                         },
@@ -135,7 +155,12 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "如何让 AI 助手给出更精准的回答？",
-                            "options": ["使用简短的问题", "提出具体的问题并提供上下文", "重复提问", "使用英文提问"],
+                            "options": [
+                                "使用简短的问题",
+                                "提出具体的问题并提供上下文",
+                                "重复提问",
+                                "使用英文提问",
+                            ],
                             "answer": 1,
                             "explanation": "问题越具体、上下文越充分，AI 回答越精准。",
                         },
@@ -172,7 +197,12 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "SPIN 中的 I 代表什么？",
-                            "options": ["Information", "Implication", "Implementation", "Integration"],
+                            "options": [
+                                "Information",
+                                "Implication",
+                                "Implementation",
+                                "Integration",
+                            ],
                             "answer": 1,
                             "explanation": "I 代表 Implication（影响），用于让客户意识到问题的严重性。",
                         },
@@ -200,7 +230,12 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "客户开始询问交付细节通常意味着什么？",
-                            "options": ["对产品不满意", "表示成交信号", "想要压价", "纯属好奇"],
+                            "options": [
+                                "对产品不满意",
+                                "表示成交信号",
+                                "想要压价",
+                                "纯属好奇",
+                            ],
                             "answer": 1,
                             "explanation": "客户主动询问交付细节和付款方式通常是积极的成交信号。",
                         },
@@ -225,7 +260,12 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "跟进记录的最佳时机是什么？",
-                            "options": ["每周统一录入", "每次沟通后及时记录", "月底补录", "领导要求时"],
+                            "options": [
+                                "每周统一录入",
+                                "每次沟通后及时记录",
+                                "月底补录",
+                                "领导要求时",
+                            ],
                             "answer": 1,
                             "explanation": "每次沟通后及时记录可以确保信息准确，避免遗忘重要细节。",
                         },
@@ -261,7 +301,12 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "产品的技术优势不包括以下哪项？",
-                            "options": ["语义理解", "本地化部署", "开放 API", "硬件销售"],
+                            "options": [
+                                "语义理解",
+                                "本地化部署",
+                                "开放 API",
+                                "硬件销售",
+                            ],
                             "answer": 3,
                             "explanation": "产品的技术优势包括语义理解、本地化部署和开放 API，不涉及硬件销售。",
                         },
@@ -285,7 +330,12 @@ class TrainingService:
                         {
                             "id": "q1",
                             "question": "我们产品相比竞品的核心差异化优势是什么？",
-                            "options": ["用户数量多", "AI 原生设计", "价格最低", "功能最全"],
+                            "options": [
+                                "用户数量多",
+                                "AI 原生设计",
+                                "价格最低",
+                                "功能最全",
+                            ],
                             "answer": 1,
                             "explanation": "AI 原生设计是核心差异化优势，从底层围绕 AI 构建整个产品。",
                         },
@@ -320,7 +370,10 @@ class TrainingService:
                     "difficulty": course.get("difficulty", "beginner"),
                     "cover_icon": course.get("cover_icon", "book-open"),
                     "module_count": len(course.get("modules", [])),
-                    "modules": [{"id": m["id"], "title": m["title"]} for m in course.get("modules", [])],
+                    "modules": [
+                        {"id": m["id"], "title": m["title"]}
+                        for m in course.get("modules", [])
+                    ],
                 }
             )
         return result
@@ -350,7 +403,11 @@ class TrainingService:
                         cid = row["course_id"]
                         mid = row["module_id"]
                         if cid not in progress["courses"]:
-                            progress["courses"][cid] = {"modules": {}, "total_score": 0, "completed_count": 0}
+                            progress["courses"][cid] = {
+                                "modules": {},
+                                "total_score": 0,
+                                "completed_count": 0,
+                            }
                         progress["courses"][cid]["modules"][mid] = {
                             "completed": row.get("completed", False),
                             "score": row.get("score"),
@@ -370,7 +427,9 @@ class TrainingService:
                 total_modules = len(course.get("modules", []))
                 completed_count = course_data["completed_count"]
                 course_data["completion_rate"] = (
-                    round(completed_count / total_modules * 100) if total_modules > 0 else 0
+                    round(completed_count / total_modules * 100)
+                    if total_modules > 0
+                    else 0
                 )
                 course_data["total_modules"] = total_modules
 
@@ -399,8 +458,12 @@ class TrainingService:
 
         if db:
             try:
-                db.table("training_progress").upsert(data, on_conflict="user_id,course_id,module_id").execute()
-                logger.info(f"Progress updated: user={user_id}, course={course_id}, module={module_id}")
+                db.table("training_progress").upsert(
+                    data, on_conflict="user_id,course_id,module_id"
+                ).execute()
+                logger.info(
+                    f"Progress updated: user={user_id}, course={course_id}, module={module_id}"
+                )
             except Exception as e:
                 logger.error(f"Failed to update training progress: {e}")
                 raise

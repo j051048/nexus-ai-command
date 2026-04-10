@@ -31,21 +31,31 @@ class GenerateSalesScriptTool(BaseTool):
 
     name = "generate_sales_script"
     domain = "vmd_content"
-    description = (
-        "生成指定产品的销售话术和技术答疑口径。当用户说'销售话术'、'怎么和客户说'、'产品卖点'、'FAQs回答'时调用。"
-    )
+    description = "生成指定产品的销售话术和技术答疑口径。当用户说'销售话术'、'怎么和客户说'、'产品卖点'、'FAQs回答'时调用。"
     required_role = "all"
     examples = [
         {
-            "input": {"product_name": "ICP-MS 7800", "scenario": "cold_call", "customer_type": "高校实验室"},
+            "input": {
+                "product_name": "ICP-MS 7800",
+                "scenario": "cold_call",
+                "customer_type": "高校实验室",
+            },
             "output_summary": "生成ICP-MS 7800针对高校实验室的陌生拜访话术",
         },
         {
-            "input": {"product_name": "气相色谱仪", "scenario": "objection_handling", "competitor": "安捷伦8890"},
+            "input": {
+                "product_name": "气相色谱仪",
+                "scenario": "objection_handling",
+                "competitor": "安捷伦8890",
+            },
             "output_summary": "生成气相色谱仪面对安捷伦竞品时的异议处理话术",
         },
     ]
-    related_tools = ["generate_competitor_comparison", "generate_training_material", "generate_quotation_template"]
+    related_tools = [
+        "generate_competitor_comparison",
+        "generate_training_material",
+        "generate_quotation_template",
+    ]
     gotchas = "scenario可选值: cold_call/demo/objection_handling/closing/follow_up，不传默认cold_call。competitor为可选参数，填写后会自动检索竞品情报。"
 
     parameters = {
@@ -57,7 +67,13 @@ class GenerateSalesScriptTool(BaseTool):
             },
             "scenario": {
                 "type": "string",
-                "enum": ["cold_call", "demo", "objection_handling", "closing", "follow_up"],
+                "enum": [
+                    "cold_call",
+                    "demo",
+                    "objection_handling",
+                    "closing",
+                    "follow_up",
+                ],
                 "description": "场景: cold_call=陌生拜访, demo=产品演示, objection_handling=异议处理, closing=促成成交, follow_up=跟进维护",
             },
             "customer_type": {
@@ -72,7 +88,9 @@ class GenerateSalesScriptTool(BaseTool):
         "required": ["product_name"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         product_name = args.get("product_name", "").strip()
         if not product_name:
             return "❌ 请提供产品名称。"
@@ -151,18 +169,23 @@ class GenerateCompetitorComparisonTool(BaseTool):
     required_role = "all"
     examples = [
         {
-            "input": {"our_product": "GC-2030", "competitors": "安捷伦8890,岛津GCMS-QP2020"},
+            "input": {
+                "our_product": "GC-2030",
+                "competitors": "安捷伦8890,岛津GCMS-QP2020",
+            },
             "output_summary": "生成GC-2030与两款竞品的全面对比分析表",
         },
         {
-            "input": {"our_product": "UV-2600", "competitors": "PE Lambda 365", "comparison_focus": "灵敏度,性价比"},
+            "input": {
+                "our_product": "UV-2600",
+                "competitors": "PE Lambda 365",
+                "comparison_focus": "灵敏度,性价比",
+            },
             "output_summary": "生成聚焦灵敏度和性价比的紫外分光光度计对比",
         },
     ]
     related_tools = ["generate_sales_script", "generate_competitor_analysis"]
-    gotchas = (
-        "competitors支持逗号分隔多个竞品。会同时检索知识库和联网搜索，联网搜索可能因网络问题失败但不影响整体结果。"
-    )
+    gotchas = "competitors支持逗号分隔多个竞品。会同时检索知识库和联网搜索，联网搜索可能因网络问题失败但不影响整体结果。"
 
     parameters = {
         "type": "object",
@@ -183,7 +206,9 @@ class GenerateCompetitorComparisonTool(BaseTool):
         "required": ["our_product", "competitors"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         our_product = args.get("our_product", "").strip()
         competitors = args.get("competitors", "").strip()
         if not our_product or not competitors:
@@ -206,12 +231,16 @@ class GenerateCompetitorComparisonTool(BaseTool):
             if kb_result and "No relevant documents" not in kb_result:
                 kb_context = f"\n\n## 知识库参考资料\n{kb_result}"
         except Exception as e:
-            logger.warning(f"Knowledge base search failed for competitor comparison: {e}")
+            logger.warning(
+                f"Knowledge base search failed for competitor comparison: {e}"
+            )
 
         # 联网搜索竞品最新参数和评价
         web_context = ""
         try:
-            web_query = f"{our_product} {competitors} 参数对比 评测 {comparison_focus}".strip()
+            web_query = (
+                f"{our_product} {competitors} 参数对比 评测 {comparison_focus}".strip()
+            )
             web_result = await search_web(web_query, count=5)
             if web_result:
                 web_context = f"\n\n## 互联网竞品数据（实时搜索）\n{web_result}"
@@ -261,7 +290,11 @@ class GenerateTrainingMaterialTool(BaseTool):
     required_role = "all"
     examples = [
         {
-            "input": {"topic": "新产品ICP-MS培训", "audience": "new_hire", "duration": "2小时"},
+            "input": {
+                "topic": "新产品ICP-MS培训",
+                "audience": "new_hire",
+                "duration": "2小时",
+            },
             "output_summary": "生成面向新人的ICP-MS产品培训课件大纲",
         },
         {
@@ -296,7 +329,9 @@ class GenerateTrainingMaterialTool(BaseTool):
         "required": ["topic"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         topic = args.get("topic", "").strip()
         if not topic:
             return "❌ 请提供培训主题。"
@@ -374,18 +409,23 @@ class GenerateQuotationTemplateTool(BaseTool):
     required_role = "all"
     examples = [
         {
-            "input": {"products": "XX光谱仪标配+自动进样器", "customer_name": "中科院化学所", "include_service": True},
+            "input": {
+                "products": "XX光谱仪标配+自动进样器",
+                "customer_name": "中科院化学所",
+                "include_service": True,
+            },
             "output_summary": "生成含售后服务的光谱仪报价单模板",
         },
         {
-            "input": {"products": "气相色谱仪GC-2030, 液相色谱仪LC-20A", "discount_policy": "年底促销9折"},
+            "input": {
+                "products": "气相色谱仪GC-2030, 液相色谱仪LC-20A",
+                "discount_policy": "年底促销9折",
+            },
             "output_summary": "生成两台仪器的促销报价单模板",
         },
     ]
     related_tools = ["generate_sales_script", "generate_competitor_comparison"]
-    gotchas = (
-        "价格处会标注'[需填入]'，不会编造实际价格。include_service默认为true。products为必填，customer_name可后续填写。"
-    )
+    gotchas = "价格处会标注'[需填入]'，不会编造实际价格。include_service默认为true。products为必填，customer_name可后续填写。"
 
     parameters = {
         "type": "object",
@@ -410,7 +450,9 @@ class GenerateQuotationTemplateTool(BaseTool):
         "required": ["products"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         products = args.get("products", "").strip()
         if not products:
             return "❌ 请提供产品列表。"
@@ -457,7 +499,9 @@ class GenerateQuotationTemplateTool(BaseTool):
                 "7. **质保条款** — 质保期限、服务响应\n"
             )
         else:
-            prompt += "4. **付款条件** — 付款方式\n5. **交付说明** — 交货周期、运输方式\n"
+            prompt += (
+                "4. **付款条件** — 付款方式\n5. **交付说明** — 交货周期、运输方式\n"
+            )
 
         prompt += "\n请用 Markdown 表格展示价格明细，价格处标注'[需填入]'。"
 

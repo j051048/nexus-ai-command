@@ -34,8 +34,14 @@ class GetCustomersTool(BaseTool):
     description = "查询客户列表，支持按阶段筛选和关键词搜索"
     examples = [
         {"input": {}, "output_summary": "返回全部客户列表（默认最多20条）"},
-        {"input": {"stage": "opportunity", "limit": 10}, "output_summary": "返回商机阶段的前10位客户"},
-        {"input": {"search": "华为"}, "output_summary": "按名称或公司名搜索包含'华为'的客户"},
+        {
+            "input": {"stage": "opportunity", "limit": 10},
+            "output_summary": "返回商机阶段的前10位客户",
+        },
+        {
+            "input": {"search": "华为"},
+            "output_summary": "按名称或公司名搜索包含'华为'的客户",
+        },
     ]
     gotchas = "stage参数可选值: lead/prospect/customer/churned。不传则返回全部。结果按updated_at倒序，默认limit=20。"
     related_tools = ["get_customer_detail", "get_sales_pipeline", "create_customer"]
@@ -61,7 +67,9 @@ class GetCustomersTool(BaseTool):
     }
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -76,7 +84,9 @@ class GetCustomersTool(BaseTool):
                 filters["stage"] = args["stage"]
             if args.get("limit"):
                 filters["limit"] = args["limit"]
-            customers = await crm_service.list_customers(org_id, filters=filters or None, db=client)
+            customers = await crm_service.list_customers(
+                org_id, filters=filters or None, db=client
+            )
 
         if not customers:
             return "当前暂无客户记录。您可以说「创建客户」来添加新客户。"
@@ -108,7 +118,10 @@ class GetCustomerDetailTool(BaseTool):
     name = "get_customer_detail"
     description = "查询指定客户的详细信息，包括联系人和最近跟进记录"
     examples = [
-        {"input": {"customer_id": "uuid-xxxx"}, "output_summary": "返回客户基本信息、联系人列表和最近5条跟进记录"},
+        {
+            "input": {"customer_id": "uuid-xxxx"},
+            "output_summary": "返回客户基本信息、联系人列表和最近5条跟进记录",
+        },
     ]
     gotchas = "customer_id必须是有效的UUID格式，否则报错。返回的跟进记录默认最多5条。"
     related_tools = ["get_customers", "get_follow_ups", "update_customer"]
@@ -125,7 +138,9 @@ class GetCustomerDetailTool(BaseTool):
     }
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         customer_id = args.get("customer_id", "")
         if not customer_id:
@@ -138,7 +153,9 @@ class GetCustomerDetailTool(BaseTool):
             return f"❌ 未找到ID为 {customer_id} 的客户"
 
         contacts = await crm_service.list_contacts(customer_id, db=client)
-        activities = await crm_service.get_activity_timeline(customer_id, limit=5, db=client)
+        activities = await crm_service.get_activity_timeline(
+            customer_id, limit=5, db=client
+        )
 
         stage_labels = {
             "lead": "线索",
@@ -178,8 +195,12 @@ class GetCustomerDetailTool(BaseTool):
             }
             lines.append(f"\n### 最近跟进 ({len(activities)}条)")
             for act in activities:
-                t = type_labels.get(act.get("activity_type", ""), act.get("activity_type", ""))
-                lines.append(f"- [{t}] {act.get('content', '')[:80]} ({str(act.get('created_at', ''))[:10]})")
+                t = type_labels.get(
+                    act.get("activity_type", ""), act.get("activity_type", "")
+                )
+                lines.append(
+                    f"- [{t}] {act.get('content', '')[:80]} ({str(act.get('created_at', ''))[:10]})"
+                )
         else:
             lines.append("\n### 最近跟进\n暂无跟进记录")
 
@@ -197,7 +218,10 @@ class CreateCustomerTool(BaseTool):
     name = "create_customer"
     description = "创建新客户记录，支持设置阶段、来源和预估金额"
     examples = [
-        {"input": {"name": "张三", "company": "华为", "stage": "lead"}, "output_summary": "创建名为张三的线索阶段客户"},
+        {
+            "input": {"name": "张三", "company": "华为", "stage": "lead"},
+            "output_summary": "创建名为张三的线索阶段客户",
+        },
         {
             "input": {"name": "李四", "source": "展会", "estimated_value": 50000},
             "output_summary": "创建来源为展会、预估金额5万的客户",
@@ -219,14 +243,19 @@ class CreateCustomerTool(BaseTool):
                 "description": f"客户阶段: {', '.join(CUSTOMER_STAGES)}，默认lead",
                 "enum": list(CUSTOMER_STAGES),
             },
-            "source": {"type": "string", "description": "客户来源（如：官网、展会、转介绍）"},
+            "source": {
+                "type": "string",
+                "description": "客户来源（如：官网、展会、转介绍）",
+            },
             "estimated_value": {"type": "number", "description": "预估成交金额"},
         },
         "required": ["name"],
     }
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -275,9 +304,16 @@ class UpdateCustomerTool(BaseTool):
     name = "update_customer"
     description = "更新已有客户的信息，支持修改名称、公司、阶段等字段"
     examples = [
-        {"input": {"customer_id": "uuid-xxxx", "company": "新公司名"}, "output_summary": "更新指定客户的公司名称"},
         {
-            "input": {"customer_id": "uuid-xxxx", "stage": "customer", "estimated_value": 100000},
+            "input": {"customer_id": "uuid-xxxx", "company": "新公司名"},
+            "output_summary": "更新指定客户的公司名称",
+        },
+        {
+            "input": {
+                "customer_id": "uuid-xxxx",
+                "stage": "customer",
+                "estimated_value": 100000,
+            },
             "output_summary": "同时更新客户阶段和预估金额",
         },
     ]
@@ -293,7 +329,11 @@ class UpdateCustomerTool(BaseTool):
             "name": {"type": "string", "description": "客户名称"},
             "company": {"type": "string", "description": "公司名称"},
             "industry": {"type": "string", "description": "所属行业"},
-            "stage": {"type": "string", "description": "客户阶段", "enum": CUSTOMER_STAGES},
+            "stage": {
+                "type": "string",
+                "description": "客户阶段",
+                "enum": CUSTOMER_STAGES,
+            },
             "source": {"type": "string", "description": "客户来源"},
             "estimated_value": {"type": "number", "description": "预估成交金额"},
         },
@@ -301,7 +341,9 @@ class UpdateCustomerTool(BaseTool):
     }
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         customer_id = args.get("customer_id", "")
         if not customer_id:
@@ -310,7 +352,14 @@ class UpdateCustomerTool(BaseTool):
             return f"❌ {err}"
 
         data = {}
-        for field in ("name", "company", "industry", "stage", "source", "estimated_value"):
+        for field in (
+            "name",
+            "company",
+            "industry",
+            "stage",
+            "source",
+            "estimated_value",
+        ):
             if args.get(field) is not None:
                 data[field] = args[field]
 
@@ -341,11 +390,19 @@ class AddFollowUpTool(BaseTool):
     description = "为指定客户添加跟进记录，支持电话、邮件、会议、备注等类型"
     examples = [
         {
-            "input": {"customer_id": "uuid-xxxx", "activity_type": "call", "content": "电话沟通了产品报价"},
+            "input": {
+                "customer_id": "uuid-xxxx",
+                "activity_type": "call",
+                "content": "电话沟通了产品报价",
+            },
             "output_summary": "为客户添加一条电话跟进记录",
         },
         {
-            "input": {"customer_id": "uuid-xxxx", "activity_type": "meeting", "content": "现场拜访讨论合作方案"},
+            "input": {
+                "customer_id": "uuid-xxxx",
+                "activity_type": "meeting",
+                "content": "现场拜访讨论合作方案",
+            },
             "output_summary": "为客户添加一条会议跟进记录",
         },
     ]
@@ -369,7 +426,9 @@ class AddFollowUpTool(BaseTool):
     }
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         customer_id = args.get("customer_id", "")
         activity_type = args.get("activity_type", "note")
@@ -384,14 +443,22 @@ class AddFollowUpTool(BaseTool):
             activity_type = "note"
 
         try:
-            activity = await crm_service.create_activity(customer_id, activity_type, content, user_id, db=client)
+            activity = await crm_service.create_activity(
+                customer_id, activity_type, content, user_id, db=client
+            )
         except Exception as e:
             return safe_tool_error(e, "添加跟进记录")
 
         if not activity:
             return "❌ 添加跟进记录失败，请确认客户ID是否正确"
 
-        type_labels = {"call": "电话", "email": "邮件", "meeting": "会议", "note": "备注", "deal_update": "商机更新"}
+        type_labels = {
+            "call": "电话",
+            "email": "邮件",
+            "meeting": "会议",
+            "note": "备注",
+            "deal_update": "商机更新",
+        }
         return f"✅ 跟进记录已添加: [{type_labels.get(activity_type, activity_type)}] {content[:80]}"
 
 
@@ -401,23 +468,38 @@ class GetFollowUpsTool(BaseTool):
     name = "get_follow_ups"
     description = "查询指定客户的跟进记录时间线，按时间倒序排列"
     examples = [
-        {"input": {"customer_id": "uuid-xxxx"}, "output_summary": "返回该客户最近20条跟进记录"},
-        {"input": {"customer_id": "uuid-xxxx", "limit": 5}, "output_summary": "返回该客户最近5条跟进记录"},
+        {
+            "input": {"customer_id": "uuid-xxxx"},
+            "output_summary": "返回该客户最近20条跟进记录",
+        },
+        {
+            "input": {"customer_id": "uuid-xxxx", "limit": 5},
+            "output_summary": "返回该客户最近5条跟进记录",
+        },
     ]
-    gotchas = "customer_id必须是有效UUID。limit范围1-100，默认20。无效limit值自动回退为20。"
+    gotchas = (
+        "customer_id必须是有效UUID。limit范围1-100，默认20。无效limit值自动回退为20。"
+    )
     related_tools = ["add_follow_up", "get_customer_detail"]
 
     parameters = {
         "type": "object",
         "properties": {
             "customer_id": {"type": "string", "description": "客户ID（必填）"},
-            "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "返回数量限制，默认20"},
+            "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "description": "返回数量限制，默认20",
+            },
         },
         "required": ["customer_id"],
     }
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         customer_id = args.get("customer_id", "")
         limit = args.get("limit", 20)
@@ -433,7 +515,9 @@ class GetFollowUpsTool(BaseTool):
         except (TypeError, ValueError):
             limit = 20
 
-        activities = await crm_service.get_activity_timeline(customer_id, limit=limit, db=client)
+        activities = await crm_service.get_activity_timeline(
+            customer_id, limit=limit, db=client
+        )
         if not activities:
             return "暂无跟进记录。您可以说「添加跟进」来记录新的跟进。"
 
@@ -447,7 +531,9 @@ class GetFollowUpsTool(BaseTool):
 
         lines = [f"📋 跟进记录 (共{len(activities)}条):\n"]
         for act in activities:
-            t = type_labels.get(act.get("activity_type", ""), act.get("activity_type", ""))
+            t = type_labels.get(
+                act.get("activity_type", ""), act.get("activity_type", "")
+            )
             date = str(act.get("created_at", ""))[:10]
             lines.append(f"- {date} [{t}] {act.get('content', '')[:100]}")
 
@@ -465,7 +551,10 @@ class UpdateCustomerStageTool(BaseTool):
     name = "update_customer_stage"
     description = "推进或变更客户的销售阶段，自动记录阶段变更活动并触发业务事件"
     examples = [
-        {"input": {"customer_id": "uuid-xxxx", "new_stage": "opportunity"}, "output_summary": "将客户推进到商机阶段"},
+        {
+            "input": {"customer_id": "uuid-xxxx", "new_stage": "opportunity"},
+            "output_summary": "将客户推进到商机阶段",
+        },
         {
             "input": {"customer_id": "uuid-xxxx", "new_stage": "customer"},
             "output_summary": "将客户标记为成交，触发成交事件",
@@ -490,7 +579,9 @@ class UpdateCustomerStageTool(BaseTool):
     }
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         customer_id = args.get("customer_id", "")
         new_stage = args.get("new_stage", "")
@@ -510,7 +601,9 @@ class UpdateCustomerStageTool(BaseTool):
         old_stage = old_customer.get("stage", "unknown")
 
         try:
-            customer = await crm_service.update_customer(customer_id, {"stage": new_stage}, db=client)
+            customer = await crm_service.update_customer(
+                customer_id, {"stage": new_stage}, db=client
+            )
         except Exception as e:
             return safe_tool_error(e, "阶段变更")
 
@@ -561,7 +654,10 @@ class GetSalesPipelineTool(BaseTool):
     name = "get_sales_pipeline"
     description = "获取销售漏斗视图，展示各阶段客户数量和预估金额分布"
     examples = [
-        {"input": {}, "output_summary": "返回销售漏斗概览，包括客户总数、本月新增、转化率和各阶段分布表"},
+        {
+            "input": {},
+            "output_summary": "返回销售漏斗概览，包括客户总数、本月新增、转化率和各阶段分布表",
+        },
     ]
     gotchas = "会额外查询全部客户来计算各阶段金额，客户数量较多时可能较慢。无参数，直接调用即可。"
     related_tools = ["get_customers", "update_customer_stage"]
@@ -569,7 +665,9 @@ class GetSalesPipelineTool(BaseTool):
     parameters = {"type": "object", "properties": {}, "required": []}
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -623,14 +721,14 @@ class GetSalesPipelineTool(BaseTool):
         return "\n".join(lines)
 
 
-@register_tool(name="get_pipeline_kanban", category="crm", description="获取看板视图的销售漏斗")
+@register_tool(
+    name="get_pipeline_kanban", category="crm", description="获取看板视图的销售漏斗"
+)
 class GetPipelineKanbanTool(BaseTool):
     """获取销售漏斗看板视图"""
 
     name = "get_pipeline_kanban"
-    description = (
-        "获取销售漏斗看板数据，包含每个阶段的客户列表和总金额，用于呈现 Kanban 视图或者了解各个阶段的具体客户组成"
-    )
+    description = "获取销售漏斗看板数据，包含每个阶段的客户列表和总金额，用于呈现 Kanban 视图或者了解各个阶段的具体客户组成"
     examples = [
         {"input": {}, "output_summary": "返回按阶段分组（看板）的详细列表及其总额"},
     ]
@@ -640,7 +738,9 @@ class GetPipelineKanbanTool(BaseTool):
     parameters = {"type": "object", "properties": {}, "required": []}
     domain = "crm"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -655,13 +755,17 @@ class GetPipelineKanbanTool(BaseTool):
             if stage["id"] == "churned":
                 continue  # Kanban 视图通常不重点展示已流失，或者可折叠
 
-            lines.append(f"### {stage['name']} ({len(stage['customers'])}名客户) - ¥{stage['total_value']:,.0f}")
+            lines.append(
+                f"### {stage['name']} ({len(stage['customers'])}名客户) - ¥{stage['total_value']:,.0f}"
+            )
             if not stage["customers"]:
                 lines.append("- 暂无预先商机\n")
             else:
                 for c in stage["customers"]:
                     val = float(c.get("estimated_value") or 0)
-                    lines.append(f"  - **{c.get('name', '未知')}** ({c.get('company', '')}) | ¥{val:,.0f}")
+                    lines.append(
+                        f"  - **{c.get('name', '未知')}** ({c.get('company', '')}) | ¥{val:,.0f}"
+                    )
                 lines.append("")
 
         return "\n".join(lines)

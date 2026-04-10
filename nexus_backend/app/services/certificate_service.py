@@ -33,7 +33,12 @@ class CertificateService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = db.table("certificates").select("*").eq("organization_id", org_id).order("expire_date", desc=False)
+            query = (
+                db.table("certificates")
+                .select("*")
+                .eq("organization_id", org_id)
+                .order("expire_date", desc=False)
+            )
 
             if filters:
                 if filters.get("cert_type"):
@@ -159,7 +164,12 @@ class CertificateService:
             if attachment_url:
                 updates["attachment_url"] = attachment_url
 
-            result = await db.table("certificates").update(updates).eq("id", cert_id).execute()
+            result = (
+                await db.table("certificates")
+                .update(updates)
+                .eq("id", cert_id)
+                .execute()
+            )
 
             if result.data and len(result.data) > 0:
                 logger.info(f"证照已续期: id={cert_id}, new_expire={new_expire_date}")

@@ -32,7 +32,9 @@ async def compare_sessions(
     """对比两个会话的执行差异"""
     try:
         db = getattr(request.state, "db", None)
-        result = await agent_replay_service.compare_sessions(thread_id_a, thread_id_b, db=db)
+        result = await agent_replay_service.compare_sessions(
+            thread_id_a, thread_id_b, db=db
+        )
         return api_success(data=result)
     except Exception as e:
         logger.error(f"[Replay] compare_sessions error: {e}")
@@ -51,7 +53,9 @@ async def get_session_timeline(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(request.state, "db", None)
-        result = await agent_replay_service.get_session_timeline(session_id, org_id, db=db)
+        result = await agent_replay_service.get_session_timeline(
+            session_id, org_id, db=db
+        )
         return api_success(data=result)
     except HTTPException:
         raise
@@ -114,7 +118,9 @@ async def get_replay_steps(
                 ErrorCode.RESOURCE_NOT_FOUND,
                 f"No trace found for thread: {thread_id}",
             )
-        return api_success(data={"thread_id": thread_id, "steps": steps, "total": len(steps)})
+        return api_success(
+            data={"thread_id": thread_id, "steps": steps, "total": len(steps)}
+        )
     except HTTPException:
         raise
     except Exception as e:

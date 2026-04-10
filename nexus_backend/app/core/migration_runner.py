@@ -66,7 +66,9 @@ async def _ensure_migration_table() -> bool:
             await supabase.table("migration_history").select("id").limit(1).execute()
             return True
         except Exception as e:
-            logger.warning(f"[MigrationRunner] 无法创建或访问 migration_history 表: {e}")
+            logger.warning(
+                f"[MigrationRunner] 无法创建或访问 migration_history 表: {e}"
+            )
             return False
 
 
@@ -78,7 +80,9 @@ async def _get_applied_migrations() -> set[str]:
         return set()
 
     try:
-        res = await supabase.table("migration_history").select("migration_name").execute()
+        res = (
+            await supabase.table("migration_history").select("migration_name").execute()
+        )
         return {row["migration_name"] for row in (res.data or [])}
     except Exception as e:
         logger.warning(f"[MigrationRunner] 无法读取已应用迁移记录: {e}")
@@ -119,12 +123,19 @@ def _get_pending_migrations(applied: set[str]) -> list[tuple[str, Path]]:
         if not migrations_dir.exists():
             continue
         for f in sorted(migrations_dir.iterdir()):
-            if f.is_file() and f.suffix == ".sql" and f.name not in applied and f.name not in seen_names:
+            if (
+                f.is_file()
+                and f.suffix == ".sql"
+                and f.name not in applied
+                and f.name not in seen_names
+            ):
                 pending.append((f.name, f))
                 seen_names.add(f.name)
 
     if not seen_names and not pending:
-        logger.warning(f"[MigrationRunner] 所有迁移目录均不存在或为空: {MIGRATIONS_DIRS}")
+        logger.warning(
+            f"[MigrationRunner] 所有迁移目录均不存在或为空: {MIGRATIONS_DIRS}"
+        )
 
     # 全局按文件名排序
     pending.sort(key=lambda x: x[0])
@@ -141,7 +152,11 @@ async def run_migrations() -> list[str]:
     from app.core.database import supabase
 
     # 动态检查环境变量 (Item 18)
-    auto_migrate = os.environ.get("AUTO_MIGRATE", "false").lower() in ("true", "1", "yes")
+    auto_migrate = os.environ.get("AUTO_MIGRATE", "false").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
 
     if not auto_migrate:
         logger.info("[MigrationRunner] 自动迁移未启用 (设置 AUTO_MIGRATE=true 启用)")

@@ -72,7 +72,9 @@ class ContractService:
 
         result = await db.table("contracts").insert(contract).execute()
         if not result.data:
-            raise RuntimeError("Contract insert returned no data — possible RLS policy rejection")
+            raise RuntimeError(
+                "Contract insert returned no data — possible RLS policy rejection"
+            )
 
         created = result.data[0]
         # 添加创建事件
@@ -89,7 +91,9 @@ class ContractService:
 
         return created
 
-    async def update_contract(self, contract_id: str, data: dict, db: Any = None) -> dict:
+    async def update_contract(
+        self, contract_id: str, data: dict, db: Any = None
+    ) -> dict:
         """更新合同"""
         if not db:
             raise RuntimeError("Database client is required to update a contract")
@@ -118,9 +122,16 @@ class ContractService:
         }
         update_data["updated_at"] = datetime.utcnow().isoformat()
 
-        result = await db.table("contracts").update(update_data).eq("id", contract_id).execute()
+        result = (
+            await db.table("contracts")
+            .update(update_data)
+            .eq("id", contract_id)
+            .execute()
+        )
         if not result.data:
-            raise RuntimeError(f"Contract {contract_id} update returned no data — record may not exist or RLS blocked")
+            raise RuntimeError(
+                f"Contract {contract_id} update returned no data — record may not exist or RLS blocked"
+            )
 
         return result.data[0]
 
@@ -128,7 +139,13 @@ class ContractService:
         """获取合同详情"""
         if db:
             try:
-                result = await db.table("contracts").select("*").eq("id", contract_id).single().execute()
+                result = (
+                    await db.table("contracts")
+                    .select("*")
+                    .eq("id", contract_id)
+                    .single()
+                    .execute()
+                )
                 return result.data
             except Exception as e:
                 logger.warning(f"Failed to get contract: {e}")
@@ -146,7 +163,12 @@ class ContractService:
         """列出组织的合同"""
         if db:
             try:
-                query = db.table("contracts").select("*").eq("organization_id", org_id).order("created_at", desc=True)
+                query = (
+                    db.table("contracts")
+                    .select("*")
+                    .eq("organization_id", org_id)
+                    .order("created_at", desc=True)
+                )
 
                 if filters:
                     if filters.get("status"):
@@ -163,7 +185,9 @@ class ContractService:
                 return []
         return []
 
-    async def get_expiring_contracts(self, org_id: str, days: int = 30, db: Any = None) -> list[dict]:
+    async def get_expiring_contracts(
+        self, org_id: str, days: int = 30, db: Any = None
+    ) -> list[dict]:
         """获取即将到期的合同"""
         if db:
             try:
@@ -198,7 +222,12 @@ class ContractService:
         if db:
             try:
                 # 获取所有合同
-                result = await db.table("contracts").select("*").eq("organization_id", org_id).execute()
+                result = (
+                    await db.table("contracts")
+                    .select("*")
+                    .eq("organization_id", org_id)
+                    .execute()
+                )
                 contracts = result.data or []
                 stats["total"] = len(contracts)
 

@@ -82,7 +82,9 @@ async def slot_verify_node(state: AgentState, config=None) -> dict:
         return {"slot_context": None}
 
     # 收集所有工具的缺失参数
-    all_missing: list[dict] = []  # [{tool_name, tool_call_id, missing_keys, tool_schema}]
+    all_missing: list[dict] = (
+        []
+    )  # [{tool_name, tool_call_id, missing_keys, tool_schema}]
 
     for tc in pending:
         if tc.tool_name in _SKIP_TOOLS:
@@ -110,7 +112,9 @@ async def slot_verify_node(state: AgentState, config=None) -> dict:
                     "tool_call_id": tc.tool_call_id,
                     "missing_keys": missing,
                     "tool_schema": schema,
-                    "filled_slots": {k: v for k, v in args.items() if v not in (None, "")},
+                    "filled_slots": {
+                        k: v for k, v in args.items() if v not in (None, "")
+                    },
                 }
             )
 
@@ -120,7 +124,9 @@ async def slot_verify_node(state: AgentState, config=None) -> dict:
 
     # 超过最大澄清轮次 → 放弃追问，返回友好错误
     if slot_round >= _MAX_SLOT_ROUNDS:
-        logger.warning(f"[SlotVerify] Giving up after {slot_round} rounds for {all_missing[0]['tool_name']}")
+        logger.warning(
+            f"[SlotVerify] Giving up after {slot_round} rounds for {all_missing[0]['tool_name']}"
+        )
         missing_info = all_missing[0]
         return {
             "current_phase": AgentPhase.RESPONDING,
@@ -168,7 +174,8 @@ async def slot_verify_node(state: AgentState, config=None) -> dict:
     }
 
     logger.info(
-        f"[SlotVerify] Missing params for {target['tool_name']}: " f"{target['missing_keys']} (round {slot_round + 1})"
+        f"[SlotVerify] Missing params for {target['tool_name']}: "
+        f"{target['missing_keys']} (round {slot_round + 1})"
     )
 
     return {

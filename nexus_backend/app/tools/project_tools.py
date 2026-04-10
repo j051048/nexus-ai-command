@@ -16,17 +16,26 @@ class ProjectListTool(BaseTool):
     domain = "project"
     description = "查询当前所有未归档项目列表，返回项目名称、状态和进度"
     examples = [
-        {"input": {}, "output_summary": "返回所有未归档项目的ID、名称、状态、进度百分比"},
+        {
+            "input": {},
+            "output_summary": "返回所有未归档项目的ID、名称、状态、进度百分比",
+        },
     ]
     gotchas = "默认只返回未归档项目，无法筛选已归档项目。结果按数据库默认排序返回。"
     related_tools = ["create_project", "generate_weekly_report", "create_project_event"]
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
-        query = client.table("projects").select("id, name, stage, progress").neq("stage", "archived")
+        query = (
+            client.table("projects")
+            .select("id, name, stage, progress")
+            .neq("stage", "archived")
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         result = await query.execute()
@@ -44,9 +53,16 @@ class CreateProjectTool(BaseTool):
     domain = "project"
     description = "创建新项目立项记录，设置名称、描述和初始状态。当用户说'帮我新建一个项目'时调用。"
     examples = [
-        {"input": {"name": "智慧园区项目"}, "output_summary": "创建项目，状态默认为规划中，进度为0%"},
         {
-            "input": {"name": "客户管理系统", "description": "搭建CRM系统", "status": "in_progress"},
+            "input": {"name": "智慧园区项目"},
+            "output_summary": "创建项目，状态默认为规划中，进度为0%",
+        },
+        {
+            "input": {
+                "name": "客户管理系统",
+                "description": "搭建CRM系统",
+                "status": "in_progress",
+            },
             "output_summary": "创建项目并设置初始状态为进行中",
         },
     ]
@@ -69,7 +85,9 @@ class CreateProjectTool(BaseTool):
 
     required_role = "all"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         name = args.get("name")
         description = args.get("description", "")
         status = args.get("status", "planning")
@@ -145,7 +163,9 @@ class CreateEventTool(BaseTool):
         "required": ["project_id", "title", "content", "event_type"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         project_id = args.get("project_id")
         title = args.get("title")
         content = args.get("content")
@@ -188,9 +208,7 @@ class WeeklyReportTool(BaseTool):
 
     name = "generate_weekly_report"
     domain = "project"
-    description = (
-        "自动生成工作日报或周报，汇总任务完成情况、项目事件和下期计划。当用户说'帮我写周报'、'生成日报'时调用。"
-    )
+    description = "自动生成工作日报或周报，汇总任务完成情况、项目事件和下期计划。当用户说'帮我写周报'、'生成日报'时调用。"
     examples = [
         {"input": {}, "output_summary": "默认生成本周周报，汇总任务和项目数据"},
         {"input": {"report_type": "daily"}, "output_summary": "生成当日日报"},
@@ -212,7 +230,9 @@ class WeeklyReportTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         from app.services.ai_service import AIService
 
         report_type = args.get("report_type", "weekly")
@@ -224,7 +244,9 @@ class WeeklyReportTool(BaseTool):
             period_start = now.strftime("%Y-%m-%dT00:00:00")
             report_type_name = "日报"
         else:
-            period_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%dT00:00:00")
+            period_start = (now - timedelta(days=now.weekday())).strftime(
+                "%Y-%m-%dT00:00:00"
+            )
             report_type_name = "周报"
 
         # 聚合任务数据
@@ -261,7 +283,10 @@ class WeeklyReportTool(BaseTool):
         projects_data = []
         try:
             proj_query = (
-                client.table("projects").select("name, stage, progress").eq("user_id", user_id).neq("stage", "archived")
+                client.table("projects")
+                .select("name, stage, progress")
+                .eq("user_id", user_id)
+                .neq("stage", "archived")
             )
             if org_id:
                 proj_query = proj_query.eq("organization_id", org_id)

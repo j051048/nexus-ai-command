@@ -48,7 +48,9 @@ async def persist_confirmation(
         result = await db.table("pending_confirmations").insert(row).execute()
         if result.data:
             saved = result.data[0] if isinstance(result.data, list) else result.data
-            logger.info("[HITL] Persisted confirmation: tool=%s, user=%s", tool_name, user_id)
+            logger.info(
+                "[HITL] Persisted confirmation: tool=%s, user=%s", tool_name, user_id
+            )
             return saved
     except Exception as e:
         logger.warning("[HITL] Failed to persist confirmation: %s", e)
@@ -113,7 +115,9 @@ async def resolve_confirmation(
         )
         resolved = bool(result.data)
         if resolved:
-            logger.info("[HITL] Confirmation %s %s by %s", confirmation_id, action, user_id)
+            logger.info(
+                "[HITL] Confirmation %s %s by %s", confirmation_id, action, user_id
+            )
         return resolved
     except Exception as e:
         logger.warning("[HITL] Failed to resolve confirmation: %s", e)

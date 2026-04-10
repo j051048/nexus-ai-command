@@ -33,7 +33,10 @@ class ClockInOutTool(BaseTool):
         {"input": {"clock_type": "clock_in"}, "output_summary": "执行上班打卡"},
         {"input": {"clock_type": "clock_out"}, "output_summary": "执行下班打卡"},
         {
-            "input": {"clock_type": "field_work", "location": {"lat": 39.9, "lng": 116.4}},
+            "input": {
+                "clock_type": "field_work",
+                "location": {"lat": 39.9, "lng": 116.4},
+            },
             "output_summary": "执行外勤打卡并记录位置",
         },
     ]
@@ -61,7 +64,9 @@ class ClockInOutTool(BaseTool):
     }
     domain = "attendance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -110,8 +115,14 @@ class GetAttendanceRecordTool(BaseTool):
     description = "查询考勤打卡记录，支持按员工和日期范围筛选"
     examples = [
         {"input": {}, "output_summary": "返回当前用户的全部考勤记录"},
-        {"input": {"start_date": "2026-03-01", "end_date": "2026-03-31"}, "output_summary": "返回指定月份的考勤记录"},
-        {"input": {"employee_id": "uuid-xxxx"}, "output_summary": "返回指定员工的考勤记录"},
+        {
+            "input": {"start_date": "2026-03-01", "end_date": "2026-03-31"},
+            "output_summary": "返回指定月份的考勤记录",
+        },
+        {
+            "input": {"employee_id": "uuid-xxxx"},
+            "output_summary": "返回指定员工的考勤记录",
+        },
     ]
     related_tools = ["clock_in_out", "attendance_statistics", "list_shift_schedules"]
     gotchas = "不传employee_id则查当前用户自己的记录。日期格式为YYYY-MM-DD。"
@@ -136,13 +147,17 @@ class GetAttendanceRecordTool(BaseTool):
     }
     domain = "attendance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
             return "❌ 无法获取组织信息，请确保已正确登录。"
 
-        if args.get("employee_id") and (err := _validate_uuid(args["employee_id"], "employee_id")):
+        if args.get("employee_id") and (
+            err := _validate_uuid(args["employee_id"], "employee_id")
+        ):
             return f"❌ {err}"
 
         try:
@@ -165,8 +180,12 @@ class GetAttendanceRecordTool(BaseTool):
 
             lines = [f"📋 共找到 {len(records)} 条考勤记录:\n"]
             for r in records:
-                ctype = type_labels.get(r.get("clock_type", ""), r.get("clock_type", ""))
-                lines.append(f"- {str(r.get('clock_time', ''))[:16]} | 类型: {ctype} | 状态: {r.get('status', '正常')}")
+                ctype = type_labels.get(
+                    r.get("clock_type", ""), r.get("clock_type", "")
+                )
+                lines.append(
+                    f"- {str(r.get('clock_time', ''))[:16]} | 类型: {ctype} | 状态: {r.get('status', '正常')}"
+                )
 
             return "\n".join(lines)
 
@@ -182,12 +201,18 @@ class CreateShiftScheduleTool(BaseTool):
     description = "为指定员工创建排班计划，需管理员权限"
     examples = [
         {
-            "input": {"employee_id": "uuid-xxxx", "shift_date": "2026-03-25", "shift_type_id": "uuid-yyyy"},
+            "input": {
+                "employee_id": "uuid-xxxx",
+                "shift_date": "2026-03-25",
+                "shift_type_id": "uuid-yyyy",
+            },
             "output_summary": "为指定员工在指定日期创建排班",
         },
     ]
     related_tools = ["list_shift_schedules", "get_attendance_record"]
-    gotchas = "三个参数均为必填。employee_id和shift_type_id必须是有效UUID。需要admin权限。"
+    gotchas = (
+        "三个参数均为必填。employee_id和shift_type_id必须是有效UUID。需要admin权限。"
+    )
 
     required_role = "admin"
 
@@ -211,7 +236,9 @@ class CreateShiftScheduleTool(BaseTool):
     }
     domain = "attendance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -238,9 +265,7 @@ class CreateShiftScheduleTool(BaseTool):
                 db=client,
             )
 
-            return (
-                f"✅ 排班创建成功！\n\n- 员工ID: {employee_id[:8]}...\n- 排班日期: {shift_date}\n- ID: {schedule['id']}"
-            )
+            return f"✅ 排班创建成功！\n\n- 员工ID: {employee_id[:8]}...\n- 排班日期: {shift_date}\n- ID: {schedule['id']}"
 
         except Exception as e:
             logger.error(f"创建排班失败: {e}")
@@ -255,7 +280,11 @@ class ListShiftSchedulesTool(BaseTool):
     examples = [
         {"input": {}, "output_summary": "返回全部排班记录"},
         {
-            "input": {"department_id": "uuid-xxxx", "start_date": "2026-03-01", "end_date": "2026-03-31"},
+            "input": {
+                "department_id": "uuid-xxxx",
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-31",
+            },
             "output_summary": "返回指定部门本月的排班表",
         },
     ]
@@ -282,13 +311,17 @@ class ListShiftSchedulesTool(BaseTool):
     }
     domain = "attendance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
             return "❌ 无法获取组织信息，请确保已正确登录。"
 
-        if args.get("department_id") and (err := _validate_uuid(args["department_id"], "department_id")):
+        if args.get("department_id") and (
+            err := _validate_uuid(args["department_id"], "department_id")
+        ):
             return f"❌ {err}"
 
         try:
@@ -305,7 +338,11 @@ class ListShiftSchedulesTool(BaseTool):
 
             lines = [f"📅 共找到 {len(schedules)} 条排班记录:\n"]
             for s in schedules:
-                employee_name = s.get("employee", {}).get("name", "未知") if s.get("employee") else "未知"
+                employee_name = (
+                    s.get("employee", {}).get("name", "未知")
+                    if s.get("employee")
+                    else "未知"
+                )
                 lines.append(
                     f"- {s.get('shift_date')} | 员工: {employee_name} | "
                     f"班次: {s.get('shift_type', {}).get('name', '未知') if s.get('shift_type') else '未知'}"
@@ -326,7 +363,11 @@ class AttendanceStatisticsTool(BaseTool):
     examples = [
         {"input": {}, "output_summary": "返回全组织的考勤统计"},
         {
-            "input": {"department_id": "uuid-xxxx", "start_date": "2026-03-01", "end_date": "2026-03-31"},
+            "input": {
+                "department_id": "uuid-xxxx",
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-31",
+            },
             "output_summary": "返回指定部门本月的考勤统计",
         },
     ]
@@ -353,13 +394,17 @@ class AttendanceStatisticsTool(BaseTool):
     }
     domain = "attendance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
             return "❌ 无法获取组织信息，请确保已正确登录。"
 
-        if args.get("department_id") and (err := _validate_uuid(args["department_id"], "department_id")):
+        if args.get("department_id") and (
+            err := _validate_uuid(args["department_id"], "department_id")
+        ):
             return f"❌ {err}"
 
         try:
@@ -401,7 +446,12 @@ class RequestLeaveTool(BaseTool):
             "output_summary": "提交3天年假申请",
         },
         {
-            "input": {"leave_type": "sick", "start_date": "2026-03-20", "end_date": "2026-03-20", "days": 1},
+            "input": {
+                "leave_type": "sick",
+                "start_date": "2026-03-20",
+                "end_date": "2026-03-20",
+                "days": 1,
+            },
             "output_summary": "提交1天病假申请",
         },
     ]
@@ -437,7 +487,9 @@ class RequestLeaveTool(BaseTool):
     }
     domain = "attendance"
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:

@@ -34,8 +34,14 @@ from app.core.ai_metrics import (
     record_tool_execution,  # noqa: F401
 )
 from app.services.content_moderation import sanitize_output, scan_content  # noqa: F401
-from app.services.error_recovery_service import llm_circuit_breaker, tool_circuit_breaker  # noqa: F401
-from app.services.plugin_system_service import ExtensionPoint, plugin_system_service  # noqa: F401
+from app.services.error_recovery_service import (
+    llm_circuit_breaker,
+    tool_circuit_breaker,
+)  # noqa: F401
+from app.services.plugin_system_service import (
+    ExtensionPoint,
+    plugin_system_service,
+)  # noqa: F401
 from app.tools import get_all_tools_schema, get_tool
 
 logger = logging.getLogger(__name__)
@@ -121,27 +127,43 @@ CELERY_ISOLATED_TOOLS: set[str] = {
 class GroundednessCheck(BaseModel):
     """RAG groundedness evaluation result."""
 
-    is_grounded: bool = Field(description="Whether the response is grounded in reference knowledge")
+    is_grounded: bool = Field(
+        description="Whether the response is grounded in reference knowledge"
+    )
     reason: str = Field(default="", description="Reason for the evaluation")
-    score: float = Field(default=0.5, ge=0.0, le=1.0, description="Groundedness score 0-1")
+    score: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Groundedness score 0-1"
+    )
 
 
 class HallucinationCheck(BaseModel):
     """LLM-based hallucination detection result."""
 
-    is_hallucination: bool = Field(description="Whether the response contains fabricated information")
+    is_hallucination: bool = Field(
+        description="Whether the response contains fabricated information"
+    )
     reason: str = Field(default="", description="Reason for the evaluation")
-    confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="Confidence score 0-1")
+    confidence: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Confidence score 0-1"
+    )
 
 
 class CriticResult(BaseModel):
     """P1-5: Independent critic evaluation of agent response quality."""
 
-    completeness: float = Field(default=0.5, ge=0.0, le=1.0, description="回答是否完整覆盖用户问题")
-    relevance: float = Field(default=0.5, ge=0.0, le=1.0, description="回答与用户意图的相关性")
-    accuracy: float = Field(default=0.5, ge=0.0, le=1.0, description="信息准确性（基于工具结果）")
+    completeness: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="回答是否完整覆盖用户问题"
+    )
+    relevance: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="回答与用户意图的相关性"
+    )
+    accuracy: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="信息准确性（基于工具结果）"
+    )
     passed: bool = Field(default=True, description="是否通过评审")
-    improvement_suggestion: str = Field(default="", description="改进建议（未通过时提供）")
+    improvement_suggestion: str = Field(
+        default="", description="改进建议（未通过时提供）"
+    )
 
 
 # ─── Agent Lifecycle Hooks (inspired by OpenClaw agent-hooks.ts) ──────────────
@@ -671,7 +693,9 @@ def _sync_tool_domains():
         else:
             _DOMAIN_TOOL_MAP[domain] = {name}
     if _auto_mapped:
-        logger.debug(f"[ToolDomainSync] Auto-mapped {_auto_mapped} tools from ToolInfo.category")
+        logger.debug(
+            f"[ToolDomainSync] Auto-mapped {_auto_mapped} tools from ToolInfo.category"
+        )
 
 
 def _get_tool_schemas(
@@ -732,7 +756,9 @@ def _get_tool_schemas(
 
         if deny_tools:
             filtered = [s for s in filtered if s["function"]["name"] not in deny_tools]
-            logger.debug(f"[ToolPolicy] Scene '{scene_code}' denied {len(deny_tools)} tools")
+            logger.debug(
+                f"[ToolPolicy] Scene '{scene_code}' denied {len(deny_tools)} tools"
+            )
 
     # Layer 3: Intent-based filtering — Router LLM domains preferred, then keyword match
     if intent_domains:
@@ -743,7 +769,8 @@ def _get_tool_schemas(
         before_count = len(filtered)
         filtered = [s for s in filtered if s["function"]["name"] in relevant_tools]
         logger.debug(
-            f"[ToolFilter] Router LLM domains={intent_domains} " f"→ {len(filtered)} tools (from {before_count})"
+            f"[ToolFilter] Router LLM domains={intent_domains} "
+            f"→ {len(filtered)} tools (from {before_count})"
         )
     elif intent_summary:
         domains = _resolve_domains_from_intent(intent_summary)
@@ -783,31 +810,50 @@ def _get_tool_schemas(
     # Prevents "OpenClaw syndrome" — querying the web for internal enterprise data
     _should_allow_web_search = False
     if intent_domains:
-        _should_allow_web_search = bool(set(intent_domains) & _WEB_SEARCH_ALLOWED_DOMAINS)
+        _should_allow_web_search = bool(
+            set(intent_domains) & _WEB_SEARCH_ALLOWED_DOMAINS
+        )
     if not _should_allow_web_search and intent_summary:
-        _should_allow_web_search = any(kw in intent_summary for kw in _WEB_SEARCH_INTENT_KEYWORDS)
+        _should_allow_web_search = any(
+            kw in intent_summary for kw in _WEB_SEARCH_INTENT_KEYWORDS
+        )
     if not _should_allow_web_search and not intent_domains and not intent_summary:
         # No routing info at all (e.g., SIMPLE queries) — allow web search as fallback
         _should_allow_web_search = True
 
     if _should_allow_web_search:
         # Add web_search schema if not already present
-        ws_schema = next((s for s in (_tool_schemas_cache or []) if s["function"]["name"] == "web_search"), None)
-        if ws_schema and not any(s["function"]["name"] == "web_search" for s in filtered):
+        ws_schema = next(
+            (
+                s
+                for s in (_tool_schemas_cache or [])
+                if s["function"]["name"] == "web_search"
+            ),
+            None,
+        )
+        if ws_schema and not any(
+            s["function"]["name"] == "web_search" for s in filtered
+        ):
             filtered.append(ws_schema)
     else:
         # Explicitly remove web_search from filtered results
         filtered = [s for s in filtered if s["function"]["name"] != "web_search"]
         if intent_domains:
-            logger.debug(f"[DataPrimacy] web_search blocked: domains={intent_domains} are enterprise-internal")
+            logger.debug(
+                f"[DataPrimacy] web_search blocked: domains={intent_domains} are enterprise-internal"
+            )
 
     # Safety cap: if filtering still leaves too many tools, keep only the most relevant
     MAX_TOOLS = 30
     if len(filtered) > MAX_TOOLS:
-        logger.info(f"[ToolFilter] Capping {len(filtered)} tools to {MAX_TOOLS} (always-include + domain-sorted)")
+        logger.info(
+            f"[ToolFilter] Capping {len(filtered)} tools to {MAX_TOOLS} (always-include + domain-sorted)"
+        )
         # Prioritize always-include tools, then domain-matched, then the rest
         always = [s for s in filtered if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
-        rest = [s for s in filtered if s["function"]["name"] not in _ALWAYS_INCLUDE_TOOLS]
+        rest = [
+            s for s in filtered if s["function"]["name"] not in _ALWAYS_INCLUDE_TOOLS
+        ]
         filtered = (always + rest)[:MAX_TOOLS]
 
     return filtered
@@ -958,7 +1004,9 @@ def _get_llm(
     )
 
 
-def _get_fallback_llm(config: AgentConfig, model: str | None = None, streaming: bool = False):
+def _get_fallback_llm(
+    config: AgentConfig, model: str | None = None, streaming: bool = False
+):
     """Get a fallback LLM instance when primary provider is unavailable.
 
     Returns None if no fallback is configured.
@@ -1102,7 +1150,9 @@ async def invoke_with_fallback(
     fallback_llm = _get_fallback_llm(config, model=model, streaming=streaming)
     if fallback_llm:
         if tool_schemas:
-            fallback_llm = fallback_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
+            fallback_llm = fallback_llm.bind_tools(
+                tool_schemas, parallel_tool_calls=True
+            )
         candidates.append(("fallback", fallback_llm))
 
     last_error = None
@@ -1117,7 +1167,10 @@ async def invoke_with_fallback(
             {"user_id": config.user_id, "org_id": config.org_id, "model": model},
         )
     except Exception:
-        logger.error("[LLM Hooks] before_llm_call failed, continuing with original messages", exc_info=True)
+        logger.error(
+            "[LLM Hooks] before_llm_call failed, continuing with original messages",
+            exc_info=True,
+        )
 
     for label, candidate_llm in candidates:
         pkey = _provider_key(candidate_llm)
@@ -1171,11 +1224,15 @@ async def invoke_with_fallback(
                         label,
                         invoke_timeout,
                     )
-                    last_error = TimeoutError(f"Rate-limit retry timeout after {invoke_timeout}s")
+                    last_error = TimeoutError(
+                        f"Rate-limit retry timeout after {invoke_timeout}s"
+                    )
                     all_auth_errors = False
                     _set_provider_cooldown(pkey)
                 except Exception as retry_err:
-                    logger.warning(f"[LLM Cascade] Retry after rate-limit also failed: {retry_err}")
+                    logger.warning(
+                        f"[LLM Cascade] Retry after rate-limit also failed: {retry_err}"
+                    )
                     last_error = retry_err
                     # Continue to next candidate
 
@@ -1191,20 +1248,30 @@ async def invoke_with_fallback(
                     f"downgrading to tier '{next_tier}' model '{downgrade_cfg.get('model', '?')}'"
                 )
                 try:
-                    downgrade_llm = _get_llm(config, streaming=streaming, resolved_config=downgrade_cfg)
+                    downgrade_llm = _get_llm(
+                        config, streaming=streaming, resolved_config=downgrade_cfg
+                    )
                     if tool_schemas:
-                        downgrade_llm = downgrade_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
+                        downgrade_llm = downgrade_llm.bind_tools(
+                            tool_schemas, parallel_tool_calls=True
+                        )
                     result = await asyncio.wait_for(
                         downgrade_llm.ainvoke(messages),
                         timeout=invoke_timeout,
                     )
-                    logger.info(f"[LLM Cascade] Model-tier downgrade to '{next_tier}' succeeded")
+                    logger.info(
+                        f"[LLM Cascade] Model-tier downgrade to '{next_tier}' succeeded"
+                    )
                     return result
                 except TimeoutError:
-                    logger.warning(f"[LLM Cascade] Downgrade to '{next_tier}' timed out after {invoke_timeout}s")
+                    logger.warning(
+                        f"[LLM Cascade] Downgrade to '{next_tier}' timed out after {invoke_timeout}s"
+                    )
                     last_error = TimeoutError(f"Downgrade to {next_tier} timed out")
                 except Exception as dg_err:
-                    logger.warning(f"[LLM Cascade] Downgrade to '{next_tier}' also failed: {dg_err}")
+                    logger.warning(
+                        f"[LLM Cascade] Downgrade to '{next_tier}' also failed: {dg_err}"
+                    )
                     last_error = dg_err
             next_tier = _TIER_DOWNGRADE.get(next_tier)
 
@@ -1228,15 +1295,26 @@ def _messages_to_lc_format(messages) -> list[BaseMessage]:
             elif role == "user":
                 result.append(HumanMessage(content=content))
             elif role == "assistant":
-                result.append(AIMessage(content=content, additional_kwargs=msg.get("additional_kwargs", {})))
+                result.append(
+                    AIMessage(
+                        content=content,
+                        additional_kwargs=msg.get("additional_kwargs", {}),
+                    )
+                )
             elif role == "tool":
                 result.append(
-                    ToolMessage(content=content, tool_call_id=msg.get("tool_call_id", ""), name=msg.get("name", ""))
+                    ToolMessage(
+                        content=content,
+                        tool_call_id=msg.get("tool_call_id", ""),
+                        name=msg.get("name", ""),
+                    )
                 )
     return result
 
 
-def _format_validation_error(tool_name: str, error: Exception, schema: dict | None = None) -> str:
+def _format_validation_error(
+    tool_name: str, error: Exception, schema: dict | None = None
+) -> str:
     """
     Format a schema validation error with field-level guidance for the LLM.
 
@@ -1247,7 +1325,11 @@ def _format_validation_error(tool_name: str, error: Exception, schema: dict | No
         import jsonschema
 
         if isinstance(error, jsonschema.ValidationError):
-            field_path = " → ".join(str(p) for p in error.absolute_path) if error.absolute_path else "(root)"
+            field_path = (
+                " → ".join(str(p) for p in error.absolute_path)
+                if error.absolute_path
+                else "(root)"
+            )
             lines = [f"参数校验失败 [{tool_name}]:"]
             lines.append(f"  错误字段: {field_path}")
             lines.append(f"  问题: {error.message}")
@@ -1270,7 +1352,11 @@ def _format_validation_error(tool_name: str, error: Exception, schema: dict | No
                     for r in required:
                         desc = props.get(r, {}).get("description", "")
                         ftype = props.get(r, {}).get("type", "")
-                        field_hints.append(f"    - {r} ({ftype}): {desc}" if desc else f"    - {r} ({ftype})")
+                        field_hints.append(
+                            f"    - {r} ({ftype}): {desc}"
+                            if desc
+                            else f"    - {r} ({ftype})"
+                        )
                     lines.append("  必填字段:")
                     lines.extend(field_hints)
 

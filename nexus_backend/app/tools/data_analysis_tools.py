@@ -19,7 +19,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # 时间字段自动检测
 # ---------------------------------------------------------------------------
-_TIME_FIELD_NAMES = {"date", "time", "created_at", "updated_at", "timestamp", "日期", "时间"}
+_TIME_FIELD_NAMES = {
+    "date",
+    "time",
+    "created_at",
+    "updated_at",
+    "timestamp",
+    "日期",
+    "时间",
+}
 
 
 def _detect_time_field(records: list[dict]) -> str | None:
@@ -192,7 +200,10 @@ class DataAnalysisTool(BaseTool):
     domain = "analytics"
     examples = [
         {
-            "input": {"data": [{"name": "A", "amount": 100}, {"name": "B", "amount": 200}], "analysis_type": "summary"},
+            "input": {
+                "data": [{"name": "A", "amount": 100}, {"name": "B", "amount": 200}],
+                "analysis_type": "summary",
+            },
             "output_summary": "返回记录数、最小值、最大值、平均值、中位数等汇总统计",
         },
         {
@@ -215,9 +226,7 @@ class DataAnalysisTool(BaseTool):
         },
     ]
     related_tools = ["generate_report"]
-    gotchas = (
-        "数据必须是字典列表格式。分组分析必须指定分组字段。趋势分析需要数据中包含时间字段。排名分析必须指定数值字段。"
-    )
+    gotchas = "数据必须是字典列表格式。分组分析必须指定分组字段。趋势分析需要数据中包含时间字段。排名分析必须指定数值字段。"
 
     parameters = {
         "type": "object",
@@ -276,7 +285,9 @@ class DataAnalysisTool(BaseTool):
         "users",
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         data = args.get("data")
         table_name = args.get("table_name")
 
@@ -332,7 +343,9 @@ class DataAnalysisTool(BaseTool):
             default=str,
         )
 
-    async def _query_table(self, table_name: str, filters: dict | None, config: dict | None) -> list[dict]:
+    async def _query_table(
+        self, table_name: str, filters: dict | None, config: dict | None
+    ) -> list[dict]:
         """Query a whitelisted Supabase table with multi-tenant isolation."""
         from app.core.database import supabase
 

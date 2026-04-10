@@ -48,7 +48,9 @@ class WenxinAdapter(BaseModelAdapter):
         self._access_token: str | None = None
         self._token_expires_at: float = 0
         # Use custom base URL if provided, otherwise default
-        self.api_base = config.api_base_url.rstrip("/") if config.api_base_url else WENXIN_API_BASE
+        self.api_base = (
+            config.api_base_url.rstrip("/") if config.api_base_url else WENXIN_API_BASE
+        )
 
     async def _ensure_access_token(self) -> str:
         """Obtain or refresh the Wenxin access_token."""
@@ -57,7 +59,9 @@ class WenxinAdapter(BaseModelAdapter):
             return self._access_token
 
         if not self.config.secret_key:
-            raise ValueError("Wenxin adapter requires secret_key (client_secret) for authentication")
+            raise ValueError(
+                "Wenxin adapter requires secret_key (client_secret) for authentication"
+            )
 
         params = {
             "grant_type": "client_credentials",
@@ -69,11 +73,15 @@ class WenxinAdapter(BaseModelAdapter):
             async with httpx.AsyncClient(timeout=15.0) as client:
                 response = await client.post(WENXIN_TOKEN_URL, params=params)
                 if response.status_code != 200:
-                    raise ValueError(f"Wenxin OAuth failed ({response.status_code}): {response.text[:300]}")
+                    raise ValueError(
+                        f"Wenxin OAuth failed ({response.status_code}): {response.text[:300]}"
+                    )
 
                 data = response.json()
                 if "access_token" not in data:
-                    raise ValueError(f"Wenxin OAuth response missing access_token: {data}")
+                    raise ValueError(
+                        f"Wenxin OAuth response missing access_token: {data}"
+                    )
 
                 self._access_token = data["access_token"]
                 # Token is valid for expires_in seconds (usually 2592000 = 30 days)
@@ -106,11 +114,17 @@ class WenxinAdapter(BaseModelAdapter):
             payload["system"] = request.system_prompt
 
         # Temperature (Wenxin range: 0.01 ~ 1.0)
-        temperature = request.temperature if request.temperature is not None else self.config.default_temperature
+        temperature = (
+            request.temperature
+            if request.temperature is not None
+            else self.config.default_temperature
+        )
         payload["temperature"] = max(0.01, min(1.0, temperature))
 
         # Top-p
-        top_p = request.top_p if request.top_p is not None else self.config.default_top_p
+        top_p = (
+            request.top_p if request.top_p is not None else self.config.default_top_p
+        )
         payload["top_p"] = max(0.0, min(1.0, top_p))
 
         # Max output tokens
@@ -144,7 +158,12 @@ class WenxinAdapter(BaseModelAdapter):
     def _parse_usage(self, usage_data: dict | None) -> dict:
         """Parse Wenxin usage info."""
         if not usage_data:
-            return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "call_cost": 0.0}
+            return {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "call_cost": 0.0,
+            }
 
         input_tokens = usage_data.get("prompt_tokens", 0)
         output_tokens = usage_data.get("completion_tokens", 0)
@@ -205,7 +224,9 @@ class WenxinAdapter(BaseModelAdapter):
 
                 if response.status_code != 200:
                     error_text = response.text[:500]
-                    logger.error(f"Wenxin API error ({response.status_code}): {error_text}")
+                    logger.error(
+                        f"Wenxin API error ({response.status_code}): {error_text}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return ChatResponse(
                         request_id=request_id,
@@ -220,7 +241,9 @@ class WenxinAdapter(BaseModelAdapter):
                 # Wenxin returns error in response body with error_code field
                 if data.get("error_code"):
                     error_msg = data.get("error_msg", "Unknown error")
-                    logger.error(f"Wenxin API error: {data['error_code']} - {error_msg}")
+                    logger.error(
+                        f"Wenxin API error: {data['error_code']} - {error_msg}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return ChatResponse(
                         request_id=request_id,
@@ -408,7 +431,9 @@ class WenxinAdapter(BaseModelAdapter):
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(url, headers=headers, json=payload)
                 if response.status_code != 200:
-                    logger.error(f"Wenxin embedding error ({response.status_code}): {response.text[:300]}")
+                    logger.error(
+                        f"Wenxin embedding error ({response.status_code}): {response.text[:300]}"
+                    )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return EmbeddingResponse(
                         request_id=request_id,
@@ -472,7 +497,11 @@ class WenxinAdapter(BaseModelAdapter):
             latency_ms = int((time.monotonic() - start_time) * 1000)
 
             if result.finish_reason == "error":
-                return {"success": False, "latency_ms": latency_ms, "error": result.content}
+                return {
+                    "success": False,
+                    "latency_ms": latency_ms,
+                    "error": result.content,
+                }
 
             return {"success": True, "latency_ms": latency_ms, "error": None}
 

@@ -147,7 +147,11 @@ async def extract_entities_from_conversation(
             result = tool_out.get("result", "")
 
             # Customer-related tools produce high-quality entity data
-            if tool_name in ("get_customers", "get_customer_detail", "customer_profile"):
+            if tool_name in (
+                "get_customers",
+                "get_customer_detail",
+                "customer_profile",
+            ):
                 _extract_from_customer_tool(result, org_id, relations)
             elif tool_name in ("get_sales_pipeline", "get_contracts"):
                 _extract_from_sales_tool(result, org_id, relations)
@@ -163,7 +167,11 @@ def _extract_from_customer_tool(result: str, org_id: str, relations: list):
     """Extract entities from customer tool output."""
     try:
         if isinstance(result, str):
-            data = json.loads(result) if result.startswith("{") or result.startswith("[") else {}
+            data = (
+                json.loads(result)
+                if result.startswith("{") or result.startswith("[")
+                else {}
+            )
         else:
             data = result
 
@@ -194,7 +202,11 @@ def _extract_from_sales_tool(result: str, org_id: str, relations: list):
     """Extract entities from sales pipeline tool output."""
     try:
         if isinstance(result, str):
-            data = json.loads(result) if result.startswith("{") or result.startswith("[") else {}
+            data = (
+                json.loads(result)
+                if result.startswith("{") or result.startswith("[")
+                else {}
+            )
         else:
             data = result
 
@@ -252,8 +264,12 @@ async def _upsert_relations(relations: list[dict]):
         try:
             org_id = rel["org_id"]
             # Fuzzy-match source/target against existing entities to canonicalize
-            rel["source_entity"] = _find_canonical(rel["source_entity"], existing_entities.get(org_id, []))
-            rel["target_entity"] = _find_canonical(rel["target_entity"], existing_entities.get(org_id, []))
+            rel["source_entity"] = _find_canonical(
+                rel["source_entity"], existing_entities.get(org_id, [])
+            )
+            rel["target_entity"] = _find_canonical(
+                rel["target_entity"], existing_entities.get(org_id, [])
+            )
 
             await (
                 supabase.table("entity_relations")
@@ -319,15 +335,21 @@ async def query_entity_context(
         # Extract potential entity names from the query (simple keyword match)
         keywords = [w for w in re.split(r"[，。！？\s,.\?!]+", query) if len(w) >= 2]
         # Also search with normalized forms for fuzzy coverage
-        norm_keywords = list({normalize_entity(kw) for kw in keywords if normalize_entity(kw)})
-        all_search_terms = list(dict.fromkeys(keywords[:5] + norm_keywords[:3]))  # dedup, preserve order
+        norm_keywords = list(
+            {normalize_entity(kw) for kw in keywords if normalize_entity(kw)}
+        )
+        all_search_terms = list(
+            dict.fromkeys(keywords[:5] + norm_keywords[:3])
+        )  # dedup, preserve order
 
         all_results = []
         for kw in all_search_terms[:6]:  # Limit keyword searches
             # Search as source entity
             resp = await (
                 supabase.table("entity_relations")
-                .select("source_entity, source_type, relation, target_entity, target_type, confidence")
+                .select(
+                    "source_entity, source_type, relation, target_entity, target_type, confidence"
+                )
                 .eq("org_id", org_id)
                 .ilike("source_entity", f"%{kw}%")
                 .order("last_seen_at", desc=True)
@@ -339,7 +361,9 @@ async def query_entity_context(
             # Search as target entity
             resp2 = await (
                 supabase.table("entity_relations")
-                .select("source_entity, source_type, relation, target_entity, target_type, confidence")
+                .select(
+                    "source_entity, source_type, relation, target_entity, target_type, confidence"
+                )
                 .eq("org_id", org_id)
                 .ilike("target_entity", f"%{kw}%")
                 .order("last_seen_at", desc=True)
@@ -407,7 +431,9 @@ async def learn_tool_patterns(
             return []
 
         # Record current tool sequence
-        current_sequence = [tc.get("tool_name", "") for tc in tool_calls if tc.get("tool_name")]
+        current_sequence = [
+            tc.get("tool_name", "") for tc in tool_calls if tc.get("tool_name")
+        ]
         if not current_sequence:
             return []
 
@@ -646,7 +672,9 @@ def _extract_keywords(text: str) -> list[str]:
         "查看",
     }
     words = re.split(r"[，。！？\s,.\?!\n\r]+", text)
-    keywords = [w.strip() for w in words if len(w.strip()) >= 2 and w.strip() not in stop_words]
+    keywords = [
+        w.strip() for w in words if len(w.strip()) >= 2 and w.strip() not in stop_words
+    ]
     return keywords[:10]  # Limit
 
 
@@ -688,7 +716,9 @@ async def _persist_learned_patterns(org_id: str, patterns: list[dict]):
                 # Update frequency
                 try:
                     old = json.loads(existing.data[0].get("value", "{}"))
-                    old["frequency"] = max(old.get("frequency", 0), pattern["frequency"])
+                    old["frequency"] = max(
+                        old.get("frequency", 0), pattern["frequency"]
+                    )
                     await (
                         supabase.table("org_memories")
                         .update({"value": json.dumps(old, ensure_ascii=False)})

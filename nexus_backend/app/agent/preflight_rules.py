@@ -39,7 +39,9 @@ PRE_FLIGHT_RULES: dict[str, list[dict[str, Any]]] = {
 }
 
 
-async def run_preflight_checks(tool_name: str, tool_args: dict, supabase_client=None) -> tuple[bool, str]:
+async def run_preflight_checks(
+    tool_name: str, tool_args: dict, supabase_client=None
+) -> tuple[bool, str]:
     """
     Execute pre-flight checks for a tool.
 
@@ -51,7 +53,9 @@ async def run_preflight_checks(tool_name: str, tool_args: dict, supabase_client=
         return True, ""  # No rules defined, pass
 
     if not supabase_client:
-        logger.warning(f"[PreFlight] No Supabase client available for {tool_name}, skipping checks")
+        logger.warning(
+            f"[PreFlight] No Supabase client available for {tool_name}, skipping checks"
+        )
         return True, ""
 
     for rule in rules:
@@ -66,7 +70,9 @@ async def run_preflight_checks(tool_name: str, tool_args: dict, supabase_client=
             for key, val in params.items():
                 query = query.replace(f":{key}", f"'{val}'")
 
-            result = await supabase_client.rpc("execute_sql", {"query": query}).execute()
+            result = await supabase_client.rpc(
+                "execute_sql", {"query": query}
+            ).execute()
 
             # Validate result
             validator = rule.get("validator")

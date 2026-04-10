@@ -134,7 +134,9 @@ _REALTIME_INFO_PATTERNS = re.compile(
 # When a negation prefix immediately precedes a business keyword, the keyword
 # should be suppressed.  E.g. "不需要报销了" → "报销" should NOT trigger
 # financial intent.
-_NEGATION_PREFIX_RE = re.compile(r"(不用|不需要|不要|别|没必要|取消|停止|停用|无需|不再|不想)")
+_NEGATION_PREFIX_RE = re.compile(
+    r"(不用|不需要|不要|别|没必要|取消|停止|停用|无需|不再|不想)"
+)
 
 # ─── Query vs Execute verb sets (for semantic distinction) ───────────────────
 # When a CRITICAL keyword is matched but only query verbs are present (and no
@@ -482,7 +484,9 @@ async def _load_db_intent_rules() -> None:
         if count:
             logger.info(f"[Router] Loaded {count} intent rules from DB")
     except Exception as e:
-        logger.debug(f"[Router] intent_rules table not available, using hardcoded keywords: {e}")
+        logger.debug(
+            f"[Router] intent_rules table not available, using hardcoded keywords: {e}"
+        )
 
 
 # Maps regex patterns to agent_code + scene_code.
@@ -493,64 +497,93 @@ _AGENT_ROLE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # Content marketing
     (
         re.compile(
-            r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文|推广文|长文|方案书|策划案", re.IGNORECASE
+            r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文|推广文|长文|方案书|策划案",
+            re.IGNORECASE,
         ),
         "content_agent",
         "content_generation",
     ),
     # Visual design
     (
-        re.compile(r"视觉设计|海报|画册|展板|Banner|物料设计|品牌视觉|VI设计|宣传物料", re.IGNORECASE),
+        re.compile(
+            r"视觉设计|海报|画册|展板|Banner|物料设计|品牌视觉|VI设计|宣传物料",
+            re.IGNORECASE,
+        ),
         "design_agent",
         "visual_design",
     ),
     # Media placement
     (
-        re.compile(r"媒介投放|广告投放|SEM|信息流|渠道分析|媒介策略|投放预算|ROI优化", re.IGNORECASE),
+        re.compile(
+            r"媒介投放|广告投放|SEM|信息流|渠道分析|媒介策略|投放预算|ROI优化",
+            re.IGNORECASE,
+        ),
         "media_agent",
         "media_planning",
     ),
     # Lead generation / clue
     (
-        re.compile(r"线索获取|获客|线索评分|渠道归因|CAC|获客成本|MQL|SQL|线索培育", re.IGNORECASE),
+        re.compile(
+            r"线索获取|获客|线索评分|渠道归因|CAC|获客成本|MQL|SQL|线索培育",
+            re.IGNORECASE,
+        ),
         "clue_agent",
         "lead_generation",
     ),
     # Sales enablement
     (
-        re.compile(r"销售话术|Battlecard|报价策略|竞品对比|销售培训|赢单|丢单|投标策略|标书", re.IGNORECASE),
+        re.compile(
+            r"销售话术|Battlecard|报价策略|竞品对比|销售培训|赢单|丢单|投标策略|标书",
+            re.IGNORECASE,
+        ),
         "sales_agent",
         "sales_enablement",
     ),
     # R&D-production-sales synergy
     (
-        re.compile(r"研产销|新品上市|GTM|跨部门|产销协同|需求传递|VOC|产品发布", re.IGNORECASE),
+        re.compile(
+            r"研产销|新品上市|GTM|跨部门|产销协同|需求传递|VOC|产品发布", re.IGNORECASE
+        ),
         "synergy_agent",
         "rd_marketing_sync",
     ),
     # Private domain operation
     (
-        re.compile(r"私域|社群运营|会员体系|客户旅程|复购|客户留存|NPS|社群", re.IGNORECASE),
+        re.compile(
+            r"私域|社群运营|会员体系|客户旅程|复购|客户留存|NPS|社群", re.IGNORECASE
+        ),
         "operation_agent",
         "private_domain",
     ),
     # PR / reputation
-    (re.compile(r"舆情|口碑|危机公关|品牌监控|负面|舆论|KOL|声誉", re.IGNORECASE), "pr_agent", "brand_monitoring"),
+    (
+        re.compile(r"舆情|口碑|危机公关|品牌监控|负面|舆论|KOL|声誉", re.IGNORECASE),
+        "pr_agent",
+        "brand_monitoring",
+    ),
     # Compliance
     (
-        re.compile(r"合规|广告法|审核|绝对化用语|极限词|医疗器械广告|内容审查", re.IGNORECASE),
+        re.compile(
+            r"合规|广告法|审核|绝对化用语|极限词|医疗器械广告|内容审查", re.IGNORECASE
+        ),
         "compliance_agent",
         "ad_compliance",
     ),
     # Tender / bidding (may overlap with sales)
-    (re.compile(r"标书|投标|招标|招投标|评标|中标|开标", re.IGNORECASE), "sales_agent", "tender_analysis"),
+    (
+        re.compile(r"标书|投标|招标|招投标|评标|中标|开标", re.IGNORECASE),
+        "sales_agent",
+        "tender_analysis",
+    ),
 ]
 
 # Patterns that suggest the query needs multi-agent orchestration (WBS decomposition)
 _MULTI_AGENT_PATTERNS = re.compile(
-    r"营销方案|营销计划|推广方案|市场策略|整合营销|全案|年度计划|季度计划" r"|Go.?to.?Market|上市计划|品牌策划|完整方案"
+    r"营销方案|营销计划|推广方案|市场策略|整合营销|全案|年度计划|季度计划"
+    r"|Go.?to.?Market|上市计划|品牌策划|完整方案"
     # P1: 通用复杂场景（非营销）
-    r"|项目规划|出差行程|招投标全流程|产品上线|招聘计划|培训方案|年度预算" r"|活动策划|展会筹备|客户拜访计划|团建方案",
+    r"|项目规划|出差行程|招投标全流程|产品上线|招聘计划|培训方案|年度预算"
+    r"|活动策划|展会筹备|客户拜访计划|团建方案",
     re.IGNORECASE,
 )
 
@@ -603,7 +636,9 @@ def _filter_negated_keywords(text: str, keywords: set[str]) -> set[str]:
     tokens = _tokenize(text)
     text_lower = text.lower()
     tokens_lower = {t.lower() for t in tokens}
-    matched = {kw for kw in keywords if kw.lower() in text_lower or kw.lower() in tokens_lower}
+    matched = {
+        kw for kw in keywords if kw.lower() in text_lower or kw.lower() in tokens_lower
+    }
     if not matched:
         return matched
     # Check each matched keyword for negation prefix
@@ -615,7 +650,9 @@ def _filter_negated_keywords(text: str, keywords: set[str]) -> set[str]:
             continue
         # Check if the text before the keyword ends with a negation prefix
         prefix = text[:idx]
-        if _NEGATION_PREFIX_RE.search(prefix) and _NEGATION_PREFIX_RE.search(prefix).end() == len(prefix):
+        if _NEGATION_PREFIX_RE.search(prefix) and _NEGATION_PREFIX_RE.search(
+            prefix
+        ).end() == len(prefix):
             # Negated — skip this keyword
             continue
         filtered.add(kw)
@@ -654,8 +691,14 @@ def _try_cheap_route(text: str) -> tuple[QueryComplexity, str] | None:
 
         # P0 FIX: Explicitly block short intense business phrases from SIMPLE route
         # These are usually 2-6 chars: "查业绩", "客户概况", "项目详情"
-        if biz_hits or _REALTIME_INFO_PATTERNS.search(text) or _LONGFORM_WRITING_RE.search(text):
-            logger.debug("[Router] Business/Realtime intent detected in short message, bypassing SIMPLE cheap route")
+        if (
+            biz_hits
+            or _REALTIME_INFO_PATTERNS.search(text)
+            or _LONGFORM_WRITING_RE.search(text)
+        ):
+            logger.debug(
+                "[Router] Business/Realtime intent detected in short message, bypassing SIMPLE cheap route"
+            )
             return None
 
         # Truly trivial/short conversation
@@ -681,7 +724,10 @@ def _try_cheap_route(text: str) -> tuple[QueryComplexity, str] | None:
                     msg_len,
                     words,
                 )
-                return QueryComplexity.MODERATE, f"工具查询(快速路由): {', '.join(biz_hits)}"
+                return (
+                    QueryComplexity.MODERATE,
+                    f"工具查询(快速路由): {', '.join(biz_hits)}",
+                )
 
     return None
 
@@ -739,7 +785,9 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     matched_business = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
     if not matched_business and len(text) <= 200:
         # Short message with action intent verbs → upgrade to MODERATE for tool access
-        if len(text) > 15 and any(v in text for v in ("帮我", "帮忙", "能不能", "可以", "怎么")):
+        if len(text) > 15 and any(
+            v in text for v in ("帮我", "帮忙", "能不能", "可以", "怎么")
+        ):
             return QueryComplexity.MODERATE, "一般对话"
         return QueryComplexity.SIMPLE, "一般对话"
 
@@ -752,11 +800,17 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
         has_execute_verb = any(v in text for v in _EXECUTE_VERBS)
         summary_str = ", ".join(matched_business)
         if has_query_verb and not has_execute_verb:
-            return QueryComplexity.MODERATE, f"查询操作(含敏感词但为只读): {summary_str}"
+            return (
+                QueryComplexity.MODERATE,
+                f"查询操作(含敏感词但为只读): {summary_str}",
+            )
         # No action verb at all → ambiguous, downgrade to MODERATE to avoid
         # over-triggering HITL / RAG for vague matches like "通知停水"
         if not has_query_verb and not has_execute_verb:
-            return QueryComplexity.MODERATE, f"业务相关(含敏感词但无明确动作): {summary_str}"
+            return (
+                QueryComplexity.MODERATE,
+                f"业务相关(含敏感词但无明确动作): {summary_str}",
+            )
         return QueryComplexity.CRITICAL, f"关键操作: {summary_str}"
 
     # 3. Complex (multi-step analysis)
@@ -849,7 +903,9 @@ async def _llm_classify_intent(
             org_id = getattr(config, "org_id", None) or "default"
             resolved = await resolve_model_config(org_id)
         except Exception:
-            logger.debug("LLM gateway model config unavailable in router, using default")
+            logger.debug(
+                "LLM gateway model config unavailable in router, using default"
+            )
 
         if resolved:
             llm = ChatOpenAI(
@@ -858,7 +914,9 @@ async def _llm_classify_intent(
                 base_url=resolved.get("base_url") or config.base_url,
                 temperature=0.0,
                 timeout=10.0,
-                callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["router"]),
+                callbacks=_get_langfuse_callbacks(
+                    **_get_trace_context(config), tags=["router"]
+                ),
             )
         else:
             llm = ChatOpenAI(
@@ -867,7 +925,9 @@ async def _llm_classify_intent(
                 base_url=config.base_url,
                 temperature=0.0,
                 timeout=10.0,
-                callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["router"]),
+                callbacks=_get_langfuse_callbacks(
+                    **_get_trace_context(config), tags=["router"]
+                ),
             )
         response = await llm.ainvoke([HumanMessage(content=prompt)])
         content = response.content or "{}"
@@ -967,7 +1027,9 @@ async def route_node(state: AgentState) -> dict:
     ):
         complexity = prev_complexity
         intent_summary = f"多轮延续(继承上轮 {complexity.value})"
-        logger.info(f"[Router] Multi-turn continuation detected, inheriting complexity={complexity.value}")
+        logger.info(
+            f"[Router] Multi-turn continuation detected, inheriting complexity={complexity.value}"
+        )
 
     # LLM fallback: only for genuinely ambiguous queries that passed all keyword checks.
     # Skip LLM classification when:
@@ -981,37 +1043,53 @@ async def route_node(state: AgentState) -> dict:
             from app.agent.semantic_router import semantic_router
 
             sr_intent, sr_conf, sr_domains = await semantic_router.classify(
-                last_user_msg, org_id=config.org_id if hasattr(config, "org_id") else None
+                last_user_msg,
+                org_id=config.org_id if hasattr(config, "org_id") else None,
             )
             if sr_intent and sr_conf > 0.85:
                 complexity_str = semantic_router.get_complexity(sr_intent)
                 complexity = QueryComplexity(complexity_str)
                 intent_summary = sr_intent
                 intent_domains = sr_domains
-                logger.info(f"[Router] Semantic router hit: {sr_intent} (conf={sr_conf:.3f}), skipping LLM classify")
+                logger.info(
+                    f"[Router] Semantic router hit: {sr_intent} (conf={sr_conf:.3f}), skipping LLM classify"
+                )
             else:
                 # Slow path: LLM classify
-                complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(
-                    last_user_msg, config
+                complexity, intent_summary, intent_domains, multi_intent = (
+                    await _llm_classify_intent(last_user_msg, config)
                 )
         except Exception:
-            logger.error("[Router] Semantic router failed, falling back to LLM", exc_info=True)
-            complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
+            logger.error(
+                "[Router] Semantic router failed, falling back to LLM", exc_info=True
+            )
+            complexity, intent_summary, intent_domains, multi_intent = (
+                await _llm_classify_intent(last_user_msg, config)
+            )
 
     selected_model = config.get_model_for_complexity(complexity)
 
     # ── VMD Agent Role Detection (additive) ──
-    agent_code, scene_code, needs_multi_agent = detect_agent_role(last_user_msg, complexity)
+    agent_code, scene_code, needs_multi_agent = detect_agent_role(
+        last_user_msg, complexity
+    )
 
     # P1: Multi-intent detection — if LLM detected multiple independent intents,
     # escalate to WBS decomposition even without pattern match
     if (
         not needs_multi_agent
         and multi_intent
-        and complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+        and complexity
+        in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
     ):
-        agent_code, scene_code, needs_multi_agent = "director_agent", "task_decompose", True
-        logger.info("[Router] Multi-intent detected by LLM, escalating to WBS decomposition")
+        agent_code, scene_code, needs_multi_agent = (
+            "director_agent",
+            "task_decompose",
+            True,
+        )
+        logger.info(
+            "[Router] Multi-intent detected by LLM, escalating to WBS decomposition"
+        )
 
     if agent_code:
         logger.info(
@@ -1069,7 +1147,9 @@ async def route_node(state: AgentState) -> dict:
                 result["workflow_recipe"] = recipe.dict()
             else:
                 result["workflow_recipe"] = vars(recipe)
-            logger.info(f"[Router] Matched workflow recipe: {matched_recipe} for query '{last_user_msg}'")
+            logger.info(
+                f"[Router] Matched workflow recipe: {matched_recipe} for query '{last_user_msg}'"
+            )
     except Exception as e:
         logger.debug(f"[Router] Workflow recipe matching skipped: {e}")
 

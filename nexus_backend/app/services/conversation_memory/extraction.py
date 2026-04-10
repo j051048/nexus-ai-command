@@ -49,14 +49,18 @@ PREFERENCE_PATTERNS: list[dict[str, Any]] = [
     },
     # "我的邮箱/电话/工号是..."
     {
-        "pattern": re.compile(r"我的(?:邮箱|邮件|电话|手机|工号|员工号)(?:是|为)?\s*([^\s,，。.]{3,40})"),
+        "pattern": re.compile(
+            r"我的(?:邮箱|邮件|电话|手机|工号|员工号)(?:是|为)?\s*([^\s,，。.]{3,40})"
+        ),
         "category": "preference",
         "key_prefix": "contact",
         "importance": 0.75,
     },
     # P1 Fix: 实体查询模式 "张三的宠物叫什么" → 提取实体名
     {
-        "pattern": re.compile(r"([\u4e00-\u9fa5]{2,4})(?:的|负责|管理|喜欢|讨厌)(.{2,20})(?:叫什么|是什么|怎么样)"),
+        "pattern": re.compile(
+            r"([\u4e00-\u9fa5]{2,4})(?:的|负责|管理|喜欢|讨厌)(.{2,20})(?:叫什么|是什么|怎么样)"
+        ),
         "category": "entity_query",
         "key_prefix": "query",
         "importance": 0.6,
@@ -144,14 +148,30 @@ def _mark_extracted(user_id: str, current_turn: int) -> None:
 # Each entry: (pattern, preference_key, preference_value)
 BEHAVIOR_PREF_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # Response style
-    (re.compile(r"(?:简洁|简短|精简|简要)(?:一点|些|地)?(?:回答|回复|说)?"), "response_style", "concise"),
-    (re.compile(r"(?:详细|详尽|展开|具体)(?:一点|些|地)?(?:回答|回复|说|解释)?"), "response_style", "detailed"),
+    (
+        re.compile(r"(?:简洁|简短|精简|简要)(?:一点|些|地)?(?:回答|回复|说)?"),
+        "response_style",
+        "concise",
+    ),
+    (
+        re.compile(r"(?:详细|详尽|展开|具体)(?:一点|些|地)?(?:回答|回复|说|解释)?"),
+        "response_style",
+        "detailed",
+    ),
     # Language preference
     (re.compile(r"(?:用|请用|以后用)英文(?:回答|回复)?"), "language", "en"),
     (re.compile(r"(?:用|请用|以后用)中文(?:回答|回复)?"), "language", "zh"),
     # Chart preference
-    (re.compile(r"(?:用|我喜欢|偏好)(?:柱状图|柱形图|条形图)"), "preferred_chart", "bar"),
-    (re.compile(r"(?:用|我喜欢|偏好)(?:折线图|线图|趋势图)"), "preferred_chart", "line"),
+    (
+        re.compile(r"(?:用|我喜欢|偏好)(?:柱状图|柱形图|条形图)"),
+        "preferred_chart",
+        "bar",
+    ),
+    (
+        re.compile(r"(?:用|我喜欢|偏好)(?:折线图|线图|趋势图)"),
+        "preferred_chart",
+        "line",
+    ),
     (re.compile(r"(?:用|我喜欢|偏好)(?:饼图|饼状图|圆形图)"), "preferred_chart", "pie"),
     (re.compile(r"(?:用|我喜欢|偏好)(?:面积图|区域图)"), "preferred_chart", "area"),
 ]
@@ -159,7 +179,8 @@ BEHAVIOR_PREF_PATTERNS: list[tuple[re.Pattern, str, str]] = [
 # ── Mining Mode Detection ───────────────────────────────────────────────
 # Auto-detect conversation scene to select specialized extraction prompts.
 _ENTITY_HINT_PATTERN = re.compile(
-    r"[\u4e00-\u9fa5]{2,4}(?:的|负责|管理|在|属于|是)" r"|(?:公司|部门|团队|项目|客户)[\u4e00-\u9fa5]{2,8}"
+    r"[\u4e00-\u9fa5]{2,4}(?:的|负责|管理|在|属于|是)"
+    r"|(?:公司|部门|团队|项目|客户)[\u4e00-\u9fa5]{2,8}"
 )
 
 
@@ -217,11 +238,17 @@ async def _update_behavior_preferences(
         if not client:
             return
         # Read current preferences
-        query = client.table("ai_settings").select("behavior_preferences").eq("user_id", user_id)
+        query = (
+            client.table("ai_settings")
+            .select("behavior_preferences")
+            .eq("user_id", user_id)
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         result = await query.maybe_single().execute()
-        current = (result.data or {}).get("behavior_preferences", {}) if result.data else {}
+        current = (
+            (result.data or {}).get("behavior_preferences", {}) if result.data else {}
+        )
         if not isinstance(current, dict):
             current = {}
         # Merge detected preferences
@@ -241,8 +268,12 @@ async def _update_behavior_preferences(
             "behavior_preferences": merged,
         }
 
-        await client.table("ai_settings").upsert(upsert_data, on_conflict="user_id,organization_id").execute()
-        logger.info(f"[BehaviorPref] Updated behavior preferences for {user_id} (Org: {effective_org_id}): {detected}")
+        await client.table("ai_settings").upsert(
+            upsert_data, on_conflict="user_id,organization_id"
+        ).execute()
+        logger.info(
+            f"[BehaviorPref] Updated behavior preferences for {user_id} (Org: {effective_org_id}): {detected}"
+        )
     except Exception as e:
         logger.error(f"[BehaviorPref] Failed to update preferences: {e}")
 
@@ -263,11 +294,17 @@ async def _enrich_memory_values(
         return entries
 
     # 构建对话上下文摘要（最近 5 条消息，截取前 500 字符）
-    recent_msgs = [f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages[-5:] if m.get("content")]
+    recent_msgs = [
+        f"{m.get('role', 'user')}: {m.get('content', '')}"
+        for m in messages[-5:]
+        if m.get("content")
+    ]
     context_summary = "\n".join(recent_msgs)[:500]
 
     # 构建待补全列表
-    values_text = "\n".join(f"[{i}] {entries[idx]['value']}" for i, (idx, _) in enumerate(enrichable))
+    values_text = "\n".join(
+        f"[{i}] {entries[idx]['value']}" for i, (idx, _) in enumerate(enrichable)
+    )
 
     prompt = (
         f"以下是对话上下文和从中提取的记忆片段。\n"
@@ -297,14 +334,20 @@ async def _enrich_memory_values(
             results = _json.loads(json_match.group())
             enriched_count = 0
             for j, (orig_idx, _) in enumerate(enrichable):
-                if j < len(results) and isinstance(results[j], str) and len(results[j]) > 5:
+                if (
+                    j < len(results)
+                    and isinstance(results[j], str)
+                    and len(results[j]) > 5
+                ):
                     enriched_val = results[j]
                     # 保存原始 value 和补全后的 enriched_value
                     entries[orig_idx]["enriched_value"] = enriched_val
                     enriched_count += 1
 
             if enriched_count > 0:
-                logger.info(f"[Memory] Enriched {enriched_count} memory values with context")
+                logger.info(
+                    f"[Memory] Enriched {enriched_count} memory values with context"
+                )
 
     except Exception as e:
         logger.debug(f"[Memory] Memory value enrichment skipped (non-fatal): {e}")
@@ -353,7 +396,9 @@ async def extract_preferences(
                 content_hash = hashlib.md5(match_text.encode()).hexdigest()[:8]
                 key = f"{pattern_info['key_prefix']}_{content_hash}"
                 # Use pattern-specific importance if defined, else category defaults
-                default_imp = 0.7 if pattern_info["category"] == "explicit_memory" else 0.5
+                default_imp = (
+                    0.7 if pattern_info["category"] == "explicit_memory" else 0.5
+                )
                 # Generate stable pattern_key for dedup
                 pattern_key = f"{pattern_info['category']}:{pattern_info['key_prefix']}"
                 entry = {
@@ -384,26 +429,36 @@ async def extract_preferences(
         if entry["category"] == "anti_pattern":
             # Find the user message containing this correction
             for i, msg in enumerate(messages):
-                if msg.get("role") == "user" and entry["value"] in msg.get("content", ""):
+                if msg.get("role") == "user" and entry["value"] in msg.get(
+                    "content", ""
+                ):
                     # Look backwards for the nearest assistant response
                     for j in range(i - 1, -1, -1):
                         if messages[j].get("role") == "assistant":
                             prev_resp = messages[j].get("content", "")[:200]
-                            entry["value"] = f"用户纠正: {entry['value']} | Agent之前回复: {prev_resp}"
+                            entry["value"] = (
+                                f"用户纠正: {entry['value']} | Agent之前回复: {prev_resp}"
+                            )
                             break
                     break
 
     # 3) LLM-assisted deep extraction
     #    Skip for subtask conversations — assistant response contains delegated
     #    tool output that may be misinterpreted as user preferences.
-    user_texts = " ".join(msg.get("content", "") for msg in messages if msg.get("role") == "user")
+    user_texts = " ".join(
+        msg.get("content", "") for msg in messages if msg.get("role") == "user"
+    )
     user_msg_count = sum(1 for m in messages if m.get("role") == "user")
 
     # 三条件触发（满足任一即可）：
     # 1. 信号词命中（快速路径，始终触发）
     has_signal = any(w in user_texts for w in MEMORY_SIGNAL_WORDS)
     # 2. 实质性对话（>= 50 字 + >= 3 轮）且未在冷却期内（捕获隐式偏好）
-    is_substantial = len(user_texts) >= 50 and user_msg_count >= 3 and not _recently_extracted(user_id, user_msg_count)
+    is_substantial = (
+        len(user_texts) >= 50
+        and user_msg_count >= 3
+        and not _recently_extracted(user_id, user_msg_count)
+    )
     should_extract = has_signal or is_substantial
 
     if not is_subtask and should_extract:
@@ -434,7 +489,9 @@ async def extract_preferences(
                 behavior_detected[pref_key] = pref_value
     if behavior_detected:
         with contextlib.suppress(Exception):
-            await _update_behavior_preferences(user_id, behavior_detected, db=db, org_id=org_id)
+            await _update_behavior_preferences(
+                user_id, behavior_detected, db=db, org_id=org_id
+            )
 
     # Save extracted memories — with conflict resolution if possible
     saved: list[dict] = []
@@ -470,7 +527,9 @@ async def extract_preferences(
             )
             saved = [r for r in results if r.get("event") in ("ADD", "UPDATE", "DEDUP")]
         except Exception as e:
-            logger.warning(f"Conflict resolution failed, falling back to direct save: {e}")
+            logger.warning(
+                f"Conflict resolution failed, falling back to direct save: {e}"
+            )
             # Fallback: direct save without conflict resolution
             from .storage import save_memory as _save_memory_fn
 
@@ -493,7 +552,9 @@ async def extract_preferences(
                     logger.warning(f"Fallback save failed: {e2}")
 
     if saved:
-        logger.info(f"Extracted {len(saved)} memories from conversation for user {user_id}")
+        logger.info(
+            f"Extracted {len(saved)} memories from conversation for user {user_id}"
+        )
 
     return saved
 
@@ -508,7 +569,11 @@ async def extract_with_llm(
         messages: Conversation messages
         mining_mode: 'work_ops' | 'entity_info' | 'casual' — selects specialized prompt
     """
-    user_texts = [msg["content"] for msg in messages if msg.get("role") == "user" and msg.get("content")]
+    user_texts = [
+        msg["content"]
+        for msg in messages
+        if msg.get("role") == "user" and msg.get("content")
+    ]
     if not user_texts:
         return []
 
@@ -588,7 +653,8 @@ async def extract_with_llm(
                 "正例（应该提取）：\n"
                 "- ✅ '我是华东区销售经理' → fact, confidence=1.0\n"
                 "- ✅ '我喜欢用表格展示数据' → opinion, confidence=0.8\n"
-                "- ✅ '张三的宠物叫什么' → entity_query, confidence=0.7（记录用户关心的实体）\n\n" + _json_format
+                "- ✅ '张三的宠物叫什么' → entity_query, confidence=0.7（记录用户关心的实体）\n\n"
+                + _json_format
             )
 
         result_text = await AIService.call_llm(prompt, system)
@@ -614,7 +680,9 @@ async def extract_with_llm(
                     "key": f"llm_{key}",
                     "value": value,
                     "category": category,
-                    "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
+                    "importance": min(
+                        max(float(item.get("importance", 0.5)), 0.1), 1.0
+                    ),
                     "pattern_key": item.get("pattern_key") or f"{category}:{key}",
                     "valid_from": item.get("valid_from") or today_str,
                     "fact_type": (
@@ -622,8 +690,14 @@ async def extract_with_llm(
                         if item.get("fact_type") in ("fact", "opinion", "experience")
                         else "fact"
                     ),
-                    "confidence": min(max(float(item.get("confidence", 1.0)), 0.0), 1.0),
-                    **({"valid_until": item["valid_until"]} if item.get("valid_until") else {}),
+                    "confidence": min(
+                        max(float(item.get("confidence", 1.0)), 0.0), 1.0
+                    ),
+                    **(
+                        {"valid_until": item["valid_until"]}
+                        if item.get("valid_until")
+                        else {}
+                    ),
                 }
             )
 
@@ -655,10 +729,26 @@ async def extract_org_memories(
 
     # Pattern: "我们公司..." / "公司规定..." / "组织要求..."
     org_patterns = [
-        (re.compile(r"(?:我们公司|公司规定|组织要求|团队规则|部门规定)[：:是]?\s*(.{5,100})"), "preference"),
-        (re.compile(r"(?:记住|请记住|注意)[：:，,]\s*(?:我们|公司|组织)(.{5,100})"), "preference"),
-        (re.compile(r"(?:客户|供应商|合作伙伴)\s*[\w\u4e00-\u9fff]+\s*(?:的|是).{5,80}"), "knowledge"),
-        (re.compile(r"(?:以后|今后|从现在起).{3,50}(?:都要|必须|应该|需要).{5,50}"), "preference"),
+        (
+            re.compile(
+                r"(?:我们公司|公司规定|组织要求|团队规则|部门规定)[：:是]?\s*(.{5,100})"
+            ),
+            "preference",
+        ),
+        (
+            re.compile(r"(?:记住|请记住|注意)[：:，,]\s*(?:我们|公司|组织)(.{5,100})"),
+            "preference",
+        ),
+        (
+            re.compile(
+                r"(?:客户|供应商|合作伙伴)\s*[\w\u4e00-\u9fff]+\s*(?:的|是).{5,80}"
+            ),
+            "knowledge",
+        ),
+        (
+            re.compile(r"(?:以后|今后|从现在起).{3,50}(?:都要|必须|应该|需要).{5,50}"),
+            "preference",
+        ),
     ]
 
     if save_org_memory_fn is None:

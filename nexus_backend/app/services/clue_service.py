@@ -35,10 +35,26 @@ CLUE_SOURCES = {
 }
 
 CLUE_LEVELS = {
-    "A": {"name": "高价值", "description": "有明确需求和预算，近期采购", "color": "#22c55e"},
-    "B": {"name": "中高价值", "description": "有需求，预算待确认，3个月内可能采购", "color": "#3b82f6"},
-    "C": {"name": "中等价值", "description": "有潜在需求，需要持续培育", "color": "#f59e0b"},
-    "D": {"name": "低价值", "description": "需求不明确，仅作信息储备", "color": "#94a3b8"},
+    "A": {
+        "name": "高价值",
+        "description": "有明确需求和预算，近期采购",
+        "color": "#22c55e",
+    },
+    "B": {
+        "name": "中高价值",
+        "description": "有需求，预算待确认，3个月内可能采购",
+        "color": "#3b82f6",
+    },
+    "C": {
+        "name": "中等价值",
+        "description": "有潜在需求，需要持续培育",
+        "color": "#f59e0b",
+    },
+    "D": {
+        "name": "低价值",
+        "description": "需求不明确，仅作信息储备",
+        "color": "#94a3b8",
+    },
 }
 
 CLUE_STATUSES = {
@@ -196,14 +212,22 @@ class ClueService:
             logger.error("Failed to list clues: %s", e)
             return {"items": [], "total": 0}
 
-    async def get_clue(self, clue_id: str, db=None, tenant_id: str | None = None) -> dict | None:
+    async def get_clue(
+        self, clue_id: str, db=None, tenant_id: str | None = None
+    ) -> dict | None:
         """Get a single clue by ID."""
         db = db or supabase
         if not db:
             return None
 
         try:
-            res = await db.table("business_clue").select("*").eq("id", clue_id).maybe_single().execute()
+            res = (
+                await db.table("business_clue")
+                .select("*")
+                .eq("id", clue_id)
+                .maybe_single()
+                .execute()
+            )
             return res.data
         except Exception as e:
             logger.error("Failed to get clue %s: %s", clue_id, e)
@@ -236,7 +260,9 @@ class ClueService:
             raise ValueError(f"无效的线索状态: {data['status']}")
 
         try:
-            res = await db.table("business_clue").update(data).eq("id", clue_id).execute()
+            res = (
+                await db.table("business_clue").update(data).eq("id", clue_id).execute()
+            )
             return res.data[0] if res.data else None
         except Exception as e:
             logger.error("Failed to update clue %s: %s", clue_id, e)
@@ -376,7 +402,12 @@ class ClueService:
             return {}
 
         try:
-            res = await db.table("business_clue").select("*").eq("tenant_id", tenant_id).execute()
+            res = (
+                await db.table("business_clue")
+                .select("*")
+                .eq("tenant_id", tenant_id)
+                .execute()
+            )
             clues = res.data or []
 
             if not clues:
@@ -410,7 +441,9 @@ class ClueService:
                     converted_count += 1
 
             total = len(clues)
-            conversion_rate = round(converted_count / total * 100, 1) if total > 0 else 0
+            conversion_rate = (
+                round(converted_count / total * 100, 1) if total > 0 else 0
+            )
 
             return {
                 "total": total,

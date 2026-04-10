@@ -42,7 +42,9 @@ class RAGEvaluator:
         for case in test_cases:
             query = case["query"]
             try:
-                search_result = await vector_service.search(query, user_id, org_id=org_id, require_org_id=False)
+                search_result = await vector_service.search(
+                    query, user_id, org_id=org_id, require_org_id=False
+                )
             except Exception as e:
                 logger.warning(f"Search failed for eval query '{query}': {e}")
                 search_result = ""
@@ -80,8 +82,14 @@ class RAGEvaluator:
             supervised = [r for r in results if r.get("ground_truth")]
 
             if not supervised:
-                logger.info("No ground_truth provided, skipping RAGAS supervised metrics")
-                return {"metrics": {}, "sample_count": len(results), "status": "fallback"}
+                logger.info(
+                    "No ground_truth provided, skipping RAGAS supervised metrics"
+                )
+                return {
+                    "metrics": {},
+                    "sample_count": len(results),
+                    "status": "fallback",
+                }
 
             data = {
                 "question": [r["query"] for r in supervised],
@@ -96,7 +104,11 @@ class RAGEvaluator:
                 metrics=[context_precision, answer_relevancy, faithfulness],
             )
             return {
-                "metrics": {k: round(v, 4) for k, v in dict(score).items() if isinstance(v, int | float)},
+                "metrics": {
+                    k: round(v, 4)
+                    for k, v in dict(score).items()
+                    if isinstance(v, int | float)
+                },
                 "sample_count": len(supervised),
                 "status": "ragas",
             }
@@ -114,7 +126,11 @@ class RAGEvaluator:
         """
         total = len(results)
         if total == 0:
-            return {"metrics": {"retrieval_rate": 0, "keyword_hit_rate": 0}, "sample_count": 0, "status": "fallback"}
+            return {
+                "metrics": {"retrieval_rate": 0, "keyword_hit_rate": 0},
+                "sample_count": 0,
+                "status": "fallback",
+            }
 
         # Retrieval rate: how many queries returned actual results (not "未找到")
         retrieved = sum(1 for r in results if "未找到" not in r["retrieved_context"])
@@ -134,11 +150,15 @@ class RAGEvaluator:
 
         # Per-category breakdown
         categories: dict[str, list[float]] = {}
-        for r, score in zip(results, hit_scores if hit_scores else [0] * total, strict=False):
+        for r, score in zip(
+            results, hit_scores if hit_scores else [0] * total, strict=False
+        ):
             cat = r.get("category", "unknown")
             categories.setdefault(cat, []).append(score)
 
-        category_scores = {cat: round(sum(s) / len(s), 4) for cat, s in categories.items()}
+        category_scores = {
+            cat: round(sum(s) / len(s), 4) for cat, s in categories.items()
+        }
 
         return {
             "metrics": {

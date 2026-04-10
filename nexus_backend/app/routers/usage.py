@@ -31,7 +31,13 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
         if not db or not org_id:
             return api_success(data={"has_alert": False, "message": ""})
 
-        result = await db.table("llm_usage_stats").select("*").eq("tenant_id", str(org_id)).maybe_single().execute()
+        result = (
+            await db.table("llm_usage_stats")
+            .select("*")
+            .eq("tenant_id", str(org_id))
+            .maybe_single()
+            .execute()
+        )
 
         if result and result.data:
             used = result.data.get("token_used", 0)
@@ -80,7 +86,10 @@ async def get_current_usage(req: Request, user_id: str = Depends(get_current_use
             .execute()
         )
         rows = usage_res.data or []
-        tokens_used = sum(r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0) for r in rows)
+        tokens_used = sum(
+            r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0)
+            for r in rows
+        )
         cost_usd = float(sum(r.get("total_cost", 0) for r in rows))
         requests = sum(r.get("total_calls", 0) for r in rows)
 
@@ -127,7 +136,9 @@ async def get_usage_stats(req: Request, user_id: str = Depends(get_current_user_
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:
-            return api_success(data={"recent_usage": [], "total_tokens": 0, "billing_cycle": "monthly"})
+            return api_success(
+                data={"recent_usage": [], "total_tokens": 0, "billing_cycle": "monthly"}
+            )
 
         result = (
             await db.table("llm_usage_stats")
@@ -138,7 +149,10 @@ async def get_usage_stats(req: Request, user_id: str = Depends(get_current_user_
             .execute()
         )
         rows = result.data or []
-        total_tokens = sum(r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0) for r in rows)
+        total_tokens = sum(
+            r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0)
+            for r in rows
+        )
         return api_success(
             data={
                 "recent_usage": rows,
@@ -148,7 +162,9 @@ async def get_usage_stats(req: Request, user_id: str = Depends(get_current_user_
         )
     except Exception as e:
         logger.error(f"Failed to fetch usage stats: {e}")
-        return api_success(data={"recent_usage": [], "total_tokens": 0, "billing_cycle": "monthly"})
+        return api_success(
+            data={"recent_usage": [], "total_tokens": 0, "billing_cycle": "monthly"}
+        )
 
 
 @router.get("/history")
@@ -168,7 +184,9 @@ async def get_usage_history(
         since = (date.today() - timedelta(days=days)).isoformat()
         result = (
             await db.table("llm_usage_stats")
-            .select("stat_date,total_input_tokens,total_output_tokens,total_calls,total_cost")
+            .select(
+                "stat_date,total_input_tokens,total_output_tokens,total_calls,total_cost"
+            )
             .eq("tenant_id", str(org_id))
             .gte("stat_date", since)
             .execute()
@@ -179,7 +197,9 @@ async def get_usage_history(
             d = r.get("stat_date", "")
             if d not in daily:
                 daily[d] = {"date": d, "tokens": 0, "cost_usd": 0.0, "requests": 0}
-            daily[d]["tokens"] += r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0)
+            daily[d]["tokens"] += r.get("total_input_tokens", 0) + r.get(
+                "total_output_tokens", 0
+            )
             daily[d]["cost_usd"] += float(r.get("total_cost", 0))
             daily[d]["requests"] += r.get("total_calls", 0)
 
@@ -202,18 +222,25 @@ async def get_cost_report(
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:
-            return api_success(data={"total_tokens": 0, "total_cost_usd": 0, "period_days": days})
+            return api_success(
+                data={"total_tokens": 0, "total_cost_usd": 0, "period_days": days}
+            )
 
         since = (date.today() - timedelta(days=days)).isoformat()
         result = (
             await db.table("llm_usage_stats")
-            .select("department_id,total_input_tokens,total_output_tokens,total_calls,total_cost")
+            .select(
+                "department_id,total_input_tokens,total_output_tokens,total_calls,total_cost"
+            )
             .eq("tenant_id", str(org_id))
             .gte("stat_date", since)
             .execute()
         )
         rows = result.data or []
-        total_tokens = sum(r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0) for r in rows)
+        total_tokens = sum(
+            r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0)
+            for r in rows
+        )
         total_cost = float(sum(r.get("total_cost", 0) for r in rows))
 
         by_department: dict[str, dict] = {}
@@ -221,7 +248,9 @@ async def get_cost_report(
             dept = str(r.get("department_id") or "未分配")
             if dept not in by_department:
                 by_department[dept] = {"tokens": 0, "cost_usd": 0.0, "requests": 0}
-            by_department[dept]["tokens"] += r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0)
+            by_department[dept]["tokens"] += r.get("total_input_tokens", 0) + r.get(
+                "total_output_tokens", 0
+            )
             by_department[dept]["cost_usd"] += float(r.get("total_cost", 0))
             by_department[dept]["requests"] += r.get("total_calls", 0)
 
@@ -235,7 +264,9 @@ async def get_cost_report(
         )
     except Exception as e:
         logger.error(f"Failed to fetch cost report: {e}")
-        return api_success(data={"total_tokens": 0, "total_cost_usd": 0, "period_days": days})
+        return api_success(
+            data={"total_tokens": 0, "total_cost_usd": 0, "period_days": days}
+        )
 
 
 @router.get("/model-breakdown")
@@ -305,8 +336,12 @@ async def get_model_breakdown(
 
         models = []
         for a in agg.values():
-            a["avg_latency_ms"] = int(a["_latency_sum"] / a["_latency_cnt"]) if a["_latency_cnt"] else 0
-            a["error_rate"] = round(a["error_count"] / a["requests"], 4) if a["requests"] else 0
+            a["avg_latency_ms"] = (
+                int(a["_latency_sum"] / a["_latency_cnt"]) if a["_latency_cnt"] else 0
+            )
+            a["error_rate"] = (
+                round(a["error_count"] / a["requests"], 4) if a["requests"] else 0
+            )
             del a["_latency_sum"], a["_latency_cnt"]
             models.append(a)
 

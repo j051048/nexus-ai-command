@@ -285,13 +285,18 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
         }
 
         # 单按钮模式
-        if "singleTitle" in notification.metadata and "singleURL" in notification.metadata:
+        if (
+            "singleTitle" in notification.metadata
+            and "singleURL" in notification.metadata
+        ):
             action_card["singleTitle"] = notification.metadata["singleTitle"]
             action_card["singleURL"] = notification.metadata["singleURL"]
         # 多按钮模式
         elif "btns" in notification.metadata:
             action_card["btns"] = notification.metadata["btns"]
-            action_card["btnOrientation"] = notification.metadata.get("btnOrientation", "0")
+            action_card["btnOrientation"] = notification.metadata.get(
+                "btnOrientation", "0"
+            )
 
         return {"msgtype": "actionCard", "actionCard": action_card}
 

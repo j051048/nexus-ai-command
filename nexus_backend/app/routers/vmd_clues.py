@@ -33,7 +33,12 @@ async def list_vmd_clues(
         return api_success(data={"clues": []})
 
     db = _get_admin_db()
-    query = db.table("business_clue").select("*").eq("tenant_id", str(org_id)).order("create_time", desc=True)
+    query = (
+        db.table("business_clue")
+        .select("*")
+        .eq("tenant_id", str(org_id))
+        .order("create_time", desc=True)
+    )
 
     if status:
         query = query.eq("status", status)
@@ -45,7 +50,9 @@ async def list_vmd_clues(
 
 
 @router.get("/{clue_id}")
-async def get_vmd_clue_detail(req: Request, clue_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_vmd_clue_detail(
+    req: Request, clue_id: str, user_id: str = Depends(get_current_user_id)
+):
     """获取单个线索详情"""
     org_id = getattr(req.state, "org_id", None)
     if not org_id:

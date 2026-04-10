@@ -49,7 +49,9 @@ class GoalTracker:
 
         return result.data[0]["id"]
 
-    async def get_active_goals(self, user_id: str, org_id: str = "default") -> list[dict]:
+    async def get_active_goals(
+        self, user_id: str, org_id: str = "default"
+    ) -> list[dict]:
         """获取用户的活跃目标"""
         result = (
             await supabase.table("agent_goals")
@@ -66,7 +68,11 @@ class GoalTracker:
     async def update_progress(self, goal_id: str, progress: dict):
         """更新目标进度"""
         await supabase.table("agent_goals").update(
-            {"progress": progress, "status": "in_progress", "updated_at": datetime.utcnow().isoformat()}
+            {
+                "progress": progress,
+                "status": "in_progress",
+                "updated_at": datetime.utcnow().isoformat(),
+            }
         ).eq("id", goal_id).execute()
 
     async def complete_goal(self, goal_id: str):
@@ -89,7 +95,9 @@ class GoalTracker:
 
         return result.data
 
-    async def get_goal_context_for_agent(self, user_id: str, org_id: str = "default") -> str:
+    async def get_goal_context_for_agent(
+        self, user_id: str, org_id: str = "default"
+    ) -> str:
         """为 Agent 生成目标上下文"""
         goals = await self.get_active_goals(user_id, org_id)
 
@@ -100,7 +108,9 @@ class GoalTracker:
         for goal in goals:
             progress = goal.get("progress", {})
             deadline = goal.get("deadline", "无截止日期")
-            context_parts.append(f"- {goal['goal_text']} (截止: {deadline}, 进度: {progress})")
+            context_parts.append(
+                f"- {goal['goal_text']} (截止: {deadline}, 进度: {progress})"
+            )
 
         return "\n".join(context_parts)
 

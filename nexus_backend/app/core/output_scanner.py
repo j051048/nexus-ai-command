@@ -88,16 +88,28 @@ _PROMPT_INJECTION_PATTERNS: list[tuple[str, str]] = [
         "(reveal|show|print|output|display) (your |the )?(system |original )?(prompt|instructions?)",
         "[prompt injection detected]",
     ),
-    ("(enter|switch to|enable) (developer|debug|admin|god|sudo|jailbreak) mode", "[prompt injection detected]"),
-    ("do not (follow|obey|respect) (any |all )?(rules|restrictions?|guidelines|safety)", "[prompt injection detected]"),
+    (
+        "(enter|switch to|enable) (developer|debug|admin|god|sudo|jailbreak) mode",
+        "[prompt injection detected]",
+    ),
+    (
+        "do not (follow|obey|respect) (any |all )?(rules|restrictions?|guidelines|safety)",
+        "[prompt injection detected]",
+    ),
     ("pretend (you are|to be) ", "[prompt injection detected]"),
     (r"act as (if|though|a |an )", "[prompt injection detected]"),
-    ("bypass (all |any )?(safety|content|security) (filters?|restrictions?|measures?)", "[prompt injection detected]"),
+    (
+        "bypass (all |any )?(safety|content|security) (filters?|restrictions?|measures?)",
+        "[prompt injection detected]",
+    ),
     # Chinese indirect injection
     (r"忽略(之前|以上|所有|先前)(的)?(指令|命令|提示|规则)", "[检测到提示注入]"),
     (r"你(现在|从现在开始)是(?!.*负责人|.*员工|.*用户|.*同事)", "[检测到提示注入]"),
     (r"进入(开发者|调试|管理员|上帝)模式", "[检测到提示注入]"),
-    (r"(显示|输出|透露|泄露)(你的)?(系统|原始)?(提示词|指令|prompt)", "[检测到提示注入]"),
+    (
+        r"(显示|输出|透露|泄露)(你的)?(系统|原始)?(提示词|指令|prompt)",
+        "[检测到提示注入]",
+    ),
     # Special delimiters often used in injection
     (r"<\|(?:im_start|im_end|system|endoftext)\|>", "[prompt injection detected]"),
     (r"\[INST\]|\[/INST\]|<<SYS>>|<</SYS>>", "[prompt injection detected]"),
@@ -112,7 +124,10 @@ _PII_PATTERNS: list[tuple[str, str]] = [
         "[信用卡号已隐藏]",
     ),
     # Chinese ID card (18 digits, last may be X)
-    (r"(?<!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?!\d)", "[身份证号已隐藏]"),
+    (
+        r"(?<!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?!\d)",
+        "[身份证号已隐藏]",
+    ),
     # Chinese phone number (11 digits starting with 1)
     (r"(?<![0-9a-zA-Z])1[3-9]\d{9}(?![0-9a-zA-Z])", "[手机号已隐藏]"),
     # US phone numbers — (xxx) xxx-xxxx or xxx-xxx-xxxx
@@ -125,7 +140,10 @@ _SENSITIVE_DATA_PATTERNS: list[tuple[str, str]] = [
     # AWS-style keys
     (r"(?:AKIA|ASIA)[A-Z0-9]{16}", "[AWS密钥已隐藏]"),
     # password = "...", password: "..."
-    (r'(?i)(?:password|passwd|pwd|secret|token)\s*[:=]\s*["\']?[^\s\n"\']{8,}["\']?', "[敏感凭证已隐藏]"),
+    (
+        r'(?i)(?:password|passwd|pwd|secret|token)\s*[:=]\s*["\']?[^\s\n"\']{8,}["\']?',
+        "[敏感凭证已隐藏]",
+    ),
     # Connection strings (postgres://, mysql://, mongodb://, redis://)
     (r"(?i)(?:postgres|mysql|mongodb|redis|amqp)://[^\s]+", "[连接字符串已隐藏]"),
     # Private keys
@@ -198,7 +216,9 @@ class OutputScanner:
                         )
                     )
                 except re.error as exc:
-                    logger.warning(f"[OutputScanner] Bad regex in {category}_{idx}: {exc}")
+                    logger.warning(
+                        f"[OutputScanner] Bad regex in {category}_{idx}: {exc}"
+                    )
 
         if self._config.enable_prompt_injection:
             _add("prompt_injection", _PROMPT_INJECTION_PATTERNS)
@@ -225,7 +245,9 @@ class OutputScanner:
                         )
                     )
                 except re.error as exc:
-                    logger.warning(f"[OutputScanner] Bad custom regex ({category}): {exc}")
+                    logger.warning(
+                        f"[OutputScanner] Bad custom regex ({category}): {exc}"
+                    )
 
     # -- public API --------------------------------------------------------
 

@@ -3,7 +3,13 @@
 AGENT_CODE = "sales_agent"
 AGENT_NAME = "销售赋能Agent"
 RECOMMENDED_MODEL_TIER = "high"
-SCENE_CODES = ["sales_enablement", "battlecard", "pricing_strategy", "competitor_analysis", "proposal"]
+SCENE_CODES = [
+    "sales_enablement",
+    "battlecard",
+    "pricing_strategy",
+    "competitor_analysis",
+    "proposal",
+]
 
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "确保所有商机在72小时内被跟进，提升赢单率到行业前30%"

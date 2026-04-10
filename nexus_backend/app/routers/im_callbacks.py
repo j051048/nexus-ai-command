@@ -36,7 +36,9 @@ def _verify_wecom_signature(request_body: bytes, signature: str) -> bool:
     """
     token = getattr(settings, "WECOM_CALLBACK_TOKEN", None)
     if not token:
-        logger.warning("[im_callback] WECOM_CALLBACK_TOKEN not configured, rejecting request")
+        logger.warning(
+            "[im_callback] WECOM_CALLBACK_TOKEN not configured, rejecting request"
+        )
         return False
 
     try:
@@ -51,7 +53,9 @@ def _verify_wecom_signature(request_body: bytes, signature: str) -> bool:
         return False
 
 
-def _verify_dingtalk_signature(request_body: bytes, timestamp: str, signature: str) -> bool:
+def _verify_dingtalk_signature(
+    request_body: bytes, timestamp: str, signature: str
+) -> bool:
     """
     验证钉钉回调签名。
 
@@ -60,7 +64,9 @@ def _verify_dingtalk_signature(request_body: bytes, timestamp: str, signature: s
     """
     secret = settings.DINGTALK_SECRET
     if not secret:
-        logger.warning("[im_callback] DINGTALK_SECRET not configured, skipping verification")
+        logger.warning(
+            "[im_callback] DINGTALK_SECRET not configured, skipping verification"
+        )
         return True
 
     try:
@@ -76,7 +82,9 @@ def _verify_dingtalk_signature(request_body: bytes, timestamp: str, signature: s
         return False
 
 
-def _verify_feishu_signature(request_body: bytes, timestamp: str, nonce: str, signature: str) -> bool:
+def _verify_feishu_signature(
+    request_body: bytes, timestamp: str, nonce: str, signature: str
+) -> bool:
     """
     验证飞书回调签名。
 
@@ -86,7 +94,9 @@ def _verify_feishu_signature(request_body: bytes, timestamp: str, nonce: str, si
     """
     encrypt_key = getattr(settings, "FEISHU_ENCRYPT_KEY", None)
     if not encrypt_key:
-        logger.warning("[im_callback] FEISHU_ENCRYPT_KEY not configured, rejecting request")
+        logger.warning(
+            "[im_callback] FEISHU_ENCRYPT_KEY not configured, rejecting request"
+        )
         return False
 
     try:
@@ -218,7 +228,9 @@ async def handle_approval_callback(platform: str, request: Request):
         platform_user_id = callback_data.get("user_id", "")
 
         if not approval_id or not action:
-            logger.warning(f"[im_callback] Missing approval_id or action in {platform} callback")
+            logger.warning(
+                f"[im_callback] Missing approval_id or action in {platform} callback"
+            )
             raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 "Missing approval_id or action",
@@ -262,7 +274,9 @@ async def handle_approval_callback(platform: str, request: Request):
                 db=db,
             )
 
-            logger.info(f"[im_callback] Approval {approval_id} {decision} by user {nexus_user_id or platform_user_id}")
+            logger.info(
+                f"[im_callback] Approval {approval_id} {decision} by user {nexus_user_id or platform_user_id}"
+            )
 
         except Exception as e:
             logger.error(f"[im_callback] Failed to advance approval {approval_id}: {e}")

@@ -336,7 +336,9 @@ def _extract_search_terms(query: str) -> list[str]:
     - P1 Fix: 保留人名（2-4个中文字符的词）
     """
     # Strip punctuation (keep Latin + CJK characters)
-    clean = re.sub(r"[，。！？、；：\u201c\u201d\u2018\u2019（）【】…—\s\d]+", " ", query)
+    clean = re.sub(
+        r"[，。！？、；：\u201c\u201d\u2018\u2019（）【】…—\s\d]+", " ", query
+    )
     clean = re.sub(r"[^\w\s\u4e00-\u9fff]", " ", clean).strip()
     if not clean:
         return []
@@ -432,7 +434,9 @@ def _format_by_temperature(mem: dict) -> str:
     P0 LoCoMo Fix: 每条记忆强制携带绝对时间戳 date="YYYY-MM-DD"，
     解决 LLM 时序推理混乱（将相对时间误解为系统当前时间）。
     """
-    updated_at = mem.get("updated_at") or mem.get("valid_from") or mem.get("created_at") or ""
+    updated_at = (
+        mem.get("updated_at") or mem.get("valid_from") or mem.get("created_at") or ""
+    )
     days_old = _days_since(updated_at)
     age_str = _relative_age(updated_at)
     abs_date = _absolute_date(updated_at)
@@ -450,7 +454,9 @@ def _format_by_temperature(mem: dict) -> str:
     valid_until = mem.get("valid_until")
     if abs_date and valid_until:
         end_date = _absolute_date(valid_until)
-        date_attr = f' date="{abs_date} ~ {end_date}"' if end_date else f' date="{abs_date}"'
+        date_attr = (
+            f' date="{abs_date} ~ {end_date}"' if end_date else f' date="{abs_date}"'
+        )
     elif abs_date:
         date_attr = f' date="{abs_date}"'
     else:
@@ -483,7 +489,9 @@ def _format_by_temperature(mem: dict) -> str:
         parts.append(value[:100])  # 限制近期记忆为 100 字符
     else:
         key = mem.get("key", "")
-        parts.append(f"{key}: {value[:30]}... (需使用 search_long_term_memory 工具查看详情)")
+        parts.append(
+            f"{key}: {value[:30]}... (需使用 search_long_term_memory 工具查看详情)"
+        )
     parts.append("</memory>")
     return "".join(parts)
 
@@ -521,7 +529,12 @@ async def get_memories(
     # P0: 只返回未被取代的最新版本
     query = query.is_("superseded_by", "null")
 
-    result = await query.order("importance", desc=True).order("updated_at", desc=True).limit(limit).execute()
+    result = (
+        await query.order("importance", desc=True)
+        .order("updated_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
 
     return result.data or []
 
@@ -564,9 +577,16 @@ async def search_memories(
         # When Reranker is offline, we need more candidates to ensure key memories aren't filtered out
         retrieval_multiplier = 4  # Increased from 2
         sem_task = _semantic_search(
-            user_id, query, limit * retrieval_multiplier, org_id, client, query_embedding=query_embedding
+            user_id,
+            query,
+            limit * retrieval_multiplier,
+            org_id,
+            client,
+            query_embedding=query_embedding,
         )
-        entity_task = _entity_precise_search(user_id, query, min(10, limit * 2), org_id, client)
+        entity_task = _entity_precise_search(
+            user_id, query, min(10, limit * 2), org_id, client
+        )
         anchor_task = _user_anchor_search(user_id, min(10, limit * 2), org_id, client)
         keyword_task = _keyword_search(user_id, query, limit * 2, org_id, client)
         results = await asyncio.wait_for(
@@ -599,10 +619,16 @@ async def search_memories(
 
         # ── Adaptive Time-Decay + Temporal Boost ─────────────────────────────
         # P0 LoCoMo Fix: Add temporal matching bonus for time-sensitive queries
-        from .temporal_normalizer import calculate_temporal_overlap, extract_time_range_from_query
+        from .temporal_normalizer import (
+            calculate_temporal_overlap,
+            extract_time_range_from_query,
+        )
 
         query_time_range = extract_time_range_from_query(query)
-        is_temporal_query = any(kw in query.lower() for kw in ["when", "what time", "什么时候", "何时", "哪天"])
+        is_temporal_query = any(
+            kw in query.lower()
+            for kw in ["when", "what time", "什么时候", "何时", "哪天"]
+        )
 
         for mid, mem in id_to_mem.items():
             updated = mem.get("updated_at") or mem.get("created_at") or ""
@@ -630,7 +656,9 @@ async def search_memories(
 
             # Apply decay factor softly (0.8 base + 0.2 freshness variation)
             confidence = float(mem.get("confidence", 1.0) or 1.0)
-            rrf_scores[mid] = rrf_scores[mid] * (0.8 + 0.2 * freshness) * confidence * temporal_boost
+            rrf_scores[mid] = (
+                rrf_scores[mid] * (0.8 + 0.2 * freshness) * confidence * temporal_boost
+            )
 
         # ── P2.1: Semantic tag pre-filtering boost ──────────────────────
         # Boost memories whose semantic_tags overlap with query-extracted tags
@@ -640,7 +668,9 @@ async def search_memories(
             q_tags = extract_query_tags(query)
             if q_tags:
                 for mid, mem in id_to_mem.items():
-                    mem_tags = mem.get("semantic_tags") or mem.get("metadata", {}).get("semantic_tags", [])
+                    mem_tags = mem.get("semantic_tags") or mem.get("metadata", {}).get(
+                        "semantic_tags", []
+                    )
                     if mem_tags and isinstance(mem_tags, list):
                         overlap = compute_tag_overlap(q_tags, mem_tags)
                         if overlap > 0:
@@ -665,7 +695,11 @@ async def search_memories(
                         if mem_emb and isinstance(mem_emb, list):
                             m_vec = np.array(mem_emb, dtype=np.float32)
                             m_norm = np.linalg.norm(m_vec)
-                            cos_sim = float(np.dot(q_vec, m_vec) / (q_norm * m_norm)) if m_norm > 0 else 0.0
+                            cos_sim = (
+                                float(np.dot(q_vec, m_vec) / (q_norm * m_norm))
+                                if m_norm > 0
+                                else 0.0
+                            )
                         else:
                             cos_sim = float(mem.get("similarity", 0) or 0)
                         # Blend: 0.6 * normalized_rrf + 0.4 * cosine_similarity
@@ -801,7 +835,13 @@ async def search_memories(
 
 
 async def _semantic_search(
-    user_id: str, query: str, limit: int, org_id: str | None, client, *, query_embedding: list[float] | None = None
+    user_id: str,
+    query: str,
+    limit: int,
+    org_id: str | None,
+    client,
+    *,
+    query_embedding: list[float] | None = None,
 ) -> list[dict]:
     """Embedding-based semantic search on memories using pgvector.
     P1: 优先使用 search_memories_hybrid（向量+时间衰减），
@@ -843,15 +883,21 @@ async def _semantic_search(
         if org_id:
             params["match_org_id"] = org_id
 
-        print(f"DEBUG SEMANTIC: Calling search_memories_by_embedding with {list(params.keys())}")
+        print(
+            f"DEBUG SEMANTIC: Calling search_memories_by_embedding with {list(params.keys())}"
+        )
         result = await client.rpc("search_memories_by_embedding", params).execute()
         return result.data or []
     except Exception as e:
-        logger.debug(f"Semantic memory search unavailable, falling back to keyword: {e}")
+        logger.debug(
+            f"Semantic memory search unavailable, falling back to keyword: {e}"
+        )
         return []
 
 
-async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
+async def _keyword_search(
+    user_id: str, query: str, limit: int, org_id: str | None, client
+) -> list[dict]:
     """Keyword-based fallback search using ILIKE with Chinese tokenization.
     Optimized for bulk querying to reduce DB roundtrips.
     """
@@ -891,9 +937,13 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
 
 # ── 实体精确搜索（双路并行的第二路）─────────────────────────
 _ENTITY_PATTERNS = [
-    re.compile(r"([\u4e00-\u9fff]{2,4}(?:总|经理|老师|同学|先生|女士|老板|主管|领导|组长))"),
+    re.compile(
+        r"([\u4e00-\u9fff]{2,4}(?:总|经理|老师|同学|先生|女士|老板|主管|领导|组长))"
+    ),
     re.compile(r"([\u4e00-\u9fff]{2,4})(?:说|提到|要求|反馈|告诉|认为|觉得)"),
-    re.compile(r"(?:关于|有关|涉及)([\u4e00-\u9fff\w]{2,10}?)(?:的|项目|方案|合同|订单)"),
+    re.compile(
+        r"(?:关于|有关|涉及)([\u4e00-\u9fff\w]{2,10}?)(?:的|项目|方案|合同|订单)"
+    ),
     # English: multi-word proper names like "Kanoa Manu", "John Smith"
     re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b"),
     # English: single capitalized word (likely a name) adjacent to possessive/verb
@@ -1041,7 +1091,11 @@ async def _spreading_activation(
             if target_id and target_id not in seed_ids:
                 # Hindsight-inspired: causal links get 2x boost, contradicts 1.5x
                 relation = conn.get("relation", "supplements")
-                link_mult = 2.0 if relation == "causal" else (1.5 if relation == "contradicts" else 1.0)
+                link_mult = (
+                    2.0
+                    if relation == "causal"
+                    else (1.5 if relation == "contradicts" else 1.0)
+                )
                 activation = imp * strength * decay_factor * link_mult
                 if activation >= activation_threshold:
                     frontier.append((target_id, activation))
@@ -1089,7 +1143,11 @@ async def _spreading_activation(
                 strength = float(conn.get("strength", 0.5) or 0.5)
                 if target_id and target_id not in visited and target_id not in seed_ids:
                     relation = conn.get("relation", "supplements")
-                    link_mult = 2.0 if relation == "causal" else (1.5 if relation == "contradicts" else 1.0)
+                    link_mult = (
+                        2.0
+                        if relation == "causal"
+                        else (1.5 if relation == "contradicts" else 1.0)
+                    )
                     propagated = score * strength * decay_factor * link_mult
                     if propagated >= activation_threshold:
                         next_frontier.append((target_id, propagated))
@@ -1105,7 +1163,11 @@ async def _spreading_activation(
 
     try:
         result = await (
-            client.table("conversation_memories").select("*").eq("user_id", user_id).in_("id", top_ids).execute()
+            client.table("conversation_memories")
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("id", top_ids)
+            .execute()
         )
         expanded = result.data or []
         # Attach activation score for downstream ranking
@@ -1189,7 +1251,12 @@ async def _expand_top_connections(
             for conn in connections:
                 mid = conn.get("memory_id")
                 strength = float(conn.get("strength", 0))
-                if mid and mid not in all_known and mid not in hop2_ids and strength > hop2_threshold:
+                if (
+                    mid
+                    and mid not in all_known
+                    and mid not in hop2_ids
+                    and strength > hop2_threshold
+                ):
                     hop2_ids.add(mid)
                     if len(hop2_ids) >= hop2_limit:
                         break
@@ -1238,7 +1305,9 @@ async def search_consolidations(
         if org_id:
             params["match_org_id"] = org_id
 
-        result = await client.rpc("search_consolidations_by_embedding", params).execute()
+        result = await client.rpc(
+            "search_consolidations_by_embedding", params
+        ).execute()
         return result.data or []
     except Exception as e:
         logger.error(f"Consolidation search failed: {e}")
@@ -1273,7 +1342,9 @@ async def build_memory_context(
             if obs_result.data:
                 obs_content = obs_result.data[0].get("content", "")
                 if obs_content:
-                    context_parts.append(f"<observation>\n{obs_content}\n</observation>")
+                    context_parts.append(
+                        f"<observation>\n{obs_content}\n</observation>"
+                    )
     except Exception as e:
         logger.debug(f"Observation injection skipped: {e}")
 
@@ -1289,7 +1360,9 @@ async def build_memory_context(
         r"list|哪些|多少|几个|几次|都有|所有|有哪|列举|分别)",
         re.IGNORECASE,
     )
-    is_list_query = bool(_LIST_PATTERNS.search(current_query)) if current_query else False
+    is_list_query = (
+        bool(_LIST_PATTERNS.search(current_query)) if current_query else False
+    )
     if is_list_query:
         relevant_limit = max(relevant_limit, 15)  # Force higher recall for list queries
         consolidated_limit = max(consolidated_limit, 5)
@@ -1299,7 +1372,9 @@ async def build_memory_context(
         r"(最近|近期|刚才|刚刚|今天|昨天|这几天|这周|上周|recently|lately|just now|today|yesterday|this week|last week)",
         re.IGNORECASE,
     )
-    is_recency_query = bool(_RECENCY_PATTERNS.search(current_query)) if current_query else False
+    is_recency_query = (
+        bool(_RECENCY_PATTERNS.search(current_query)) if current_query else False
+    )
 
     if complexity:
         _c = str(complexity).upper()
@@ -1326,8 +1401,13 @@ async def build_memory_context(
         non_directives = [m for m in explicit if (m.get("importance") or 0) < 0.85]
 
         if directives:
-            d_lines = [f"  - {m.get('enriched_value') or m.get('value', '')}" for m in directives]
-            directive_block = "<constraints>\n" + "\n".join(d_lines) + "\n</constraints>"
+            d_lines = [
+                f"  - {m.get('enriched_value') or m.get('value', '')}"
+                for m in directives
+            ]
+            directive_block = (
+                "<constraints>\n" + "\n".join(d_lines) + "\n</constraints>"
+            )
 
         if non_directives:
             mem_lines = [_format_by_temperature(m) for m in non_directives]
@@ -1366,7 +1446,12 @@ async def build_memory_context(
                 datetime.now(UTC)
 
                 def _recency_tier(m: dict) -> int:
-                    ts = m.get("valid_from") or m.get("updated_at") or m.get("created_at") or ""
+                    ts = (
+                        m.get("valid_from")
+                        or m.get("updated_at")
+                        or m.get("created_at")
+                        or ""
+                    )
                     d = _days_since(ts) if ts else 999
                     if d <= 7:
                         return 0  # recent — top tier
@@ -1386,7 +1471,9 @@ async def build_memory_context(
                 for _k, group in key_groups.items():
                     if len(group) > 1:
                         group.sort(
-                            key=lambda m: m.get("valid_from") or m.get("updated_at") or "",
+                            key=lambda m: m.get("valid_from")
+                            or m.get("updated_at")
+                            or "",
                             reverse=True,
                         )
                         for old_mem in group[1:]:
@@ -1420,7 +1507,9 @@ async def build_memory_context(
     if directive_block:
         result_parts.append(directive_block)
     if context_parts:
-        result_parts.append("<user-memories>\n" + "\n".join(context_parts) + "\n</user-memories>")
+        result_parts.append(
+            "<user-memories>\n" + "\n".join(context_parts) + "\n</user-memories>"
+        )
 
     # P2 LoCoMo Fix: 反 RLHF 偏见指令 — 防止 AI 美化用户的负面体验
     if result_parts:
@@ -1440,9 +1529,12 @@ async def build_memory_context(
     final_context = "\n\n".join(result_parts)
     MAX_CONTEXT_SIZE = 30000  # 30KB 限制
     if len(final_context) > MAX_CONTEXT_SIZE:
-        logger.warning(f"[MemoryContext] Truncated from {len(final_context)} to {MAX_CONTEXT_SIZE} chars")
+        logger.warning(
+            f"[MemoryContext] Truncated from {len(final_context)} to {MAX_CONTEXT_SIZE} chars"
+        )
         final_context = (
-            final_context[:MAX_CONTEXT_SIZE] + "\n\n... (更多记忆已省略，使用 search_long_term_memory 工具查看)"
+            final_context[:MAX_CONTEXT_SIZE]
+            + "\n\n... (更多记忆已省略，使用 search_long_term_memory 工具查看)"
         )
 
     return final_context
@@ -1551,7 +1643,12 @@ async def get_l2_contextual(
         if relevant:
             # Exclude L1 items: high-importance directives and anti-patterns
             filtered = [
-                m for m in relevant if not ((m.get("importance") or 0) >= 0.85 or m.get("category") == "anti_pattern")
+                m
+                for m in relevant
+                if not (
+                    (m.get("importance") or 0) >= 0.85
+                    or m.get("category") == "anti_pattern"
+                )
             ]
             for m in filtered:
                 parts.append(_format_by_temperature(m))
@@ -1569,7 +1666,8 @@ async def get_l2_contextual(
         if consolidations:
             for c in consolidations:
                 parts.append(
-                    f'  <insight type="{c["insight_type"]}" ' f'title="{c["title"]}">{c["content"][:150]}</insight>'
+                    f'  <insight type="{c["insight_type"]}" '
+                    f'title="{c["title"]}">{c["content"][:150]}</insight>'
                 )
     except Exception as e:
         logger.debug(f"[L2] Consolidation search failed: {e}")
@@ -1582,6 +1680,9 @@ async def get_l2_contextual(
     # Budget cap: ~300 tokens ≈ 900 chars
     _L2_MAX_CHARS = 900
     if len(context) > _L2_MAX_CHARS:
-        context = context[:_L2_MAX_CHARS] + "\n... (更多记忆可用 search_long_term_memory 工具查看)"
+        context = (
+            context[:_L2_MAX_CHARS]
+            + "\n... (更多记忆可用 search_long_term_memory 工具查看)"
+        )
 
     return context

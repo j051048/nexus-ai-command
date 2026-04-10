@@ -57,7 +57,9 @@ async def resolve_entity(
             return entity_name
 
         # Pre-filter with low embedding threshold, then composite scoring decides
-        candidates = await _find_similar_by_embedding(org_id, embedding, EMBEDDING_PREFILTER_THRESHOLD, client)
+        candidates = await _find_similar_by_embedding(
+            org_id, embedding, EMBEDDING_PREFILTER_THRESHOLD, client
+        )
         if candidates:
             best_score = 0.0
             best_candidate = None
@@ -108,7 +110,9 @@ async def resolve_triple(
     Returns a new dict with resolved entity names.
     """
     resolved = dict(triple)
-    resolved["source"] = await resolve_entity(org_id, triple["source"], triple.get("source_type", "concept"), db)
+    resolved["source"] = await resolve_entity(
+        org_id, triple["source"], triple.get("source_type", "concept"), db
+    )
     resolved["destination"] = await resolve_entity(
         org_id, triple["destination"], triple.get("destination_type", "concept"), db
     )
@@ -157,7 +161,10 @@ async def batch_merge_similar_entities(
             .execute()
         )
 
-        entities_to_embed = {r["source_entity"]: r.get("source_type", "concept") for r in (result.data or [])}
+        entities_to_embed = {
+            r["source_entity"]: r.get("source_type", "concept")
+            for r in (result.data or [])
+        }
 
         # Backfill embeddings
         for name, _etype in entities_to_embed.items():
@@ -177,7 +184,9 @@ async def batch_merge_similar_entities(
 
         # Now scan for similar pairs
         # Get all distinct entities with embeddings
-        all_entities = await client.rpc("get_distinct_kg_entities", {"p_org_id": org_id}).execute()
+        all_entities = await client.rpc(
+            "get_distinct_kg_entities", {"p_org_id": org_id}
+        ).execute()
         # Fallback: if RPC doesn't exist, skip batch merge
         if not all_entities.data:
             return {"scanned": len(entities_to_embed), "merged": 0}
@@ -219,7 +228,9 @@ async def batch_merge_similar_entities(
                     continue
 
                 # Merge: keep the one with more occurrences as canonical
-                canonical, alias = await _pick_canonical(org_id, name, match_name, client)
+                canonical, alias = await _pick_canonical(
+                    org_id, name, match_name, client
+                )
                 await _merge_entities(org_id, canonical, alias, client)
                 merged += 1
 
@@ -229,7 +240,10 @@ async def batch_merge_similar_entities(
     if merged:
         logger.info(f"[EntityRes] Batch merge for org {org_id}: merged={merged}")
 
-    return {"scanned": len(entities_to_embed) if "entities_to_embed" in dir() else 0, "merged": merged}
+    return {
+        "scanned": len(entities_to_embed) if "entities_to_embed" in dir() else 0,
+        "merged": merged,
+    }
 
 
 # ── Internal helpers ──
@@ -331,8 +345,12 @@ async def _temporal_proximity(
         if not res_a.data or not res_b.data:
             return 0.0
 
-        ts_a = datetime.fromisoformat(res_a.data[0]["updated_at"].replace("Z", "+00:00"))
-        ts_b = datetime.fromisoformat(res_b.data[0]["updated_at"].replace("Z", "+00:00"))
+        ts_a = datetime.fromisoformat(
+            res_a.data[0]["updated_at"].replace("Z", "+00:00")
+        )
+        ts_b = datetime.fromisoformat(
+            res_b.data[0]["updated_at"].replace("Z", "+00:00")
+        )
         days_diff = abs((ts_a - ts_b).total_seconds()) / 86400.0
         return max(0.0, 1.0 - days_diff / 7.0)
     except Exception:

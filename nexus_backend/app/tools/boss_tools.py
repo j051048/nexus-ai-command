@@ -46,7 +46,11 @@ class SmartApprovalTool(BaseTool):
             "output_summary": "返回所有待审批事项的预览列表，等待确认",
         },
         {
-            "input": {"action": "conditional_approve", "condition": "金额小于5000的全部通过", "confirm": True},
+            "input": {
+                "action": "conditional_approve",
+                "condition": "金额小于5000的全部通过",
+                "confirm": True,
+            },
             "output_summary": "批准所有金额小于5000的申请",
         },
         {
@@ -96,7 +100,9 @@ class SmartApprovalTool(BaseTool):
         "required": ["action"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         action = args.get("action", "approve")
         request_ids = args.get("request_ids", [])
@@ -122,7 +128,11 @@ class SmartApprovalTool(BaseTool):
 
         # 根据序号筛选
         if request_numbers:
-            selected_requests = [pending_list[i - 1] for i in request_numbers if 0 < i <= len(pending_list)]
+            selected_requests = [
+                pending_list[i - 1]
+                for i in request_numbers
+                if 0 < i <= len(pending_list)
+            ]
         elif request_ids:
             selected_requests = [r for r in pending_list if r["id"] in request_ids]
         else:
@@ -133,15 +143,27 @@ class SmartApprovalTool(BaseTool):
             if "小于" in condition or "<" in condition:
                 amount_threshold = _parse_amount_from_condition(condition)
                 if amount_threshold is not None:
-                    selected_requests = [r for r in selected_requests if float(r.get("amount", 0)) < amount_threshold]
+                    selected_requests = [
+                        r
+                        for r in selected_requests
+                        if float(r.get("amount", 0)) < amount_threshold
+                    ]
                 else:
-                    logger.warning(f"Failed to parse amount threshold from condition: {condition}")
+                    logger.warning(
+                        f"Failed to parse amount threshold from condition: {condition}"
+                    )
             elif "大于" in condition or ">" in condition:
                 amount_threshold = _parse_amount_from_condition(condition)
                 if amount_threshold is not None:
-                    selected_requests = [r for r in selected_requests if float(r.get("amount", 0)) > amount_threshold]
+                    selected_requests = [
+                        r
+                        for r in selected_requests
+                        if float(r.get("amount", 0)) > amount_threshold
+                    ]
                 else:
-                    logger.warning(f"Failed to parse amount threshold from condition: {condition}")
+                    logger.warning(
+                        f"Failed to parse amount threshold from condition: {condition}"
+                    )
 
         if not selected_requests:
             return "❌ 没有符合条件的审批事项"
@@ -172,7 +194,11 @@ class SmartApprovalTool(BaseTool):
 """
             for i, req in enumerate(selected_requests[:5], 1):
                 user_info = req.get("users", {})
-                user_name = user_info.get("name", "未知") if isinstance(user_info, dict) else "未知"
+                user_name = (
+                    user_info.get("name", "未知")
+                    if isinstance(user_info, dict)
+                    else "未知"
+                )
                 preview += f"{i}. {user_name} - {req.get('type', '未知')} ¥{req.get('amount', 0):,.0f}\n"
 
             if len(selected_requests) > 5:
@@ -185,7 +211,9 @@ class SmartApprovalTool(BaseTool):
             return preview
 
         # P0 Security: Log the confirmed action
-        logger.info(f"[P0 Security] User {user_id} confirmed {action} for {len(selected_requests)} requests")
+        logger.info(
+            f"[P0 Security] User {user_id} confirmed {action} for {len(selected_requests)} requests"
+        )
 
         # 执行操作
         if action == "approve" or action == "batch_approve":
@@ -214,13 +242,21 @@ class SmartApprovalTool(BaseTool):
                         # If still pending (promoted to next level), notify next approver
                         if updated.get("status") == "pending":
                             try:
-                                from app.tools.approval_tools import _notify_next_approver
+                                from app.tools.approval_tools import (
+                                    _notify_next_approver,
+                                )
 
                                 user_info = req.get("users", {})
-                                req_name = user_info.get("name", "员工") if isinstance(user_info, dict) else "员工"
+                                req_name = (
+                                    user_info.get("name", "员工")
+                                    if isinstance(user_info, dict)
+                                    else "员工"
+                                )
                                 await _notify_next_approver(
                                     client=client,
-                                    approval_level=updated.get("approval_level", "manager"),
+                                    approval_level=updated.get(
+                                        "approval_level", "manager"
+                                    ),
                                     requester_id=req["submitted_by"],
                                     requester_name=req_name,
                                     approval_type=req.get("type", "default"),
@@ -229,7 +265,9 @@ class SmartApprovalTool(BaseTool):
                                     org_id=req.get("organization_id"),
                                 )
                             except Exception as e:
-                                logger.warning(f"Failed to notify next approver for {req['id']}: {e}")
+                                logger.warning(
+                                    f"Failed to notify next approver for {req['id']}: {e}"
+                                )
                     except Exception as e:
                         logger.warning(f"advance_step failed for {req['id']}: {e}")
                         skipped_count += 1
@@ -295,7 +333,9 @@ class SmartApprovalTool(BaseTool):
                             )
                         )
                     except Exception as e:
-                        logger.warning(f"Multi-channel approval notification failed: {e}")
+                        logger.warning(
+                            f"Multi-channel approval notification failed: {e}"
+                        )
 
             result_msg = f"""✅ 批量审批完成！
 
@@ -334,7 +374,9 @@ class SmartApprovalTool(BaseTool):
                         updated_ids.add(req["id"])
                         rejected_count += 1
                     except Exception as e:
-                        logger.warning(f"advance_step (reject) failed for {req['id']}: {e}")
+                        logger.warning(
+                            f"advance_step (reject) failed for {req['id']}: {e}"
+                        )
                         skipped_count += 1
                 else:
                     rpc_ids.append(req["id"])
@@ -397,7 +439,9 @@ class SmartApprovalTool(BaseTool):
                             )
                         )
                     except Exception as e:
-                        logger.warning(f"Multi-channel rejection notification failed: {e}")
+                        logger.warning(
+                            f"Multi-channel rejection notification failed: {e}"
+                        )
 
             return f"""❌ 已驳回 {rejected_count} 件申请
 
@@ -412,7 +456,11 @@ class SmartApprovalTool(BaseTool):
 
             # 查找委托人
             delegate_res = (
-                await client.table("users").select("id, name").ilike("name", f"%{delegate_to}%").limit(1).execute()
+                await client.table("users")
+                .select("id, name")
+                .ilike("name", f"%{delegate_to}%")
+                .limit(1)
+                .execute()
             )
             if not delegate_res.data:
                 return f"❌ 未找到名为「{delegate_to}」的人员"
@@ -457,7 +505,11 @@ class SmartApprovalTool(BaseTool):
         type_icons = {"expense": "💰", "leave": "🏖️", "purchase": "🛒", "travel": "✈️"}
         for _i, req in enumerate(requests, 1):
             icon = type_icons.get(req.get("type"), "📋")
-            user_name = req.get("users", {}).get("name", "未知") if isinstance(req.get("users"), dict) else "未知"
+            user_name = (
+                req.get("users", {}).get("name", "未知")
+                if isinstance(req.get("users"), dict)
+                else "未知"
+            )
             amount = req.get("amount", 0)
             result += f"{icon} {user_name}: ¥{amount:,.0f}\n"
         return result
@@ -471,8 +523,14 @@ class DailyBriefingTool(BaseTool):
     required_role = "boss"
     domain = "schedule"
     examples = [
-        {"input": {"briefing_type": "full"}, "output_summary": "返回完整的每日简报（审批、业绩、预警）"},
-        {"input": {"briefing_type": "approvals_only"}, "output_summary": "仅返回待审批事项列表及AI建议"},
+        {
+            "input": {"briefing_type": "full"},
+            "output_summary": "返回完整的每日简报（审批、业绩、预警）",
+        },
+        {
+            "input": {"briefing_type": "approvals_only"},
+            "output_summary": "仅返回待审批事项列表及AI建议",
+        },
     ]
     related_tools = ["smart_approve", "get_business_dashboard", "get_team_insight"]
     gotchas = "金额大于5000的审批项会调用大模型生成建议，响应可能稍慢。"
@@ -489,7 +547,9 @@ class DailyBriefingTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
         # 获取待审批数量
@@ -509,7 +569,9 @@ class DailyBriefingTool(BaseTool):
         try:
             from datetime import datetime
 
-            today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0).isoformat()
+            today_start = (
+                datetime.now(UTC).replace(hour=0, minute=0, second=0).isoformat()
+            )
             auto_res = (
                 await client.table("approval_requests")
                 .select("count", count="exact")
@@ -522,7 +584,12 @@ class DailyBriefingTool(BaseTool):
             auto_processed = 0
 
         # 获取团队绩效
-        team_query = client.table("users").select("name, score, total_bonus").order("score", desc=True).limit(3)
+        team_query = (
+            client.table("users")
+            .select("name, score, total_bonus")
+            .order("score", desc=True)
+            .limit(3)
+        )
         if org_id:
             team_query = team_query.eq("organization_id", org_id)
         team_res = await team_query.execute()
@@ -532,7 +599,9 @@ class DailyBriefingTool(BaseTool):
         total_bonus = sum(float(p.get("total_bonus", 0)) for p in top_performers)
 
         now = datetime.now()
-        greeting = "早上好" if now.hour < 12 else "下午好" if now.hour < 18 else "晚上好"
+        greeting = (
+            "早上好" if now.hour < 12 else "下午好" if now.hour < 18 else "晚上好"
+        )
 
         response = f"""☀️ **{greeting}，老板！**
 📅 {now.strftime("%Y年%m月%d日 %A")}
@@ -557,7 +626,11 @@ class DailyBriefingTool(BaseTool):
 
             for i, req in enumerate(pending_list, 1):
                 icon = type_icons.get(req.get("type"), "📋")
-                user_name = req.get("users", {}).get("name", "员工") if isinstance(req.get("users"), dict) else "员工"
+                user_name = (
+                    req.get("users", {}).get("name", "员工")
+                    if isinstance(req.get("users"), dict)
+                    else "员工"
+                )
                 amount = float(req.get("amount", 0))
                 req_type = req.get("type", "申请")
 
@@ -570,7 +643,11 @@ class DailyBriefingTool(BaseTool):
                         )
                         suggestion = f"🤖 {suggestion}"
                     except Exception:
-                        suggestion = "⚠️ 建议详细审核（金额较大）" if amount > 20000 else "✅ 建议批准"
+                        suggestion = (
+                            "⚠️ 建议详细审核（金额较大）"
+                            if amount > 20000
+                            else "✅ 建议批准"
+                        )
                 elif amount < 5000:
                     suggestion = "✅ 建议批准（金额合理）"
                 elif amount > 20000:
@@ -604,7 +681,11 @@ class DailyBriefingTool(BaseTool):
 
         # 查询本周新增客户/商机
         try:
-            query = client.table("customers").select("*", count="exact").gte("created_at", week_start)
+            query = (
+                client.table("customers")
+                .select("*", count="exact")
+                .gte("created_at", week_start)
+            )
             if org_id:
                 query = query.eq("organization_id", org_id)
             leads_res = await query.execute()
@@ -624,7 +705,9 @@ class DailyBriefingTool(BaseTool):
                 query = query.eq("organization_id", org_id)
             won_res = await query.execute()
             won_count = len(won_res.data or [])
-            won_amount = sum(float(d.get("estimated_value", 0)) for d in (won_res.data or []))
+            won_amount = sum(
+                float(d.get("estimated_value", 0)) for d in (won_res.data or [])
+            )
         except Exception:
             won_count = 0
             won_amount = 0
@@ -677,7 +760,9 @@ class DailyBriefingTool(BaseTool):
                 .execute()
             )
             for c in expiring_res.data or []:
-                days_left = (datetime.strptime(c["end_date"][:10], "%Y-%m-%d") - now).days
+                days_left = (
+                    datetime.strptime(c["end_date"][:10], "%Y-%m-%d") - now
+                ).days
                 risk_alerts.append(f"- {c['title']}：合同即将到期（剩{days_left}天）")
         except Exception as e:
             logger.debug("合同到期风险查询失败: %s", e)
@@ -702,14 +787,18 @@ class BusinessDashboardTool(BaseTool):
     """经营仪表盘工具"""
 
     name = "get_business_dashboard"
-    description = (
-        "获取公司经营核心指标，包含收入、签约、商机和人效数据。当领导说'看看经营情况'、'本月业绩怎么样'时调用。"
-    )
+    description = "获取公司经营核心指标，包含收入、签约、商机和人效数据。当领导说'看看经营情况'、'本月业绩怎么样'时调用。"
     required_role = "boss"
     domain = "analytics"
     examples = [
-        {"input": {"period": "this_month", "focus": "all"}, "output_summary": "返回本月完整经营仪表盘"},
-        {"input": {"period": "this_week", "focus": "revenue"}, "output_summary": "返回本周收入相关指标"},
+        {
+            "input": {"period": "this_month", "focus": "all"},
+            "output_summary": "返回本月完整经营仪表盘",
+        },
+        {
+            "input": {"period": "this_week", "focus": "revenue"},
+            "output_summary": "返回本周收入相关指标",
+        },
     ]
     related_tools = ["get_daily_briefing", "get_team_insight"]
     gotchas = "成本数据暂未对接财务系统，仅展示收入和人效。数据来源于 sales_metrics 表，若无数据会提示为空。"
@@ -737,7 +826,9 @@ class BusinessDashboardTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         period = args.get("period", "this_month")
         period_names = {
             "today": "今日",
@@ -755,14 +846,24 @@ class BusinessDashboardTool(BaseTool):
         try:
             # Simple aggregation (sum value by metric_type)
             # In a real app, we'd filter by created_at based on 'period'
-            metrics_res = await client.table("sales_metrics").select("metric_type, value").execute()
+            metrics_res = (
+                await client.table("sales_metrics")
+                .select("metric_type, value")
+                .execute()
+            )
 
             metrics = metrics_res.data or []
 
             # Group by type
-            revenue = sum(float(m["value"]) for m in metrics if m["metric_type"] == "revenue")
-            contract_sum = sum(float(m["value"]) for m in metrics if m["metric_type"] == "contract")
-            opportunity_val = sum(float(m["value"]) for m in metrics if m["metric_type"] == "opportunity")
+            revenue = sum(
+                float(m["value"]) for m in metrics if m["metric_type"] == "revenue"
+            )
+            contract_sum = sum(
+                float(m["value"]) for m in metrics if m["metric_type"] == "contract"
+            )
+            opportunity_val = sum(
+                float(m["value"]) for m in metrics if m["metric_type"] == "opportunity"
+            )
 
             # 2. Get Real HR Metrics (scoped to organization)
             hr_query = client.table("users").select("id", count="exact")
@@ -809,7 +910,9 @@ class BusinessDashboardTool(BaseTool):
             if revenue == 0:
                 response += "\n⚠️ **数据缺失提醒**: 本周期内无回款记录。请确认销售团队是否已录入数据。\n"
             elif revenue < contract_sum * 0.5:
-                response += "\n⚠️ **回款滞后**: 回款金额低于签约金额的50%，建议关注现金流。\n"
+                response += (
+                    "\n⚠️ **回款滞后**: 回款金额低于签约金额的50%，建议关注现金流。\n"
+                )
             else:
                 response += "\n✅ **经营稳健**: 回款状况良好。\n"
 
@@ -828,10 +931,20 @@ class TeamInsightTool(BaseTool):
     required_role = "manager"
     domain = "analytics"
     examples = [
-        {"input": {"insight_type": "performance"}, "output_summary": "返回团队绩效分布及排名"},
-        {"input": {"insight_type": "risk"}, "output_summary": "返回需关注的低绩效人员列表"},
+        {
+            "input": {"insight_type": "performance"},
+            "output_summary": "返回团队绩效分布及排名",
+        },
+        {
+            "input": {"insight_type": "risk"},
+            "output_summary": "返回需关注的低绩效人员列表",
+        },
     ]
-    related_tools = ["get_employee_profile", "create_performance_review", "get_daily_briefing"]
+    related_tools = [
+        "get_employee_profile",
+        "create_performance_review",
+        "get_daily_briefing",
+    ]
     gotchas = "管理者只能查看本部门数据，老板和创始人可查看全组织。绩效基于 users 表的 score 字段。"
 
     parameters = {
@@ -846,7 +959,9 @@ class TeamInsightTool(BaseTool):
         "required": [],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
 
@@ -861,7 +976,13 @@ class TeamInsightTool(BaseTool):
 
         if user_role == "manager":
             # Get manager's department
-            dept_res = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            dept_res = (
+                await client.table("users")
+                .select("department")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
             user_dept = dept_res.data.get("department") if dept_res.data else None
             if user_dept:
                 # Filter team to same department
@@ -874,13 +995,17 @@ class TeamInsightTool(BaseTool):
                     team_query = team_query.eq("organization_id", org_id)
                 team_res = await team_query.execute()
             else:
-                team_query = client.table("users").select("id, name, role, department, position, status, score")
+                team_query = client.table("users").select(
+                    "id, name, role, department, position, status, score"
+                )
                 if org_id:
                     team_query = team_query.eq("organization_id", org_id)
                 team_res = await team_query.execute()
         else:
             # Boss/founder sees all within their organization
-            team_query = client.table("users").select("id, name, role, department, position, status, score")
+            team_query = client.table("users").select(
+                "id, name, role, department, position, status, score"
+            )
             if org_id:
                 team_query = team_query.eq("organization_id", org_id)
             team_res = await team_query.execute()
@@ -932,13 +1057,17 @@ class TeamInsightTool(BaseTool):
             response += "\n🌟 **绩效前三**\n\n"
             medals = ["🥇", "🥈", "🥉"]
             for i, p in enumerate(top3):
-                response += f"{medals[i]} {p.get('name', '员工')}: {p.get('score', 0)}分\n"
+                response += (
+                    f"{medals[i]} {p.get('name', '员工')}: {p.get('score', 0)}分\n"
+                )
 
         # Low performers (real data) — need attention
         if c_level:
             response += f"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n⚠️ **需关注人员** ({len(c_level)}人)\n\n"
             for u in c_level[:3]:
-                response += f"- **{u.get('name', '员工')}**: 绩效 {u.get('score', 0)} 分\n"
+                response += (
+                    f"- **{u.get('name', '员工')}**: 绩效 {u.get('score', 0)} 分\n"
+                )
             if len(c_level) > 3:
                 response += f"  ... 还有 {len(c_level) - 3} 人\n"
 
@@ -955,18 +1084,26 @@ class AnnouncementTool(BaseTool):
     """公告发布工具"""
 
     name = "publish_announcement"
-    description = (
-        "发布全员或部门级公告通知。当领导说'发个通知'、'通知全员'时调用。注意：给特定个人发消息请用 send_notification。"
-    )
+    description = "发布全员或部门级公告通知。当领导说'发个通知'、'通知全员'时调用。注意：给特定个人发消息请用 send_notification。"
     required_role = "boss"
     domain = "admin"
     examples = [
         {
-            "input": {"title": "节假日安排", "content": "五一放假三天", "target": "all", "priority": "normal"},
+            "input": {
+                "title": "节假日安排",
+                "content": "五一放假三天",
+                "target": "all",
+                "priority": "normal",
+            },
             "output_summary": "向全员发布节假日通知",
         },
         {
-            "input": {"title": "紧急通知", "content": "系统维护", "target": "managers", "priority": "urgent"},
+            "input": {
+                "title": "紧急通知",
+                "content": "系统维护",
+                "target": "managers",
+                "priority": "urgent",
+            },
             "output_summary": "向管理层发布紧急维护通知",
         },
     ]
@@ -992,7 +1129,9 @@ class AnnouncementTool(BaseTool):
         "required": ["title", "content"],
     }
 
-    def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> tuple[str | None, str]:
+    def check_confirmation(
+        self, args: dict[str, Any], system_confirmed: bool = False
+    ) -> tuple[str | None, str]:
         """Only require confirmation for all-staff or urgent announcements."""
         target = args.get("target", "all")
         priority = args.get("priority", "normal")
@@ -1006,7 +1145,9 @@ class AnnouncementTool(BaseTool):
             )
         return None, ""
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         title = args.get("title")
         content = args.get("content")
         target = args.get("target", "all")
@@ -1021,7 +1162,11 @@ class AnnouncementTool(BaseTool):
                 users_query = users_query.eq("organization_id", org_id)
             users_res = await users_query.execute()
         elif target == "managers":
-            users_query = client.table("users").select("id, name").in_("role", ["manager", "founder"])
+            users_query = (
+                client.table("users")
+                .select("id, name")
+                .in_("role", ["manager", "founder"])
+            )
             if org_id:
                 users_query = users_query.eq("organization_id", org_id)
             users_res = await users_query.execute()
@@ -1039,7 +1184,9 @@ class AnnouncementTool(BaseTool):
         notification_type = "info" if priority == "normal" else "warning"
         user_ids = [u["id"] for u in users]
         try:
-            from app.services.notification_center_service import notification_center_service
+            from app.services.notification_center_service import (
+                notification_center_service,
+            )
 
             await notification_center_service.notify_users(
                 user_ids=user_ids,
@@ -1070,7 +1217,9 @@ class AnnouncementTool(BaseTool):
 
             # Send to all available external channels (wecom/dingtalk/feishu)
             for channel in notification_service.get_available_channels():
-                if channel != NotificationChannel.IN_APP:  # Already handled by batch insert
+                if (
+                    channel != NotificationChannel.IN_APP
+                ):  # Already handled by batch insert
                     try:
                         await notification_service.send(
                             Notification(
@@ -1106,14 +1255,18 @@ class CustomerProfileTool(BaseTool):
     """AI 客户画像自动生成"""
 
     name = "generate_customer_profile"
-    description = (
-        "根据客户关系管理数据生成客户画像分析，包含标签、偏好和跟进建议。当用户说'分析客户'、'客户画像'时调用。"
-    )
+    description = "根据客户关系管理数据生成客户画像分析，包含标签、偏好和跟进建议。当用户说'分析客户'、'客户画像'时调用。"
     required_role = "all"
     domain = "crm"
     examples = [
-        {"input": {"customer_name": "华为"}, "output_summary": "返回华为的AI客户画像（标签、偏好、风险、跟进策略）"},
-        {"input": {"customer_name": "张总"}, "output_summary": "返回与张总相关的客户画像分析"},
+        {
+            "input": {"customer_name": "华为"},
+            "output_summary": "返回华为的AI客户画像（标签、偏好、风险、跟进策略）",
+        },
+        {
+            "input": {"customer_name": "张总"},
+            "output_summary": "返回与张总相关的客户画像分析",
+        },
     ]
     related_tools = ["search_customers", "get_customer_detail"]
     gotchas = "按客户名称或公司名称模糊匹配，结果取前10条。会调用大模型生成画像，响应可能稍慢。"
@@ -1129,7 +1282,9 @@ class CustomerProfileTool(BaseTool):
         "required": ["customer_name"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         from app.services.crm_service import crm_service
 
         name = args.get("customer_name", "")
@@ -1192,7 +1347,9 @@ class CustomerProfileTool(BaseTool):
                         f"电话: {ct.get('phone', '')}, 邮箱: {ct.get('email', '')}"
                     )
 
-            activities = await crm_service.get_activity_timeline(customer_id, limit=5, db=client)
+            activities = await crm_service.get_activity_timeline(
+                customer_id, limit=5, db=client
+            )
             if activities:
                 type_labels = {
                     "call": "电话",
@@ -1203,7 +1360,9 @@ class CustomerProfileTool(BaseTool):
                 }
                 leads_summary.append("\n最近跟进:")
                 for act in activities:
-                    t = type_labels.get(act.get("activity_type", ""), act.get("activity_type", ""))
+                    t = type_labels.get(
+                        act.get("activity_type", ""), act.get("activity_type", "")
+                    )
                     leads_summary.append(
                         f"  - [{t}] {act.get('content', '')[:80]} ({str(act.get('created_at', ''))[:10]})"
                     )
@@ -1215,7 +1374,9 @@ class CustomerProfileTool(BaseTool):
             + "\n".join(leads_summary)
             + "\n\n请生成客户画像，包括：客户标签、合作偏好、风险评估、推荐跟进策略。"
         )
-        system = "你是资深CRM分析师，基于客户交互历史生成精准画像。用中文回复，格式清晰。"
+        system = (
+            "你是资深CRM分析师，基于客户交互历史生成精准画像。用中文回复，格式清晰。"
+        )
 
         try:
             profile = await AIService.call_llm(prompt, system)

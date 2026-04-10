@@ -115,7 +115,12 @@ class WebhookService:
 
             if not supabase:
                 return
-            res = await supabase.table("webhook_subscriptions").select("*").eq("is_active", True).execute()
+            res = (
+                await supabase.table("webhook_subscriptions")
+                .select("*")
+                .eq("is_active", True)
+                .execute()
+            )
             for row in res.data or []:
                 sub = WebhookSubscription(
                     id=row["id"],
@@ -145,14 +150,18 @@ class WebhookService:
         ).hexdigest()
         return f"t={ts},v1={sig}"
 
-    def verify_signature(self, payload: str, signature: str, secret: str, tolerance: int = 300) -> bool:
+    def verify_signature(
+        self, payload: str, signature: str, secret: str, tolerance: int = 300
+    ) -> bool:
         """Verify an incoming webhook signature with timestamp validation.
 
         P0 Fix: Validates that the timestamp is within ±tolerance seconds to
         prevent replay attacks.
         """
         try:
-            parts: dict[str, str] = {k: v for k, v in (p.split("=", 1) for p in signature.split(","))}
+            parts: dict[str, str] = {
+                k: v for k, v in (p.split("=", 1) for p in signature.split(","))
+            }
             ts = parts.get("t")
             v1 = parts.get("v1")
             if not ts or not v1:
@@ -223,7 +232,11 @@ class WebhookService:
     async def list_subscriptions(self, org_id: str, db=None) -> list[dict]:
         """List all subscriptions for an org."""
         await self._load_from_db()
-        results = [sub.to_dict() for sub in self._subscriptions.values() if sub.org_id == org_id and sub.is_active]
+        results = [
+            sub.to_dict()
+            for sub in self._subscriptions.values()
+            if sub.org_id == org_id and sub.is_active
+        ]
         return results
 
     async def deactivate_subscription(self, sub_id: str, db=None) -> bool:
@@ -239,7 +252,9 @@ class WebhookService:
             from app.core.database import supabase
 
             if supabase:
-                await supabase.table("webhook_subscriptions").update({"is_active": False}).eq("id", sub_id).execute()
+                await supabase.table("webhook_subscriptions").update(
+                    {"is_active": False}
+                ).eq("id", sub_id).execute()
         except Exception as e:
             logger.warning(f"Failed to deactivate webhook in DB: {e}")
 
@@ -251,7 +266,9 @@ class WebhookService:
         matching = [
             sub
             for sub in self._subscriptions.values()
-            if sub.is_active and sub.org_id == org_id and (event in sub.events or "*" in sub.events)
+            if sub.is_active
+            and sub.org_id == org_id
+            and (event in sub.events or "*" in sub.events)
         ]
 
         for sub in matching:
@@ -268,7 +285,9 @@ class WebhookService:
         if len(self._deliveries) > self._max_deliveries:
             self._deliveries = self._deliveries[-5000:]
 
-    async def _send_webhook(self, delivery: WebhookDelivery, subscription: WebhookSubscription) -> bool:
+    async def _send_webhook(
+        self, delivery: WebhookDelivery, subscription: WebhookSubscription
+    ) -> bool:
         """Send a webhook with retry and exponential backoff."""
         payload_json = json.dumps(
             {
@@ -308,7 +327,9 @@ class WebhookService:
 
             except Exception as e:
                 delivery.response_body = str(e)[:500]
-                logger.warning(f"Webhook delivery {delivery.id} attempt {attempt + 1} failed: {e}")
+                logger.warning(
+                    f"Webhook delivery {delivery.id} attempt {attempt + 1} failed: {e}"
+                )
 
             # Exponential backoff before retry
             if attempt < delivery.max_attempts - 1:

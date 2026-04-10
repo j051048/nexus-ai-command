@@ -71,7 +71,9 @@ async def websocket_chat(
             vmd_agent_code = data.get("vmd_agent_code")
 
             if not messages:
-                await websocket.send_json({"type": "error", "message": "No messages provided"})
+                await websocket.send_json(
+                    {"type": "error", "message": "No messages provided"}
+                )
                 continue
 
             # Get user info for the stream
@@ -154,7 +156,10 @@ async def websocket_push(
 @router.get("/status")
 async def ws_status():
     """Get WebSocket connection statistics."""
-    from app.services.websocket_manager import MAX_CONNECTIONS_GLOBAL, MAX_CONNECTIONS_PER_USER
+    from app.services.websocket_manager import (
+        MAX_CONNECTIONS_GLOBAL,
+        MAX_CONNECTIONS_PER_USER,
+    )
 
     return {
         "active_connections": ws_manager.active_connections,
@@ -239,11 +244,15 @@ async def _authenticate_ws(token: str) -> str | None:
                     logger.warning("[WS/Auth] Token expired (HS256)")
                     return None
                 except PyJWTError as e:
-                    logger.debug(f"[WS/Auth] HS256 secret #{index} attempt failed: {str(e)}")
+                    logger.debug(
+                        f"[WS/Auth] HS256 secret #{index} attempt failed: {str(e)}"
+                    )
                     continue
 
         if not payload:
-            logger.warning(f"[WS/Auth] Token verification failed for all strategies (Alg: {claimed_alg})")
+            logger.warning(
+                f"[WS/Auth] Token verification failed for all strategies (Alg: {claimed_alg})"
+            )
             return None
 
         user_id = payload.get("sub")
@@ -263,7 +272,13 @@ async def _get_user_context(user_id: str) -> tuple[str, str | None]:
         from app.core.database import supabase
 
         if supabase:
-            result = await supabase.table("users").select("role, org_id").eq("id", user_id).single().execute()
+            result = (
+                await supabase.table("users")
+                .select("role, org_id")
+                .eq("id", user_id)
+                .single()
+                .execute()
+            )
             if result.data:
                 return result.data.get("role", "employee"), result.data.get("org_id")
     except Exception as e:

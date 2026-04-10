@@ -20,7 +20,13 @@ async def get_projects(db=Depends(get_db), user_id: str = Depends(get_current_us
     """
     try:
         # Check user role for permission logic
-        user_res = await db.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        user_res = (
+            await db.table("users")
+            .select("role")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         role = user_res.data.get("role") if user_res.data else "employee"
 
         query = db.table("projects").select("*").neq("stage", "archived")
@@ -37,7 +43,11 @@ async def get_projects(db=Depends(get_db), user_id: str = Depends(get_current_us
 
 
 @router.post("/", response_model=StandardResponse, status_code=status.HTTP_201_CREATED)
-async def create_project(project: ProjectCreate, db=Depends(get_db), user_id: str = Depends(get_current_user_id)):
+async def create_project(
+    project: ProjectCreate,
+    db=Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
     """
     Create a new project.
     """
@@ -60,7 +70,10 @@ async def create_project(project: ProjectCreate, db=Depends(get_db), user_id: st
 
 @router.patch("/{project_id}", response_model=StandardResponse)
 async def update_project(
-    project_id: str, updates: ProjectUpdate, db=Depends(get_db), user_id: str = Depends(get_current_user_id)
+    project_id: str,
+    updates: ProjectUpdate,
+    db=Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
 ):
     """
     Update an existing project.
@@ -79,7 +92,10 @@ async def update_project(
         res = await db.table("projects").update(data).eq("id", project_id).execute()
 
         if not res.data:
-            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Project {project_id} not found or update failed")
+            raise api_error(
+                ErrorCode.RESOURCE_NOT_FOUND,
+                f"Project {project_id} not found or update failed",
+            )
 
         return api_success(data=res.data[0], message="Project updated")
     except Exception:
@@ -94,11 +110,22 @@ async def delete_project(
 ):
     """删除项目（软删除 - 标记为 archived 状态）"""
     try:
-        existing = await db.table("projects").select("id").eq("id", project_id).maybe_single().execute()
+        existing = (
+            await db.table("projects")
+            .select("id")
+            .eq("id", project_id)
+            .maybe_single()
+            .execute()
+        )
         if not existing.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "项目不存在")
 
-        res = await db.table("projects").update({"stage": "archived"}).eq("id", project_id).execute()
+        res = (
+            await db.table("projects")
+            .update({"stage": "archived"})
+            .eq("id", project_id)
+            .execute()
+        )
         if not res.data:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "删除项目失败")
 
@@ -122,7 +149,13 @@ async def generate_weekly_report(
         week_ago = (now - timedelta(days=7)).isoformat()
 
         # 1. 获取项目基本信息
-        proj_res = await db.table("projects").select("*").eq("id", project_id).maybe_single().execute()
+        proj_res = (
+            await db.table("projects")
+            .select("*")
+            .eq("id", project_id)
+            .maybe_single()
+            .execute()
+        )
         if not proj_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "项目不存在")
         project = proj_res.data
@@ -141,7 +174,10 @@ async def generate_weekly_report(
 
         # 3. 获取关联任务统计
         tasks_res = await (
-            db.table("oa_tasks").select("status, title").contains("metadata", {"project_id": project_id}).execute()
+            db.table("oa_tasks")
+            .select("status, title")
+            .contains("metadata", {"project_id": project_id})
+            .execute()
         )
         tasks = tasks_res.data or []
         total_tasks = len(tasks)
@@ -177,7 +213,10 @@ async def generate_weekly_report(
 请用中文输出，格式清晰，每个板块用标题分隔。"""
 
         # 5. 调用 AI 生成
-        from app.services.llm_helpers import get_langchain_llm_sync, resolve_model_config
+        from app.services.llm_helpers import (
+            get_langchain_llm_sync,
+            resolve_model_config,
+        )
 
         config = await resolve_model_config(
             scene_code="content_generation",

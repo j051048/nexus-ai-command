@@ -28,7 +28,9 @@ class MeetingBookingCreate(BaseModel):
 
 
 @router.get("/attendance/today")
-async def get_today_attendance(req: Request, user_id: str = Depends(get_current_user_id)):
+async def get_today_attendance(
+    req: Request, user_id: str = Depends(get_current_user_id)
+):
     """获取今日打卡记录"""
     from datetime import date
 
@@ -39,7 +41,11 @@ async def get_today_attendance(req: Request, user_id: str = Depends(get_current_
     today = date.today().isoformat()
     try:
         result = (
-            await db.table("attendance_records").select("*").eq("user_id", user_id).eq("check_date", today).execute()
+            await db.table("attendance_records")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("check_date", today)
+            .execute()
         )
         return api_success(data={"records": result.data or []})
     except Exception as e:
@@ -88,7 +94,9 @@ async def clock_attendance(req: Request, user_id: str = Depends(get_current_user
                 updates["location"] = "外勤"
                 if not existing.data.get("check_in_time"):
                     updates["check_in_time"] = now_time
-            await db.table("attendance_records").update(updates).eq("id", existing.data["id"]).execute()
+            await db.table("attendance_records").update(updates).eq(
+                "id", existing.data["id"]
+            ).execute()
         else:
             record = {
                 "user_id": user_id,
@@ -203,7 +211,12 @@ async def list_meetings(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
-        result = await db.table("oa_meeting_bookings").select("*").order("start_time", desc=True).execute()
+        result = (
+            await db.table("oa_meeting_bookings")
+            .select("*")
+            .order("start_time", desc=True)
+            .execute()
+        )
         return api_success(data={"meetings": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list meetings: {e}")
@@ -257,13 +270,20 @@ async def cancel_meeting(
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
         # 校验当前用户是否为会议创建者
-        existing = await db.table("oa_meeting_bookings").select("id, user_id").eq("id", meeting_id).execute()
+        existing = (
+            await db.table("oa_meeting_bookings")
+            .select("id, user_id")
+            .eq("id", meeting_id)
+            .execute()
+        )
         if not existing.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该会议")
         if existing.data[0].get("user_id") != user_id:
             raise api_error(ErrorCode.FORBIDDEN, "只有会议创建者可以取消会议")
 
-        await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq("id", meeting_id).execute()
+        await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq(
+            "id", meeting_id
+        ).execute()
         return api_success(data={"cancelled": True})
     except Exception as e:
         logger.error(f"Failed to cancel meeting: {e}")
@@ -380,9 +400,14 @@ async def approve_leave_request(
         body = await req.json()
         status = body.get("status")
         if status not in ("approved", "rejected", "cancelled"):
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "status 必须为 approved、rejected 或 cancelled")
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD,
+                "status 必须为 approved、rejected 或 cancelled",
+            )
 
-        await db.table("oa_leave_requests").update({"status": status}).eq("id", request_id).execute()
+        await db.table("oa_leave_requests").update({"status": status}).eq(
+            "id", request_id
+        ).execute()
         return api_success(data={"updated": True})
     except Exception as e:
         logger.error(f"Failed to approve/reject leave request: {e}")
@@ -406,10 +431,23 @@ async def get_oa_stats(req: Request, user_id: str = Depends(get_current_user_id)
         today = date.today().isoformat()
 
         attendance_count = (
-            await db.table("attendance_records").select("id", count="exact").eq("check_date", today).execute()
+            await db.table("attendance_records")
+            .select("id", count="exact")
+            .eq("check_date", today)
+            .execute()
         )
-        leave_count = await db.table("oa_leave_requests").select("id", count="exact").eq("status", "pending").execute()
-        task_count = await db.table("oa_tasks").select("id", count="exact").neq("status", "completed").execute()
+        leave_count = (
+            await db.table("oa_leave_requests")
+            .select("id", count="exact")
+            .eq("status", "pending")
+            .execute()
+        )
+        task_count = (
+            await db.table("oa_tasks")
+            .select("id", count="exact")
+            .neq("status", "completed")
+            .execute()
+        )
 
         return api_success(
             data={
@@ -423,6 +461,12 @@ async def get_oa_stats(req: Request, user_id: str = Depends(get_current_user_id)
     except Exception as e:
         logger.error(f"Failed to fetch OA stats: {e}")
         return api_success(
-            data={"metrics": {"today_attendance": 0, "pending_leaves": 0, "active_tasks": 0}},
+            data={
+                "metrics": {
+                    "today_attendance": 0,
+                    "pending_leaves": 0,
+                    "active_tasks": 0,
+                }
+            },
             message="使用默认统计数据",
         )

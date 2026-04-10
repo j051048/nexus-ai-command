@@ -56,7 +56,9 @@ async def authorize(
         code_challenge=code_challenge,
     )
     if not auth_code:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Invalid client or redirect URI")
+        raise api_error(
+            ErrorCode.VALIDATION_INVALID_INPUT, "Invalid client or redirect URI"
+        )
 
     return api_success(
         data={
@@ -84,10 +86,14 @@ async def exchange_token(body: OAuthTokenRequest):
                 client_id=body.client_id or "",
             )
         else:
-            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Unsupported grant_type")
+            raise api_error(
+                ErrorCode.VALIDATION_INVALID_INPUT, "Unsupported grant_type"
+            )
 
         if not token:
-            raise api_error(ErrorCode.AUTH_TOKEN_EXPIRED, "Invalid or expired credentials")
+            raise api_error(
+                ErrorCode.AUTH_TOKEN_EXPIRED, "Invalid or expired credentials"
+            )
 
         return api_success(data=token.to_dict())
     except Exception as e:

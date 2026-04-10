@@ -76,7 +76,11 @@ def _init_redis():
             logger.info(f"Redis Cluster 连接成功: {cluster_hosts}")
         else:
             redis_client = redis.from_url(
-                _redis_url, decode_responses=True, socket_timeout=2, socket_connect_timeout=2, retry_on_timeout=True
+                _redis_url,
+                decode_responses=True,
+                socket_timeout=2,
+                socket_connect_timeout=2,
+                retry_on_timeout=True,
             )
 
         # 测试连接
@@ -89,7 +93,9 @@ def _init_redis():
         redis_client = None
 
 
-def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: list[str] | None = None):
+def cache(
+    ttl: int = 300, prefix: str = "nexus", exclude_params: list[str] | None = None
+):
     """
     增强版 Redis 缓存装饰器
 
@@ -146,7 +152,9 @@ def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: list[str] | Non
             try:
                 # 存入缓存
                 if result is not None:
-                    redis_client.setex(cache_key, ttl, json.dumps(result, ensure_ascii=False))
+                    redis_client.setex(
+                        cache_key, ttl, json.dumps(result, ensure_ascii=False)
+                    )
                     logger.debug(f"Cache Set: {cache_key} (ttl={ttl})")
             except Exception as e:
                 logger.warning(f"设置缓存出错: {e}")

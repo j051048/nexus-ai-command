@@ -46,7 +46,9 @@ async def _get_thresholds(org_id: str | None = None) -> dict:
     try:
         from app.services.system_config_service import system_config_service
 
-        config = await system_config_service.get_config(config_type="event_sensor_thresholds", org_id=org_id)
+        config = await system_config_service.get_config(
+            config_type="event_sensor_thresholds", org_id=org_id
+        )
         if config and config.get("value"):
             merged = dict(_DEFAULT_THRESHOLDS)
             merged.update(config["value"])
@@ -103,7 +105,10 @@ def sensor_sales_anomaly():
 
     async def _run():
         from app.core.database import supabase
-        from app.services.notification_service import NotificationPriority, send_notification
+        from app.services.notification_service import (
+            NotificationPriority,
+            send_notification,
+        )
 
         if not supabase:
             return "skipped: no db"
@@ -161,19 +166,27 @@ def sensor_sales_anomaly():
             return "no historical data for comparison"
 
         days_count = max(len(set(r.get("date", "") for r in week_data)), 1)
-        avg_revenue = sum(float(r.get("revenue", 0) or 0) for r in week_data) / days_count
-        avg_leads = sum(int(r.get("leads_count", 0) or 0) for r in week_data) / days_count
+        avg_revenue = (
+            sum(float(r.get("revenue", 0) or 0) for r in week_data) / days_count
+        )
+        avg_leads = (
+            sum(int(r.get("leads_count", 0) or 0) for r in week_data) / days_count
+        )
 
         # Detect anomalies (configurable drop threshold)
         drop_ratio = thresholds["sales_anomaly_drop_ratio"]
         anomalies = []
         if avg_revenue > 0 and y_revenue < avg_revenue * drop_ratio:
             drop_pct = round((1 - y_revenue / avg_revenue) * 100, 1)
-            anomalies.append(f"销售额环比下跌 {drop_pct}%（昨日 ¥{y_revenue:,.0f} vs 7日均值 ¥{avg_revenue:,.0f}）")
+            anomalies.append(
+                f"销售额环比下跌 {drop_pct}%（昨日 ¥{y_revenue:,.0f} vs 7日均值 ¥{avg_revenue:,.0f}）"
+            )
 
         if avg_leads > 0 and y_leads < avg_leads * drop_ratio:
             drop_pct = round((1 - y_leads / avg_leads) * 100, 1)
-            anomalies.append(f"新增线索骤降 {drop_pct}%（昨日 {y_leads} 条 vs 7日均值 {avg_leads:.0f} 条）")
+            anomalies.append(
+                f"新增线索骤降 {drop_pct}%（昨日 {y_leads} 条 vs 7日均值 {avg_leads:.0f} 条）"
+            )
 
         if not anomalies:
             return "no anomalies detected"
@@ -193,10 +206,17 @@ def sensor_sales_anomaly():
             analysis = "\n".join(anomalies)
 
         # Notify boss/managers
-        alert_content = f"⚠️ 销售指标异常预警\n\n{chr(10).join(anomalies)}\n\n{analysis[:300]}"
+        alert_content = (
+            f"⚠️ 销售指标异常预警\n\n{chr(10).join(anomalies)}\n\n{analysis[:300]}"
+        )
 
         try:
-            mgr_res = await supabase.table("users").select("id").in_("role", ["founder", "boss", "manager"]).execute()
+            mgr_res = (
+                await supabase.table("users")
+                .select("id")
+                .in_("role", ["founder", "boss", "manager"])
+                .execute()
+            )
             notified = 0
             for u in mgr_res.data or []:
                 try:
@@ -214,7 +234,9 @@ def sensor_sales_anomaly():
                     notified += 1
                 except Exception as e:
                     logger.error("anomaly notification send failed for user: %s", e)
-            return f"Sales anomaly alert sent to {notified} users: {'; '.join(anomalies)}"
+            return (
+                f"Sales anomaly alert sent to {notified} users: {'; '.join(anomalies)}"
+            )
         except Exception as e:
             logger.error(f"Failed to send anomaly alerts: {e}")
             return f"anomaly detected but notification failed: {e}"
@@ -270,7 +292,10 @@ def sensor_followup_timeout():
                 continue
             try:
                 days_since = (
-                    datetime.now(UTC) - datetime.fromisoformat(customer["updated_at"].replace("Z", "+00:00"))
+                    datetime.now(UTC)
+                    - datetime.fromisoformat(
+                        customer["updated_at"].replace("Z", "+00:00")
+                    )
                 ).days
 
                 # Generate follow-up suggestion
@@ -305,9 +330,13 @@ def sensor_followup_timeout():
                 )
                 notified += 1
             except Exception as e:
-                logger.error(f"Follow-up reminder failed for customer {customer['id']}: {e}")
+                logger.error(
+                    f"Follow-up reminder failed for customer {customer['id']}: {e}"
+                )
 
-        return f"Sent {notified} follow-up reminders for {len(stale)} stale opportunities"
+        return (
+            f"Sent {notified} follow-up reminders for {len(stale)} stale opportunities"
+        )
 
     return _run_async(_run())
 
@@ -328,7 +357,10 @@ def sensor_contract_expiry_ladder():
 
     async def _run():
         from app.core.database import supabase
-        from app.services.notification_service import NotificationPriority, send_notification
+        from app.services.notification_service import (
+            NotificationPriority,
+            send_notification,
+        )
 
         if not supabase:
             return "skipped: no db"
@@ -339,9 +371,21 @@ def sensor_contract_expiry_ladder():
         thresholds = await _get_thresholds()
         ladder_days = thresholds["contract_expiry_ladder"]
         ladders = [
-            {"days": ladder_days[0], "label": "🔴 紧急", "priority": NotificationPriority.URGENT},
-            {"days": ladder_days[1], "label": "🟡 重要", "priority": NotificationPriority.HIGH},
-            {"days": ladder_days[2], "label": "🟢 提醒", "priority": NotificationPriority.NORMAL},
+            {
+                "days": ladder_days[0],
+                "label": "🔴 紧急",
+                "priority": NotificationPriority.URGENT,
+            },
+            {
+                "days": ladder_days[1],
+                "label": "🟡 重要",
+                "priority": NotificationPriority.HIGH,
+            },
+            {
+                "days": ladder_days[2],
+                "label": "🟢 提醒",
+                "priority": NotificationPriority.NORMAL,
+            },
         ]
 
         notified = 0
@@ -356,14 +400,22 @@ def sensor_contract_expiry_ladder():
                     .execute()
                 )
             except Exception as e:
-                logger.error("contract expiry query failed for %d-day ladder: %s", ladder["days"], e)
+                logger.error(
+                    "contract expiry query failed for %d-day ladder: %s",
+                    ladder["days"],
+                    e,
+                )
                 continue
 
             for contract in result.data or []:
                 if not contract.get("user_id"):
                     continue
                 try:
-                    amount_str = f"，金额 ¥{float(contract.get('amount', 0)):,.0f}" if contract.get("amount") else ""
+                    amount_str = (
+                        f"，金额 ¥{float(contract.get('amount', 0)):,.0f}"
+                        if contract.get("amount")
+                        else ""
+                    )
                     customer = contract.get("customer_name", "")
 
                     # Generate renewal suggestion for 7-day and 3-day warnings
@@ -378,7 +430,9 @@ def sensor_contract_expiry_ladder():
                             )
                             suggestion = f"\n\n💡 续签建议: {suggestion[:200]}"
                         except Exception as e:
-                            logger.error("contract renewal suggestion generation failed: %s", e)
+                            logger.error(
+                                "contract renewal suggestion generation failed: %s", e
+                            )
 
                     await send_notification(
                         title=f"{ladder['label']} 合同到期: {contract.get('title', '未命名')}",
@@ -424,7 +478,10 @@ def sensor_approval_backlog():
 
     async def _run():
         from app.core.database import supabase
-        from app.services.notification_service import NotificationPriority, send_notification
+        from app.services.notification_service import (
+            NotificationPriority,
+            send_notification,
+        )
 
         if not supabase:
             return "skipped: no db"
@@ -436,7 +493,9 @@ def sensor_approval_backlog():
         try:
             result = (
                 await supabase.table("approval_requests")
-                .select("id, type, amount, description, submitted_by, created_at, assigned_to")
+                .select(
+                    "id, type, amount, description, submitted_by, created_at, assigned_to"
+                )
                 .eq("status", "pending")
                 .order("created_at", desc=False)
                 .execute()
@@ -468,18 +527,28 @@ def sensor_approval_backlog():
 
             # Build summary
             low_amount = [
-                i for i in items if float(i.get("amount", 0) or 0) < thresholds["approval_backlog_amount_threshold"]
+                i
+                for i in items
+                if float(i.get("amount", 0) or 0)
+                < thresholds["approval_backlog_amount_threshold"]
             ]
             high_amount = [
-                i for i in items if float(i.get("amount", 0) or 0) >= thresholds["approval_backlog_amount_threshold"]
+                i
+                for i in items
+                if float(i.get("amount", 0) or 0)
+                >= thresholds["approval_backlog_amount_threshold"]
             ]
 
             summary_parts = [f"您有 {len(items)} 条待审批事项积压"]
             if low_amount:
-                summary_parts.append(f"其中 {len(low_amount)} 条金额<¥1000，建议批量快速处理")
+                summary_parts.append(
+                    f"其中 {len(low_amount)} 条金额<¥1000，建议批量快速处理"
+                )
             if high_amount:
                 total_high = sum(float(i.get("amount", 0) or 0) for i in high_amount)
-                summary_parts.append(f"{len(high_amount)} 条高金额（合计 ¥{total_high:,.0f}）需要重点审核")
+                summary_parts.append(
+                    f"{len(high_amount)} 条高金额（合计 ¥{total_high:,.0f}）需要重点审核"
+                )
 
             try:
                 await send_notification(
@@ -495,7 +564,9 @@ def sensor_approval_backlog():
                 )
                 notified += 1
             except Exception as e:
-                logger.error(f"Approval backlog notification failed for {approver_id}: {e}")
+                logger.error(
+                    f"Approval backlog notification failed for {approver_id}: {e}"
+                )
 
         return f"Approval backlog alerts sent to {notified} approvers ({len(pending)} total pending)"
 

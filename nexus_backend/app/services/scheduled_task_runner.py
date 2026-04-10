@@ -38,7 +38,11 @@ class ScheduledTaskRunner:
             return
         self._running = True
         self._task = asyncio.create_task(self._loop())
-        logger.info("[ScheduledTaskRunner] Started (interval=%ds, instance=%s)", self._check_interval, _INSTANCE_ID)
+        logger.info(
+            "[ScheduledTaskRunner] Started (interval=%ds, instance=%s)",
+            self._check_interval,
+            _INSTANCE_ID,
+        )
 
     async def stop(self):
         self._running = False
@@ -86,7 +90,9 @@ class ScheduledTaskRunner:
 
             await run_all_system_tasks()
         except Exception as e:
-            logger.error("[ScheduledTaskRunner] System tasks failed: %s", e, exc_info=True)
+            logger.error(
+                "[ScheduledTaskRunner] System tasks failed: %s", e, exc_info=True
+            )
 
     async def _check_and_execute(self):
         from app.core.database import supabase
@@ -168,7 +174,9 @@ class ScheduledTaskRunner:
                         # Backoff: push next_execution_at forward by failures*5 minutes
                         backoff_time = now + timedelta(minutes=failures * 5)
                         fail_update["next_execution_at"] = backoff_time.isoformat()
-                    await supabase.table("user_scheduled_tasks").update(fail_update).eq("id", task["id"]).execute()
+                    await supabase.table("user_scheduled_tasks").update(fail_update).eq(
+                        "id", task["id"]
+                    ).execute()
 
     async def _execute_single(self, task: dict, supabase, now: datetime):
         from app.agent.proactive_runner import run_proactive_agent
@@ -179,7 +187,9 @@ class ScheduledTaskRunner:
         task_name = task["name"]
         task_start = time.time()
 
-        logger.info("[ScheduledTaskRunner] Executing '%s' for user %s", task_name, user_id)
+        logger.info(
+            "[ScheduledTaskRunner] Executing '%s' for user %s", task_name, user_id
+        )
 
         # Run AI agent
         agent_result = await run_proactive_agent(
@@ -197,7 +207,11 @@ class ScheduledTaskRunner:
             user_id=user_id,
             title=f"定时任务: {task_name}",
             message=response,
-            metadata={"source": "scheduled_task", "task_name": task_name, "task_id": task_id},
+            metadata={
+                "source": "scheduled_task",
+                "task_name": task_name,
+                "task_id": task_id,
+            },
             org_id=task.get("organization_id"),
         )
 
@@ -231,7 +245,9 @@ class ScheduledTaskRunner:
         elif next_exec:
             update_data["next_execution_at"] = next_exec
 
-        await supabase.table("user_scheduled_tasks").update(update_data).eq("id", task_id).execute()
+        await supabase.table("user_scheduled_tasks").update(update_data).eq(
+            "id", task_id
+        ).execute()
 
         duration_ms = int((time.time() - task_start) * 1000)
         logger.info(

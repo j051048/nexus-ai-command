@@ -29,7 +29,9 @@ class AgentHook(ABC):
 
     priority: int = 100  # lower = runs first
 
-    async def before_tool_call(self, tool_name: str, params: dict, context: dict) -> dict:
+    async def before_tool_call(
+        self, tool_name: str, params: dict, context: dict
+    ) -> dict:
         """Return modified params, or raise to block the call."""
         return params
 
@@ -62,7 +64,9 @@ class HookRegistry:
     def unregister(self, hook_type: type) -> None:
         self._hooks = [h for h in self._hooks if not isinstance(h, hook_type)]
 
-    async def run_before_tool(self, tool_name: str, params: dict, context: dict) -> dict:
+    async def run_before_tool(
+        self, tool_name: str, params: dict, context: dict
+    ) -> dict:
         for hook in self._hooks:
             try:
                 params = await hook.before_tool_call(tool_name, params, context)
@@ -120,7 +124,9 @@ class PermissionHook(AgentHook):
 
     priority = 10  # 最先执行
 
-    async def before_tool_call(self, tool_name: str, params: dict, context: dict) -> dict:
+    async def before_tool_call(
+        self, tool_name: str, params: dict, context: dict
+    ) -> dict:
         role = context.get("user_role", "")
         blocked_prefixes = ROLE_TOOL_RESTRICTIONS.get(role, [])
         for prefix in blocked_prefixes:
@@ -140,7 +146,9 @@ class AuditLogHook(AgentHook):
 
     priority = 90  # 在脱敏之前记录（脱敏后的结果更安全）
 
-    async def before_tool_call(self, tool_name: str, params: dict, context: dict) -> dict:
+    async def before_tool_call(
+        self, tool_name: str, params: dict, context: dict
+    ) -> dict:
         context["_audit_start"] = time.monotonic()
         return params
 
@@ -214,7 +222,11 @@ class PIISanitizeHook(AgentHook):
         from app.services.content_moderation import sanitize_pii_for_llm
 
         for msg in messages:
-            content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
+            content = (
+                msg.get("content")
+                if isinstance(msg, dict)
+                else getattr(msg, "content", None)
+            )
             if isinstance(content, str) and content:
                 sanitized = sanitize_pii_for_llm(content)
                 if sanitized != content:
@@ -274,7 +286,9 @@ class AutoSnapshotHook(AgentHook):
                     tool_names=[tool_name],
                 )
             )
-            logger.info(f"[AutoSnapshot] Scheduled snapshot after irreversible tool: {tool_name}")
+            logger.info(
+                f"[AutoSnapshot] Scheduled snapshot after irreversible tool: {tool_name}"
+            )
 
         except Exception as e:
             # 快照失败不应影响主流程

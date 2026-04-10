@@ -58,7 +58,9 @@ async def export_to_excel(
             for col_idx, header in enumerate(headers, 1):
                 cell = ws.cell(row=1, column=col_idx, value=header)
                 cell.font = Font(bold=True)
-                cell.fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+                cell.fill = PatternFill(
+                    start_color="CCCCCC", end_color="CCCCCC", fill_type="solid"
+                )
                 cell.alignment = Alignment(horizontal="center")
 
         # 写入数据
@@ -149,16 +151,22 @@ async def export_to_pdf(
 
         # 创建 PDF
         output = io.BytesIO()
-        doc = SimpleDocTemplate(output, pagesize=A4, topMargin=2 * cm, bottomMargin=2 * cm)
+        doc = SimpleDocTemplate(
+            output, pagesize=A4, topMargin=2 * cm, bottomMargin=2 * cm
+        )
 
         styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name="Chinese", fontName=font_name, fontSize=12, leading=18))
+        styles.add(
+            ParagraphStyle(name="Chinese", fontName=font_name, fontSize=12, leading=18)
+        )
 
         story = []
 
         # 添加标题
         if title:
-            title_style = ParagraphStyle("Title", parent=styles["Heading1"], fontName=font_name, fontSize=18)
+            title_style = ParagraphStyle(
+                "Title", parent=styles["Heading1"], fontName=font_name, fontSize=18
+            )
             story.append(Paragraph(title, title_style))
             story.append(Spacer(1, 0.5 * cm))
 

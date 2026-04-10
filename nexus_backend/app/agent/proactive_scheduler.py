@@ -137,7 +137,12 @@ class ProactiveScheduler:
 
     async def load_all_tasks(self):
         """启动时加载所有启用的任务"""
-        result = await supabase.table("agent_scheduled_tasks").select("*").eq("enabled", True).execute()
+        result = (
+            await supabase.table("agent_scheduled_tasks")
+            .select("*")
+            .eq("enabled", True)
+            .execute()
+        )
 
         for task in result.data:
             await self.start_task(
@@ -158,7 +163,9 @@ class ProactiveScheduler:
         # 启动审批超时扫描任务
         task_id = "sys_approval_timeout_scan"
         if task_id not in self.running_tasks:
-            self.running_tasks[task_id] = asyncio.create_task(self._scan_approval_timeouts_loop())
+            self.running_tasks[task_id] = asyncio.create_task(
+                self._scan_approval_timeouts_loop()
+            )
 
     async def _scan_approval_timeouts_loop(self):
         """周期性扫描审批超时任务"""
@@ -173,7 +180,9 @@ class ProactiveScheduler:
                 if client:
                     escalated = await ApprovalService.check_approval_timeouts(client)
                     if escalated:
-                        logger.info(f"System scan escalated {len(escalated)} stalled approvals.")
+                        logger.info(
+                            f"System scan escalated {len(escalated)} stalled approvals."
+                        )
             except asyncio.CancelledError:
                 break
             except Exception as e:

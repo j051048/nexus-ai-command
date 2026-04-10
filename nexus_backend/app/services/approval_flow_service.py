@@ -32,7 +32,12 @@ class ApprovalFlowService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = db.table("approval_flows").select("*").eq("organization_id", org_id).order("created_at", desc=True)
+            query = (
+                db.table("approval_flows")
+                .select("*")
+                .eq("organization_id", org_id)
+                .order("created_at", desc=True)
+            )
 
             if trigger_type:
                 query = query.eq("trigger_type", trigger_type)
@@ -83,7 +88,9 @@ class ApprovalFlowService:
             result = await db.table("approval_flows").insert(data).execute()
 
             if result.data and len(result.data) > 0:
-                logger.info(f"审批流程已创建: org={org_id}, name={name}, trigger={trigger_type}")
+                logger.info(
+                    f"审批流程已创建: org={org_id}, name={name}, trigger={trigger_type}"
+                )
                 return result.data[0]
 
             raise RuntimeError("审批流程创建失败")

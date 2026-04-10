@@ -3,7 +3,13 @@
 AGENT_CODE = "content_agent"
 AGENT_NAME = "内容营销Agent"
 RECOMMENDED_MODEL_TIER = "high"
-SCENE_CODES = ["content_creation", "whitepaper", "case_study", "seo_content", "social_media"]
+SCENE_CODES = [
+    "content_creation",
+    "whitepaper",
+    "case_study",
+    "seo_content",
+    "social_media",
+]
 
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "持续输出高质量技术内容，月均获客线索100+"

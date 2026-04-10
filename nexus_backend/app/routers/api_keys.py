@@ -130,7 +130,9 @@ async def get_api_key_usage(
             date_range["to"] = date_to
 
     try:
-        usage = await api_key_service.get_api_usage(key_id=key_id, date_range=date_range, db=client)
+        usage = await api_key_service.get_api_usage(
+            key_id=key_id, date_range=date_range, db=client
+        )
         if usage.get("error"):
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, usage["error"])
         return api_success(data=usage)

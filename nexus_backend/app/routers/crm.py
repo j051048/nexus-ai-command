@@ -123,7 +123,9 @@ async def list_customers(
         paginated = customers[offset : offset + limit]
         return api_list(items=paginated, total=total)
     except Exception as e:
-        logger.error(f"List customers error: user={user_id} org={getattr(req.state, 'org_id', None)} err={e}")
+        logger.error(
+            f"List customers error: user={user_id} org={getattr(req.state, 'org_id', None)} err={e}"
+        )
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
@@ -139,7 +141,9 @@ async def create_customer(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
-        customer = await crm_service.create_customer(org_id, body.model_dump(exclude_none=True), db=db)
+        customer = await crm_service.create_customer(
+            org_id, body.model_dump(exclude_none=True), db=db
+        )
         return api_success(data={"customer": customer}, message="客户创建成功")
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
@@ -176,7 +180,9 @@ async def update_customer(
     """更新客户信息"""
     try:
         db = getattr(req.state, "db", None)
-        customer = await crm_service.update_customer(customer_id, body.model_dump(exclude_none=True), db=db)
+        customer = await crm_service.update_customer(
+            customer_id, body.model_dump(exclude_none=True), db=db
+        )
         return api_success(data={"customer": customer}, message="客户信息已更新")
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
@@ -197,7 +203,9 @@ async def list_contacts(
         contacts = await crm_service.list_contacts(customer_id, db=db)
         return api_list(items=contacts, total=len(contacts))
     except Exception as e:
-        logger.error(f"List contacts error: customer={customer_id} user={user_id} err={e}")
+        logger.error(
+            f"List contacts error: customer={customer_id} user={user_id} err={e}"
+        )
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
@@ -211,12 +219,16 @@ async def create_contact(
     """添加联系人"""
     try:
         db = getattr(req.state, "db", None)
-        contact = await crm_service.create_contact(customer_id, body.model_dump(), db=db)
+        contact = await crm_service.create_contact(
+            customer_id, body.model_dump(), db=db
+        )
         return api_success(data={"contact": contact}, message="联系人已添加")
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
-        logger.error(f"Create contact error: customer={customer_id} user={user_id} err={e}")
+        logger.error(
+            f"Create contact error: customer={customer_id} user={user_id} err={e}"
+        )
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
@@ -231,12 +243,16 @@ async def update_contact(
     """更新联系人信息"""
     try:
         db = getattr(req.state, "db", None)
-        contact = await crm_service.update_contact(contact_id, body.model_dump(exclude_none=True), db=db)
+        contact = await crm_service.update_contact(
+            contact_id, body.model_dump(exclude_none=True), db=db
+        )
         return api_success(data={"contact": contact}, message="联系人已更新")
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
-        logger.error(f"Update contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}")
+        logger.error(
+            f"Update contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}"
+        )
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
@@ -253,7 +269,9 @@ async def delete_contact(
         await crm_service.delete_contact(contact_id, db=db)
         return api_success(data=None, message="联系人已删除")
     except Exception as e:
-        logger.error(f"Delete contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}")
+        logger.error(
+            f"Delete contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}"
+        )
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
@@ -286,7 +304,9 @@ async def get_timeline(
         activities = await crm_service.get_activity_timeline(customer_id, limit, db=db)
         return api_list(items=activities, total=len(activities))
     except Exception as e:
-        logger.error(f"Get timeline error: customer={customer_id} user={user_id} err={e}")
+        logger.error(
+            f"Get timeline error: customer={customer_id} user={user_id} err={e}"
+        )
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
@@ -300,12 +320,16 @@ async def create_activity(
     """添加活动记录"""
     try:
         db = getattr(req.state, "db", None)
-        activity = await crm_service.create_activity(customer_id, body.activity_type, body.content, user_id, db=db)
+        activity = await crm_service.create_activity(
+            customer_id, body.activity_type, body.content, user_id, db=db
+        )
         return api_success(data={"activity": activity}, message="活动记录已添加")
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
-        logger.error(f"Create activity error: customer={customer_id} user={user_id} err={e}")
+        logger.error(
+            f"Create activity error: customer={customer_id} user={user_id} err={e}"
+        )
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
@@ -358,15 +382,30 @@ async def get_customer_health(
         tenant_id = str(org_id)
 
         # 1. Fetch customer
-        cust_res = await db.table("customers").select("*").eq("id", customer_id).eq("organization_id", tenant_id).execute()
+        cust_res = (
+            await db.table("customers")
+            .select("*")
+            .eq("id", customer_id)
+            .eq("organization_id", tenant_id)
+            .execute()
+        )
         if not cust_res.data:
             return api_success(data={"health_score": 0, "risk_level": "unknown"})
         cust = cust_res.data[0]
 
         # 2. Activity recency (0-30): days since last activity
-        act_res = await db.table("customer_activities").select("created_at").eq("customer_id", customer_id).order("created_at", desc=True).limit(1).execute()
+        act_res = (
+            await db.table("customer_activities")
+            .select("created_at")
+            .eq("customer_id", customer_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
         if act_res.data:
-            last_act = datetime.fromisoformat(act_res.data[0]["created_at"].replace("Z", "+00:00")).replace(tzinfo=None)
+            last_act = datetime.fromisoformat(
+                act_res.data[0]["created_at"].replace("Z", "+00:00")
+            ).replace(tzinfo=None)
             days_since = (now - last_act).days
             activity_score = max(0, 30 - days_since)  # 30 if today, 0 if 30+ days
         else:
@@ -374,17 +413,34 @@ async def get_customer_health(
 
         # 3. Activity frequency (0-20): count of activities in last 30 days
         month_ago = (now - timedelta(days=30)).isoformat()
-        freq_res = await db.table("customer_activities").select("id", count="exact").eq("customer_id", customer_id).gte("created_at", month_ago).execute()
+        freq_res = (
+            await db.table("customer_activities")
+            .select("id", count="exact")
+            .eq("customer_id", customer_id)
+            .gte("created_at", month_ago)
+            .execute()
+        )
         freq_count = freq_res.count or 0
         frequency_score = min(20, freq_count * 2)  # 2 pts per activity, max 20
 
         # 4. Contact richness (0-15): number of contacts
-        contact_res = await db.table("customer_contacts").select("id", count="exact").eq("customer_id", customer_id).execute()
+        contact_res = (
+            await db.table("customer_contacts")
+            .select("id", count="exact")
+            .eq("customer_id", customer_id)
+            .execute()
+        )
         contact_count = contact_res.count or 0
         contact_score = min(15, contact_count * 5)  # 5 pts per contact, max 15
 
         # 5. Stage progression (0-20): based on customer stage
-        stage_scores = {"lead": 5, "prospect": 10, "opportunity": 15, "customer": 20, "churned": 0}
+        stage_scores = {
+            "lead": 5,
+            "prospect": 10,
+            "opportunity": 15,
+            "customer": 20,
+            "churned": 0,
+        }
         stage_score = stage_scores.get(cust.get("stage", ""), 5)
 
         # 6. Value indicator (0-15): estimated value
@@ -398,7 +454,9 @@ async def get_customer_health(
         else:
             value_score = 2
 
-        health_score = activity_score + frequency_score + contact_score + stage_score + value_score
+        health_score = (
+            activity_score + frequency_score + contact_score + stage_score + value_score
+        )
 
         # Risk classification
         if health_score >= 70:
@@ -408,23 +466,25 @@ async def get_customer_health(
         else:
             risk_level = "churn_risk"
 
-        return api_success(data={
-            "customer_id": customer_id,
-            "health_score": health_score,
-            "risk_level": risk_level,
-            "breakdown": {
-                "activity_recency": activity_score,
-                "activity_frequency": frequency_score,
-                "contact_richness": contact_score,
-                "stage_progression": stage_score,
-                "value_indicator": value_score,
-            },
-            "days_since_last_activity": days_since if act_res.data else None,
-            "activities_last_30d": freq_count,
-            "contact_count": contact_count,
-            "stage": cust.get("stage"),
-            "estimated_value": ev,
-        })
+        return api_success(
+            data={
+                "customer_id": customer_id,
+                "health_score": health_score,
+                "risk_level": risk_level,
+                "breakdown": {
+                    "activity_recency": activity_score,
+                    "activity_frequency": frequency_score,
+                    "contact_richness": contact_score,
+                    "stage_progression": stage_score,
+                    "value_indicator": value_score,
+                },
+                "days_since_last_activity": days_since if act_res.data else None,
+                "activities_last_30d": freq_count,
+                "contact_count": contact_count,
+                "stage": cust.get("stage"),
+                "estimated_value": ev,
+            }
+        )
     except Exception as e:
         logger.error(f"Customer health error: id={customer_id} err={e}")
         return api_success(data={"health_score": 0, "risk_level": "unknown"})
@@ -440,38 +500,72 @@ async def get_health_overview(
         db = getattr(req.state, "db", None) or _get_db()
         org_id = getattr(req.state, "org_id", None)
         if not db or not org_id:
-            return api_success(data={"customers": [], "summary": {"healthy": 0, "at_risk": 0, "churn_risk": 0}})
+            return api_success(
+                data={
+                    "customers": [],
+                    "summary": {"healthy": 0, "at_risk": 0, "churn_risk": 0},
+                }
+            )
 
         tenant_id = str(org_id)
-        cust_res = await db.table("customers").select("id,name,stage,estimated_value,organization_id").eq("organization_id", tenant_id).execute()
+        cust_res = (
+            await db.table("customers")
+            .select("id,name,stage,estimated_value,organization_id")
+            .eq("organization_id", tenant_id)
+            .execute()
+        )
         customers = cust_res.data or []
 
         # Batch compute health for all customers (simplified — uses stage + value only for speed)
         summary = {"healthy": 0, "at_risk": 0, "churn_risk": 0}
         results = []
         for c in customers:
-            stage_scores = {"lead": 5, "prospect": 10, "opportunity": 15, "customer": 20, "churned": 0}
+            stage_scores = {
+                "lead": 5,
+                "prospect": 10,
+                "opportunity": 15,
+                "customer": 20,
+                "churned": 0,
+            }
             stage_score = stage_scores.get(c.get("stage", ""), 5)
             ev = float(c.get("estimated_value", 0) or 0)
-            value_score = 15 if ev >= 100000 else (10 if ev >= 50000 else (5 if ev >= 10000 else 2))
-            quick_score = stage_score + value_score  # Simplified — full score requires per-customer API
-            risk = "healthy" if quick_score >= 25 else ("at_risk" if quick_score >= 12 else "churn_risk")
+            value_score = (
+                15
+                if ev >= 100000
+                else (10 if ev >= 50000 else (5 if ev >= 10000 else 2))
+            )
+            quick_score = (
+                stage_score + value_score
+            )  # Simplified — full score requires per-customer API
+            risk = (
+                "healthy"
+                if quick_score >= 25
+                else ("at_risk" if quick_score >= 12 else "churn_risk")
+            )
             summary[risk] = summary.get(risk, 0) + 1
-            results.append({
-                "id": c["id"],
-                "name": c.get("name", ""),
-                "stage": c.get("stage"),
-                "estimated_value": ev,
-                "quick_score": quick_score,
-                "risk_level": risk,
-            })
+            results.append(
+                {
+                    "id": c["id"],
+                    "name": c.get("name", ""),
+                    "stage": c.get("stage"),
+                    "estimated_value": ev,
+                    "quick_score": quick_score,
+                    "risk_level": risk,
+                }
+            )
 
         return api_success(data={"customers": results, "summary": summary})
     except Exception as e:
         logger.error(f"Health overview error: err={e}")
-        return api_success(data={"customers": [], "summary": {"healthy": 0, "at_risk": 0, "churn_risk": 0}})
+        return api_success(
+            data={
+                "customers": [],
+                "summary": {"healthy": 0, "at_risk": 0, "churn_risk": 0},
+            }
+        )
 
 
 def _get_db():
     from app.core.database import supabase
+
     return supabase

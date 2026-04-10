@@ -167,7 +167,9 @@ class ReflectionAgent:
         if not tool_calls:
             return False
 
-        failed_calls = [tc for tc in tool_calls if tc.get("status") == "error" or tc.get("error")]
+        failed_calls = [
+            tc for tc in tool_calls if tc.get("status") == "error" or tc.get("error")
+        ]
         if failed_calls:
             # 记录失败模式到 learning_system
             try:
@@ -179,7 +181,10 @@ class ReflectionAgent:
                     await learning_system.record_failure(
                         tool_name=tool_name,
                         error_pattern=error_msg,
-                        context={"user_message": user_message[:200], "complexity": complexity},
+                        context={
+                            "user_message": user_message[:200],
+                            "complexity": complexity,
+                        },
                         user_id=user_id,
                         org_id=org_id or "default",
                     )
@@ -187,7 +192,9 @@ class ReflectionAgent:
                 logger.debug(f"[Reflection] Failed to record failure pattern: {e}")
 
         # 检查冗余调用（同一工具连续调用 3+ 次）
-        tool_name_sequence = [tc.get("tool_name") or tc.get("name", "") for tc in tool_calls]
+        tool_name_sequence = [
+            tc.get("tool_name") or tc.get("name", "") for tc in tool_calls
+        ]
         consecutive_count = 1
         for i in range(1, len(tool_name_sequence)):
             if tool_name_sequence[i] == tool_name_sequence[i - 1]:
@@ -232,7 +239,9 @@ class ReflectionAgent:
 
             # 检查所有工具是否都成功
             all_success = all(
-                tc.get("status") == "success" or (not tc.get("error") and tc.get("result")) for tc in tool_calls
+                tc.get("status") == "success"
+                or (not tc.get("error") and tc.get("result"))
+                for tc in tool_calls
             )
             if not all_success:
                 return False
@@ -269,7 +278,9 @@ class ReflectionAgent:
             # 检查冷却时间：最近 N 小时内是否已 consolidate 过
             from datetime import timedelta
 
-            cooldown_cutoff = datetime.now(UTC) - timedelta(hours=_CONSOLIDATION_COOLDOWN_HOURS)
+            cooldown_cutoff = datetime.now(UTC) - timedelta(
+                hours=_CONSOLIDATION_COOLDOWN_HOURS
+            )
             recent = (
                 await client.table("memory_consolidations")
                 .select("created_at")
@@ -282,7 +293,9 @@ class ReflectionAgent:
                 return False  # 冷却中
 
             # 触发 consolidation
-            from app.services.conversation_memory.consolidation import consolidate_user_memories
+            from app.services.conversation_memory.consolidation import (
+                consolidate_user_memories,
+            )
 
             result = await consolidate_user_memories(
                 user_id=user_id,
@@ -340,7 +353,10 @@ def schedule_reflection(
     由 persist_result 调用，不阻塞用户响应。
     """
     # 跳过太简单的对话（短响应 + 无工具调用）
-    if len(assistant_response or "") < _MIN_RESPONSE_LEN_FOR_REFLECTION and not tool_calls:
+    if (
+        len(assistant_response or "") < _MIN_RESPONSE_LEN_FOR_REFLECTION
+        and not tool_calls
+    ):
         return
 
     agent = ReflectionAgent()
@@ -364,7 +380,8 @@ def schedule_reflection(
             )
         except TimeoutError:
             logger.warning(
-                f"[Reflection] Timed out after {_MAX_REFLECTION_DURATION_SECONDS}s " f"for session {session_id[:8]}"
+                f"[Reflection] Timed out after {_MAX_REFLECTION_DURATION_SECONDS}s "
+                f"for session {session_id[:8]}"
             )
         except Exception as e:
             logger.error(f"[Reflection] Background reflection failed: {e}")

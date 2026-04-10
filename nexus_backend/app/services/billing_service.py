@@ -149,7 +149,9 @@ class BillingService:
     def __init__(self):
         # P0 Fix: Memory cache is only used as a short-lived cache layer.
         # Always read-through from DB on cache miss. TTL-based invalidation.
-        self._subscriptions: dict[str, tuple[Subscription, float]] = {}  # org_id -> (sub, cached_at_timestamp)
+        self._subscriptions: dict[str, tuple[Subscription, float]] = (
+            {}
+        )  # org_id -> (sub, cached_at_timestamp)
         self._CACHE_TTL = 60.0  # seconds — refetch from DB after TTL
 
     def get_plan_catalog(self) -> list[dict]:
@@ -172,7 +174,13 @@ class BillingService:
         # Always try DB first (source of truth)
         if db:
             try:
-                res = await db.table("subscriptions").select("*").eq("org_id", org_id).maybe_single().execute()
+                res = (
+                    await db.table("subscriptions")
+                    .select("*")
+                    .eq("org_id", org_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if res.data:
                     sub = Subscription(
                         org_id=org_id,
@@ -192,7 +200,9 @@ class BillingService:
         self._subscriptions[org_id] = (sub, _time.time())
         return sub
 
-    async def create_subscription(self, org_id: str, plan: BillingPlan, db=None) -> Subscription | dict:
+    async def create_subscription(
+        self, org_id: str, plan: BillingPlan, db=None
+    ) -> Subscription | dict:
         """Create or update a subscription.
 
         In production (Stripe configured): creates a Checkout Session URL.
@@ -210,12 +220,22 @@ class BillingService:
                     customer=customer_id,
                     mode="subscription",
                     line_items=[{"price": price_id, "quantity": 1}],
-                    success_url=os.getenv("STRIPE_SUCCESS_URL", "https://app.example.com/payments?status=success"),
-                    cancel_url=os.getenv("STRIPE_CANCEL_URL", "https://app.example.com/payments?status=cancelled"),
+                    success_url=os.getenv(
+                        "STRIPE_SUCCESS_URL",
+                        "https://app.example.com/payments?status=success",
+                    ),
+                    cancel_url=os.getenv(
+                        "STRIPE_CANCEL_URL",
+                        "https://app.example.com/payments?status=cancelled",
+                    ),
                     metadata={"org_id": org_id, "plan": plan.value},
-                    subscription_data={"metadata": {"org_id": org_id, "plan": plan.value}},
+                    subscription_data={
+                        "metadata": {"org_id": org_id, "plan": plan.value}
+                    },
                 )
-                logger.info(f"Stripe Checkout Session created: {session.id} for org={org_id} plan={plan.value}")
+                logger.info(
+                    f"Stripe Checkout Session created: {session.id} for org={org_id} plan={plan.value}"
+                )
                 return {
                     "checkout_url": session.url,
                     "session_id": session.id,
@@ -266,7 +286,9 @@ class BillingService:
             stale_keys = [uid for uid, _ in rate_limiting_service._tier_cache.items()]
             for uid in stale_keys:
                 rate_limiting_service.invalidate_cache(uid)
-            logger.info(f"Rate limiter cache invalidated for org {org_id} (plan={plan.value}, tier={plan.rate_tier})")
+            logger.info(
+                f"Rate limiter cache invalidated for org {org_id} (plan={plan.value}, tier={plan.rate_tier})"
+            )
         except Exception as e:
             logger.error(f"Rate limiter tier sync failed (non-critical): {e}")
 
@@ -301,13 +323,17 @@ class BillingService:
         # Persist customer ID
         if db:
             try:
-                await db.table("subscriptions").upsert({"org_id": org_id, "stripe_customer_id": customer_id}).execute()
+                await db.table("subscriptions").upsert(
+                    {"org_id": org_id, "stripe_customer_id": customer_id}
+                ).execute()
             except Exception as e:
                 logger.warning(f"Failed to persist Stripe customer ID: {e}")
 
         return customer_id
 
-    async def change_plan(self, org_id: str, new_plan: BillingPlan, db=None) -> Subscription:
+    async def change_plan(
+        self, org_id: str, new_plan: BillingPlan, db=None
+    ) -> Subscription:
         """Change an org's plan."""
         return await self.create_subscription(org_id, new_plan, db)
 
@@ -336,7 +362,9 @@ class BillingService:
         logger.info(f"Subscription marked for cancellation at period end: {org_id}")
         return True
 
-    async def handle_payment_webhook(self, event_type: str, data: dict, signature: str = None):
+    async def handle_payment_webhook(
+        self, event_type: str, data: dict, signature: str = None
+    ):
         """Handle payment provider webhook events.
 
         P1 Security Fix: Validates Stripe webhook signature when configured.
@@ -348,12 +376,16 @@ class BillingService:
                 try:
                     import stripe
 
-                    stripe.Webhook.construct_event(data.get("_raw_body", "{}"), signature, webhook_secret)
+                    stripe.Webhook.construct_event(
+                        data.get("_raw_body", "{}"), signature, webhook_secret
+                    )
                 except Exception as e:
                     logger.warning(f"Stripe webhook signature verification failed: {e}")
                     return  # Reject unverified webhooks
             else:
-                logger.warning("STRIPE_WEBHOOK_SECRET not configured, skipping signature verification")
+                logger.warning(
+                    "STRIPE_WEBHOOK_SECRET not configured, skipping signature verification"
+                )
 
         logger.info(f"Billing webhook received: {event_type}")
 
@@ -375,7 +407,11 @@ class BillingService:
                 await self.cancel_subscription(org_id)
 
     async def start_trial(
-        self, org_id: str, days: int = 14, plan: BillingPlan = BillingPlan.PROFESSIONAL, db=None
+        self,
+        org_id: str,
+        days: int = 14,
+        plan: BillingPlan = BillingPlan.PROFESSIONAL,
+        db=None,
     ) -> dict:
         """Start a free trial for an organization.
 
@@ -407,7 +443,9 @@ class BillingService:
             except Exception as e:
                 logger.warning(f"Failed to persist trial subscription: {e}")
 
-        logger.info(f"Trial started: org={org_id} plan={plan.value} ends={trial_end.isoformat()}")
+        logger.info(
+            f"Trial started: org={org_id} plan={plan.value} ends={trial_end.isoformat()}"
+        )
         return {
             "org_id": org_id,
             "plan": plan.value,

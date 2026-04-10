@@ -26,7 +26,11 @@ class SuperAdminService:
     # ============== 组织管理 ==============
 
     async def list_organizations(
-        self, page: int = 1, limit: int = 20, search: str | None = None, status: str | None = None
+        self,
+        page: int = 1,
+        limit: int = 20,
+        search: str | None = None,
+        status: str | None = None,
     ) -> dict:
         """
         列出所有组织
@@ -44,7 +48,9 @@ class SuperAdminService:
         offset = (page - 1) * limit
 
         try:
-            query = client.table("organizations").select("id, name, created_at, status, plan, subscription_status")
+            query = client.table("organizations").select(
+                "id, name, created_at, status, plan, subscription_status"
+            )
 
             if search:
                 query = query.ilike("name", f"%{search}%")
@@ -52,7 +58,11 @@ class SuperAdminService:
             if status:
                 query = query.eq("status", status)
 
-            result = await query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+            result = (
+                await query.order("created_at", desc=True)
+                .range(offset, offset + limit - 1)
+                .execute()
+            )
 
             # 获取总数
             count_query = client.table("organizations").select("id", count="exact")
@@ -90,7 +100,13 @@ class SuperAdminService:
 
         try:
             # 获取组织基本信息
-            org_result = await client.table("organizations").select("*").eq("id", org_id).single().execute()
+            org_result = (
+                await client.table("organizations")
+                .select("*")
+                .eq("id", org_id)
+                .single()
+                .execute()
+            )
 
             if not org_result.data:
                 return {}
@@ -99,7 +115,10 @@ class SuperAdminService:
 
             # 获取用户数
             users_result = await (
-                client.table("users").select("id", count="exact").eq("organization_id", org_id).execute()
+                client.table("users")
+                .select("id", count="exact")
+                .eq("organization_id", org_id)
+                .execute()
             )
             user_count = len(users_result.data) if users_result.data else 0
 
@@ -210,11 +229,17 @@ class SuperAdminService:
 
         try:
             # 总组织数
-            org_result = await client.table("organizations").select("id", count="exact").execute()
+            org_result = (
+                await client.table("organizations")
+                .select("id", count="exact")
+                .execute()
+            )
             total_orgs = len(org_result.data) if org_result.data else 0
 
             # 总用户数
-            user_result = await client.table("users").select("id", count="exact").execute()
+            user_result = (
+                await client.table("users").select("id", count="exact").execute()
+            )
             total_users = len(user_result.data) if user_result.data else 0
 
             # MAU（30天内有活动的用户数）
@@ -222,19 +247,28 @@ class SuperAdminService:
 
             thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
             mau_result = await (
-                client.table("users").select("id", count="exact").gte("last_active_at", thirty_days_ago).execute()
+                client.table("users")
+                .select("id", count="exact")
+                .gte("last_active_at", thirty_days_ago)
+                .execute()
             )
             mau = len(mau_result.data) if mau_result.data else 0
 
             # 总 AI 调用量（30天）
             ai_result = await (
-                client.table("ai_usage_logs").select("id", count="exact").gte("created_at", thirty_days_ago).execute()
+                client.table("ai_usage_logs")
+                .select("id", count="exact")
+                .gte("created_at", thirty_days_ago)
+                .execute()
             )
             total_ai_calls = len(ai_result.data) if ai_result.data else 0
 
             # 活跃组织数
             active_orgs_result = await (
-                client.table("organizations").select("id", count="exact").eq("status", "active").execute()
+                client.table("organizations")
+                .select("id", count="exact")
+                .eq("status", "active")
+                .execute()
             )
             active_orgs = len(active_orgs_result.data) if active_orgs_result.data else 0
 
@@ -376,7 +410,11 @@ class SuperAdminService:
             if filters.get("date_to"):
                 query = query.lte("created_at", filters["date_to"])
 
-            result = await query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+            result = (
+                await query.order("created_at", desc=True)
+                .range(offset, offset + limit - 1)
+                .execute()
+            )
 
             return result.data or []
 

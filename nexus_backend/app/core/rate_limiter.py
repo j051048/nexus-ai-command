@@ -53,7 +53,9 @@ if REDIS_URL:
         redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
         logger.info("[RateLimiter] Redis backend enabled for distributed rate limiting")
     except ImportError:
-        logger.warning("[RateLimiter] redis package not installed, falling back to in-memory")
+        logger.warning(
+            "[RateLimiter] redis package not installed, falling back to in-memory"
+        )
     except Exception as e:
         logger.warning(f"[RateLimiter] Redis connection failed: {e}", exc_info=True)
 elif settings.ENV == "production":
@@ -177,7 +179,11 @@ class SlidingWindowRateLimiter:
 
         # 内存清理：防止过多 key 导致内存泄漏
         if len(self._memory_store) > 50000:
-            stale_keys = [k for k, v in self._memory_store.items() if not v or v[-1] < window_start]
+            stale_keys = [
+                k
+                for k, v in self._memory_store.items()
+                if not v or v[-1] < window_start
+            ]
             for k in stale_keys:
                 del self._memory_store[k]
 
@@ -222,7 +228,9 @@ class RateLimiter:
         ip = _extract_client_ip(request)
         return f"{self.prefix}:ip:{ip}"
 
-    async def is_allowed(self, request: Request, user_id: str | None = None) -> tuple[bool, dict]:
+    async def is_allowed(
+        self, request: Request, user_id: str | None = None
+    ) -> tuple[bool, dict]:
         """
         Check if request is allowed under rate limit.
         Returns (is_allowed, metadata)
@@ -254,7 +262,9 @@ class RateLimiter:
 
             # Refill tokens
             time_passed = now - last_update
-            new_tokens = min(self.burst, current_tokens + time_passed * (self.rate / 60.0))
+            new_tokens = min(
+                self.burst, current_tokens + time_passed * (self.rate / 60.0)
+            )
 
             if new_tokens >= 1:
                 new_tokens -= 1
@@ -301,7 +311,9 @@ class RateLimiter:
 
         # Refill tokens based on time passed
         time_passed = now - self.last_update[key]
-        self.tokens[key] = min(self.burst, self.tokens[key] + time_passed * (self.rate / 60.0))
+        self.tokens[key] = min(
+            self.burst, self.tokens[key] + time_passed * (self.rate / 60.0)
+        )
         self.last_update[key] = now
 
         # Check if we have tokens available
@@ -327,16 +339,24 @@ class RateLimiter:
 
 
 # Global rate limiter instances
-rate_limiter = RateLimiter(rate=settings.RATE_LIMIT_PER_MINUTE, burst=settings.RATE_LIMIT_BURST)
+rate_limiter = RateLimiter(
+    rate=settings.RATE_LIMIT_PER_MINUTE, burst=settings.RATE_LIMIT_BURST
+)
 
 # #37: 各维度的滑动窗口限速器
-_per_user_limiter = SlidingWindowRateLimiter(rate=RATE_LIMIT_PER_USER, window_seconds=60, prefix="rl:user")
-_per_ip_limiter = SlidingWindowRateLimiter(rate=RATE_LIMIT_PER_IP, window_seconds=60, prefix="rl:ip")
+_per_user_limiter = SlidingWindowRateLimiter(
+    rate=RATE_LIMIT_PER_USER, window_seconds=60, prefix="rl:user"
+)
+_per_ip_limiter = SlidingWindowRateLimiter(
+    rate=RATE_LIMIT_PER_IP, window_seconds=60, prefix="rl:ip"
+)
 _endpoint_limiters: dict[str, SlidingWindowRateLimiter] = {}
 
 # #35: 租户级别限速器 (per-minute + per-hour)
 _per_tenant_minute_limiter = SlidingWindowRateLimiter(
-    rate=settings.TENANT_RATE_LIMIT_PER_MINUTE, window_seconds=60, prefix="rl:tenant:min"
+    rate=settings.TENANT_RATE_LIMIT_PER_MINUTE,
+    window_seconds=60,
+    prefix="rl:tenant:min",
 )
 _per_tenant_hour_limiter = SlidingWindowRateLimiter(
     rate=settings.TENANT_RATE_LIMIT_PER_HOUR, window_seconds=3600, prefix="rl:tenant:hr"
@@ -380,7 +400,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """
 
     # Endpoints exempt from rate limiting
-    EXEMPT_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/openapi.json", "/redoc", "/metrics"}
+    EXEMPT_PATHS = {
+        "/",
+        "/health",
+        "/favicon.ico",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+        "/metrics",
+    }
 
     # P1-8: Endpoint category mapping for tiered limits
     ENDPOINT_CATEGORIES = {
@@ -450,14 +478,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         # Phase 2: Post-auth per-user rate check (user_id now available)
-        user_id = getattr(request.state, "user_id", None) if hasattr(request, "state") else None
-        tenant_id = getattr(request.state, "org_id", None) if hasattr(request, "state") else None
+        user_id = (
+            getattr(request.state, "user_id", None)
+            if hasattr(request, "state")
+            else None
+        )
+        tenant_id = (
+            getattr(request.state, "org_id", None)
+            if hasattr(request, "state")
+            else None
+        )
         user_meta = ip_meta  # 默认使用 IP 限速的 metadata
 
         # #35: Tenant-level rate limiting (org_id available after auth)
         if tenant_id:
             # Check per-minute tenant quota
-            t_min_allowed, t_min_meta = await _per_tenant_minute_limiter.is_allowed(f"tenant:{tenant_id}")
+            t_min_allowed, t_min_meta = await _per_tenant_minute_limiter.is_allowed(
+                f"tenant:{tenant_id}"
+            )
             if not t_min_allowed:
                 return UTF8JSONResponse(
                     status_code=429,
@@ -478,7 +516,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
 
             # Check per-hour tenant quota
-            t_hr_allowed, t_hr_meta = await _per_tenant_hour_limiter.is_allowed(f"tenant:{tenant_id}")
+            t_hr_allowed, t_hr_meta = await _per_tenant_hour_limiter.is_allowed(
+                f"tenant:{tenant_id}"
+            )
             if not t_hr_allowed:
                 return UTF8JSONResponse(
                     status_code=429,
@@ -499,7 +539,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
 
         if user_id:
-            user_allowed, user_meta = await _per_user_limiter.is_allowed(f"user:{user_id}")
+            user_allowed, user_meta = await _per_user_limiter.is_allowed(
+                f"user:{user_id}"
+            )
             if not user_allowed:
                 return UTF8JSONResponse(
                     status_code=429,
@@ -543,7 +585,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                             prefix=f"tier:{cache_key}",
                         )
                     tier_limiter = self._category_limiters[cache_key]
-                    tier_allowed, tier_meta = await tier_limiter.is_allowed(request, user_id)
+                    tier_allowed, tier_meta = await tier_limiter.is_allowed(
+                        request, user_id
+                    )
 
                     if not tier_allowed:
                         # Return 429 — tier limit exceeded

@@ -109,13 +109,17 @@ class SmartRecommendationService:
 
         # Gather recommendations from real data sources (in parallel-safe way)
         try:
-            recs = await self._get_approval_recommendations(user_id, user_role, org_id, client)
+            recs = await self._get_approval_recommendations(
+                user_id, user_role, org_id, client
+            )
             recommendations.extend(recs)
         except Exception as e:
             logger.error(f"Approval recommendations failed: {e}")
 
         try:
-            recs = await self._get_lead_recommendations(user_id, user_role, org_id, client)
+            recs = await self._get_lead_recommendations(
+                user_id, user_role, org_id, client
+            )
             recommendations.extend(recs)
         except Exception as e:
             logger.error(f"Lead recommendations failed: {e}")
@@ -143,11 +147,15 @@ class SmartRecommendationService:
 
         # Add page-context recommendations
         if ctx.get("page"):
-            recommendations.extend(await self._get_page_recommendations(ctx["page"], ctx))
+            recommendations.extend(
+                await self._get_page_recommendations(ctx["page"], ctx)
+            )
 
         # Filter expired, sort by priority + confidence, and deduplicate
         recommendations = self._filter_expired(recommendations)
-        recommendations.sort(key=lambda r: (r.priority.value, r.confidence), reverse=True)
+        recommendations.sort(
+            key=lambda r: (r.priority.value, r.confidence), reverse=True
+        )
 
         return recommendations[:limit]
 
@@ -177,7 +185,9 @@ class SmartRecommendationService:
 
         if pending_count > 0:
             # Check for high-amount approvals
-            high_amount = [a for a in (result.data or []) if float(a.get("amount", 0)) > 5000]
+            high_amount = [
+                a for a in (result.data or []) if float(a.get("amount", 0)) > 5000
+            ]
 
             if high_amount:
                 recs.append(
@@ -235,7 +245,9 @@ class SmartRecommendationService:
         stale_leads = result.data or []
 
         if stale_leads:
-            my_stale = [lead for lead in stale_leads if lead.get("assigned_to") == user_id]
+            my_stale = [
+                lead for lead in stale_leads if lead.get("assigned_to") == user_id
+            ]
 
             if my_stale:
                 recs.append(
@@ -269,11 +281,15 @@ class SmartRecommendationService:
 
         return recs
 
-    async def _get_budget_recommendations(self, org_id: str | None, client: Any) -> list[Recommendation]:
+    async def _get_budget_recommendations(
+        self, org_id: str | None, client: Any
+    ) -> list[Recommendation]:
         """Check for budget overruns."""
         recs: list[Recommendation] = []
 
-        query = client.table("finance_budgets").select("id, name, total_amount, used_amount, period")
+        query = client.table("finance_budgets").select(
+            "id, name, total_amount, used_amount, period"
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
 
@@ -314,7 +330,9 @@ class SmartRecommendationService:
 
         return recs
 
-    async def _get_contract_recommendations(self, org_id: str | None, client: Any) -> list[Recommendation]:
+    async def _get_contract_recommendations(
+        self, org_id: str | None, client: Any
+    ) -> list[Recommendation]:
         """Check for contracts expiring soon."""
         recs: list[Recommendation] = []
 
@@ -335,7 +353,12 @@ class SmartRecommendationService:
         expiring = result.data or []
 
         if expiring:
-            urgent = [c for c in expiring if (datetime.strptime(c["end_date"], "%Y-%m-%d") - datetime.now()).days <= 7]
+            urgent = [
+                c
+                for c in expiring
+                if (datetime.strptime(c["end_date"], "%Y-%m-%d") - datetime.now()).days
+                <= 7
+            ]
             if urgent:
                 recs.append(
                     Recommendation(
@@ -365,7 +388,9 @@ class SmartRecommendationService:
 
         return recs
 
-    async def _get_task_recommendations(self, user_id: str, client: Any) -> list[Recommendation]:
+    async def _get_task_recommendations(
+        self, user_id: str, client: Any
+    ) -> list[Recommendation]:
         """Check for overdue or near-due tasks."""
         recs: list[Recommendation] = []
 
@@ -406,7 +431,9 @@ class SmartRecommendationService:
     # Static / time-based recommendations
     # ────────────────────────────────────────────────────────────────
 
-    async def _get_page_recommendations(self, page: str, context: dict) -> list[Recommendation]:
+    async def _get_page_recommendations(
+        self, page: str, context: dict
+    ) -> list[Recommendation]:
         """Get recommendations specific to the current page."""
         page_map = {
             "dashboard": Recommendation(
@@ -496,10 +523,16 @@ class SmartRecommendationService:
 
         return recommendations
 
-    def _filter_expired(self, recommendations: list[Recommendation]) -> list[Recommendation]:
+    def _filter_expired(
+        self, recommendations: list[Recommendation]
+    ) -> list[Recommendation]:
         """Filter out expired recommendations."""
         now = datetime.now(UTC)
-        return [r for r in recommendations if not r.expires_at or datetime.fromisoformat(r.expires_at) > now]
+        return [
+            r
+            for r in recommendations
+            if not r.expires_at or datetime.fromisoformat(r.expires_at) > now
+        ]
 
     # ────────────────────────────────────────────────────────────────
     # Feedback & profile
@@ -581,7 +614,9 @@ class SmartRecommendationService:
     def get_recommendation_stats(self, user_id: str = None) -> dict:
         """Get recommendation statistics."""
         stats = {
-            "feedback_count": sum(len(feedback) for feedback in self._feedback_history.values()),
+            "feedback_count": sum(
+                len(feedback) for feedback in self._feedback_history.values()
+            ),
         }
 
         if user_id:

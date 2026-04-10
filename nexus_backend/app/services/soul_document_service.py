@@ -88,7 +88,9 @@ class SoulDocumentService:
             await cache_service.set(cache_key, compiled, ttl=CACHE_TTL)
             return compiled
         except Exception as e:
-            logger.warning(f"[SoulDocService] Failed to load soul doc for {org_id}: {e}")
+            logger.warning(
+                f"[SoulDocService] Failed to load soul doc for {org_id}: {e}"
+            )
             return None
 
     # ------------------------------------------------------------------
@@ -108,7 +110,13 @@ class SoulDocumentService:
     async def get_raw(self, org_id: str) -> dict[str, Any] | None:
         """获取原始灵魂文档记录。"""
         try:
-            res = await supabase.table("soul_documents").select("*").eq("tenant_id", org_id).maybe_single().execute()
+            res = (
+                await supabase.table("soul_documents")
+                .select("*")
+                .eq("tenant_id", org_id)
+                .maybe_single()
+                .execute()
+            )
             return res.data if res else None
         except Exception as e:
             logger.warning(f"[SoulDocService] get_raw failed: {e}")
@@ -117,7 +125,9 @@ class SoulDocumentService:
     # ------------------------------------------------------------------
     # Upsert
     # ------------------------------------------------------------------
-    async def upsert(self, org_id: str, user_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    async def upsert(
+        self, org_id: str, user_id: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
         """创建或更新灵魂文档。返回 upsert 后的记录。"""
         payload = {
             "tenant_id": org_id,
@@ -136,7 +146,12 @@ class SoulDocumentService:
         # 检查是否已存在
         existing = await self.get_raw(org_id)
         if existing:
-            res = await supabase.table("soul_documents").update(payload).eq("tenant_id", org_id).execute()
+            res = (
+                await supabase.table("soul_documents")
+                .update(payload)
+                .eq("tenant_id", org_id)
+                .execute()
+            )
         else:
             payload["created_by"] = user_id
             res = await supabase.table("soul_documents").insert(payload).execute()

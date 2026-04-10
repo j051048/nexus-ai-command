@@ -54,7 +54,10 @@ class CreateTaskTool(BaseTool):
     domain = "schedule"
     examples = [
         {
-            "input": {"title": "分析本月销售数据", "description": "汇总各区域销售额并生成报告"},
+            "input": {
+                "title": "分析本月销售数据",
+                "description": "汇总各区域销售额并生成报告",
+            },
             "output_summary": "创建一个待办任务并返回任务编号",
         },
         {
@@ -65,7 +68,9 @@ class CreateTaskTool(BaseTool):
     gotchas = "标题不能为空。创建后状态默认为待办。任务跨会话持久化保存。"
     related_tools = ["list_tasks", "update_task"]
 
-    async def execute(self, arguments: dict[str, Any], context: dict[str, Any] | None = None) -> str:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> str:
         ctx = context or {}
         user_id = ctx.get("user_id", "")
         session_id = ctx.get("session_id", "default")
@@ -105,7 +110,9 @@ class CreateTaskTool(BaseTool):
             logger.error(f"[CreateTask] Failed: {e}", exc_info=True)
             return safe_tool_error(e, "创建任务")
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         return await self.execute(args, {"user_id": user_id, **(config or {})})
 
 
@@ -119,10 +126,17 @@ class UpdateTaskTool(BaseTool):
     description = "更新任务的状态或执行结果摘要"
     examples = [
         {
-            "input": {"task_id": "abc12345", "status": "done", "context_summary": "已完成数据分析"},
+            "input": {
+                "task_id": "abc12345",
+                "status": "done",
+                "context_summary": "已完成数据分析",
+            },
             "output_summary": "将任务标记为已完成并记录结果摘要",
         },
-        {"input": {"task_id": "abc12345", "status": "blocked"}, "output_summary": "将任务标记为阻塞状态"},
+        {
+            "input": {"task_id": "abc12345", "status": "blocked"},
+            "output_summary": "将任务标记为阻塞状态",
+        },
     ]
     gotchas = "任务编号至少提供前8位。至少需要提供状态或结果摘要中的一项。"
     related_tools = ["create_task", "list_tasks"]
@@ -148,7 +162,9 @@ class UpdateTaskTool(BaseTool):
     category = "system"
     domain = "schedule"
 
-    async def execute(self, arguments: dict[str, Any], context: dict[str, Any] | None = None) -> str:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> str:
         ctx = context or {}
         user_id = ctx.get("user_id", "")
 
@@ -169,7 +185,11 @@ class UpdateTaskTool(BaseTool):
             db = await _get_db()
             # Support partial ID matching (first 8 chars)
             query = db.table("agent_tasks").update(update_data).eq("user_id", user_id)
-            query = query.ilike("id", f"{task_id}%") if len(task_id) < 36 else query.eq("id", task_id)
+            query = (
+                query.ilike("id", f"{task_id}%")
+                if len(task_id) < 36
+                else query.eq("id", task_id)
+            )
 
             result = await query.execute()
 
@@ -181,7 +201,9 @@ class UpdateTaskTool(BaseTool):
             logger.error(f"[UpdateTask] Failed: {e}", exc_info=True)
             return safe_tool_error(e, "更新任务")
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         return await self.execute(args, {"user_id": user_id, **(config or {})})
 
 
@@ -195,7 +217,10 @@ class ListTasksTool(BaseTool):
     description = "列出当前会话的所有任务及其状态"
     examples = [
         {"input": {}, "output_summary": "返回当前会话全部任务的状态面板"},
-        {"input": {"status_filter": "pending"}, "output_summary": "仅返回待办状态的任务列表"},
+        {
+            "input": {"status_filter": "pending"},
+            "output_summary": "仅返回待办状态的任务列表",
+        },
     ]
     gotchas = "仅返回当前会话的任务，最多20条。默认显示所有状态。"
     related_tools = ["create_task", "update_task"]
@@ -214,7 +239,9 @@ class ListTasksTool(BaseTool):
     category = "system"
     domain = "schedule"
 
-    async def execute(self, arguments: dict[str, Any], context: dict[str, Any] | None = None) -> str:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> str:
         ctx = context or {}
         user_id = ctx.get("user_id", "")
         session_id = ctx.get("session_id", "default")
@@ -267,7 +294,9 @@ class ListTasksTool(BaseTool):
             for t in tasks:
                 s = t["status"]
                 counts[s] = counts.get(s, 0) + 1
-            summary_parts = [f"{status_icons.get(s, '?')}{c}" for s, c in counts.items()]
+            summary_parts = [
+                f"{status_icons.get(s, '?')}{c}" for s, c in counts.items()
+            ]
             lines.append(f"\n状态: {' '.join(summary_parts)}")
 
             return "\n".join(lines)
@@ -275,5 +304,7 @@ class ListTasksTool(BaseTool):
             logger.error(f"[ListTasks] Failed: {e}", exc_info=True)
             return safe_tool_error(e, "获取任务列表")
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         return await self.execute(args, {"user_id": user_id, **(config or {})})

@@ -29,7 +29,9 @@ class ModelResolutionMixin:
         self._CACHE_TTL: int
     """
 
-    async def _load_model_config(self, model_code: str, org_id: str) -> ModelConfig | None:
+    async def _load_model_config(
+        self, model_code: str, org_id: str
+    ) -> ModelConfig | None:
         """
         Load a model configuration from the llm_model_config table.
 
@@ -95,7 +97,9 @@ class ModelResolutionMixin:
                 try:
                     api_key = encryption_service.decrypt(api_key)
                 except Exception:
-                    logger.debug(f"API key for {model_code} appears unencrypted, using as-is")
+                    logger.debug(
+                        f"API key for {model_code} appears unencrypted, using as-is"
+                    )
 
             config = ModelConfig(
                 model_code=row.get("model_code", model_code),
@@ -114,11 +118,17 @@ class ModelResolutionMixin:
             return config
 
         except Exception as e:
-            logger.error(f"Error loading model config for {model_code}: {e}", exc_info=True)
+            logger.error(
+                f"Error loading model config for {model_code}: {e}", exc_info=True
+            )
             return None
 
     async def _resolve_model(
-        self, scene_code: str, agent_code: str, org_id: str, complexity_tier: str | None = None
+        self,
+        scene_code: str,
+        agent_code: str,
+        org_id: str,
+        complexity_tier: str | None = None,
     ) -> str | None:
         """
         Look up the llm_schedule_rule table to find the model assigned
@@ -206,7 +216,11 @@ class ModelResolutionMixin:
 
                 # Fallback: org-level default (scene_code = '*')
                 if not rows:
-                    q = supabase.table("llm_schedule_rule").select("*").in_("scene_code", ["*", ""])
+                    q = (
+                        supabase.table("llm_schedule_rule")
+                        .select("*")
+                        .in_("scene_code", ["*", ""])
+                    )
                     q = q.eq("tenant_id", tid) if tid else q.is_("tenant_id", "null")
                     res = await q.execute()
                     rows = res.data or []
@@ -215,7 +229,9 @@ class ModelResolutionMixin:
                     break
 
             if not rows:
-                logger.warning(f"No schedule rule found for scene={scene_code}, agent={agent_code}, org={org_id}")
+                logger.warning(
+                    f"No schedule rule found for scene={scene_code}, agent={agent_code}, org={org_id}"
+                )
                 return None
 
             rule = rows[0]
@@ -256,9 +272,13 @@ class ModelResolutionMixin:
                     )
                     if res and res.data and res.data.get("model_code"):
                         rule[code_key] = res.data["model_code"]
-                        logger.info(f"Resolved {id_key}={rule[id_key]} -> {code_key}={rule[code_key]}")
+                        logger.info(
+                            f"Resolved {id_key}={rule[id_key]} -> {code_key}={rule[code_key]}"
+                        )
                     else:
-                        logger.warning(f"No model_code found for {id_key}={rule[id_key]}")
+                        logger.warning(
+                            f"No model_code found for {id_key}={rule[id_key]}"
+                        )
                 except Exception as e:
                     logger.warning(f"Failed to resolve {id_key}={rule[id_key]}: {e}")
 
@@ -274,13 +294,17 @@ class ModelResolutionMixin:
             return primary
 
         if primary:
-            logger.warning(f"Primary model '{primary}' circuit is open, attempting backup model '{backup}'")
+            logger.warning(
+                f"Primary model '{primary}' circuit is open, attempting backup model '{backup}'"
+            )
 
         if backup and circuit_breaker_manager.is_allowed(backup):
             return backup
 
         if backup:
-            logger.error(f"Both primary '{primary}' and backup '{backup}' circuits are open")
+            logger.error(
+                f"Both primary '{primary}' and backup '{backup}' circuits are open"
+            )
 
         # Return primary anyway as last resort
         return primary
@@ -310,7 +334,11 @@ class ModelResolutionMixin:
             )
             candidates = res.data or []
             # Prefer same provider
-            same_provider = [c for c in candidates if c.get("provider_type") == current_config.provider_type]
+            same_provider = [
+                c
+                for c in candidates
+                if c.get("provider_type") == current_config.provider_type
+            ]
             if same_provider:
                 return same_provider[0]["model_code"]
             if candidates:
@@ -334,9 +362,13 @@ class ModelResolutionMixin:
         prompt and auto-upgrade to a larger model if available.
         """
         try:
-            estimated_tokens = token_counter.estimate_prompt_tokens(system_prompt, messages, tools, config.model_code)
+            estimated_tokens = token_counter.estimate_prompt_tokens(
+                system_prompt, messages, tools, config.model_code
+            )
             if estimated_tokens > config.context_window * 0.8:
-                larger = await self._find_larger_context_model(model_code, org_id, estimated_tokens)
+                larger = await self._find_larger_context_model(
+                    model_code, org_id, estimated_tokens
+                )
                 if larger:
                     larger_config = await self._load_model_config(larger, org_id)
                     if larger_config:
@@ -380,7 +412,11 @@ class ModelResolutionMixin:
         for key, (rule, _) in self._schedule_cache.items():
             if key.startswith(prefix):
                 backup = rule.get("backup_model_code") or None
-                if backup and backup != exclude and circuit_breaker_manager.is_allowed(backup):
+                if (
+                    backup
+                    and backup != exclude
+                    and circuit_breaker_manager.is_allowed(backup)
+                ):
                     return backup
         return None
 
@@ -397,7 +433,9 @@ class ModelResolutionMixin:
             logger.info("All LLM gateway caches invalidated")
         else:
             model_keys = [k for k in self._model_cache if k.startswith(f"{org_id}:")]
-            schedule_keys = [k for k in self._schedule_cache if k.startswith(f"{org_id}:")]
+            schedule_keys = [
+                k for k in self._schedule_cache if k.startswith(f"{org_id}:")
+            ]
             for k in model_keys:
                 del self._model_cache[k]
             for k in schedule_keys:

@@ -202,7 +202,9 @@ async def wbs_decompose_node(state: AgentState) -> dict:
             base_url=resolved.get("base_url", config.base_url),
             temperature=0.3,
             timeout=resolved.get("timeout", 60.0),
-            callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["wbs"]),
+            callbacks=_get_langfuse_callbacks(
+                **_get_trace_context(config), tags=["wbs"]
+            ),
         )
     else:
         llm = ChatOpenAI(
@@ -211,7 +213,9 @@ async def wbs_decompose_node(state: AgentState) -> dict:
             base_url=config.base_url,
             temperature=0.3,
             timeout=60.0,
-            callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["wbs"]),
+            callbacks=_get_langfuse_callbacks(
+                **_get_trace_context(config), tags=["wbs"]
+            ),
         )
 
     try:
@@ -261,7 +265,8 @@ async def wbs_decompose_node(state: AgentState) -> dict:
             logger.warning(f"[WBS] Validation warnings: {wbs_warnings}")
 
         task_summary = ", ".join(
-            f"{t.get('agent_code', '?')}:{t.get('title', '?')}" for t in wbs_structure["sub_tasks"]
+            f"{t.get('agent_code', '?')}:{t.get('title', '?')}"
+            for t in wbs_structure["sub_tasks"]
         )
 
         # Track token usage
@@ -269,7 +274,9 @@ async def wbs_decompose_node(state: AgentState) -> dict:
         input_tokens = usage.get("prompt_tokens", 0)
         output_tokens = usage.get("completion_tokens", 0)
 
-        logger.info(f"[WBS] Decomposed into {task_count} sub-tasks in {duration_ms}ms: {task_summary}")
+        logger.info(
+            f"[WBS] Decomposed into {task_count} sub-tasks in {duration_ms}ms: {task_summary}"
+        )
 
         # ── Persist WBS to vmd_main_task / vmd_sub_task ──────────────
         db_task_id = None
@@ -310,7 +317,9 @@ async def wbs_decompose_node(state: AgentState) -> dict:
                         }
                         await admin.table("vmd_sub_task").insert(sub_record).execute()
 
-                    logger.info(f"[WBS] Persisted to DB: main_task={db_task_id}, {task_count} sub-tasks")
+                    logger.info(
+                        f"[WBS] Persisted to DB: main_task={db_task_id}, {task_count} sub-tasks"
+                    )
         except Exception as e:
             logger.warning(f"[WBS] DB persistence failed (non-blocking): {e}")
 

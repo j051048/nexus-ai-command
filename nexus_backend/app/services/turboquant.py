@@ -64,7 +64,11 @@ class TurboQuant:
         qjl = np.sign(self.S @ r).astype(np.int8)
         gamma = np.linalg.norm(r) ** 2
 
-        return {"idx": idx.astype(np.uint8), "qjl": np.packbits((qjl + 1) // 2), "gamma": float(gamma)}  # 压缩为 bits
+        return {
+            "idx": idx.astype(np.uint8),
+            "qjl": np.packbits((qjl + 1) // 2),
+            "gamma": float(gamma),
+        }  # 压缩为 bits
 
     def dequantize(self, quantized: dict) -> np.ndarray:
         """反量化"""

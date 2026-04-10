@@ -68,7 +68,10 @@ def has_irreversible_tool(state_or_dict: dict) -> bool:
     """
     completed = state_or_dict.get("completed_tool_calls", [])
     for tc in completed:
-        tool = get_tool(getattr(tc, "tool_name", "") or (tc.get("tool_name", "") if isinstance(tc, dict) else ""))
+        tool = get_tool(
+            getattr(tc, "tool_name", "")
+            or (tc.get("tool_name", "") if isinstance(tc, dict) else "")
+        )
         if tool and tool.is_irreversible:
             return True
     return False
@@ -89,7 +92,9 @@ def is_mutation_fast_path(state_or_dict: dict) -> bool:
         return False
     # G1: irreversible tools MUST go through Critic — never fast-path
     if has_irreversible_tool(state_or_dict):
-        logger.info("[Graph] Irreversible tool detected, blocking mutation fast-path → forcing Critic review")
+        logger.info(
+            "[Graph] Irreversible tool detected, blocking mutation fast-path → forcing Critic review"
+        )
         return False
     for tc in completed:
         if getattr(tc, "status", None) != "success":
@@ -148,11 +153,15 @@ def check_approval_needed(
     scope = _OPERATION_APPROVAL_SCOPE.get(op_type, ApprovalScope.ONCE)
 
     # 永久白名单 — 直接通过
-    if scope == ApprovalScope.PERMANENT or _approval_cache.is_permanently_approved(op_type):
+    if scope == ApprovalScope.PERMANENT or _approval_cache.is_permanently_approved(
+        op_type
+    ):
         return False, scope, ""
 
     # 会话级 — 检查是否已批准
-    if scope == ApprovalScope.SESSION and _approval_cache.is_approved(session_id, op_type):
+    if scope == ApprovalScope.SESSION and _approval_cache.is_approved(
+        session_id, op_type
+    ):
         logger.info(f"[ApprovalCache] Session-approved: {op_type} in {session_id[:8]}")
         return False, scope, ""
 
@@ -164,7 +173,9 @@ def check_approval_needed(
 def approve_operation(session_id: str, operation_type: str, scope: ApprovalScope):
     """记录用户的审批决定。"""
     _approval_cache.approve(session_id, operation_type, scope)
-    logger.info(f"[ApprovalCache] Approved: {operation_type} (scope={scope.value}, session={session_id[:8]})")
+    logger.info(
+        f"[ApprovalCache] Approved: {operation_type} (scope={scope.value}, session={session_id[:8]})"
+    )
 
 
 def clear_session_approvals(session_id: str):
@@ -177,7 +188,10 @@ def _infer_operation_type(tool_name: str, tool_args: dict) -> str:
     name_lower = tool_name.lower()
 
     # 查询类
-    if any(kw in name_lower for kw in ("query", "search", "list", "get", "fetch", "查询", "搜索")):
+    if any(
+        kw in name_lower
+        for kw in ("query", "search", "list", "get", "fetch", "查询", "搜索")
+    ):
         return "query"
 
     # 审批类
@@ -189,7 +203,10 @@ def _infer_operation_type(tool_name: str, tool_args: dict) -> str:
         return "data_deletion"
 
     # 财务类
-    if any(kw in name_lower for kw in ("payment", "transfer", "reimburse", "付款", "转账", "报销")):
+    if any(
+        kw in name_lower
+        for kw in ("payment", "transfer", "reimburse", "付款", "转账", "报销")
+    ):
         return "financial_mutation"
 
     # 请假类
@@ -200,7 +217,9 @@ def _infer_operation_type(tool_name: str, tool_args: dict) -> str:
     return "task_update"
 
 
-def _build_approval_reason(tool_name: str, tool_args: dict, op_type: str, scope: ApprovalScope) -> str:
+def _build_approval_reason(
+    tool_name: str, tool_args: dict, op_type: str, scope: ApprovalScope
+) -> str:
     """构建审批原因描述。"""
     scope_hint = {
         ApprovalScope.ONCE: "（每次操作都需确认）",

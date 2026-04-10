@@ -123,7 +123,13 @@ class AgentTraceService:
         self._max_completed_traces = 1000
 
     def start_trace(
-        self, trace_id: str, thread_id: str, user_id: str, query: str, org_id: str = None, metadata: dict = None
+        self,
+        trace_id: str,
+        thread_id: str,
+        user_id: str,
+        query: str,
+        org_id: str = None,
+        metadata: dict = None,
     ) -> AgentTrace:
         """Start a new trace."""
         trace = AgentTrace(
@@ -182,7 +188,9 @@ class AgentTraceService:
         trace.total_tokens += tokens_used
 
         # Record metrics
-        self._record_metric(f"step_{node_type}", duration_ms or 0, {"trace_id": trace_id})
+        self._record_metric(
+            f"step_{node_type}", duration_ms or 0, {"trace_id": trace_id}
+        )
         if tokens_used > 0:
             self._record_metric("tokens_used", tokens_used, {"node_type": node_type})
 
@@ -222,7 +230,9 @@ class AgentTraceService:
         self._record_metric("trace_tokens", trace.total_tokens)
         self._record_metric("trace_cost_usd", trace.total_cost_usd)
 
-        logger.info(f"Trace ended: {trace_id}, status={status.value}, duration={trace.total_duration_ms}ms")
+        logger.info(
+            f"Trace ended: {trace_id}, status={status.value}, duration={trace.total_duration_ms}ms"
+        )
 
         # P0-5: Auto-persist to DB (fire-and-forget)
         if db:
@@ -245,7 +255,8 @@ class AgentTraceService:
         """Get all traces for a thread."""
         return [
             t
-            for t in list(self._active_traces.values()) + list(self._completed_traces.values())
+            for t in list(self._active_traces.values())
+            + list(self._completed_traces.values())
             if t.thread_id == thread_id
         ]
 
@@ -279,7 +290,13 @@ class AgentTraceService:
         if since:
             metrics = [m for m in metrics if m.timestamp >= since]
         return [
-            {"timestamp": m.timestamp, "name": m.metric_name, "value": m.value, "labels": m.labels} for m in metrics
+            {
+                "timestamp": m.timestamp,
+                "name": m.metric_name,
+                "value": m.value,
+                "labels": m.labels,
+            }
+            for m in metrics
         ]
 
     def get_stats(self, org_id: str = None, user_id: str = None) -> dict:
@@ -303,8 +320,14 @@ class AgentTraceService:
             "total_tokens": total_tokens,
             "total_cost_usd": round(total_cost, 4),
             "avg_duration_ms": sum(durations) / len(durations) if durations else 0,
-            "success_rate": len([t for t in traces if t.status == TraceStatus.COMPLETED]) / len(traces),
-            "by_status": {status.value: len([t for t in traces if t.status == status]) for status in TraceStatus},
+            "success_rate": len(
+                [t for t in traces if t.status == TraceStatus.COMPLETED]
+            )
+            / len(traces),
+            "by_status": {
+                status.value: len([t for t in traces if t.status == status])
+                for status in TraceStatus
+            },
         }
 
     async def persist_trace(self, trace_id: str, db=None):
@@ -324,8 +347,14 @@ class AgentTraceService:
                         "org_id": trace.org_id,
                         "query": trace.query,
                         "status": trace.status.value,
-                        "start_time": datetime.fromtimestamp(trace.start_time).isoformat(),
-                        "end_time": datetime.fromtimestamp(trace.end_time).isoformat() if trace.end_time else None,
+                        "start_time": datetime.fromtimestamp(
+                            trace.start_time
+                        ).isoformat(),
+                        "end_time": (
+                            datetime.fromtimestamp(trace.end_time).isoformat()
+                            if trace.end_time
+                            else None
+                        ),
                         "total_duration_ms": trace.total_duration_ms,
                         "total_tokens": trace.total_tokens,
                         "total_cost_usd": trace.total_cost_usd,
@@ -342,7 +371,12 @@ class AgentTraceService:
     def _record_metric(self, metric_name: str, value: float, labels: dict = None):
         """Record a metric point."""
         self._metrics_buffer.append(
-            MetricPoint(timestamp=time.time(), metric_name=metric_name, value=value, labels=labels or {})
+            MetricPoint(
+                timestamp=time.time(),
+                metric_name=metric_name,
+                value=value,
+                labels=labels or {},
+            )
         )
         # Keep buffer manageable
         if len(self._metrics_buffer) > 10000:
@@ -357,8 +391,13 @@ class AgentTraceService:
         """Remove old traces to prevent memory leak."""
         if len(self._completed_traces) > self._max_completed_traces:
             # Remove oldest traces
-            sorted_ids = sorted(self._completed_traces.keys(), key=lambda x: self._completed_traces[x].start_time)
-            for trace_id in sorted_ids[: len(self._completed_traces) - self._max_completed_traces]:
+            sorted_ids = sorted(
+                self._completed_traces.keys(),
+                key=lambda x: self._completed_traces[x].start_time,
+            )
+            for trace_id in sorted_ids[
+                : len(self._completed_traces) - self._max_completed_traces
+            ]:
                 del self._completed_traces[trace_id]
 
 

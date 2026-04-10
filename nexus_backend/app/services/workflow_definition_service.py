@@ -27,7 +27,17 @@ VALID_NODE_TYPES = {
 }
 
 # Valid approval types
-VALID_APPROVAL_TYPES = {"travel", "purchase", "expense", "leave", "event", "activity", "custom", "general", "contract"}
+VALID_APPROVAL_TYPES = {
+    "travel",
+    "purchase",
+    "expense",
+    "leave",
+    "event",
+    "activity",
+    "custom",
+    "general",
+    "contract",
+}
 
 
 class WorkflowDefinitionService:
@@ -145,7 +155,9 @@ class WorkflowDefinitionService:
         # Security: router enforces require_role(["founder","boss"]) + org context.
         # Additional safety: filter by organization_id when available.
         write_client = supabase or client
-        query = write_client.table("approval_chains").update(updates).eq("id", workflow_id)
+        query = (
+            write_client.table("approval_chains").update(updates).eq("id", workflow_id)
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         result = await query.execute()
@@ -167,7 +179,12 @@ class WorkflowDefinitionService:
             raise ValueError("Database client unavailable")
 
         write_client = supabase or client
-        result = await write_client.table("approval_chains").delete().eq("id", workflow_id).execute()
+        result = (
+            await write_client.table("approval_chains")
+            .delete()
+            .eq("id", workflow_id)
+            .execute()
+        )
 
         deleted = bool(result.data)
         if deleted:
@@ -184,7 +201,13 @@ class WorkflowDefinitionService:
         if not client:
             return None
 
-        result = await client.table("approval_chains").select("*").eq("id", workflow_id).maybe_single().execute()
+        result = (
+            await client.table("approval_chains")
+            .select("*")
+            .eq("id", workflow_id)
+            .maybe_single()
+            .execute()
+        )
 
         return result.data
 
@@ -402,7 +425,9 @@ class WorkflowDefinitionService:
         for node_id, targets in adjacency.items():
             for target in targets:
                 if target not in node_ids:
-                    errors.append(f"Node '{node_id}' references non-existent node '{target}'")
+                    errors.append(
+                        f"Node '{node_id}' references non-existent node '{target}'"
+                    )
 
         # Cycle detection using DFS
         visited = set()

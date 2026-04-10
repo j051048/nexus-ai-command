@@ -75,14 +75,20 @@ async def _emit_error_and_cleanup(
     error: Exception,
 ) -> AsyncGenerator[str, None]:
     """Yield standard error SSE sequence and clean up tracing."""
-    yield _sse_content("\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。")
-    yield _sse_data({"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)})
+    yield _sse_content(
+        "\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。"
+    )
+    yield _sse_data(
+        {"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)}
+    )
     yield "data: [DONE]\n\n"
     if tracer:
         tracer.log_error(str(error))
         tracer.log_end()
     with contextlib.suppress(Exception):
-        agent_trace_service.end_trace(trace_id, TraceStatus.FAILED, error=str(error)[:500])
+        agent_trace_service.end_trace(
+            trace_id, TraceStatus.FAILED, error=str(error)[:500]
+        )
 
 
 async def _cleanup_on_disconnect(
@@ -143,7 +149,8 @@ async def run_agent_stream(
         session_id=session_id or "default",
         agent_name=agent_name or "default",
         api_key=config.get("api_key", "") or settings.OPENAI_API_KEY,
-        base_url=config.get("base_url", "https://api.openai.com/v1") or settings.AI_BASE_URL,
+        base_url=config.get("base_url", "https://api.openai.com/v1")
+        or settings.AI_BASE_URL,
         model=config.get("model", "gpt-4o") or settings.AI_DEFAULT_MODEL,
         mini_model=config.get("mini_model", "gpt-4o-mini"),
         system_confirmed=system_confirmed,
@@ -170,7 +177,9 @@ async def run_agent_stream(
     try:
         from app.agent.ab_testing import get_active_assignments
 
-        _ab_assignments = get_active_assignments(user_id, user_role=agent_config.user_role)
+        _ab_assignments = get_active_assignments(
+            user_id, user_role=agent_config.user_role
+        )
     except Exception:
         _ab_assignments = {}
 
@@ -184,7 +193,11 @@ async def run_agent_stream(
             metadata={
                 "agent_name": agent_name,
                 "scene_code": scene_code,
-                **({f"ab_{k}": v for k, v in _ab_assignments.items()} if _ab_assignments else {}),
+                **(
+                    {f"ab_{k}": v for k, v in _ab_assignments.items()}
+                    if _ab_assignments
+                    else {}
+                ),
             },
         )
     except Exception:
@@ -207,7 +220,9 @@ async def run_agent_stream(
                 pass
         if _resolved_configs:
             agent_config.resolved_configs = _resolved_configs
-            logger.info(f"[Stream] Pre-resolved model configs for tiers: {list(_resolved_configs.keys())}")
+            logger.info(
+                f"[Stream] Pre-resolved model configs for tiers: {list(_resolved_configs.keys())}"
+            )
     except Exception:
         logger.error("[Stream] Failed to pre-resolve model configs", exc_info=True)
 
@@ -225,7 +240,9 @@ async def run_agent_stream(
         return
 
     # Estimate input tokens for later token tracking (was computed inside pre-checks)
-    input_tokens = token_counter.count_tokens(" ".join(m.get("content", "") for m in messages), agent_config.model)
+    input_tokens = token_counter.count_tokens(
+        " ".join(m.get("content", "") for m in messages), agent_config.model
+    )
 
     # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
     # Also gate RAG for MODERATE queries: only enable when query suggests
@@ -250,11 +267,17 @@ async def run_agent_stream(
     if _behavior_prefs:
         _pref_lines: list[str] = []
         if _behavior_prefs.get("response_style") == "concise":
-            _pref_lines.append("用户偏好简洁回复，请控制在300字以内，直接给出核心信息。")
+            _pref_lines.append(
+                "用户偏好简洁回复，请控制在300字以内，直接给出核心信息。"
+            )
         elif _behavior_prefs.get("response_style") == "detailed":
-            _pref_lines.append("用户偏好详细回复，请提供完整分析、数据支撑和可执行建议。")
+            _pref_lines.append(
+                "用户偏好详细回复，请提供完整分析、数据支撑和可执行建议。"
+            )
         if _behavior_prefs.get("preferred_chart"):
-            _pref_lines.append(f"当需要展示数据可视化时，用户偏好的图表类型: {_behavior_prefs['preferred_chart']}")
+            _pref_lines.append(
+                f"当需要展示数据可视化时，用户偏好的图表类型: {_behavior_prefs['preferred_chart']}"
+            )
         if _behavior_prefs.get("language") == "en":
             _pref_lines.append("Please respond in English.")
         if _pref_lines:
@@ -266,7 +289,9 @@ async def run_agent_stream(
             from app.agent.ab_testing import get_experiment_config
 
             for exp_name in _ab_assignments:
-                exp_config = get_experiment_config(exp_name, user_id, user_role=agent_config.user_role)
+                exp_config = get_experiment_config(
+                    exp_name, user_id, user_role=agent_config.user_role
+                )
                 suffix = exp_config.get("prompt_suffix")
                 if suffix:
                     system_prompt += suffix
@@ -315,16 +340,27 @@ async def run_agent_stream(
                 # Upgrade to MODERATE so memory/context is preserved for follow-up
                 early_complexity = QueryComplexity.MODERATE
                 intent_summary = "短消息跟进(保留上下文)"
-                logger.debug(f"[Stream] Short follow-up detected, upgraded to MODERATE: '{last_user_content}'")
+                logger.debug(
+                    f"[Stream] Short follow-up detected, upgraded to MODERATE: '{last_user_content}'"
+                )
             else:
                 agent_config.enable_rag_inject = False
                 _is_simple = True
-        elif agent_config.enable_rag_inject and not _should_enable_rag(last_user_content):
+        elif agent_config.enable_rag_inject and not _should_enable_rag(
+            last_user_content
+        ):
             agent_config.enable_rag_inject = False
-            logger.debug("[Stream] RAG skipped: query has no document/knowledge indicators")
+            logger.debug(
+                "[Stream] RAG skipped: query has no document/knowledge indicators"
+            )
 
     if tracer:
-        tracer.log_start([{"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages])
+        tracer.log_start(
+            [
+                {"role": m.get("role", "user"), "content": m.get("content", "")}
+                for m in messages
+            ]
+        )
 
     # ── 3. Prepare initial state via Memory Manager ──
     yield _sse_status("正在思考...")
@@ -335,7 +371,11 @@ async def run_agent_stream(
         agent_config,
         db_client=db_client,
         skip_semantic=_is_simple,
-        state={"complexity": early_complexity, "intent_summary": intent_summary} if early_complexity else None,
+        state=(
+            {"complexity": early_complexity, "intent_summary": intent_summary}
+            if early_complexity
+            else None
+        ),
     )
     lc_messages = prep_result["messages"]
     cached_response = prep_result["cached_response"]
@@ -358,8 +398,12 @@ async def run_agent_stream(
             await asyncio.sleep(0.005)
 
         try:
-            cache_tokens = token_counter.count_tokens(cached_response, agent_config.model)
-            await record_completion(user_id, input_tokens, cache_tokens, agent_config.model)
+            cache_tokens = token_counter.count_tokens(
+                cached_response, agent_config.model
+            )
+            await record_completion(
+                user_id, input_tokens, cache_tokens, agent_config.model
+            )
         except Exception as e:
             logger.warning(f"Failed to record cache tokens: {e}", exc_info=True)
 
@@ -430,7 +474,14 @@ async def run_agent_stream(
     _budget_breached = False
 
     # Checkpointer corrupt state detection keywords
-    corrupt_state_keywords = ("deserializ", "pickle", "ToolCallRecord", "unmarshal", "decode", "SerializationError")
+    corrupt_state_keywords = (
+        "deserializ",
+        "pickle",
+        "ToolCallRecord",
+        "unmarshal",
+        "decode",
+        "SerializationError",
+    )
 
     try:
         # P1 Security: Prefix thread_id with org_id to prevent cross-tenant
@@ -536,7 +587,8 @@ async def run_agent_stream(
                 if not _budget_breached and _streamed_chars // 3 > _output_token_budget:
                     _budget_breached = True
                     logger.warning(
-                        "[Stream] Output token budget breached: ~%d tokens " "(chars=%d, limit=%d) user=%s session=%s",
+                        "[Stream] Output token budget breached: ~%d tokens "
+                        "(chars=%d, limit=%d) user=%s session=%s",
                         _streamed_chars // 3,
                         _streamed_chars,
                         _output_token_budget,
@@ -577,10 +629,15 @@ async def run_agent_stream(
                                 if isinstance(step, ThinkingStep):
                                     all_thinking_steps.append(step)
                                     # P2-10: Intercept __orch_meta steps → orchestration SSE
-                                    if getattr(step, "tool_name", None) == "__orch_meta":
+                                    if (
+                                        getattr(step, "tool_name", None)
+                                        == "__orch_meta"
+                                    ):
                                         try:
                                             _orch_data = json.loads(step.content)
-                                            yield _sse_data({"orchestration": _orch_data})
+                                            yield _sse_data(
+                                                {"orchestration": _orch_data}
+                                            )
                                         except Exception:
                                             yield _sse_thinking(step)
                                     else:
@@ -598,7 +655,9 @@ async def run_agent_stream(
                                     )
                                     # P0 FIX: Also push the raw result for GenUI/Data visualization
                                     if rec.status == "success" and rec.result:
-                                        yield _sse_tool_result(rec.tool_name, rec.result, rec.status)
+                                        yield _sse_tool_result(
+                                            rec.tool_name, rec.result, rec.status
+                                        )
                         else:
                             accumulated_state[key] = value
 
@@ -626,7 +685,9 @@ async def run_agent_stream(
 
                     # P3: Record step in agent trace
                     try:
-                        _node_name = event.get("metadata", {}).get("langgraph_node", "unknown")
+                        _node_name = event.get("metadata", {}).get(
+                            "langgraph_node", "unknown"
+                        )
                         _step_tools = []
                         for _tc in state_delta.get("completed_tool_calls", []):
                             _step_tools.append(
@@ -681,7 +742,9 @@ async def run_agent_stream(
         # (e.g., old ToolCallRecord types, pickle errors), retry with a
         # fresh thread_id to bypass the corrupted checkpoint.
         if any(kw in error_str.lower() for kw in corrupt_state_keywords):
-            logger.warning(f"[Stream] Checkpointer state corruption detected, retrying with fresh thread: {e}")
+            logger.warning(
+                f"[Stream] Checkpointer state corruption detected, retrying with fresh thread: {e}"
+            )
             # Log corruption event to Langfuse for observability
             try:
                 if settings.LANGFUSE_ENABLED:
@@ -690,7 +753,10 @@ async def run_agent_stream(
                     langfuse = Langfuse()
                     langfuse.event(
                         name="checkpointer_corruption",
-                        metadata={"thread_id": scoped_thread_id, "error": error_str[:200]},
+                        metadata={
+                            "thread_id": scoped_thread_id,
+                            "error": error_str[:200],
+                        },
                     )
             except Exception:
                 pass
@@ -707,7 +773,12 @@ async def run_agent_stream(
                     _agent_graph.astream_events(
                         initial_state,
                         thread_id=fresh_thread,
-                        config={"configurable": {"trace_logger": tracer, "trace_id": _trace_id}},
+                        config={
+                            "configurable": {
+                                "trace_logger": tracer,
+                                "trace_id": _trace_id,
+                            }
+                        },
                         version="v2",
                     )
                 ):
@@ -742,7 +813,10 @@ async def run_agent_stream(
                             streamed_plan_text += content
 
                         # ── Mid-flight budget check (retry path) ──
-                        if not _budget_breached and _streamed_chars // 3 > _output_token_budget:
+                        if (
+                            not _budget_breached
+                            and _streamed_chars // 3 > _output_token_budget
+                        ):
                             _budget_breached = True
                             logger.warning(
                                 "[Stream] Output token budget breached (retry): ~%d tokens "
@@ -768,26 +842,43 @@ async def run_agent_stream(
                         data = event.get("data", {})
                         output = data.get("output")
                         if isinstance(output, dict) and any(
-                            k in output for k in ("current_phase", "thinking_steps", "messages")
+                            k in output
+                            for k in ("current_phase", "thinking_steps", "messages")
                         ):
                             for key, value in output.items():
                                 if key == "messages" and isinstance(value, list):
-                                    accumulated_state["messages"] = accumulated_state.get("messages", []) + value
-                                elif key == "thinking_steps" and isinstance(value, list):
+                                    accumulated_state["messages"] = (
+                                        accumulated_state.get("messages", []) + value
+                                    )
+                                elif key == "thinking_steps" and isinstance(
+                                    value, list
+                                ):
                                     for step in value:
                                         if isinstance(step, ThinkingStep):
                                             all_thinking_steps.append(step)
-                                            if getattr(step, "tool_name", None) == "__orch_meta":
+                                            if (
+                                                getattr(step, "tool_name", None)
+                                                == "__orch_meta"
+                                            ):
                                                 try:
-                                                    _orch_data = json.loads(step.content)
-                                                    yield _sse_data({"orchestration": _orch_data})
+                                                    _orch_data = json.loads(
+                                                        step.content
+                                                    )
+                                                    yield _sse_data(
+                                                        {"orchestration": _orch_data}
+                                                    )
                                                 except Exception:
                                                     yield _sse_thinking(step)
                                             else:
                                                 yield _sse_thinking(step)
-                                elif key == "completed_tool_calls" and isinstance(value, list):
+                                elif key == "completed_tool_calls" and isinstance(
+                                    value, list
+                                ):
                                     accumulated_state["completed_tool_calls"] = (
-                                        accumulated_state.get("completed_tool_calls", []) + value
+                                        accumulated_state.get(
+                                            "completed_tool_calls", []
+                                        )
+                                        + value
                                     )
                                     # #15: Emit tool progress events (retry path)
                                     for rec in value:
@@ -799,17 +890,28 @@ async def run_agent_stream(
                                             )
                                             # P0 FIX: Also push results in retry path
                                             if rec.status == "success" and rec.result:
-                                                yield _sse_tool_result(rec.tool_name, rec.result, rec.status)
+                                                yield _sse_tool_result(
+                                                    rec.tool_name,
+                                                    rec.result,
+                                                    rec.status,
+                                                )
                                 else:
                                     accumulated_state[key] = value
             except Exception as retry_err:
-                logger.error(f"[Stream] Retry with fresh thread also failed: {retry_err}", exc_info=True)
-                async for chunk in _emit_error_and_cleanup(all_thinking_steps, tracer, _trace_id, retry_err):
+                logger.error(
+                    f"[Stream] Retry with fresh thread also failed: {retry_err}",
+                    exc_info=True,
+                )
+                async for chunk in _emit_error_and_cleanup(
+                    all_thinking_steps, tracer, _trace_id, retry_err
+                ):
                     yield chunk
                 return
         else:
             logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
-            async for chunk in _emit_error_and_cleanup(all_thinking_steps, tracer, _trace_id, e):
+            async for chunk in _emit_error_and_cleanup(
+                all_thinking_steps, tracer, _trace_id, e
+            ):
                 yield chunk
             return
 
@@ -834,7 +936,8 @@ async def run_agent_stream(
         complexity = accumulated_state.get("complexity")
         intent = accumulated_state.get("intent_summary", "")
         logger.warning(
-            "[Stream] No final_response found in accumulated state " "(complexity=%s intent=%s model=%s)",
+            "[Stream] No final_response found in accumulated state "
+            "(complexity=%s intent=%s model=%s)",
             complexity,
             intent,
             accumulated_state.get("selected_model", "?"),
@@ -843,7 +946,9 @@ async def run_agent_stream(
         if (
             complexity
             and complexity.value in ("complex", "critical")
-            and any(kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案"))
+            and any(
+                kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案")
+            )
         ):
             final_response = (
                 "抱歉，这次内容生成未能成功完成。可能是因为内容篇幅较大或模型处理超时。\n\n"
@@ -860,9 +965,14 @@ async def run_agent_stream(
     # Also skip if confirmation is pending — the confirmation card will display
     # the message, so streaming it as text would cause duplicate display.
     has_confirmation_pending = not system_confirmed and any(
-        getattr(tc, "status", None) == "blocked" for tc in accumulated_state.get("completed_tool_calls", [])
+        getattr(tc, "status", None) == "blocked"
+        for tc in accumulated_state.get("completed_tool_calls", [])
     )
-    already_streamed = streamed_plan_content and final_response and final_response.strip() == streamed_plan_text.strip()
+    already_streamed = (
+        streamed_plan_content
+        and final_response
+        and final_response.strip() == streamed_plan_text.strip()
+    )
 
     # Diagnostic logging for HITL confirmation flow
     logger.info(
@@ -914,7 +1024,9 @@ async def run_agent_stream(
         []
         if system_confirmed
         else [
-            tc for tc in accumulated_state.get("completed_tool_calls", []) if getattr(tc, "status", None) == "blocked"
+            tc
+            for tc in accumulated_state.get("completed_tool_calls", [])
+            if getattr(tc, "status", None) == "blocked"
         ]
     )
     if blocked_calls:
@@ -951,7 +1063,9 @@ async def run_agent_stream(
 
     # ── 7.6 P1-7: Emit ask_user events for agent proactive questioning ──
     ask_user_calls = [
-        tc for tc in accumulated_state.get("completed_tool_calls", []) if getattr(tc, "status", None) == "ask_user"
+        tc
+        for tc in accumulated_state.get("completed_tool_calls", [])
+        if getattr(tc, "status", None) == "ask_user"
     ]
     if ask_user_calls:
         for tc in ask_user_calls:
@@ -968,9 +1082,9 @@ async def run_agent_stream(
     # Use the tier-selected model (from router) for accurate tracking, not the base config model
     actual_model = accumulated_state.get("selected_model") or agent_config.model
 
-    total_out = accumulated_state.get("total_output_tokens", 0) or token_counter.count_tokens(
-        final_response, actual_model
-    )
+    total_out = accumulated_state.get(
+        "total_output_tokens", 0
+    ) or token_counter.count_tokens(final_response, actual_model)
 
     try:
         await record_completion(user_id, total_in, total_out, actual_model)
@@ -1113,11 +1227,17 @@ async def run_agent_stream(
             )
             _fu_resp = await _fu_llm.ainvoke(
                 [
-                    _SMsg(content="基于AI的回复，生成3条用户可能继续追问的简短问题。每条一行，不带序号。"),
-                    _HMsg(content=f"用户问: {last_user_content[:200]}\nAI回复: {final_response[:500]}"),
+                    _SMsg(
+                        content="基于AI的回复，生成3条用户可能继续追问的简短问题。每条一行，不带序号。"
+                    ),
+                    _HMsg(
+                        content=f"用户问: {last_user_content[:200]}\nAI回复: {final_response[:500]}"
+                    ),
                 ]
             )
-            _fu_lines = [s.strip() for s in _fu_resp.content.strip().split("\n") if s.strip()][:3]
+            _fu_lines = [
+                s.strip() for s in _fu_resp.content.strip().split("\n") if s.strip()
+            ][:3]
             if _fu_lines:
                 yield _sse_data({"follow_up_suggestions": _fu_lines})
     except Exception as e:

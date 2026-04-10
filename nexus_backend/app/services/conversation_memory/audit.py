@@ -14,7 +14,9 @@ from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
-ActionType = Literal["ADD", "UPDATE", "DELETE", "PROMOTE", "MERGE", "RESOLVE_CONFLICT", "DECAY"]
+ActionType = Literal[
+    "ADD", "UPDATE", "DELETE", "PROMOTE", "MERGE", "RESOLVE_CONFLICT", "DECAY"
+]
 
 
 async def log_memory_change(

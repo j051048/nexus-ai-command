@@ -39,7 +39,11 @@ async def upload(
             org_id=org_id,
             file_type=request.file_type,
         )
-        return api_success(result) if result.get("success") else api_error(result.get("error"))
+        return (
+            api_success(result)
+            if result.get("success")
+            else api_error(result.get("error"))
+        )
     except Exception as e:
         logger.error(f"文件上传失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "文件上传失败，请稍后重试")
@@ -54,7 +58,11 @@ async def parse(
     """解析文件"""
     try:
         result = await parse_file(file_id=request.file_id, org_id=org_id)
-        return api_success(result) if result.get("success") else api_error(result.get("error"))
+        return (
+            api_success(result)
+            if result.get("success")
+            else api_error(result.get("error"))
+        )
     except Exception as e:
         logger.error(f"文件解析失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "文件解析失败，请稍后重试")

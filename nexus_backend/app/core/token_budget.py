@@ -17,7 +17,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from app.core.config import settings
-from app.core.model_pricing import estimate_cost  # noqa: F401 — re-exported for backwards compat
+from app.core.model_pricing import (
+    estimate_cost,
+)  # noqa: F401 — re-exported for backwards compat
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,9 @@ class _InMemoryBudgetStore:
     """Thread-safe in-memory counters with automatic expiry."""
 
     def __init__(self):
-        self._data: dict[str, tuple[int | float, float]] = {}  # key -> (value, expires_at)
+        self._data: dict[str, tuple[int | float, float]] = (
+            {}
+        )  # key -> (value, expires_at)
         self._lock = asyncio.Lock()
 
     async def incr_by(self, key: str, amount: int | float, ttl: int) -> float:
@@ -188,7 +192,9 @@ class TokenBudgetManager:
 
         # 4. Tenant daily cost check
         if tenant_id:
-            day_key = self._key("tenant_day", f"{tenant_id}:{int(time.time() // 86400)}")
+            day_key = self._key(
+                "tenant_day", f"{tenant_id}:{int(time.time() // 86400)}"
+            )
             tenant_cost = await self._get(day_key)
             if tenant_cost >= settings.TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT:
                 return BudgetStatus(
@@ -198,7 +204,9 @@ class TokenBudgetManager:
                 )
 
             # 5. Tenant monthly cost check (P0: 防止月度成本失控)
-            month_key = self._key("tenant_month", f"{tenant_id}:{time.strftime('%Y-%m')}")
+            month_key = self._key(
+                "tenant_month", f"{tenant_id}:{time.strftime('%Y-%m')}"
+            )
             tenant_month_cost = await self._get(month_key)
             if tenant_month_cost >= settings.TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT:
                 return BudgetStatus(
@@ -211,11 +219,20 @@ class TokenBudgetManager:
         warning_threshold = 0.8
         warnings = []
         if sess_tokens >= settings.TOKEN_BUDGET_MAX_PER_SESSION * warning_threshold:
-            warnings.append(f"会话 token 已使用 {int(sess_tokens)}/{settings.TOKEN_BUDGET_MAX_PER_SESSION}")
-        if user_hour_tokens >= settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER * warning_threshold:
-            warnings.append(f"小时 token 已使用 {int(user_hour_tokens)}/{settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER}")
+            warnings.append(
+                f"会话 token 已使用 {int(sess_tokens)}/{settings.TOKEN_BUDGET_MAX_PER_SESSION}"
+            )
+        if (
+            user_hour_tokens
+            >= settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER * warning_threshold
+        ):
+            warnings.append(
+                f"小时 token 已使用 {int(user_hour_tokens)}/{settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER}"
+            )
         if sess_cost >= settings.TOKEN_BUDGET_MAX_COST_PER_SESSION * warning_threshold:
-            warnings.append(f"会话费用 ${sess_cost:.2f}/${settings.TOKEN_BUDGET_MAX_COST_PER_SESSION:.2f}")
+            warnings.append(
+                f"会话费用 ${sess_cost:.2f}/${settings.TOKEN_BUDGET_MAX_COST_PER_SESSION:.2f}"
+            )
 
         if warnings:
             return BudgetStatus(
@@ -262,15 +279,20 @@ class TokenBudgetManager:
 
         # Tenant daily cost (TTL = 24 hours)
         if tenant_id:
-            day_key = self._key("tenant_day", f"{tenant_id}:{int(time.time() // 86400)}")
+            day_key = self._key(
+                "tenant_day", f"{tenant_id}:{int(time.time() // 86400)}"
+            )
             await self._incr(day_key, cost, ttl=86400)
 
             # Tenant monthly cost (TTL = 32 days, covers longest month + buffer)
-            month_key = self._key("tenant_month", f"{tenant_id}:{time.strftime('%Y-%m')}")
+            month_key = self._key(
+                "tenant_month", f"{tenant_id}:{time.strftime('%Y-%m')}"
+            )
             await self._incr(month_key, cost, ttl=2764800)  # 32 days
 
         logger.debug(
-            f"[TokenBudget] Recorded: session={session_id} " f"tokens={total_tokens} cost=${cost:.4f} model={model}"
+            f"[TokenBudget] Recorded: session={session_id} "
+            f"tokens={total_tokens} cost=${cost:.4f} model={model}"
         )
 
     async def get_session_usage(self, session_id: str) -> UsageSummary:

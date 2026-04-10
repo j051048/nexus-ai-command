@@ -79,7 +79,9 @@ class SharedBlackboard:
         """
         return self._results.get(task_idx)
 
-    def get_dependency_context(self, dependencies: list[int], max_chars: int = 3000) -> str:
+    def get_dependency_context(
+        self, dependencies: list[int], max_chars: int = 3000
+    ) -> str:
         """Build dependency context text for a sub-task, including tool call summaries.
 
         Status-aware: marks failed/degraded dependencies so downstream agents
@@ -149,5 +151,7 @@ class SharedBlackboard:
         summaries: list[str] = []
         for result in self.get_all_results():
             for tc in result.tool_calls:
-                summaries.append(f"- {result.title}/{tc['tool_name']}: {tc.get('result_summary', '')[:200]}")
+                summaries.append(
+                    f"- {result.title}/{tc['tool_name']}: {tc.get('result_summary', '')[:200]}"
+                )
         return "\n".join(summaries[:20])

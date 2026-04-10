@@ -138,7 +138,9 @@ class BaseTool(ABC):
         """
         return "inline"
 
-    def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> tuple[str | None, str]:
+    def check_confirmation(
+        self, args: dict[str, Any], system_confirmed: bool = False
+    ) -> tuple[str | None, str]:
         """
         System-level confirmation gate.
         Called BEFORE run() for irreversible tools.
@@ -159,13 +161,22 @@ class BaseTool(ABC):
 
         # Check high-value amount
         amount = args.get("amount") or args.get("value") or args.get("total")
-        if amount and isinstance(amount, int | float) and amount >= CONFIRMATION_THRESHOLDS["high_value_amount"]:
-            reasons.append(f"💰 大额操作: ¥{amount:,.0f} (超过 ¥{CONFIRMATION_THRESHOLDS['high_value_amount']:,} 阈值)")
+        if (
+            amount
+            and isinstance(amount, int | float)
+            and amount >= CONFIRMATION_THRESHOLDS["high_value_amount"]
+        ):
+            reasons.append(
+                f"💰 大额操作: ¥{amount:,.0f} (超过 ¥{CONFIRMATION_THRESHOLDS['high_value_amount']:,} 阈值)"
+            )
             primary_type = primary_type or ConfirmationType.HIGH_VALUE.value
 
         # Check bulk operations
         items = args.get("ids") or args.get("items") or args.get("batch")
-        if isinstance(items, list | tuple) and len(items) >= CONFIRMATION_THRESHOLDS["bulk_record_count"]:
+        if (
+            isinstance(items, list | tuple)
+            and len(items) >= CONFIRMATION_THRESHOLDS["bulk_record_count"]
+        ):
             reasons.append(f"📦 批量操作: 将影响 {len(items)} 条记录")
             primary_type = primary_type or ConfirmationType.BULK_OPERATION.value
 
@@ -192,7 +203,10 @@ class BaseTool(ABC):
         if system_confirmed is True:
             return None, ""  # Confirmed by human, allow execution
 
-        return "\n".join(["⚠️ 操作需要确认:"] + reasons + ["请确认后再执行。"]), primary_type
+        return (
+            "\n".join(["⚠️ 操作需要确认:"] + reasons + ["请确认后再执行。"]),
+            primary_type,
+        )
 
     async def validate(self, args: dict[str, Any]) -> None:
         """
@@ -220,7 +234,9 @@ class BaseTool(ABC):
         return True
 
     @abstractmethod
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         """
         Execute the tool logic.
         :param args: Arguments parsed from the LLM's JSON output

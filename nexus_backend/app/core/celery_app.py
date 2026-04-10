@@ -123,7 +123,9 @@ celery_app.conf.beat_schedule = {
     # ── Memory: purge superseded old versions ──
     "memory-purge-superseded": {
         "task": "app.tasks.scheduler.purge_superseded_memories",
-        "schedule": crontab(hour=3, minute=45),  # 凌晨3:45 (在 consolidation 和 decay 之间)
+        "schedule": crontab(
+            hour=3, minute=45
+        ),  # 凌晨3:45 (在 consolidation 和 decay 之间)
     },
     # ── Memory importance re-evaluation ──
     "memory-importance-reeval": {

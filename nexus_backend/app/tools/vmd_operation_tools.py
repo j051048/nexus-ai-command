@@ -44,7 +44,10 @@ class GenerateMaintenanceReminderTool(BaseTool):
             "output_summary": "生成ICP-MS校准维护提醒，含个性化客户称呼",
         },
         {
-            "input": {"product_name": "气相色谱仪GC-2030", "maintenance_type": "routine"},
+            "input": {
+                "product_name": "气相色谱仪GC-2030",
+                "maintenance_type": "routine",
+            },
             "output_summary": "生成气相色谱仪常规保养提醒通知",
         },
     ]
@@ -71,7 +74,9 @@ class GenerateMaintenanceReminderTool(BaseTool):
         "required": ["product_name", "maintenance_type"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         product_name = args.get("product_name", "").strip()
         if not product_name:
             return "❌ 请提供产品/设备名称。"
@@ -109,7 +114,9 @@ class GenerateMaintenanceReminderTool(BaseTool):
             if kb_result and "No relevant documents" not in kb_result:
                 kb_context = f"\n\n## 知识库产品维护资料\n{kb_result}"
         except Exception as e:
-            logger.warning(f"Knowledge base search failed for maintenance reminder: {e}")
+            logger.warning(
+                f"Knowledge base search failed for maintenance reminder: {e}"
+            )
 
         customer_note = f"- 客户名称：{customer_name}\n" if customer_name else ""
 
@@ -167,7 +174,10 @@ class GenerateFaqResponseTool(BaseTool):
             "output_summary": "生成技术详尽风格的ICP-MS检出限回复",
         },
         {
-            "input": {"question": "仪器开机后无响应怎么办？", "response_style": "friendly"},
+            "input": {
+                "question": "仪器开机后无响应怎么办？",
+                "response_style": "friendly",
+            },
             "output_summary": "生成友好亲切风格的故障排查回复",
         },
     ]
@@ -194,7 +204,9 @@ class GenerateFaqResponseTool(BaseTool):
         "required": ["question"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         question = args.get("question", "").strip()
         if not question:
             return "❌ 请提供客户的问题内容。"
@@ -277,7 +289,11 @@ class GenerateRepurchaseCampaignTool(BaseTool):
     required_role = "all"
     examples = [
         {
-            "input": {"customer_segment": "高校实验室", "campaign_type": "repurchase", "product_category": "光谱仪"},
+            "input": {
+                "customer_segment": "高校实验室",
+                "campaign_type": "repurchase",
+                "product_category": "光谱仪",
+            },
             "output_summary": "生成面向高校实验室的光谱仪复购营销方案",
         },
         {
@@ -308,7 +324,9 @@ class GenerateRepurchaseCampaignTool(BaseTool):
         "required": ["customer_segment", "campaign_type"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         customer_segment = args.get("customer_segment", "").strip()
         if not customer_segment:
             return "❌ 请提供目标客户群体。"
@@ -330,7 +348,9 @@ class GenerateRepurchaseCampaignTool(BaseTool):
             if client:
                 # Get customers matching the segment
                 customers_res = (
-                    await client.table("customers").select("name, industry, stage, source, created_at").execute()
+                    await client.table("customers")
+                    .select("name, industry, stage, source, created_at")
+                    .execute()
                 )
 
                 if customers_res.data:
@@ -356,7 +376,9 @@ class GenerateRepurchaseCampaignTool(BaseTool):
         kb_context = ""
         try:
             org_id = config.get("org_id") if config else None
-            search_query = f"{customer_segment} {product_category} 复购 营销 优惠 方案".strip()
+            search_query = (
+                f"{customer_segment} {product_category} 复购 营销 优惠 方案".strip()
+            )
             kb_result = await vector_service.search(
                 search_query,
                 user_id,
@@ -420,7 +442,11 @@ class CustomerLifecycleAnalysisTool(BaseTool):
             "output_summary": "生成近一年全部客户的流失风险预警报告",
         },
         {
-            "input": {"customer_id": "uuid-xxxx", "time_range": "all", "analysis_focus": "ltv"},
+            "input": {
+                "customer_id": "uuid-xxxx",
+                "time_range": "all",
+                "analysis_focus": "ltv",
+            },
             "output_summary": "生成指定客户的全周期LTV分析报告",
         },
     ]
@@ -448,7 +474,9 @@ class CustomerLifecycleAnalysisTool(BaseTool):
         "required": ["time_range", "analysis_focus"],
     }
 
-    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+    async def run(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str:
         customer_id = args.get("customer_id", "")
         time_range = args.get("time_range", "last_year")
         analysis_focus = args.get("analysis_focus", "health")
@@ -462,7 +490,9 @@ class CustomerLifecycleAnalysisTool(BaseTool):
 
         # Validate enum values
         if time_range not in ("last_quarter", "last_year", "all"):
-            return f"不支持的时间范围: {time_range}，请使用 last_quarter/last_year/all。"
+            return (
+                f"不支持的时间范围: {time_range}，请使用 last_quarter/last_year/all。"
+            )
         if analysis_focus not in ("health", "ltv", "churn_risk", "engagement"):
             return f"不支持的分析重点: {analysis_focus}，请使用 health/ltv/churn_risk/engagement。"
 
@@ -487,7 +517,12 @@ class CustomerLifecycleAnalysisTool(BaseTool):
             if client:
                 # Get customer info
                 if customer_id:
-                    customers_res = await client.table("customers").select("*").eq("id", customer_id).execute()
+                    customers_res = (
+                        await client.table("customers")
+                        .select("*")
+                        .eq("id", customer_id)
+                        .execute()
+                    )
                 else:
                     customers_res = (
                         await client.table("customers")
@@ -580,7 +615,9 @@ class CustomerLifecycleAnalysisTool(BaseTool):
         except Exception as e:
             logger.warning(f"Knowledge base search failed for lifecycle analysis: {e}")
 
-        customer_note = f"- 指定客户ID：{customer_id}\n" if customer_id else "- 范围：全部客户\n"
+        customer_note = (
+            f"- 指定客户ID：{customer_id}\n" if customer_id else "- 范围：全部客户\n"
+        )
 
         prompt = (
             f"请生成客户生命周期分析报告：\n\n"

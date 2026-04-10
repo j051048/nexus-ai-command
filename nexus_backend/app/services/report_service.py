@@ -32,7 +32,9 @@ def _parse_date_range(date_range: dict | None = None) -> tuple:
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     elif preset == "quarter":
         quarter_start_month = ((now.month - 1) // 3) * 3 + 1
-        start = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        start = now.replace(
+            month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
     elif preset == "custom":
         start_str = date_range.get("start")
         end_str = date_range.get("end")
@@ -46,7 +48,9 @@ def _parse_date_range(date_range: dict | None = None) -> tuple:
     return start.isoformat(), now.isoformat()
 
 
-def _group_by_period(records: list[dict], date_field: str, group_by: str = "day") -> list[dict]:
+def _group_by_period(
+    records: list[dict], date_field: str, group_by: str = "day"
+) -> list[dict]:
     """将记录按日/周/月分组"""
     grouped = defaultdict(list)
     for rec in records:
@@ -80,7 +84,11 @@ class ReportService:
 
     @cached_report(ttl_seconds=900)
     async def get_sales_report(
-        self, org_id: str, date_range: dict | None = None, group_by: str = "day", db=None
+        self,
+        org_id: str,
+        date_range: dict | None = None,
+        group_by: str = "day",
+        db=None,
     ) -> dict:
         """
         销售报表: 按日/周/月汇总销售额、成交数、转化率。
@@ -118,9 +126,15 @@ class ReportService:
 
         for g in grouped:
             period_revenue = sum(float(r.get("revenue", 0) or 0) for r in g["records"])
-            period_conversions = sum(float(r.get("conversion_rate", 0) or 0) for r in g["records"])
+            period_conversions = sum(
+                float(r.get("conversion_rate", 0) or 0) for r in g["records"]
+            )
             period_leads = sum(int(r.get("leads_count", 0) or 0) for r in g["records"])
-            period_rate = round(period_conversions / period_leads * 100, 1) if period_leads > 0 else 0
+            period_rate = (
+                round(period_conversions / period_leads * 100, 1)
+                if period_leads > 0
+                else 0
+            )
 
             total_revenue += period_revenue
             total_conversions += period_conversions
@@ -136,7 +150,9 @@ class ReportService:
                 }
             )
 
-        overall_rate = round(total_conversions / total_leads * 100, 1) if total_leads > 0 else 0
+        overall_rate = (
+            round(total_conversions / total_leads * 100, 1) if total_leads > 0 else 0
+        )
 
         return {
             "summary": {
@@ -159,7 +175,9 @@ class ReportService:
     # ─── 审批报表 ──────────────────────────────────────────
 
     @cached_report(ttl_seconds=900)
-    async def get_approval_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
+    async def get_approval_report(
+        self, org_id: str, date_range: dict | None = None, db=None
+    ) -> dict:
         """审批报表: 审批数量、平均处理时间、自动审批率、驳回率"""
         start_date, end_date = _parse_date_range(date_range)
 
@@ -185,14 +203,20 @@ class ReportService:
         approved = sum(1 for r in records if r.get("status") == "approved")
         rejected = sum(1 for r in records if r.get("status") == "rejected")
         pending = sum(1 for r in records if r.get("status") == "pending")
-        auto_approved = sum(1 for r in records if r.get("status") == "approved" and r.get("ai_reason"))
+        auto_approved = sum(
+            1 for r in records if r.get("status") == "approved" and r.get("ai_reason")
+        )
 
         # 模拟平均处理时间（小时）
         avg_processing_hours = (
             4.2
             if not records
             else round(
-                sum(self._calc_processing_hours(r) for r in records if r.get("status") != "pending")
+                sum(
+                    self._calc_processing_hours(r)
+                    for r in records
+                    if r.get("status") != "pending"
+                )
                 / max(1, total - pending),
                 1,
             )
@@ -230,7 +254,9 @@ class ReportService:
     # ─── 绩效报表 ──────────────────────────────────────────
 
     @cached_report(ttl_seconds=900)
-    async def get_performance_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
+    async def get_performance_report(
+        self, org_id: str, date_range: dict | None = None, db=None
+    ) -> dict:
         """绩效报表: 团队积分、个人排名、目标完成率"""
         start_date, end_date = _parse_date_range(date_range)
 
@@ -290,7 +316,9 @@ class ReportService:
     # ─── 使用报表 ──────────────────────────────────────────
 
     @cached_report(ttl_seconds=900)
-    async def get_usage_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
+    async def get_usage_report(
+        self, org_id: str, date_range: dict | None = None, db=None
+    ) -> dict:
         """使用报表: AI 对话量、Token 消耗、功能使用频率"""
         start_date, end_date = _parse_date_range(date_range)
 
@@ -324,10 +352,26 @@ class ReportService:
         # 功能使用频率 (模拟)
         feature_usage = [
             {"feature": "AI 对话", "count": total_chats, "percentage": 40},
-            {"feature": "审批处理", "count": max(1, total_chats // 3), "percentage": 25},
-            {"feature": "文档管理", "count": max(1, total_chats // 5), "percentage": 15},
-            {"feature": "销售工具", "count": max(1, total_chats // 8), "percentage": 12},
-            {"feature": "报表分析", "count": max(1, total_chats // 10), "percentage": 8},
+            {
+                "feature": "审批处理",
+                "count": max(1, total_chats // 3),
+                "percentage": 25,
+            },
+            {
+                "feature": "文档管理",
+                "count": max(1, total_chats // 5),
+                "percentage": 15,
+            },
+            {
+                "feature": "销售工具",
+                "count": max(1, total_chats // 8),
+                "percentage": 12,
+            },
+            {
+                "feature": "报表分析",
+                "count": max(1, total_chats // 10),
+                "percentage": 8,
+            },
         ]
 
         return {

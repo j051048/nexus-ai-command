@@ -56,7 +56,13 @@ async def update_organization_detail(
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         # 权限检查：只有 boss 和 founder 可以修改
-        profile = await db.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        profile = (
+            await db.table("users")
+            .select("role")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         if not profile.data or profile.data.get("role") not in ["boss", "founder"]:
             raise api_error(ErrorCode.FORBIDDEN, "权限不足")
 
@@ -66,7 +72,9 @@ async def update_organization_detail(
         if not filtered_updates:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "没有可更新的字段")
 
-        result = await organization_service.update_organization(org_id=org_id, updates=filtered_updates, db=db)
+        result = await organization_service.update_organization(
+            org_id=org_id, updates=filtered_updates, db=db
+        )
         return api_success(data=result)
     except Exception as e:
         logger.error(f"Failed to update organization: {e}")
@@ -85,7 +93,9 @@ async def get_departments(user_id: str = Depends(get_current_user_id)):
 
 
 @router.get("/departments/{department_id}", response_model=StandardResponse)
-async def get_department(department_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_department(
+    department_id: str, user_id: str = Depends(get_current_user_id)
+):
     """
     Get a specific department by ID.
     """
@@ -97,7 +107,9 @@ async def get_department(department_id: str, user_id: str = Depends(get_current_
 
 
 @router.get("/departments/{department_id}/members", response_model=StandardResponse)
-async def get_department_members(department_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_department_members(
+    department_id: str, user_id: str = Depends(get_current_user_id)
+):
     """
     Get all members of a specific department.
     """
@@ -115,7 +127,9 @@ async def get_organization_tree(user_id: str = Depends(get_current_user_id)):
 
 
 @router.get("/stats", response_model=StandardResponse)
-async def get_organization_stats(req: Request, user_id: str = Depends(get_current_user_id)):
+async def get_organization_stats(
+    req: Request, user_id: str = Depends(get_current_user_id)
+):
     """
     Get organization-wide statistics.
     """
@@ -132,7 +146,9 @@ async def get_organization_stats(req: Request, user_id: str = Depends(get_curren
 
 
 @router.get("/users/{target_user_id}/reporting-line", response_model=StandardResponse)
-async def get_user_reporting_line(target_user_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_user_reporting_line(
+    target_user_id: str, user_id: str = Depends(get_current_user_id)
+):
     """
     Get the reporting line (chain of managers) for a user.
     """
@@ -141,7 +157,9 @@ async def get_user_reporting_line(target_user_id: str, user_id: str = Depends(ge
 
 
 @router.get("/users/{manager_id}/direct-reports", response_model=StandardResponse)
-async def get_direct_reports(manager_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_direct_reports(
+    manager_id: str, user_id: str = Depends(get_current_user_id)
+):
     """
     Get all users who directly report to a manager.
     """
@@ -150,7 +168,9 @@ async def get_direct_reports(manager_id: str, user_id: str = Depends(get_current
 
 
 @router.get("/users/{manager_id}/team", response_model=StandardResponse)
-async def get_team_hierarchy(manager_id: str, max_depth: int = 3, user_id: str = Depends(get_current_user_id)):
+async def get_team_hierarchy(
+    manager_id: str, max_depth: int = 3, user_id: str = Depends(get_current_user_id)
+):
     """
     Get the full team hierarchy under a manager.
     """
@@ -171,12 +191,16 @@ async def get_approval_chains(user_id: str = Depends(get_current_user_id)):
 
 
 @router.get("/approval-chains/{approval_type}/level", response_model=StandardResponse)
-async def get_approval_level(approval_type: str, amount: float, user_id: str = Depends(get_current_user_id)):
+async def get_approval_level(
+    approval_type: str, amount: float, user_id: str = Depends(get_current_user_id)
+):
     """
     Determine the approval level required for a given type and amount.
     """
     try:
-        step, step_index = approval_chain_service.determine_approval_level(approval_type, amount)
+        step, step_index = approval_chain_service.determine_approval_level(
+            approval_type, amount
+        )
 
         return api_success(
             data={
@@ -219,7 +243,9 @@ async def process_approval_through_chain(
 
 
 @router.get("/members", response_model=StandardResponse)
-async def get_organization_members(req: Request, user_id: str = Depends(get_current_user_id)):
+async def get_organization_members(
+    req: Request, user_id: str = Depends(get_current_user_id)
+):
     """
     Get all members in the user's organization for the org chart management page.
     Returns: id, name, department, role, manager_id, avatar
@@ -227,11 +253,19 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
     client = req.state.db
 
     # Get the user's organization
-    user_res = await client.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
+    user_res = (
+        await client.table("users")
+        .select("organization_id")
+        .eq("id", user_id)
+        .maybe_single()
+        .execute()
+    )
     org_id = user_res.data.get("organization_id") if user_res.data else None
 
     if not org_id:
-        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found for current user")
+        raise api_error(
+            ErrorCode.RESOURCE_NOT_FOUND, "Organization not found for current user"
+        )
 
     # Fetch all members in the organization
     members_res = (
@@ -284,52 +318,80 @@ async def update_user_manager(
     client = req.state.db
 
     # Verify the requesting user is in the same org and has boss/admin role
-    user_res = await client.table("users").select("organization_id, role").eq("id", user_id).maybe_single().execute()
+    user_res = (
+        await client.table("users")
+        .select("organization_id, role")
+        .eq("id", user_id)
+        .maybe_single()
+        .execute()
+    )
 
     if not user_res.data:
         raise api_error(ErrorCode.AUTH_UNAUTHORIZED, "User not found")
 
     caller_role = user_res.data.get("role", "")
     if caller_role not in ("boss", "founder", "admin"):
-        raise api_error(ErrorCode.AUTH_FORBIDDEN, "Only admins can update reporting relationships")
+        raise api_error(
+            ErrorCode.AUTH_FORBIDDEN, "Only admins can update reporting relationships"
+        )
 
     caller_org = user_res.data.get("organization_id")
 
     # Verify target user is in the same org
     target_res = (
-        await client.table("users").select("id, organization_id").eq("id", target_user_id).maybe_single().execute()
+        await client.table("users")
+        .select("id, organization_id")
+        .eq("id", target_user_id)
+        .maybe_single()
+        .execute()
     )
 
     if not target_res.data:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Target user not found")
 
     if target_res.data.get("organization_id") != caller_org:
-        raise api_error(ErrorCode.AUTH_FORBIDDEN, "Cannot modify users outside your organization")
+        raise api_error(
+            ErrorCode.AUTH_FORBIDDEN, "Cannot modify users outside your organization"
+        )
 
     # Prevent self-assignment as manager
     if body.manager_id == target_user_id:
-        raise api_error(ErrorCode.VALIDATION_ERROR, "A user cannot be their own manager")
+        raise api_error(
+            ErrorCode.VALIDATION_ERROR, "A user cannot be their own manager"
+        )
 
     # If manager_id is provided, verify the manager exists in the same org
     if body.manager_id:
         manager_res = (
-            await client.table("users").select("id, organization_id").eq("id", body.manager_id).maybe_single().execute()
+            await client.table("users")
+            .select("id, organization_id")
+            .eq("id", body.manager_id)
+            .maybe_single()
+            .execute()
         )
 
         if not manager_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Manager user not found")
 
         if manager_res.data.get("organization_id") != caller_org:
-            raise api_error(ErrorCode.AUTH_FORBIDDEN, "Manager must be in the same organization")
+            raise api_error(
+                ErrorCode.AUTH_FORBIDDEN, "Manager must be in the same organization"
+            )
 
     # Update the manager_id (RLS policy "users_manager_update" allows boss/admin)
-    update_res = await client.table("users").update({"manager_id": body.manager_id}).eq("id", target_user_id).execute()
+    update_res = (
+        await client.table("users")
+        .update({"manager_id": body.manager_id})
+        .eq("id", target_user_id)
+        .execute()
+    )
 
     if not update_res.data:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Failed to update manager")
 
     return api_success(
-        data={"user_id": target_user_id, "manager_id": body.manager_id}, message="Manager updated successfully"
+        data={"user_id": target_user_id, "manager_id": body.manager_id},
+        message="Manager updated successfully",
     )
 
 
@@ -347,7 +409,13 @@ async def regenerate_invite_code(
     client = req.state.db
 
     # 获取用户的组织ID
-    user_res = await client.table("users").select("organization_id").eq("id", user_id).single().execute()
+    user_res = (
+        await client.table("users")
+        .select("organization_id")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
     org_id = user_res.data.get("organization_id")
 
     if not org_id:
@@ -357,7 +425,9 @@ async def regenerate_invite_code(
     new_code = secrets.token_urlsafe(8)
 
     # 更新组织
-    await client.table("organizations").update({"invite_code": new_code}).eq("id", org_id).execute()
+    await client.table("organizations").update({"invite_code": new_code}).eq(
+        "id", org_id
+    ).execute()
 
     return api_success(data={"invite_code": new_code}, message="邀请码已重新生成")
 
@@ -371,21 +441,38 @@ async def toggle_invite_code(
     client = req.state.db
 
     # 获取用户的组织ID
-    user_res = await client.table("users").select("organization_id").eq("id", user_id).single().execute()
+    user_res = (
+        await client.table("users")
+        .select("organization_id")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
     org_id = user_res.data.get("organization_id")
 
     if not org_id:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found")
 
     # 获取当前状态
-    org_res = await client.table("organizations").select("invite_code_enabled").eq("id", org_id).single().execute()
+    org_res = (
+        await client.table("organizations")
+        .select("invite_code_enabled")
+        .eq("id", org_id)
+        .single()
+        .execute()
+    )
     current = org_res.data.get("invite_code_enabled", True)
 
     # 切换状态
     new_status = not current
-    await client.table("organizations").update({"invite_code_enabled": new_status}).eq("id", org_id).execute()
+    await client.table("organizations").update({"invite_code_enabled": new_status}).eq(
+        "id", org_id
+    ).execute()
 
-    return api_success(data={"enabled": new_status}, message=f"邀请码已{'启用' if new_status else '禁用'}")
+    return api_success(
+        data={"enabled": new_status},
+        message=f"邀请码已{'启用' if new_status else '禁用'}",
+    )
 
 
 # ============== Admin Endpoints ==============
@@ -398,7 +485,13 @@ async def admin_list_pending_bosses(
 ):
     """列出待审批的Boss申请"""
     client = req.state.db
-    result = await client.table("users").select("*").eq("role", "boss").eq("status", "pending").execute()
+    result = (
+        await client.table("users")
+        .select("*")
+        .eq("role", "boss")
+        .eq("status", "pending")
+        .execute()
+    )
     return api_success(data=result.data or [])
 
 
@@ -421,7 +514,9 @@ async def admin_approve_boss(
 ):
     """批准Boss申请"""
     client = req.state.db
-    await client.table("users").update({"status": "approved"}).eq("id", target_user_id).execute()
+    await client.table("users").update({"status": "approved"}).eq(
+        "id", target_user_id
+    ).execute()
     return api_success({}, message="已批准")
 
 
@@ -433,7 +528,9 @@ async def admin_reject_boss(
 ):
     """拒绝Boss申请"""
     client = req.state.db
-    await client.table("users").update({"status": "rejected", "role": "employee"}).eq("id", target_user_id).execute()
+    await client.table("users").update({"status": "rejected", "role": "employee"}).eq(
+        "id", target_user_id
+    ).execute()
     return api_success({}, message="已拒绝")
 
 
@@ -465,7 +562,13 @@ async def get_org_brand(
         db = getattr(req.state, "db", None)
         if not db:
             return api_success(data={})
-        res = await db.table("organizations").select("brand").eq("id", str(org_id)).maybe_single().execute()
+        res = (
+            await db.table("organizations")
+            .select("brand")
+            .eq("id", str(org_id))
+            .maybe_single()
+            .execute()
+        )
         brand = (res.data or {}).get("brand", {}) or {}
         return api_success(data=brand)
     except Exception as e:
@@ -494,13 +597,21 @@ async def update_org_brand(
 
         # Validate brand fields
         allowed_keys = {
-            "logo_url", "primary_color", "company_name", "tagline",
-            "login_title", "login_subtitle", "feature_cards",
-            "favicon_url", "custom_domain",
+            "logo_url",
+            "primary_color",
+            "company_name",
+            "tagline",
+            "login_title",
+            "login_subtitle",
+            "feature_cards",
+            "favicon_url",
+            "custom_domain",
         }
         brand = {k: v for k, v in body.brand.items() if k in allowed_keys}
 
-        await db.table("organizations").update({"brand": brand}).eq("id", str(org_id)).execute()
+        await db.table("organizations").update({"brand": brand}).eq(
+            "id", str(org_id)
+        ).execute()
         return api_success(data=brand, message="品牌配置已更新")
     except Exception as e:
         logger.error(f"Failed to update org brand: {e}")

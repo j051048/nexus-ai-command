@@ -19,7 +19,13 @@ _metrics: dict[str, Any] = {
 
 
 def record_agent_execution(
-    user_id: str, complexity: str, model: str, tokens: int, cost: float, duration: float, success: bool
+    user_id: str,
+    complexity: str,
+    model: str,
+    tokens: int,
+    cost: float,
+    duration: float,
+    success: bool,
 ):
     """记录 Agent 执行指标"""
     _metrics["total_requests"] += 1

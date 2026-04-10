@@ -118,7 +118,9 @@ async def update_department(
         db = getattr(req.state, "db", None)
         updates = body.model_dump(exclude_none=True)
         if not updates:
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "请提供至少一个要更新的字段")
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD, "请提供至少一个要更新的字段"
+            )
         department = await organization_service.update_department(
             department_id=department_id,
             updates=updates,
@@ -292,7 +294,9 @@ async def update_employee(
         db = getattr(req.state, "db", None)
         updates = body.model_dump(exclude_none=True)
         if not updates:
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "请提供至少一个要更新的字段")
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD, "请提供至少一个要更新的字段"
+            )
         employee = await organization_service.update_employee(
             employee_id=employee_id,
             updates=updates,

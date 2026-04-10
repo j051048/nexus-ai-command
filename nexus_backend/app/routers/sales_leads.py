@@ -80,7 +80,10 @@ async def create_lead(
         data["user_id"] = user_id
 
         result = await db.table("sales_leads").insert(data).execute()
-        return api_success(data={"lead": result.data[0] if result.data else None}, message="线索创建成功")
+        return api_success(
+            data={"lead": result.data[0] if result.data else None},
+            message="线索创建成功",
+        )
     except Exception as e:
         logger.error(f"Failed to create lead: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建线索失败")
@@ -103,8 +106,16 @@ async def update_lead(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         data = body.model_dump(exclude_none=True)
 
-        result = await db.table("sales_leads").update(data).eq("id", lead_id).eq("organization_id", org_id).execute()
-        return api_success(data={"lead": result.data[0] if result.data else None}, message="线索已更新")
+        result = (
+            await db.table("sales_leads")
+            .update(data)
+            .eq("id", lead_id)
+            .eq("organization_id", org_id)
+            .execute()
+        )
+        return api_success(
+            data={"lead": result.data[0] if result.data else None}, message="线索已更新"
+        )
     except Exception as e:
         logger.error(f"Failed to update lead: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新线索失败")

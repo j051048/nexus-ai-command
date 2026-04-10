@@ -41,7 +41,9 @@ class LLMGatewayService(ModelResolutionMixin, ChatDispatchMixin, CallLoggingMixi
         self._log_last_flush: float = time.time()
 
     @staticmethod
-    def _error_response(request_id: str, model_code: str, error_msg: str) -> ChatResponse:
+    def _error_response(
+        request_id: str, model_code: str, error_msg: str
+    ) -> ChatResponse:
         """Build a ChatResponse representing an error."""
         return ChatResponse(
             request_id=request_id,

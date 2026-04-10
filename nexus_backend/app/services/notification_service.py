@@ -76,10 +76,20 @@ class Notification:
             "title": self.title,
             "content": self.content,
             "target_user_id": self.target_user_id,
-            "channel": (self.channel.value if isinstance(self.channel, Enum) else self.channel),
-            "priority": (self.priority.value if isinstance(self.priority, Enum) else self.priority),
+            "channel": (
+                self.channel.value if isinstance(self.channel, Enum) else self.channel
+            ),
+            "priority": (
+                self.priority.value
+                if isinstance(self.priority, Enum)
+                else self.priority
+            ),
             "metadata": self.metadata,
-            "created_at": (self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at),
+            "created_at": (
+                self.created_at.isoformat()
+                if isinstance(self.created_at, datetime)
+                else self.created_at
+            ),
         }
 
 
@@ -123,7 +133,9 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
         """
         try:
             if not supabase:
-                logger.warning("Supabase client not configured, skipping in-app notification")
+                logger.warning(
+                    "Supabase client not configured, skipping in-app notification"
+                )
                 return False
 
             # 映射优先级到通知类型（兼容现有表结构）
@@ -164,7 +176,9 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
                                 "content": notification.content,
                                 "priority": notification.priority,
                                 "category": notification_type,
-                                "action_url": notification.metadata.get("action_url", ""),
+                                "action_url": notification.metadata.get(
+                                    "action_url", ""
+                                ),
                                 "created_at": str(record.get("created_at", "")),
                             },
                         },
@@ -174,8 +188,15 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
                 logger.warning(f"WebSocket推送通知失败(不影响DB记录): {ws_err}")
 
             # P0-1: For HIGH/URGENT notifications with proactive_prompt, trigger AI chat
-            proactive_prompt = notification.metadata.get("proactive_prompt") if notification.metadata else None
-            if proactive_prompt and notification.priority in (NotificationPriority.HIGH, NotificationPriority.URGENT):
+            proactive_prompt = (
+                notification.metadata.get("proactive_prompt")
+                if notification.metadata
+                else None
+            )
+            if proactive_prompt and notification.priority in (
+                NotificationPriority.HIGH,
+                NotificationPriority.URGENT,
+            ):
                 try:
                     from app.services.websocket_manager import ws_manager
 
@@ -194,7 +215,9 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
                             },
                         },
                     )
-                    logger.debug(f"Proactive chat triggered for user {notification.target_user_id}")
+                    logger.debug(
+                        f"Proactive chat triggered for user {notification.target_user_id}"
+                    )
                 except Exception as pc_err:
                     logger.warning(f"Proactive chat push failed: {pc_err}")
 
@@ -244,7 +267,9 @@ class NotificationService:
         self._adapters: dict[NotificationChannel, BaseNotificationAdapter] = {}
         logger.info("NotificationService initialized")
 
-    def register_adapter(self, channel: NotificationChannel, adapter: BaseNotificationAdapter) -> None:
+    def register_adapter(
+        self, channel: NotificationChannel, adapter: BaseNotificationAdapter
+    ) -> None:
         """
         注册通知渠道适配器
 
@@ -286,7 +311,9 @@ class NotificationService:
                 return defaults
             result = await (
                 supabase.table("notification_preferences")
-                .select("email_enabled, push_enabled, im_enabled, quiet_hours_start, quiet_hours_end")
+                .select(
+                    "email_enabled, push_enabled, im_enabled, quiet_hours_start, quiet_hours_end"
+                )
                 .eq("user_id", user_id)
                 .limit(1)
                 .execute()
@@ -295,7 +322,9 @@ class NotificationService:
             self._pref_cache[user_id] = (now, prefs)
             return prefs
         except Exception as e:
-            logger.error("Failed to fetch notification preferences for %s: %s", user_id, e)
+            logger.error(
+                "Failed to fetch notification preferences for %s: %s", user_id, e
+            )
             return defaults
 
     def _is_quiet_hours(self, prefs: dict) -> bool:
@@ -310,8 +339,14 @@ class NotificationService:
         cn_tz = timezone(timedelta(hours=8))
         now = datetime.now(cn_tz).time()
         try:
-            start_t = datetime.strptime(start, "%H:%M").time() if isinstance(start, str) else start
-            end_t = datetime.strptime(end, "%H:%M").time() if isinstance(end, str) else end
+            start_t = (
+                datetime.strptime(start, "%H:%M").time()
+                if isinstance(start, str)
+                else start
+            )
+            end_t = (
+                datetime.strptime(end, "%H:%M").time() if isinstance(end, str) else end
+            )
         except (ValueError, TypeError):
             return False
 
@@ -321,14 +356,20 @@ class NotificationService:
         else:
             return now >= start_t or now <= end_t
 
-    def _channel_allowed_by_prefs(self, channel: NotificationChannel, prefs: dict) -> bool:
+    def _channel_allowed_by_prefs(
+        self, channel: NotificationChannel, prefs: dict
+    ) -> bool:
         """Check if a channel is allowed by user preferences. IN_APP is always allowed."""
         if channel == NotificationChannel.IN_APP:
             return True
         if channel == NotificationChannel.EMAIL:
             return prefs.get("email_enabled", True)
         # WECOM, DINGTALK, FEISHU → im_enabled
-        if channel in (NotificationChannel.WECOM, NotificationChannel.DINGTALK, NotificationChannel.FEISHU):
+        if channel in (
+            NotificationChannel.WECOM,
+            NotificationChannel.DINGTALK,
+            NotificationChannel.FEISHU,
+        ):
             return prefs.get("im_enabled", True)
         return True
 
@@ -353,7 +394,10 @@ class NotificationService:
             prefs = await self._get_user_preferences(notification.target_user_id)
 
             # Quiet hours + non-URGENT → downgrade to IN_APP only
-            if self._is_quiet_hours(prefs) and notification.priority != NotificationPriority.URGENT:
+            if (
+                self._is_quiet_hours(prefs)
+                and notification.priority != NotificationPriority.URGENT
+            ):
                 if channel != NotificationChannel.IN_APP:
                     logger.debug(
                         "Quiet hours active for user %s, downgrading %s to IN_APP",
@@ -379,7 +423,11 @@ class NotificationService:
                 )
                 return True  # Not an error — user chose to disable
         except Exception as e:
-            logger.error("Preference check failed for %s, proceeding with send: %s", notification.target_user_id, e)
+            logger.error(
+                "Preference check failed for %s, proceeding with send: %s",
+                notification.target_user_id,
+                e,
+            )
 
         if channel not in self._adapters:
             logger.warning(
@@ -469,12 +517,16 @@ class NotificationService:
             Dict[str, Dict[NotificationChannel, bool]]: 用户ID -> 渠道发送结果映射
         """
         if not supabase:
-            logger.warning("Supabase client not configured, cannot send role-based notifications")
+            logger.warning(
+                "Supabase client not configured, cannot send role-based notifications"
+            )
             return {}
 
         try:
             # 查询指定角色的所有用户
-            result = await supabase.table("users").select("id").eq("role", role).execute()
+            result = (
+                await supabase.table("users").select("id").eq("role", role).execute()
+            )
 
             if not result.data:
                 logger.warning(f"No users found with role: {role}")
@@ -501,7 +553,10 @@ class NotificationService:
 
             # 统计发送结果
             total_sends = len(user_ids) * len(channels)
-            total_success = sum(sum(1 for v in user_results.values() if v) for user_results in all_results.values())
+            total_success = sum(
+                sum(1 for v in user_results.values() if v)
+                for user_results in all_results.values()
+            )
 
             logger.info(
                 f"Role-based send completed: "
@@ -528,7 +583,9 @@ def _auto_register_adapters():
     from app.core.config import settings
 
     # Always register in-app adapter
-    notification_service.register_adapter(NotificationChannel.IN_APP, InAppNotificationAdapter())
+    notification_service.register_adapter(
+        NotificationChannel.IN_APP, InAppNotificationAdapter()
+    )
 
     # Register email adapter if SMTP configured
     if settings.SMTP_HOST and settings.SMTP_USER:
@@ -537,7 +594,9 @@ def _auto_register_adapters():
                 EmailNotificationAdapter,
             )
 
-            notification_service.register_adapter(NotificationChannel.EMAIL, EmailNotificationAdapter())
+            notification_service.register_adapter(
+                NotificationChannel.EMAIL, EmailNotificationAdapter()
+            )
             logger.info("✅ Email notification adapter registered")
         except Exception as e:
             logger.warning(f"Failed to register email adapter: {e}")
@@ -549,7 +608,9 @@ def _auto_register_adapters():
                 WecomNotificationAdapter,
             )
 
-            notification_service.register_adapter(NotificationChannel.WECOM, WecomNotificationAdapter())
+            notification_service.register_adapter(
+                NotificationChannel.WECOM, WecomNotificationAdapter()
+            )
             logger.info("✅ WeChat Work notification adapter registered")
         except Exception as e:
             logger.warning(f"Failed to register wecom adapter: {e}")
@@ -561,7 +622,9 @@ def _auto_register_adapters():
                 DingtalkNotificationAdapter,
             )
 
-            notification_service.register_adapter(NotificationChannel.DINGTALK, DingtalkNotificationAdapter())
+            notification_service.register_adapter(
+                NotificationChannel.DINGTALK, DingtalkNotificationAdapter()
+            )
             logger.info("✅ DingTalk notification adapter registered")
         except Exception as e:
             logger.warning(f"Failed to register dingtalk adapter: {e}")
@@ -573,7 +636,9 @@ def _auto_register_adapters():
                 FeishuNotificationAdapter,
             )
 
-            notification_service.register_adapter(NotificationChannel.FEISHU, FeishuNotificationAdapter())
+            notification_service.register_adapter(
+                NotificationChannel.FEISHU, FeishuNotificationAdapter()
+            )
             logger.info("✅ Feishu notification adapter registered")
         except Exception as e:
             logger.warning(f"Failed to register feishu adapter: {e}")

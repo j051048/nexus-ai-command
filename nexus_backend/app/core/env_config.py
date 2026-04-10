@@ -168,9 +168,13 @@ class EnvironmentConfig:
         raw_value = os.getenv(name)
 
         if raw_value is None:
-            value = var_def.default if var_def and var_def.default is not None else default
+            value = (
+                var_def.default if var_def and var_def.default is not None else default
+            )
         else:
-            value = self._parse_value(raw_value, var_def.env_type if var_def else EnvType.STRING)
+            value = self._parse_value(
+                raw_value, var_def.env_type if var_def else EnvType.STRING
+            )
 
         self._cache[name] = value
         return value
@@ -212,7 +216,9 @@ class EnvironmentConfig:
             if var.required:
                 value = os.getenv(var.name)
                 if not value:
-                    errors.append(f"{var.name}: Required but not set. {var.description}")
+                    errors.append(
+                        f"{var.name}: Required but not set. {var.description}"
+                    )
                 elif var.validate and not var.validate(value):
                     errors.append(f"{var.name}: Validation failed. {var.description}")
 

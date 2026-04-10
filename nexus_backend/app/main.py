@@ -31,7 +31,13 @@ logger = get_logger(__name__)
 
 # Sentry Initialization (Item 26: security endpoints get 100% sampling)
 if settings.SENTRY_DSN:
-    _security_paths = ("/api/auth/", "/api/approval/", "/api/billing/", "/api/payments/", "/api/permissions/")
+    _security_paths = (
+        "/api/auth/",
+        "/api/approval/",
+        "/api/billing/",
+        "/api/payments/",
+        "/api/permissions/",
+    )
 
     def _sentry_traces_sampler(sampling_context):
         """100% sampling for security-critical endpoints, 10% for the rest."""
@@ -77,16 +83,40 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         openapi_tags=[
             {"name": "Chat", "description": "AI chat and conversation management"},
-            {"name": "Documents", "description": "Document upload, RAG, and knowledge base"},
-            {"name": "Billing", "description": "Subscription plans, trials, and payments"},
-            {"name": "MCP Server", "description": "Model Context Protocol tool registry"},
-            {"name": "Robot/RPA", "description": "Robot and RPA device command interface (stub)"},
-            {"name": "Kingdee Mock", "description": "Mock Kingdee ERP integration (dev only)"},
+            {
+                "name": "Documents",
+                "description": "Document upload, RAG, and knowledge base",
+            },
+            {
+                "name": "Billing",
+                "description": "Subscription plans, trials, and payments",
+            },
+            {
+                "name": "MCP Server",
+                "description": "Model Context Protocol tool registry",
+            },
+            {
+                "name": "Robot/RPA",
+                "description": "Robot and RPA device command interface (stub)",
+            },
+            {
+                "name": "Kingdee Mock",
+                "description": "Mock Kingdee ERP integration (dev only)",
+            },
             {"name": "Webhooks", "description": "Webhook subscription and delivery"},
             {"name": "OAuth", "description": "OAuth 2.0 authorization server"},
-            {"name": "IM OAuth", "description": "IM platform (WeChat Work/DingTalk/Feishu) OAuth SSO"},
-            {"name": "IM Callbacks", "description": "IM platform interactive card callback handlers"},
-            {"name": "IM Settings", "description": "IM platform integration configuration management"},
+            {
+                "name": "IM OAuth",
+                "description": "IM platform (WeChat Work/DingTalk/Feishu) OAuth SSO",
+            },
+            {
+                "name": "IM Callbacks",
+                "description": "IM platform interactive card callback handlers",
+            },
+            {
+                "name": "IM Settings",
+                "description": "IM platform integration configuration management",
+            },
         ],
     )
 
@@ -127,7 +157,11 @@ def create_app() -> FastAPI:
         provided_token = request.headers.get("X-Health-Token", "")
         if not expected_token and settings.IS_PRODUCTION:
             return UTF8JSONResponse(
-                status_code=503, content={"status": "error", "detail": "HEALTH_CHECK_TOKEN not configured"}
+                status_code=503,
+                content={
+                    "status": "error",
+                    "detail": "HEALTH_CHECK_TOKEN not configured",
+                },
             )
         if expected_token and provided_token != expected_token:
             return UTF8JSONResponse(status_code=403, content={"error": "Forbidden"})
@@ -141,12 +175,17 @@ def create_app() -> FastAPI:
     async def test_ai_connectivity(user_id: str = Depends(get_current_user_id)):
         """Test connectivity from Backend to AI Gateway (dev/test only)"""
         if settings.ENV not in ("dev", "development", "test"):
-            return {"status": "error", "detail": "This endpoint is only available in dev/test environments"}
+            return {
+                "status": "error",
+                "detail": "This endpoint is only available in dev/test environments",
+            }
         import httpx
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(settings.AI_BASE_URL or "https://api.openai.com/v1")
+                resp = await client.get(
+                    settings.AI_BASE_URL or "https://api.openai.com/v1"
+                )
                 return {
                     "status": "ok",
                     "gateway_response_code": resp.status_code,
@@ -188,7 +227,11 @@ def create_app() -> FastAPI:
         provided_token = request.headers.get("X-Health-Token", "")
         if not expected_token and settings.IS_PRODUCTION:
             return UTF8JSONResponse(
-                status_code=503, content={"status": "error", "detail": "HEALTH_CHECK_TOKEN not configured"}
+                status_code=503,
+                content={
+                    "status": "error",
+                    "detail": "HEALTH_CHECK_TOKEN not configured",
+                },
             )
         if expected_token and provided_token != expected_token:
             return UTF8JSONResponse(status_code=403, content={"error": "Forbidden"})
@@ -204,7 +247,10 @@ def create_app() -> FastAPI:
                 checks["database"] = {"status": "not_configured"}
             else:
                 await asyncio.wait_for(
-                    supabase.table("users").select("count", count="exact").limit(1).execute(),
+                    supabase.table("users")
+                    .select("count", count="exact")
+                    .limit(1)
+                    .execute(),
                     timeout=3.0,
                 )
                 checks["database"] = {"status": "connected"}
@@ -245,7 +291,10 @@ def create_app() -> FastAPI:
             checks["celery_broker"] = {"status": "unavailable"}
 
         # Overall status
-        critical = [checks.get("database", {}).get("status"), checks.get("redis", {}).get("status")]
+        critical = [
+            checks.get("database", {}).get("status"),
+            checks.get("redis", {}).get("status"),
+        ]
         if all(s == "connected" for s in critical):
             overall = "healthy"
         elif any(s == "error" for s in critical):

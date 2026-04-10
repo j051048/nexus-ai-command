@@ -258,11 +258,15 @@ def normalize_entity_type(raw_type: str) -> str:
     if matches:
         mapped = matches[0]
         if mapped != raw_lower:
-            logger.debug(f"[Ontology] Normalized entity type: '{raw_type}' → '{mapped}'")
+            logger.debug(
+                f"[Ontology] Normalized entity type: '{raw_type}' → '{mapped}'"
+            )
         return mapped
 
     # 4. Fallback
-    logger.warning(f"[Ontology] Unknown entity type: '{raw_type}', falling back to 'concept'")
+    logger.warning(
+        f"[Ontology] Unknown entity type: '{raw_type}', falling back to 'concept'"
+    )
     return "concept"
 
 
@@ -291,10 +295,14 @@ def normalize_relationship(raw_rel: str) -> str:
     if matches:
         mapped = matches[0]
         if mapped != raw_stripped:
-            logger.debug(f"[Ontology] Normalized relationship: '{raw_rel}' → '{mapped}'")
+            logger.debug(
+                f"[Ontology] Normalized relationship: '{raw_rel}' → '{mapped}'"
+            )
         return mapped
 
-    logger.debug(f"[Ontology] Unknown relationship: '{raw_rel}', falling back to '关联'")
+    logger.debug(
+        f"[Ontology] Unknown relationship: '{raw_rel}', falling back to '关联'"
+    )
     return "关联"
 
 
@@ -352,7 +360,9 @@ def register_domain(domain: DomainSchema) -> None:
         for rel in domain.allowed_relationships:
             if rel not in existing.allowed_relationships:
                 existing.allowed_relationships.append(rel)
-        logger.info(f"[Ontology] Extended domain '{domain.name}' with new types/relations")
+        logger.info(
+            f"[Ontology] Extended domain '{domain.name}' with new types/relations"
+        )
     else:
         _DOMAIN_REGISTRY[domain.name] = domain
         logger.info(f"[Ontology] Registered new domain: '{domain.name}'")

@@ -107,7 +107,9 @@ class PaymentGatewayService:
         price_map = _get_plan_price_map()
         price_id = price_map.get(plan_id)
         if not price_id:
-            raise ValueError(f"Unknown plan '{plan_id}'. Available plans: {list(price_map.keys())}")
+            raise ValueError(
+                f"Unknown plan '{plan_id}'. Available plans: {list(price_map.keys())}"
+            )
 
         # Get or create Stripe customer for this tenant
         customer_id = await self._ensure_stripe_customer(tenant_id)
@@ -124,7 +126,9 @@ class PaymentGatewayService:
         return {"url": session.url, "session_id": session.id}
 
     # -- Subscription CRUD ---------------------------------------------------
-    async def create_subscription(self, tenant_id: str, stripe_price_id: str) -> dict[str, Any]:
+    async def create_subscription(
+        self, tenant_id: str, stripe_price_id: str
+    ) -> dict[str, Any]:
         """Create a subscription directly (bypassing Checkout)."""
         stripe = self._require_stripe()
         customer_id = await self._ensure_stripe_customer(tenant_id)
@@ -188,7 +192,11 @@ class PaymentGatewayService:
             timestamp=ts,
             action="increment",
         )
-        return {"id": record.id, "quantity": record.quantity, "timestamp": record.timestamp}
+        return {
+            "id": record.id,
+            "quantity": record.quantity,
+            "timestamp": record.timestamp,
+        }
 
     # -- Webhook processing --------------------------------------------------
     async def handle_webhook(self, payload: bytes, signature: str) -> dict[str, Any]:
@@ -202,14 +210,18 @@ class PaymentGatewayService:
         if not settings.STRIPE_WEBHOOK_SECRET:
             raise RuntimeError("STRIPE_WEBHOOK_SECRET is not configured")
 
-        event = stripe.Webhook.construct_event(payload, signature, settings.STRIPE_WEBHOOK_SECRET)
+        event = stripe.Webhook.construct_event(
+            payload, signature, settings.STRIPE_WEBHOOK_SECRET
+        )
         event_type: str = event["type"]
         data_obj = event["data"]["object"]
 
         handler = self._EVENT_HANDLERS.get(event_type)
         if handler:
             await handler(self, data_obj, event)
-            logger.info("Stripe webhook handled: %s (id=%s)", event_type, event.get("id"))
+            logger.info(
+                "Stripe webhook handled: %s (id=%s)", event_type, event.get("id")
+            )
             return {"event_type": event_type, "handled": True}
         else:
             logger.debug("Stripe webhook ignored: %s", event_type)
@@ -218,10 +230,14 @@ class PaymentGatewayService:
     # -- Event handler methods -----------------------------------------------
     async def _on_checkout_completed(self, session: dict, event: dict):
         """Handle checkout.session.completed — activate subscription."""
-        tenant_id = session.get("client_reference_id") or session.get("metadata", {}).get("tenant_id")
+        tenant_id = session.get("client_reference_id") or session.get(
+            "metadata", {}
+        ).get("tenant_id")
         subscription_id = session.get("subscription")
         if not tenant_id or not subscription_id:
-            logger.warning("checkout.session.completed missing tenant_id or subscription_id")
+            logger.warning(
+                "checkout.session.completed missing tenant_id or subscription_id"
+            )
             return
         # Fetch full subscription to determine tier
         stripe = _get_stripe()
@@ -249,7 +265,9 @@ class PaymentGatewayService:
             db = self._get_db()
             if db:
                 try:
-                    await db.table("tenants").update({"payment_status": "past_due"}).eq("id", tenant_id).execute()
+                    await db.table("tenants").update({"payment_status": "past_due"}).eq(
+                        "id", tenant_id
+                    ).execute()
                 except Exception as exc:
                     logger.error("Failed to flag tenant past_due: %s", exc)
 
@@ -288,7 +306,11 @@ class PaymentGatewayService:
         if db:
             try:
                 resp = await (
-                    db.table("tenants").select("stripe_customer_id, name").eq("id", tenant_id).limit(1).execute()
+                    db.table("tenants")
+                    .select("stripe_customer_id, name")
+                    .eq("id", tenant_id)
+                    .limit(1)
+                    .execute()
                 )
                 rows = resp.data if resp else []
                 if rows and rows[0].get("stripe_customer_id"):
@@ -308,7 +330,9 @@ class PaymentGatewayService:
         # Persist mapping
         if db:
             try:
-                await db.table("tenants").update({"stripe_customer_id": customer.id}).eq("id", tenant_id).execute()
+                await db.table("tenants").update(
+                    {"stripe_customer_id": customer.id}
+                ).eq("id", tenant_id).execute()
             except Exception as exc:
                 logger.warning("Failed to save stripe_customer_id: %s", exc)
 
@@ -326,12 +350,16 @@ class PaymentGatewayService:
             "stripe_subscription_id": sub_dict.get("id", ""),
             "status": sub_dict.get("status", ""),
             "current_period_start": (
-                datetime.fromtimestamp(sub_dict.get("current_period_start", 0), tz=UTC).isoformat()
+                datetime.fromtimestamp(
+                    sub_dict.get("current_period_start", 0), tz=UTC
+                ).isoformat()
                 if sub_dict.get("current_period_start")
                 else None
             ),
             "current_period_end": (
-                datetime.fromtimestamp(sub_dict.get("current_period_end", 0), tz=UTC).isoformat()
+                datetime.fromtimestamp(
+                    sub_dict.get("current_period_end", 0), tz=UTC
+                ).isoformat()
                 if sub_dict.get("current_period_end")
                 else None
             ),

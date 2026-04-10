@@ -58,7 +58,9 @@ class AttendanceService:
                 update_data = {}
                 if clock_type == "clock_out":
                     update_data["check_out_time"] = now.isoformat()
-                elif clock_type == "clock_in" and not existing.data.get("check_in_time"):
+                elif clock_type == "clock_in" and not existing.data.get(
+                    "check_in_time"
+                ):
                     update_data["check_in_time"] = now.isoformat()
                 else:
                     update_data["check_out_time"] = now.isoformat()
@@ -72,7 +74,10 @@ class AttendanceService:
                     update_data["raw_data"] = raw
 
                 result = (
-                    await db.table("attendance_records").update(update_data).eq("id", existing.data["id"]).execute()
+                    await db.table("attendance_records")
+                    .update(update_data)
+                    .eq("id", existing.data["id"])
+                    .execute()
                 )
             else:
                 # Insert new record for today
@@ -101,7 +106,9 @@ class AttendanceService:
                 result = await db.table("attendance_records").insert(data).execute()
 
             if result.data and len(result.data) > 0:
-                logger.info(f"打卡成功: org={org_id}, user={employee_id}, type={clock_type}")
+                logger.info(
+                    f"打卡成功: org={org_id}, user={employee_id}, type={clock_type}"
+                )
                 return result.data[0]
 
             raise RuntimeError("打卡记录创建失败")
@@ -136,7 +143,10 @@ class AttendanceService:
 
         try:
             query = (
-                db.table("attendance_records").select("*").eq("organization_id", org_id).order("check_date", desc=True)
+                db.table("attendance_records")
+                .select("*")
+                .eq("organization_id", org_id)
+                .order("check_date", desc=True)
             )
 
             if employee_id:
@@ -207,7 +217,9 @@ class AttendanceService:
             result = await db.table("shift_schedules").insert(data).execute()
 
             if result.data and len(result.data) > 0:
-                logger.info(f"排班已创建: org={org_id}, employee={employee_id}, date={shift_date}")
+                logger.info(
+                    f"排班已创建: org={org_id}, employee={employee_id}, date={shift_date}"
+                )
                 return result.data[0]
 
             raise RuntimeError("排班记录创建失败")
@@ -287,7 +299,9 @@ class AttendanceService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = db.table("attendance_records").select("*").eq("organization_id", org_id)
+            query = (
+                db.table("attendance_records").select("*").eq("organization_id", org_id)
+            )
 
             if department_id:
                 query = query.eq("department_id", department_id)
@@ -301,7 +315,9 @@ class AttendanceService:
 
             total_records = len(records)
             late_count = sum(1 for r in records if r.get("status") == "late")
-            early_leave_count = sum(1 for r in records if r.get("status") == "early_leave")
+            early_leave_count = sum(
+                1 for r in records if r.get("status") == "early_leave"
+            )
             on_time_count = sum(1 for r in records if r.get("status") == "on_time")
 
             return {
@@ -309,7 +325,11 @@ class AttendanceService:
                 "late_count": late_count,
                 "early_leave_count": early_leave_count,
                 "on_time_count": on_time_count,
-                "on_time_rate": round(on_time_count / total_records * 100, 2) if total_records > 0 else 0,
+                "on_time_rate": (
+                    round(on_time_count / total_records * 100, 2)
+                    if total_records > 0
+                    else 0
+                ),
             }
 
         except Exception as e:
@@ -361,7 +381,9 @@ class AttendanceService:
             result = await db.table("oa_leave_requests").insert(data).execute()
 
             if result.data and len(result.data) > 0:
-                logger.info(f"请假申请已提交: org={org_id}, employee={employee_id}, type={leave_type}")
+                logger.info(
+                    f"请假申请已提交: org={org_id}, employee={employee_id}, type={leave_type}"
+                )
                 return result.data[0]
 
             raise RuntimeError("请假申请创建失败")

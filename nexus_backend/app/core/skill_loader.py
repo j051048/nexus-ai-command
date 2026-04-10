@@ -109,7 +109,9 @@ def load_tools_dynamically(tool_names: list[str]) -> list[Any]:
     return loaded_tools
 
 
-def get_scene_from_context(messages: list[dict] | None = None, agent_code: str = "") -> str:
+def get_scene_from_context(
+    messages: list[dict] | None = None, agent_code: str = ""
+) -> str:
     """从上下文推断场景
 
     Args:
