@@ -323,7 +323,7 @@ class ExpenseQueryTool(BaseTool):
         )
 
         if not claims.data:
-            return "📋 您最近没有报销记录。"
+            return self.format_result(data={}, summary=f"您最近没有报销记录。")
 
         status_icons = {
             "pending": "⏳",
@@ -464,9 +464,9 @@ class SalaryQueryTool(BaseTool):
 - 扣除合计: ¥{d.get("deductions", 0):,.2f}
 - 实发工资: ¥{d.get("net_salary", 0):,.2f}
 - 发放状态: {d.get("status", "未知")}"""
-            return f"💰 未找到 {month} 的薪资记录。请联系人事部门确认。"
+            return self.format_result(data={}, summary=f"未找到 {month} 的薪资记录。请联系人事部门确认。")
         except Exception:
-            return "💰 薪资数据表尚未配置。请联系管理员设置薪资模块。"
+            return self.format_result(data={}, summary=f"薪资数据表尚未配置。请联系管理员设置薪资模块。")
 
 
 class InvoiceOCRTool(BaseTool):
@@ -565,10 +565,10 @@ class InvoiceOCRTool(BaseTool):
                     json=payload,
                 )
                 if resp.status_code != 200:
-                    return f"🧾 发票识别失败: API返回 {resp.status_code}\n\n请手动填写发票信息。"
+                    return self.format_result(data={}, summary=f"发票识别失败: API返回 {resp.status_code}\n\n请手动填写发票信息。")
                 data = resp.json()
                 result = data["choices"][0]["message"]["content"]
 
-            return f"🧾 发票识别结果:\n\n{result}"
+            return self.format_result(data={}, summary=f"发票识别结果:\n\n{result}")
         except Exception as e:
             return safe_tool_error(e, "发票识别") + "\n\n请手动填写发票信息。"

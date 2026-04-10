@@ -7,6 +7,7 @@ import {
   TenderAnalysisPage,
   BattlecardLibrary,
   DocumentsPage,
+  KnowledgeGraphPage,
   DataImportPage,
   TrainingCenter,
   WorkOrderPage,
@@ -21,7 +22,7 @@ export function businessRoutes() {
       <Route path="tender-analysis" element={<ModuleErrorBoundary moduleName="标书分析"><TenderAnalysisPage /></ModuleErrorBoundary>} />
       <Route path="battlecards" element={<ModuleErrorBoundary moduleName="竞品卡片"><BattlecardLibrary /></ModuleErrorBoundary>} />
       <Route path="documents" element={<ModuleErrorBoundary moduleName="知识库"><DocumentsPage /></ModuleErrorBoundary>} />
-      <Route path="knowledge" element={<ModuleErrorBoundary moduleName="知识库"><DocumentsPage /></ModuleErrorBoundary>} />
+      <Route path="knowledge" element={<ModuleErrorBoundary moduleName="知识图谱"><KnowledgeGraphPage /></ModuleErrorBoundary>} />
       <Route path="import" element={<ModuleErrorBoundary moduleName="数据导入"><DataImportPage /></ModuleErrorBoundary>} />
       <Route path="training" element={<ModuleErrorBoundary moduleName="培训中心"><TrainingCenter /></ModuleErrorBoundary>} />
       <Route path="work-orders" element={<ModuleErrorBoundary moduleName="工单管理"><WorkOrderPage /></ModuleErrorBoundary>} />

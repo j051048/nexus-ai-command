@@ -513,7 +513,7 @@ class GenerateQuotationTemplateTool(BaseTool):
 
         try:
             result = await AIService.call_llm(prompt, system)
-            return f"💰 **报价单模板**\n\n{result}"
+            return self.format_result(data={}, summary=f"**报价单模板**\n\n{result}")
         except Exception as e:
             logger.error(f"Failed to generate quotation template: {e}")
             return safe_tool_error(e, "生成报价单")

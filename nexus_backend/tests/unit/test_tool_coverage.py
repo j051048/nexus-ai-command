@@ -23,8 +23,8 @@ def test_audit_all_registered_tools_have_regression_tests():
     all_registered_tools = set(_TOOL_MODULES.keys()) | set(_VMD_TOOL_MODULES.keys())
 
     # 2. 获取已知已被测试覆盖的工具名
-    # 这里我们汇总现有的测试列表
-    covered_tools = set(TestToolMetadataRegression.TOP_20_TOOLS)
+    # 这里我们汇总现有的测试列表（P1-7: 升级到 Top30）
+    covered_tools = set(TestToolMetadataRegression.TOP_30_TOOLS)
 
     # 增加 VMD 已覆盖工具
     vmd_covered = {

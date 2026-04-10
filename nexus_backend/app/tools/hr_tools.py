@@ -69,15 +69,19 @@ class AttendanceQueryTool(BaseTool):
             .execute()
         )
         if not user_res.data:
-            return "❌ 无法获取用户信息"
+            return self.format_result(data=None, summary="无法获取用户信息")
 
         user = user_res.data
 
         # 检查权限：非管理者只能查自己
         if employee_name and user.get("role") not in ["manager", "founder", "boss"]:
-            return "❌ 您没有权限查询他人的考勤记录"
+            return self.format_result(data=None, summary="您没有权限查询他人的考勤记录")
 
-        return "📅 考勤查询功能暂未开通。\n\n考勤系统正在建设中，接入后将支持出勤统计、异常记录等查询。"
+        return self.format_result(
+            data={"status": "not_available"},
+            summary="考勤查询功能暂未开通，考勤系统正在建设中",
+            actions=[],
+        )
 
 
 class TeamAttendanceTool(BaseTool):
@@ -124,9 +128,13 @@ class TeamAttendanceTool(BaseTool):
         )
 
         if user_role not in ["manager", "founder", "boss"]:
-            return "❌ 您没有权限查看团队考勤"
+            return self.format_result(data=None, summary="您没有权限查看团队考勤")
 
-        return "👥 团队考勤管理功能暂未开通。\n\n考勤系统接入后将支持团队出勤分析、异常提醒等功能。"
+        return self.format_result(
+            data={"status": "not_available"},
+            summary="团队考勤管理功能暂未开通，考勤系统接入后将支持团队出勤分析、异常提醒等功能",
+            actions=[],
+        )
 
 
 class EmployeeProfileTool(BaseTool):
@@ -185,7 +193,7 @@ class EmployeeProfileTool(BaseTool):
         emp_res = await query.execute()
 
         if not emp_res.data:
-            return f"❌ 未找到名为「{employee_name}」的员工"
+            return self.format_result(data=None, summary=f"未找到名为「{employee_name}」的员工")
 
         emp = emp_res.data[0]
         emp_id = emp.get("id", "")
@@ -256,24 +264,6 @@ class EmployeeProfileTool(BaseTool):
         except Exception as e:
             logger.debug("近期任务查询失败: %s", e)
 
-        response = f"""👤 **{emp.get("name", employee_name)} 员工画像**
-
-**基本信息**
-- 部门: {emp.get("department", "未分配")}
-- 职级: {emp.get("role", "员工")}
-- 入职时间: {emp.get("created_at", "未知")[:10]}
-
-**绩效表现**
-- 当前绩效分: {score} 分
-- 团队排名: 第 {rank} 名
-- 累计奖金: ¥{total_bonus:,.0f}
-
-**考勤情况**
-- {attendance_info}
-{sales_info}
-{tasks_info}
-"""
-
         if include_risk:
             try:
                 from app.services.ai_service import AIService
@@ -287,11 +277,25 @@ class EmployeeProfileTool(BaseTool):
                     risk_prompt,
                     "你是HR分析专家。基于数据给出客观分析，不要编造数据。中文回复。",
                 )
-                response += f"\n🤖 **AI 风险分析**\n{risk_analysis}\n"
             except Exception:
-                response += "\n🤖 AI 风险分析暂不可用\n"
+                risk_analysis = "AI 风险分析暂不可用"
 
-        return response
+        profile_data = {
+            "name": emp.get("name", employee_name),
+            "department": emp.get("department", "未分配"),
+            "role": emp.get("role", "员工"),
+            "join_date": emp.get("created_at", "未知")[:10],
+            "score": score,
+            "rank": rank,
+            "total_bonus": total_bonus,
+            "attendance_info": attendance_info,
+        }
+
+        return self.format_result(
+            data=profile_data,
+            summary=f"{emp.get('name', employee_name)}员工画像: 绩效{score}分, 排名第{rank}名",
+            actions=[{"label": "查看团队绩效", "tool": "create_performance_review", "args": {"action": "view_team"}}],
+        )
 
 
 class PerformanceReviewTool(BaseTool):

@@ -65,6 +65,128 @@ async def subscribe(
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "账单操作失败")
 
 
+@router.post("/checkout")
+async def create_checkout(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Create a Stripe Checkout Session and return the redirect URL."""
+    try:
+        body = await req.json()
+        plan_id = body.get("plan_id")
+        success_url = body.get("success_url", "")
+        cancel_url = body.get("cancel_url", "")
+
+        if not plan_id:
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "plan_id is required")
+
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        try:
+            from app.services.payment_gateway import payment_gateway
+
+            result = await payment_gateway.create_checkout_session(
+                tenant_id=org_id,
+                plan_id=plan_id,
+                success_url=success_url,
+                cancel_url=cancel_url,
+            )
+            return api_success(data=result)
+        except ImportError:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付网关不可用")
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error(f"Checkout creation failed: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建支付会话失败")
+
+
+@router.post("/portal-session")
+async def create_portal_session(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Create a Stripe Customer Portal session for subscription management."""
+    try:
+        body = await req.json()
+        return_url = body.get("return_url", "")
+
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        from app.services.payment_gateway import payment_gateway
+
+        result = await payment_gateway.create_portal_session(
+            tenant_id=org_id, return_url=return_url
+        )
+        return api_success(data=result)
+    except ImportError:
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付网关不可用")
+    except Exception as e:
+        logger.error(f"Portal session creation failed: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建管理门户失败")
+
+
+@router.get("/usage")
+async def get_usage(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get current org usage stats."""
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+    db = getattr(req.state, "db", None)
+    if not db:
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+
+    try:
+        # Read quotas
+        quota_res = (
+            await db.table("tenant_quotas")
+            .select("*")
+            .eq("org_id", org_id)
+            .maybe_single()
+            .execute()
+        )
+        quota = quota_res.data or {}
+
+        # Read credits
+        credit_res = (
+            await db.table("tenant_credits")
+            .select("*")
+            .eq("org_id", org_id)
+            .execute()
+        )
+        credits = credit_res.data or []
+
+        # Build usage stats
+        monthly_token = next(
+            (c for c in credits if c.get("credit_type") == "monthly_tokens"), {}
+        )
+        daily_token = next(
+            (c for c in credits if c.get("credit_type") == "daily_tokens"), {}
+        )
+
+        return api_success(
+            data={
+                "monthly_tokens_used": monthly_token.get("used", 0),
+                "monthly_token_limit": monthly_token.get("allocated", 0),
+                "daily_tokens_used": daily_token.get("used", 0),
+                "daily_token_limit": daily_token.get("allocated", 0),
+                "storage_used_mb": quota.get("storage_used_mb", 0),
+                "storage_limit_mb": quota.get("storage_limit_mb", 0),
+            }
+        )
+    except Exception as e:
+        logger.error(f"Usage stats failed: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取用量失败")
+
+
 @router.post("/cancel")
 async def cancel_subscription(
     req: Request,

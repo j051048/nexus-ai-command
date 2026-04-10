@@ -239,9 +239,9 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             try:
                 amount = float(amount)
             except (TypeError, ValueError):
-                return "❌ 金额格式错误，请提供有效的数字金额。"
+                return self.format_result(data=None, summary="金额格式错误，请提供有效的数字金额")
             if amount <= 0:
-                return "❌ 审批金额必须大于0。"
+                return self.format_result(data=None, summary="审批金额必须大于0")
 
         # 日期校验
         if start_date or end_date:
@@ -250,15 +250,15 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 if start_date:
                     s = datetime.strptime(start_date, "%Y-%m-%d")
                     if s.year < now.year - 1 or s.year > now.year + 1:
-                        return f"❌ 开始日期 {start_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}。"
+                        return self.format_result(data=None, summary=f"开始日期 {start_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}")
                 if end_date:
                     e = datetime.strptime(end_date, "%Y-%m-%d")
                     if e.year < now.year - 1 or e.year > now.year + 1:
-                        return f"❌ 结束日期 {end_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}。"
+                        return self.format_result(data=None, summary=f"结束日期 {end_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}")
                 if start_date and end_date and e < s:
-                    return "❌ 结束日期不能早于开始日期。"
+                    return self.format_result(data=None, summary="结束日期不能早于开始日期")
             except ValueError:
-                return "❌ 日期格式错误，请使用 YYYY-MM-DD 格式。"
+                return self.format_result(data=None, summary="日期格式错误，请使用 YYYY-MM-DD 格式")
 
         # 防重复提交：检查同用户是否有近期完全相同的待审批申请
         try:
@@ -273,7 +273,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 dup_query = dup_query.eq("amount", amount)
             dup_res = await dup_query.limit(1).execute()
             if dup_res.data:
-                return f"❌ 您已有一条相同类型（{approval_type}）的待审批申请，请勿重复提交。"
+                return self.format_result(data=None, summary=f"您已有一条相同类型（{approval_type}）的待审批申请，请勿重复提交")
         except Exception:
             pass  # 去重检查失败不应阻塞主流程
 
@@ -286,14 +286,14 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             .execute()
         )
         if not employee_check.data:
-            return f"错误：找不到您的用户信息（ID: {employee_id}）"
+            return self.format_result(data=None, summary=f"找不到您的用户信息（ID: {employee_id}）")
 
         actual_employee = employee_check.data
         employee_name = actual_employee.get("name", "未知")
         employee_org_id = actual_employee.get("organization_id")
 
         if actual_employee.get("role") == "founder":
-            return "错误：老板无需通过AI提交审批申请，您可以直接审批"
+            return self.format_result(data=None, summary="老板无需通过AI提交审批申请，您可以直接审批")
 
         # 构建详情
         full_details = description
@@ -358,7 +358,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             logger.debug("[AI审批] 插入结果成功")
         except Exception as e:
             logger.exception(f"[AI审批] 插入失败: {e}")
-            return f"提交失败：数据库错误 - {str(e)}"
+            return self.format_result(data=None, summary=f"提交失败：数据库错误 - {str(e)}")
 
         if result.data:
             req_id = result.data[0].get("id")
@@ -400,9 +400,13 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                         )
                         .execute()
                     )
-                return (
-                    f"✅ 已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。\n"
-                    f"金额 ¥{amount} 在自动审批限额内，系统已自动批准。"
+                return self.format_result(
+                    data={"request_id": req_id, "type": approval_type, "amount": amount, "auto_approved": True},
+                    summary=f"已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...），金额 ¥{amount} 在自动审批限额内，系统已自动批准",
+                    actions=[
+                        {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
+                        {"label": "创建请假", "tool": "create_leave_request", "args": {}},
+                    ],
                 )
             else:
                 # 大额需多级审批 — 通知第一个节点审批人
@@ -425,14 +429,16 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                     "founder": "老板",
                 }
                 level_label = level_names.get(approval_level, approval_level)
-                return (
-                    f"已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。\n"
-                    f"审批链：{chain_name}\n"
-                    f"当前等待：{level_label} 审批\n"
-                    f"系统已自动通知相关审批人，请耐心等待。"
+                return self.format_result(
+                    data={"request_id": req_id, "type": approval_type, "amount": amount, "chain_name": chain_name, "approval_level": approval_level},
+                    summary=f"已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...），等待{level_label}审批",
+                    actions=[
+                        {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
+                        {"label": "创建报销", "tool": "create_expense_claim", "args": {}},
+                    ],
                 )
 
-        return "提交失败，请稍后重试。"
+        return self.format_result(data=None, summary="提交失败，请稍后重试")
 
 
 class GetEmployeeInfoTool(BaseTool):
@@ -473,7 +479,7 @@ class GetEmployeeInfoTool(BaseTool):
     ) -> str:
         name = args.get("query") or args.get("employee_name")
         if not name:
-            return "请提供员工姓名关键词"
+            return self.format_result(data=None, summary="请提供员工姓名关键词")
         client = _get_client(config)
         result = (
             await client.table("users")
@@ -483,19 +489,20 @@ class GetEmployeeInfoTool(BaseTool):
         )
 
         if not result.data:
-            return f"找不到名为 '{name}' 的员工。"
+            return self.format_result(data=None, summary=f"找不到名为 '{name}' 的员工")
 
-        employees = []
-        for emp in result.data:
-            if emp.get("role") != "founder":  # 不返回老板信息
-                employees.append(
-                    f"- {emp['name']}（ID: {emp['id']}, 部门: {emp.get('department', '未知')}）"
-                )
+        employees = [emp for emp in result.data if emp.get("role") != "founder"]
 
         if not employees:
-            return f"找不到名为 '{name}' 的普通员工。"
+            return self.format_result(data=None, summary=f"找不到名为 '{name}' 的普通员工")
 
-        return "找到以下员工：\n" + "\n".join(employees)
+        return self.format_result(
+            data=employees,
+            summary=f"找到 {len(employees)} 名员工",
+            actions=[
+                {"label": "查看审批历史", "tool": "get_employee_approval_history", "args": {"employee_id": employees[0]["id"]}},
+            ],
+        )
 
 
 class GetEmployeeApprovalHistoryTool(BaseTool):
@@ -547,10 +554,7 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
         try:
             uuid.UUID(employee_id)
         except (ValueError, AttributeError):
-            return (
-                f"employee_id '{employee_id}' 不是有效的UUID格式。"
-                "请先使用 get_employee_info 工具通过姓名查询员工ID，再调用此工具。"
-            )
+            return self.format_result(data=None, summary=f"employee_id '{employee_id}' 不是有效的UUID格式，请先使用 get_employee_info 工具通过姓名查询员工ID")
 
         client = _get_client(config)
         result = (
@@ -563,16 +567,16 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
         )
 
         if not result.data:
-            return "该员工暂无审批记录。"
+            return self.format_result(data=[], summary="该员工暂无审批记录")
 
-        records = []
-        for item in result.data:
-            via = "(AI代提交)" if item.get("submitted_via") == "ai_assistant" else ""
-            records.append(
-                f"- [{item['status']}] {item['type']} ¥{item.get('amount', 0)} {via}\n  {item.get('description', '')[:50]}..."
-            )
-
-        return f"最近{len(records)}条审批记录：\n" + "\n".join(records)
+        return self.format_result(
+            data=result.data,
+            summary=f"最近 {len(result.data)} 条审批记录",
+            actions=[
+                {"label": "查看员工信息", "tool": "get_employee_info", "args": {"query": ""}},
+                {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
+            ],
+        )
 
 
 class ApprovalTool(BaseTool):
@@ -634,7 +638,7 @@ class ApprovalTool(BaseTool):
         try:
             uuid.UUID(req_id)
         except (ValueError, TypeError, AttributeError):
-            return f"request_id '{req_id}' 不是有效的UUID格式，请检查审批单ID。"
+            return self.format_result(data=None, summary=f"request_id '{req_id}' 不是有效的UUID格式，请检查审批单ID")
 
         client = _get_client(config)
 
@@ -666,7 +670,7 @@ class ApprovalTool(BaseTool):
                 request_res.data
                 and float(request_res.data.get("amount", 0)) > manager_approval_limit
             ):
-                return f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
+                return self.format_result(data=None, summary=f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批")
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -678,14 +682,14 @@ class ApprovalTool(BaseTool):
         )
 
         if not fetch_result.data:
-            return f"找不到审批单 {req_id}，请检查ID是否正确。"
+            return self.format_result(data=None, summary=f"找不到审批单 {req_id}，请检查ID是否正确")
 
         request_data = fetch_result.data
 
         # P0 Security: Check if already processed (idempotency)
         if request_data.get("status") != "pending":
             current_status = request_data.get("status")
-            return f"该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
+            return self.format_result(data=None, summary=f"该审批单已被处理，当前状态为: {current_status}，无法重复操作")
 
         submitter = request_data.get("users", {})
         submitter_name = (
@@ -700,18 +704,11 @@ class ApprovalTool(BaseTool):
                 level = request_data.get("approval_level", "")
                 chain_info = f"\n• 审批链步骤: 第{step + 1}步 ({level})"
 
-            return f"""**审批预览** - 请确认后执行
-
-**申请信息**
-- 单号: {req_id[:8]}...
-- 申请人: {submitter_name}
-- 类型: {request_data.get("type", "未知")}
-- 金额: ¥{request_data.get("amount", 0):,.2f}
-- 说明: {request_data.get("description", "无")[:100]}
-- 提交时间: {request_data.get("created_at", "未知")[:10]}{chain_info}
-
-**这是一个不可逆操作**
-如确认批准，请说「确认批准」或重新调用工具并设置 confirm=true"""
+            return self.format_result(
+                data=request_data,
+                summary=f"审批预览 - {submitter_name} 的 {request_data.get('type')} 申请 ¥{request_data.get('amount', 0):,.2f}",
+                actions=[{"label": "确认批准", "tool": "approve_request", "args": {"request_id": req_id, "confirm": True}}],
+            )
 
         # Step 2: Execute with idempotency check
         logger.info(f"[P0 Security] User {user_id} confirmed approval of {req_id}")
@@ -761,10 +758,13 @@ class ApprovalTool(BaseTool):
                     await self._send_approval_notification(
                         client, request_data, submitter_name
                     )
-                    return (
-                        f"已批准审批单 {req_id[:8]}...（{submitter_name} 的 "
-                        f"{request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}）"
-                        f"\n审批链已全部通过。"
+                    return self.format_result(
+                        data={"request_id": req_id, "status": "approved", "type": request_data.get("type"), "amount": request_data.get("amount", 0)},
+                        summary=f"已批准审批单 {req_id[:8]}...（{submitter_name} 的 {request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}），审批链已全部通过",
+                        actions=[
+                            {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
+                            {"label": "驳回申请", "tool": "reject_request", "args": {"request_id": req_id}},
+                        ],
                     )
                 else:
                     # Still pending — notify the next approver in chain
@@ -779,10 +779,13 @@ class ApprovalTool(BaseTool):
                         org_id=request_data.get("organization_id"),
                     )
                     level_label = _LEVEL_NAMES.get(approval_level, approval_level)
-                    return (
-                        f"已批准审批单 {req_id[:8]}... 当前步骤。"
-                        f"\n审批已推进到第 {current_step + 1} 步（{level_label}），"
-                        f"已通知下一级审批人。"
+                    return self.format_result(
+                        data={"request_id": req_id, "status": "pending", "current_step": current_step, "approval_level": approval_level},
+                        summary=f"已批准审批单 {req_id[:8]}... 当前步骤，审批已推进到第 {current_step + 1} 步（{level_label}）",
+                        actions=[
+                            {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
+                            {"label": "驳回申请", "tool": "reject_request", "args": {"request_id": req_id}},
+                        ],
                     )
 
             except RuntimeError as e:
@@ -828,13 +831,16 @@ class ApprovalTool(BaseTool):
             # Send notification
             await self._send_approval_notification(client, request_data, submitter_name)
 
-            return (
-                f"已成功批准审批单 {req_id[:8]}..."
-                f"（{submitter_name} 的 {request_data.get('type')} 申请，"
-                f"¥{request_data.get('amount', 0):,.2f}）"
+            return self.format_result(
+                data={"request_id": req_id, "status": "approved", "type": request_data.get("type"), "amount": request_data.get("amount", 0)},
+                summary=f"已成功批准审批单 {req_id[:8]}...（{submitter_name} 的 {request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}）",
+                actions=[
+                    {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
+                    {"label": "驳回申请", "tool": "reject_request", "args": {"request_id": req_id}},
+                ],
             )
 
-        return "批准失败，该单据可能已被他人处理。"
+        return self.format_result(data=None, summary="批准失败，该单据可能已被他人处理")
 
     @staticmethod
     async def _send_approval_notification(
@@ -940,7 +946,7 @@ class RejectTool(BaseTool):
         try:
             uuid.UUID(req_id)
         except (ValueError, TypeError, AttributeError):
-            return f"request_id '{req_id}' 不是有效的UUID格式，请检查审批单ID。"
+            return self.format_result(data=None, summary=f"request_id '{req_id}' 不是有效的UUID格式，请检查审批单ID")
 
         client = _get_client(config)
 
@@ -972,7 +978,7 @@ class RejectTool(BaseTool):
                 request_res.data
                 and float(request_res.data.get("amount", 0)) > manager_approval_limit
             ):
-                return f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
+                return self.format_result(data=None, summary=f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批")
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -984,14 +990,14 @@ class RejectTool(BaseTool):
         )
 
         if not fetch_result.data:
-            return f"找不到审批单 {req_id}，请检查ID是否正确。"
+            return self.format_result(data=None, summary=f"找不到审批单 {req_id}，请检查ID是否正确")
 
         request_data = fetch_result.data
 
         # P0 Security: Check if already processed (idempotency)
         if request_data.get("status") != "pending":
             current_status = request_data.get("status")
-            return f"该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
+            return self.format_result(data=None, summary=f"该审批单已被处理，当前状态为: {current_status}，无法重复操作")
 
         submitter = request_data.get("users", {})
         submitter_name = (
@@ -1000,20 +1006,11 @@ class RejectTool(BaseTool):
 
         # P0 Security Fix #1: Return preview if not confirmed
         if not confirm:
-            return f"""**驳回预览** - 请确认后执行
-
-**申请信息**
-- 单号: {req_id[:8]}...
-- 申请人: {submitter_name}
-- 类型: {request_data.get("type", "未知")}
-- 金额: ¥{request_data.get("amount", 0):,.2f}
-- 说明: {request_data.get("description", "无")[:100]}
-
-**驳回原因**
-{reason}
-
-**这是一个不可逆操作**
-如确认驳回，请说「确认驳回」或重新调用工具并设置 confirm=true"""
+            return self.format_result(
+                data=request_data,
+                summary=f"驳回预览 - {submitter_name} 的 {request_data.get('type')} 申请 ¥{request_data.get('amount', 0):,.2f}，驳回原因: {reason}",
+                actions=[{"label": "确认驳回", "tool": "reject_request", "args": {"request_id": req_id, "reason": reason, "confirm": True}}],
+            )
 
         # Step 2: Execute with idempotency check
         logger.info(f"[P0 Security] User {user_id} confirmed rejection of {req_id}")
@@ -1056,7 +1053,14 @@ class RejectTool(BaseTool):
                 # Send rejection notification
                 await self._send_rejection_notification(client, request_data, reason)
 
-                return f"已驳回审批单 {req_id[:8]}...。驳回原因：{reason}"
+                return self.format_result(
+                    data={"request_id": req_id, "status": "rejected", "reason": reason},
+                    summary=f"已驳回审批单 {req_id[:8]}...，驳回原因：{reason}",
+                    actions=[
+                        {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
+                        {"label": "批准申请", "tool": "approve_request", "args": {"request_id": req_id}},
+                    ],
+                )
 
             except RuntimeError as e:
                 logger.warning(f"Chain advance (reject) failed for {req_id}: {e}")
@@ -1102,9 +1106,16 @@ class RejectTool(BaseTool):
             # Send rejection notification
             await self._send_rejection_notification(client, request_data, reason)
 
-            return f"已驳回审批单 {req_id[:8]}...。驳回原因：{reason}"
+            return self.format_result(
+                data={"request_id": req_id, "status": "rejected", "reason": reason},
+                summary=f"已驳回审批单 {req_id[:8]}...，驳回原因：{reason}",
+                actions=[
+                    {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
+                    {"label": "批准申请", "tool": "approve_request", "args": {"request_id": req_id}},
+                ],
+            )
 
-        return "驳回失败，该单据可能已被他人处理。"
+        return self.format_result(data=None, summary="驳回失败，该单据可能已被他人处理")
 
     @staticmethod
     async def _send_rejection_notification(client, request_data: dict, reason: str):

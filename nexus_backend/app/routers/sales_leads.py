@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.services.lead_scoring_service import score_all_leads, score_single_lead
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sales-leads", tags=["Sales Leads"])
@@ -119,3 +120,50 @@ async def update_lead(
     except Exception as e:
         logger.error(f"Failed to update lead: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新线索失败")
+
+
+@router.get("/{lead_id}/score")
+async def get_lead_score(
+    lead_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取单个线索评分"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+
+        result = await score_single_lead(db, lead_id, org_id)
+        if not result:
+            raise api_error(ErrorCode.NOT_FOUND, "线索不存在")
+        return api_success(data={"lead": result}, message="评分完成")
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error(f"Failed to score lead: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "评分失败")
+
+
+@router.post("/score-all")
+async def score_all(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """批量评分所有线索"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+
+        result = await score_all_leads(db, org_id)
+        return api_success(data=result, message=f"已评分 {result.get('scored', 0)} 条线索")
+    except Exception as e:
+        logger.error(f"Failed to score all leads: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "批量评分失败")

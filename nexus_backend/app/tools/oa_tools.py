@@ -418,7 +418,7 @@ class LeaveQueryTool(BaseTool):
             )
 
             if not requests.data:
-                return "📋 您最近没有请假记录。"
+                return self.format_result(data={}, summary=f"您最近没有请假记录。")
 
             type_names = {
                 "annual": "年假",
@@ -1000,7 +1000,7 @@ class OnboardingChecklistTool(BaseTool):
 
             items = _json.loads(clean)
             if not isinstance(items, list):
-                return f"📋 AI 生成的入职清单:\n\n{checklist_text}"
+                return self.format_result(data={}, summary=f"AI 生成的入职清单:\n\n{checklist_text}")
 
             # 获取组织ID
             org_id = config.get("org_id") if config else None
@@ -1042,7 +1042,7 @@ class OnboardingChecklistTool(BaseTool):
 📌 所有任务已创建到任务管理系统中。"""
 
         except _json.JSONDecodeError:
-            return f"📋 AI 生成的入职清单:\n\n{checklist_text}"
+            return self.format_result(data={}, summary=f"AI 生成的入职清单:\n\n{checklist_text}")
         except Exception as e:
             return safe_tool_error(e, "入职清单生成")
 
@@ -1157,4 +1157,4 @@ class SendNotificationTool(BaseTool):
                 return safe_tool_error(e, "发送通知")
 
         names = "、".join(u["name"] for u in users)
-        return f"✅ 已通知 {names}"
+        return self.format_result(data={}, summary=f"已通知 {names}")

@@ -72,7 +72,11 @@ class ListApprovalFlowsTool(BaseTool):
             )
 
             if not flows:
-                return "📋 当前暂无审批流模板。"
+                return self.format_result(
+                    data=[],
+                    summary="当前暂无审批流模板",
+                    actions=[{"label": "创建审批流", "tool": "create_approval_flow", "args": {}}],
+                )
 
             trigger_labels = {
                 "leave": "请假审批",
@@ -81,20 +85,26 @@ class ListApprovalFlowsTool(BaseTool):
                 "work_order": "工单审批",
             }
 
-            lines = [f"📋 共找到 {len(flows)} 个审批流模板:\n"]
+            flow_list = []
             for flow in flows:
                 ttype = trigger_labels.get(
                     flow.get("trigger_type", ""), flow.get("trigger_type", "")
                 )
                 steps_count = len(flow.get("steps", []))
                 is_active = "启用" if flow.get("is_active") else "停用"
-                lines.append(
-                    f"- **{flow.get('name', '未知')}** | 触发类型: {ttype} | "
-                    f"步骤数: {steps_count} | 状态: {is_active} | "
-                    f"ID: {flow['id'][:8]}..."
-                )
+                flow_list.append({
+                    "name": flow.get("name", "未知"),
+                    "trigger_type": ttype,
+                    "steps_count": steps_count,
+                    "status": is_active,
+                    "id": flow["id"],
+                })
 
-            return "\n".join(lines)
+            return self.format_result(
+                data={"total": len(flows), "flows": flow_list},
+                summary=f"共找到 {len(flows)} 个审批流模板",
+                actions=[{"label": "创建审批流", "tool": "create_approval_flow", "args": {}}],
+            )
 
         except Exception as e:
             logger.error(f"查询审批流列表失败: {e}")
@@ -185,12 +195,15 @@ class CreateApprovalFlowTool(BaseTool):
             }
             ttype = trigger_labels.get(trigger_type, trigger_type)
 
-            return (
-                f"✅ 审批流创建成功！\n\n"
-                f"- 名称: {name}\n"
-                f"- 触发类型: {ttype}\n"
-                f"- 审批步骤数: {len(steps)}\n"
-                f"- ID: {flow['id']}"
+            return self.format_result(
+                data={
+                    "id": flow["id"],
+                    "name": name,
+                    "trigger_type": ttype,
+                    "steps_count": len(steps),
+                },
+                summary=f"审批流「{name}」创建成功，含 {len(steps)} 个审批步骤",
+                actions=[{"label": "查看审批流列表", "tool": "list_approval_flows", "args": {}}],
             )
 
         except Exception as e:

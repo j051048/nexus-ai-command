@@ -424,7 +424,7 @@ class UpdateAssetTool(BaseTool):
                 db=client,
             )
 
-            return f"✅ 资产已更新: {asset.get('name')} [{asset.get('asset_code')}]"
+            return self.format_result(data={}, summary=f"资产已更新: {asset.get('name')} [{asset.get('asset_code')}]")
 
         except Exception as e:
             logger.error(f"更新资产失败: {e}")

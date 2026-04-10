@@ -124,7 +124,10 @@ class SmartApprovalTool(BaseTool):
         pending_list = pending_res.data or []
 
         if not pending_list:
-            return "✅ 太棒了！当前没有待审批的事项，您可以放心休息。"
+            return self.format_result(
+                data=None,
+                summary="当前没有待审批的事项，您可以放心休息",
+            )
 
         # 根据序号筛选
         if request_numbers:
@@ -166,14 +169,17 @@ class SmartApprovalTool(BaseTool):
                     )
 
         if not selected_requests:
-            return "❌ 没有符合条件的审批事项"
+            return self.format_result(
+                data=None,
+                summary="没有符合条件的审批事项",
+            )
 
         # P0 Security: Limit batch size
         if len(selected_requests) > MAX_BATCH_SIZE:
-            return f"""⚠️ 安全限制：单次批量操作最多处理 {MAX_BATCH_SIZE} 条
-
-当前符合条件的申请有 {len(selected_requests)} 条。
-请使用 request_numbers 参数指定具体序号，或分批处理。"""
+            return self.format_result(
+                data={"max_batch_size": MAX_BATCH_SIZE, "total_matching": len(selected_requests)},
+                summary=f"安全限制：单次批量操作最多处理{MAX_BATCH_SIZE}条，当前符合条件{len(selected_requests)}条，请分批处理",
+            )
 
         # Calculate totals for preview
         total_amount = sum(float(r.get("amount", 0)) for r in selected_requests)
@@ -187,11 +193,7 @@ class SmartApprovalTool(BaseTool):
                 "batch_approve": "批量批准",
             }.get(action, action)
 
-            preview = f"""📋 **{action_name}预览** - 请确认后执行
-
-**将要处理的申请** ({len(selected_requests)} 件，共 ¥{total_amount:,.2f})
-
-"""
+            preview_items = []
             for i, req in enumerate(selected_requests[:5], 1):
                 user_info = req.get("users", {})
                 user_name = (
@@ -199,16 +201,24 @@ class SmartApprovalTool(BaseTool):
                     if isinstance(user_info, dict)
                     else "未知"
                 )
-                preview += f"{i}. {user_name} - {req.get('type', '未知')} ¥{req.get('amount', 0):,.0f}\n"
+                preview_items.append({
+                    "index": i,
+                    "user_name": user_name,
+                    "type": req.get("type", "未知"),
+                    "amount": float(req.get("amount", 0)),
+                })
 
-            if len(selected_requests) > 5:
-                preview += f"... 还有 {len(selected_requests) - 5} 条\n"
-
-            preview += f"""
-⚠️ **这是不可逆操作**
-如确认{action_name}，请说「确认{action_name}」或重新调用工具并设置 confirm=true"""
-
-            return preview
+            return self.format_result(
+                data={
+                    "action": action_name,
+                    "count": len(selected_requests),
+                    "total_amount": total_amount,
+                    "preview_items": preview_items,
+                    "remaining": max(0, len(selected_requests) - 5),
+                },
+                summary=f"{action_name}预览: {len(selected_requests)}件，共¥{total_amount:,.2f}，请确认后执行",
+                actions=[{"label": f"确认{action_name}", "tool": "smart_approve", "args": {"action": action, "confirm": True}}],
+            )
 
         # P0 Security: Log the confirmed action
         logger.info(
@@ -337,20 +347,16 @@ class SmartApprovalTool(BaseTool):
                             f"Multi-channel approval notification failed: {e}"
                         )
 
-            result_msg = f"""✅ 批量审批完成！
-
-**处理结果**
-- 批准数量: {approved_count} 件
-- 跳过数量: {skipped_count} 件（已被他人处理）
-- 涉及金额: ¥{total_amount:,.2f}
-- 处理时间: {datetime.now().strftime("%H:%M:%S")}
-
-**已批准明细**
-{self._format_request_list(selected_requests[:5])}
-
-📧 已通知所有申请人
-"""
-            return result_msg
+            return self.format_result(
+                data={
+                    "approved_count": approved_count,
+                    "skipped_count": skipped_count,
+                    "total_amount": total_amount,
+                    "processed_at": datetime.now().strftime("%H:%M:%S"),
+                },
+                summary=f"批量审批完成，批准{approved_count}件，跳过{skipped_count}件，涉及金额¥{total_amount:,.2f}",
+                actions=[{"label": "查看每日简报", "tool": "get_daily_briefing", "args": {}}],
+            )
 
         elif action == "reject":
             # Use advance_step for chain-bound requests, fallback to RPC for others

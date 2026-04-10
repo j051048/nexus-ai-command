@@ -776,7 +776,12 @@ async def _execute_single_tool(
                 ),
                 timeout=timeout,
             )
-            record.result = str(result)
+            # P0-1: Handle both str and dict (format_result) returns from tools
+            if isinstance(result, dict):
+                import json
+                record.result = json.dumps(result, ensure_ascii=False, default=str)
+            else:
+                record.result = str(result)
             record.status = "success"
             record.duration_ms = int((time.time() - start_time) * 1000)
             record_tool_execution(record.tool_name, True, record.duration_ms)

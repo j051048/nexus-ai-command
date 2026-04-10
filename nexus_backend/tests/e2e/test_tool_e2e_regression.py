@@ -498,6 +498,20 @@ class TestToolMetadataRegression:
         "assign_task",
     ]
 
+    # P1-7: Extended to Top 30
+    TOP_30_TOOLS = TOP_20_TOOLS + [
+        "add_follow_up",
+        "analyze_contract",
+        "approve_expense",
+        "asset_statistics",
+        "attendance_statistics",
+        "auto_dispatch",
+        "check_inventory",
+        "create_work_order",
+        "get_contract_detail",
+        "query_oa_status",
+    ]
+
     @pytest.mark.parametrize("tool_name", TOP_20_TOOLS)
     def test_tool_has_valid_metadata(self, tool_name):
         """每个工具应有完整的 name, description, parameters"""
@@ -513,6 +527,20 @@ class TestToolMetadataRegression:
     @pytest.mark.parametrize("tool_name", TOP_20_TOOLS)
     def test_tool_has_run_method(self, tool_name):
         """每个工具应有 async run 方法"""
+        tool = _load_tool(tool_name)
+        assert hasattr(tool, "run"), f"{tool_name} missing run method"
+        assert asyncio.iscoroutinefunction(tool.run), f"{tool_name}.run should be async"
+
+    # P1-7: Top 30 extended metadata tests
+    @pytest.mark.parametrize("tool_name", TOP_30_TOOLS)
+    def test_top30_tool_has_valid_metadata(self, tool_name):
+        """Top30 工具应有完整的 name, description, parameters"""
+        tool = _load_tool(tool_name)
+        _assert_tool_metadata(tool)
+
+    @pytest.mark.parametrize("tool_name", TOP_30_TOOLS)
+    def test_top30_tool_has_run_method(self, tool_name):
+        """Top30 工具应有 async run 方法"""
         tool = _load_tool(tool_name)
         assert hasattr(tool, "run"), f"{tool_name} missing run method"
         assert asyncio.iscoroutinefunction(tool.run), f"{tool_name}.run should be async"

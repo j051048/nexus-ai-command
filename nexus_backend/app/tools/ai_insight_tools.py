@@ -360,7 +360,7 @@ class AnomalyDetectionTool(BaseTool):
                     "inventory": "库存",
                     "all": "全部",
                 }
-                return f"✅ {scope_labels.get(scope, scope)}范围未检测到明显异常。"
+                return self.format_result(data={}, summary=f"{scope_labels.get(scope, scope)}范围未检测到明显异常。")
 
             return "🔍 **异常检测报告**\n\n" + "\n\n".join(alerts)
 
@@ -420,7 +420,7 @@ class PredictiveMaintenanceTool(BaseTool):
             assets = asset_result.data or []
 
             if not assets:
-                return "📋 当前没有使用中的资产需要维护检查。"
+                return self.format_result(data={}, summary=f"当前没有使用中的资产需要维护检查。")
 
             now = datetime.now(UTC)
             suggestions: list[str] = []
@@ -481,7 +481,7 @@ class PredictiveMaintenanceTool(BaseTool):
 
             if not suggestions:
                 type_note = f"（类型: {asset_type}）" if asset_type else ""
-                return f"✅ 所有使用中的资产{type_note}暂无维护需求。"
+                return self.format_result(data={}, summary=f"所有使用中的资产{type_note}暂无维护需求。")
 
             return (
                 f"🔧 **维护预测报告**\n以下 {len(suggestions)} 项资产建议安排维护:\n\n"

@@ -478,7 +478,7 @@ class UpdateWorkOrderTool(BaseTool):
             }
             status = status_labels.get(order.get("status", ""), order.get("status", ""))
 
-            return f"✅ 工单已更新: {order.get('title')} → 状态: {status}"
+            return self.format_result(data={}, summary=f"工单已更新: {order.get('title')} → 状态: {status}")
 
         except Exception as e:
             logger.error(f"更新工单失败: {e}")

@@ -1036,3 +1036,36 @@ def measure_action_outcomes():
         return f"Measured {measured}/{len(actions)} action outcomes"
 
     return _run_async(_run())
+
+
+# ---------------------------------------------------------------------------
+# P1-4: Lead Scoring — Recalculate lead scores periodically
+# ---------------------------------------------------------------------------
+
+
+@celery_app.task
+@_with_redis_lock("score_all_leads", lock_ttl=600)
+def score_all_leads_task():
+    """每小时重算所有组织的线索评分。"""
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.lead_scoring_service import score_all_leads
+
+        if not supabase:
+            return "skipped: no db"
+
+        orgs_res = await supabase.table("organizations").select("id").execute()
+        org_ids = [o["id"] for o in (orgs_res.data or [])]
+
+        total_scored = 0
+        for org_id in org_ids:
+            try:
+                result = await score_all_leads(supabase, org_id)
+                total_scored += result.get("scored", 0)
+            except Exception as e:
+                logger.error(f"Lead scoring failed for org {org_id}: {e}")
+
+        return f"Scored {total_scored} leads across {len(org_ids)} orgs"
+
+    return _run_async(_run())

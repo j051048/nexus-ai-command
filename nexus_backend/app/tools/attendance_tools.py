@@ -70,11 +70,11 @@ class ClockInOutTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         clock_type = args.get("clock_type", "").strip()
         if not clock_type:
-            return "❌ 请指定打卡类型（clock_in/clock_out/field_work）"
+            return self.format_result(data=None, summary="请指定打卡类型（clock_in/clock_out/field_work）")
 
         # 直接使用 user_id 作为 employee_id（users 表的 id 即用户ID）
         employee_id = user_id
@@ -95,17 +95,17 @@ class ClockInOutTool(BaseTool):
                 "field_work": "外勤打卡",
             }
             ctype = type_labels.get(clock_type, clock_type)
+            time_str = str(record.get('clock_time', ''))[:19]
 
-            return (
-                f"✅ {ctype}成功！\n\n"
-                f"- 打卡时间: {str(record.get('clock_time', ''))[:19]}\n"
-                f"- 打卡类型: {ctype}\n"
-                f"- ID: {record['id']}"
+            return self.format_result(
+                data={"type": ctype, "clock_time": time_str, "id": record["id"]},
+                summary=f"{ctype}成功",
+                actions=[{"label": "查看考勤记录", "tool": "get_attendance_record"}],
             )
 
         except Exception as e:
             logger.error(f"打卡失败: {e}")
-            return safe_tool_error(e, "打卡")
+            return self.format_result(data=None, summary=safe_tool_error(e, "打卡"))
 
 
 class GetAttendanceRecordTool(BaseTool):
@@ -153,12 +153,12 @@ class GetAttendanceRecordTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         if args.get("employee_id") and (
             err := _validate_uuid(args["employee_id"], "employee_id")
         ):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=f"参数错误: {err}")
 
         try:
             records = await attendance_service.get_attendance_records(
@@ -170,7 +170,11 @@ class GetAttendanceRecordTool(BaseTool):
             )
 
             if not records:
-                return "📋 当前暂无考勤记录。"
+                return self.format_result(
+                    data=[],
+                    summary="当前暂无考勤记录",
+                    actions=[{"label": "去打卡", "tool": "clock_in_out"}],
+                )
 
             type_labels = {
                 "clock_in": "上班",
@@ -178,20 +182,26 @@ class GetAttendanceRecordTool(BaseTool):
                 "field_work": "外勤",
             }
 
-            lines = [f"📋 共找到 {len(records)} 条考勤记录:\n"]
+            items = []
             for r in records:
                 ctype = type_labels.get(
                     r.get("clock_type", ""), r.get("clock_type", "")
                 )
-                lines.append(
-                    f"- {str(r.get('clock_time', ''))[:16]} | 类型: {ctype} | 状态: {r.get('status', '正常')}"
-                )
+                items.append({
+                    "clock_time": str(r.get('clock_time', ''))[:16],
+                    "type": ctype,
+                    "status": r.get('status', '正常'),
+                })
 
-            return "\n".join(lines)
+            return self.format_result(
+                data={"records": items, "total": len(records)},
+                summary=f"共找到{len(records)}条考勤记录",
+                actions=[{"label": "查看统计", "tool": "attendance_statistics"}],
+            )
 
         except Exception as e:
             logger.error(f"查询考勤记录失败: {e}")
-            return safe_tool_error(e, "查询考勤记录")
+            return self.format_result(data=None, summary=safe_tool_error(e, "查询考勤记录"))
 
 
 class CreateShiftScheduleTool(BaseTool):
@@ -242,19 +252,19 @@ class CreateShiftScheduleTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         employee_id = args.get("employee_id", "").strip()
         shift_date = args.get("shift_date", "").strip()
         shift_type_id = args.get("shift_type_id", "").strip()
 
         if not employee_id or not shift_date or not shift_type_id:
-            return "❌ 员工ID、排班日期和班次类型不能为空"
+            return self.format_result(data=None, summary="员工ID、排班日期和班次类型不能为空")
 
         if err := _validate_uuid(employee_id, "employee_id"):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=f"参数错误: {err}")
         if err := _validate_uuid(shift_type_id, "shift_type_id"):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=f"参数错误: {err}")
 
         try:
             schedule = await attendance_service.create_shift_schedule(
@@ -265,11 +275,15 @@ class CreateShiftScheduleTool(BaseTool):
                 db=client,
             )
 
-            return f"✅ 排班创建成功！\n\n- 员工ID: {employee_id[:8]}...\n- 排班日期: {shift_date}\n- ID: {schedule['id']}"
+            return self.format_result(
+                data={"employee_id": employee_id, "shift_date": shift_date, "id": schedule["id"]},
+                summary="排班创建成功",
+                actions=[{"label": "查看排班表", "tool": "list_shift_schedules"}],
+            )
 
         except Exception as e:
             logger.error(f"创建排班失败: {e}")
-            return safe_tool_error(e, "创建排班")
+            return self.format_result(data=None, summary=safe_tool_error(e, "创建排班"))
 
 
 class ListShiftSchedulesTool(BaseTool):
@@ -317,12 +331,12 @@ class ListShiftSchedulesTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         if args.get("department_id") and (
             err := _validate_uuid(args["department_id"], "department_id")
         ):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=f"参数错误: {err}")
 
         try:
             schedules = await attendance_service.list_shift_schedules(
@@ -334,25 +348,35 @@ class ListShiftSchedulesTool(BaseTool):
             )
 
             if not schedules:
-                return "📋 当前暂无排班记录。"
+                return self.format_result(
+                    data=[],
+                    summary="当前暂无排班记录",
+                    actions=[{"label": "创建排班", "tool": "create_shift_schedule"}],
+                )
 
-            lines = [f"📅 共找到 {len(schedules)} 条排班记录:\n"]
+            items = []
             for s in schedules:
                 employee_name = (
                     s.get("employee", {}).get("name", "未知")
                     if s.get("employee")
                     else "未知"
                 )
-                lines.append(
-                    f"- {s.get('shift_date')} | 员工: {employee_name} | "
-                    f"班次: {s.get('shift_type', {}).get('name', '未知') if s.get('shift_type') else '未知'}"
-                )
+                shift_name = s.get('shift_type', {}).get('name', '未知') if s.get('shift_type') else '未知'
+                items.append({
+                    "shift_date": s.get("shift_date"),
+                    "employee_name": employee_name,
+                    "shift_type": shift_name,
+                })
 
-            return "\n".join(lines)
+            return self.format_result(
+                data={"schedules": items, "total": len(schedules)},
+                summary=f"共找到{len(schedules)}条排班记录",
+                actions=[{"label": "创建排班", "tool": "create_shift_schedule"}],
+            )
 
         except Exception as e:
             logger.error(f"查询排班表失败: {e}")
-            return safe_tool_error(e, "查询排班表")
+            return self.format_result(data=None, summary=safe_tool_error(e, "查询排班表"))
 
 
 class AttendanceStatisticsTool(BaseTool):
@@ -400,12 +424,12 @@ class AttendanceStatisticsTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         if args.get("department_id") and (
             err := _validate_uuid(args["department_id"], "department_id")
         ):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=f"参数错误: {err}")
 
         try:
             stats = await attendance_service.get_attendance_statistics(
@@ -416,18 +440,21 @@ class AttendanceStatisticsTool(BaseTool):
                 db=client,
             )
 
-            return (
-                f"📊 考勤统计:\n\n"
-                f"- 总记录数: {stats.get('total_records', 0)}\n"
-                f"- 准时打卡: {stats.get('on_time_count', 0)}\n"
-                f"- 迟到: {stats.get('late_count', 0)}\n"
-                f"- 早退: {stats.get('early_leave_count', 0)}\n"
-                f"- 准时率: {stats.get('on_time_rate', 0)}%"
+            return self.format_result(
+                data={
+                    "total_records": stats.get("total_records", 0),
+                    "on_time_count": stats.get("on_time_count", 0),
+                    "late_count": stats.get("late_count", 0),
+                    "early_leave_count": stats.get("early_leave_count", 0),
+                    "on_time_rate": stats.get("on_time_rate", 0),
+                },
+                summary=f"考勤统计: 准时率{stats.get('on_time_rate', 0)}%",
+                actions=[{"label": "查看考勤记录", "tool": "get_attendance_record"}],
             )
 
         except Exception as e:
             logger.error(f"获取考勤统计失败: {e}")
-            return safe_tool_error(e, "获取考勤统计")
+            return self.format_result(data=None, summary=safe_tool_error(e, "获取考勤统计"))
 
 
 class RequestLeaveTool(BaseTool):
@@ -493,14 +520,14 @@ class RequestLeaveTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         leave_type = args.get("leave_type", "").strip()
         start_date = args.get("start_date", "").strip()
         end_date = args.get("end_date", "").strip()
 
         if not leave_type or not start_date or not end_date:
-            return "❌ 请假类型、开始日期和结束日期不能为空"
+            return self.format_result(data=None, summary="请假类型、开始日期和结束日期不能为空")
 
         # 直接使用 user_id 作为 employee_id（users 表的 id 即用户ID）
         employee_id = user_id
@@ -535,16 +562,18 @@ class RequestLeaveTool(BaseTool):
             }
             ltype = type_labels.get(leave_type, leave_type)
 
-            return (
-                f"✅ 请假申请已提交！\n\n"
-                f"- 请假类型: {ltype}\n"
-                f"- 开始日期: {start_date}\n"
-                f"- 结束日期: {end_date}\n"
-                f"- 状态: 待审批\n"
-                f"- ID: {leave['id']}\n\n"
-                f"请假申请已提交，等待审批。"
+            return self.format_result(
+                data={
+                    "leave_type": ltype,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "status": "待审批",
+                    "id": leave["id"],
+                },
+                summary=f"{ltype}申请已提交，等待审批",
+                actions=[{"label": "查看考勤记录", "tool": "get_attendance_record"}],
             )
 
         except Exception as e:
             logger.error(f"请假申请失败: {e}")
-            return safe_tool_error(e, "请假申请")
+            return self.format_result(data=None, summary=safe_tool_error(e, "请假申请"))

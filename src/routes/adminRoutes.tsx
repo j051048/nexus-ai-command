@@ -31,6 +31,9 @@ import {
   PaymentPage,
   AssetManagement,
   CertificateManagement,
+  BillingDashboard,
+  CheckoutSuccessPage,
+  CheckoutCancelPage,
 } from "./lazyImports";
 
 export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.ReactNode; allowedRoles?: string[] }>) {
@@ -57,6 +60,9 @@ export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.Re
       <Route path="reports" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="报表"><ReportsPage /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="report-builder" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="报表构建"><ReportBuilderPage /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="payments" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="支付"><PaymentPage /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="billing" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="订阅管理"><BillingDashboard /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="billing/success" element={<CheckoutSuccessPage />} />
+      <Route path="billing/canceled" element={<CheckoutCancelPage />} />
 
       {/* Admin only */}
       <Route path="settings" element={<AdminRoute><ModuleErrorBoundary moduleName="AI设置"><AISettingsPanel /></ModuleErrorBoundary></AdminRoute>} />

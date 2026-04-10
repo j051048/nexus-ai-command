@@ -20,6 +20,7 @@ export const BattlecardLibrary = lazyWithRetry(() => import("@/pages/BattlecardL
 
 // Documents & Knowledge
 export const DocumentsPage = lazyWithRetry(() => import("@/components/documents/DocumentsPage").then(m => ({ default: m.DocumentsPage })));
+export const KnowledgeGraphPage = lazyWithRetry(() => import("@/pages/knowledge/KnowledgeGraphPage"));
 export const DataImportPage = lazyWithRetry(() => import("@/pages/DataImportPage"));
 
 // Business Management
@@ -53,6 +54,11 @@ export const NotificationCenter = lazyWithRetry(() => import("@/pages/Notificati
 export const ReportsPage = lazyWithRetry(() => import("@/pages/ReportsPage"));
 export const ReportBuilderPage = lazyWithRetry(() => import("@/pages/ReportBuilderPage"));
 export const PaymentPage = lazyWithRetry(() => import("@/pages/PaymentPage"));
+
+// Billing (Stripe)
+export const BillingDashboard = lazyWithRetry(() => import("@/pages/billing/BillingDashboard"));
+export const CheckoutSuccessPage = lazyWithRetry(() => import("@/pages/billing/CheckoutSuccessPage"));
+export const CheckoutCancelPage = lazyWithRetry(() => import("@/pages/billing/CheckoutCancelPage"));
 
 // Admin
 export const AISettingsPanel = lazyWithRetry(() => import("@/components/settings/AISettingsPanel").then(m => ({ default: m.AISettingsPanel })));

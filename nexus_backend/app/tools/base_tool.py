@@ -236,13 +236,13 @@ class BaseTool(ABC):
     @abstractmethod
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    ) -> str | dict:
         """
         Execute the tool logic.
         :param args: Arguments parsed from the LLM's JSON output
         :param user_id: ID of the user invoking the tool
         :param config: AI Configuration (API Key, Base URL) for nested LLM calls
-        :return: Text result to be fed back to the LLM
+        :return: Text result or structured dict (via format_result) to be fed back to the LLM
         """
         pass
 

@@ -189,7 +189,7 @@ class InventoryInTool(BaseTool):
                 db=client,
             )
 
-            return f"✅ 入库成功！\n\n- 物品ID: {item_id[:8]}...\n- 入库数量: {quantity}\n- 记录ID: {record.get('id', '')}"
+            return self.format_result(data={}, summary=f"入库成功！\n\n- 物品ID: {item_id[:8]}...\n- 入库数量: {quantity}\n- 记录ID: {record.get('i...")
 
         except Exception as e:
             logger.error(f"入库失败: {e}")
@@ -281,7 +281,7 @@ class InventoryOutTool(BaseTool):
                 db=client,
             )
 
-            return f"✅ 出库成功！\n\n- 物品ID: {item_id[:8]}...\n- 出库数量: {quantity}\n- 记录ID: {record.get('id', '')}"
+            return self.format_result(data={}, summary=f"出库成功！\n\n- 物品ID: {item_id[:8]}...\n- 出库数量: {quantity}\n- 记录ID: {record.get('i...")
 
         except Exception as e:
             logger.error(f"出库失败: {e}")

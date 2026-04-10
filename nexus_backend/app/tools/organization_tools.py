@@ -256,7 +256,7 @@ class UpdateDepartmentTool(BaseTool):
                 db=client,
             )
 
-            return f"✅ 部门已更新: {department.get('name')}"
+            return self.format_result(data={}, summary=f"部门已更新: {department.get('name')}")
 
         except Exception as e:
             logger.error(f"更新部门失败: {e}")
@@ -649,7 +649,7 @@ class UpdateEmployeeTool(BaseTool):
                 db=client,
             )
 
-            return f"✅ 员工信息已更新: {employee.get('name')}"
+            return self.format_result(data={}, summary=f"员工信息已更新: {employee.get('name')}")
 
         except Exception as e:
             logger.error(f"更新员工失败: {e}")

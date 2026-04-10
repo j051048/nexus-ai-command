@@ -104,7 +104,7 @@ class CreateTaskTool(BaseTool):
             if result.data:
                 task = result.data[0]
                 task_id = task["id"]
-                return f"✅ 任务已创建: [{task_id[:8]}] {title}"
+                return self.format_result(data={}, summary=f"任务已创建: [{task_id[:8]}] {title}")
             return "任务创建失败"
         except Exception as e:
             logger.error(f"[CreateTask] Failed: {e}", exc_info=True)
@@ -195,7 +195,7 @@ class UpdateTaskTool(BaseTool):
 
             if result.data:
                 task = result.data[0]
-                return f"✅ 任务已更新: [{task['id'][:8]}] {task.get('title', '')} → {task.get('status', '')}"
+                return self.format_result(data={}, summary=f"任务已更新: [{task['id'][:8]}] {task.get('title', '')} → {task.get('status', '')}")
             return f"未找到任务: {task_id}"
         except Exception as e:
             logger.error(f"[UpdateTask] Failed: {e}", exc_info=True)

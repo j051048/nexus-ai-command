@@ -680,6 +680,98 @@ async def get_approval_progress(
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
+@router.post("/{request_id}/urge")
+async def urge_approval(
+    request: Request,
+    request_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    催办审批。
+
+    对待处理状态的审批发起催办，更新催办计数和时间，并通知审批人。
+    仅可催办 status=pending 的审批。
+    """
+    client = getattr(request.state, "db", None)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
+
+    try:
+        result = await ApprovalService.urge_approval(
+            approval_id=request_id,
+            user_id=user_id,
+            reason="催办",
+            db=client,
+        )
+        return api_success(data=result, message=result.get("message", "催办成功"))
+    except ValueError as e:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+    except Exception as e:
+        logger.error(f"Urge approval error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "催办操作失败")
+
+
+@router.get("/{request_id}/risk-analysis")
+async def get_risk_analysis(
+    request: Request,
+    request_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    获取审批风险分析。
+
+    返回风险评分、合规标记、历史上下文和 AI 建议。
+    """
+    org_id = getattr(request.state, "org_id", None)
+    client = getattr(request.state, "db", None)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
+
+    try:
+        # 获取审批请求基本信息
+        req_result = (
+            await client.table("approval_requests")
+            .select("id, type, amount, description, submitted_by, metadata")
+            .eq("id", request_id)
+            .maybe_single()
+            .execute()
+        )
+        if not req_result.data:
+            raise api_error(
+                ErrorCode.RESOURCE_NOT_FOUND, f"审批请求 {request_id} 不存在"
+            )
+
+        req_data = req_result.data
+        risk_analysis = await ApprovalService.analyze_risk(
+            request_type=req_data.get("type", ""),
+            amount=float(req_data.get("amount", 0)),
+            description=req_data.get("description", ""),
+            user_id=req_data.get("submitted_by", ""),
+            org_id=org_id or "",
+            db=client,
+        )
+
+        # 附带催办信息（从 metadata 中提取）
+        metadata = req_data.get("metadata") or {}
+        urge_info = {
+            "urge_count": metadata.get("urgency_count", 0),
+            "last_urged_at": metadata.get("last_urgency_time", None),
+        }
+
+        return api_success(
+            data={
+                "risk_analysis": risk_analysis,
+                "urge_info": urge_info,
+            },
+            message="风险分析获取成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get risk analysis error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "风险分析获取失败")
+
+
 @router.post("/submit-smart")
 async def submit_smart_approval(
     request: Request,

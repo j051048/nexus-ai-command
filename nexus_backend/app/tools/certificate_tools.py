@@ -94,7 +94,7 @@ class ListCertificatesTool(BaseTool):
             )
 
             if not certs:
-                return "📋 当前暂无证照记录。"
+                return self.format_result(data={}, summary=f"当前暂无证照记录。")
 
             status_labels = {
                 "valid": "有效",
@@ -301,7 +301,7 @@ class ExpiringCertsTool(BaseTool):
             )
 
             if not certs:
-                return f"✅ 未来 {days} 天内没有即将到期的证照。"
+                return self.format_result(data={}, summary=f"未来 {days} 天内没有即将到期的证照。")
 
             holder_labels = {
                 "company": "公司",

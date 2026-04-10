@@ -8,13 +8,17 @@ import {
     ChevronDown,
     ChevronUp,
     ShieldAlert,
+    BellRing,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ApprovalRequest, useApprovalProgress } from '@/hooks/useApprovals';
+import { Badge } from '@/components/ui/badge';
+import { ApprovalRequest, useApprovalProgress, useUrgeApproval } from '@/hooks/useApprovals';
 import { DynamicFormRenderer } from '@/components/forms/DynamicFormRenderer';
 import { useFormSchema } from '@/hooks/useFormSchemas';
 import type { FormField } from '@/components/forms/DynamicFormRenderer';
 import { ApprovalProgressTracker } from './ApprovalProgressTracker';
+import { aiClient } from '@/api/aiClient';
+import { toast } from 'sonner';
 
 const statusConfig = {
     pending: { label: '待处理', color: 'bg-warning/20 text-warning', icon: <CheckCircle2 className="w-4 h-4" /> },
@@ -23,7 +27,7 @@ const statusConfig = {
 };
 
 const approvalTypesIcons: Record<string, React.ReactNode> = {
-    travel: <CheckCircle2 className="w-5 h-5" />, // These will be passed or mapped
+    travel: <CheckCircle2 className="w-5 h-5" />,
     purchase: <CheckCircle2 className="w-5 h-5" />,
     expense: <CheckCircle2 className="w-5 h-5" />,
     leave: <CheckCircle2 className="w-5 h-5" />,
@@ -71,7 +75,7 @@ function FormDataDisplay({ approval }: { approval: ApprovalRequest }) {
     );
 }
 
-// ─── AI 风险分析展示组件 ────────────────────────────────────
+// ─── AI 风险分析展示组件（来自审批链进度 hook） ──────────────
 
 function AIRiskAnalysis({ requestId }: { requestId: string }) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -111,7 +115,6 @@ function AIRiskAnalysis({ requestId }: { requestId: string }) {
             </button>
             {isExpanded && (
                 <div className="p-3 pt-0 space-y-2 border-t border-border/50">
-                    {/* Risk Score Bar */}
                     <div className="mt-2">
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
                             <span>风险评分</span>
@@ -131,13 +134,11 @@ function AIRiskAnalysis({ requestId }: { requestId: string }) {
                             />
                         </div>
                     </div>
-
-                    {/* Compliance Flags */}
                     {riskAnalysis.compliance_flags.length > 0 && (
                         <div>
                             <p className="text-[10px] text-muted-foreground mb-1">合规标记</p>
                             <div className="flex flex-wrap gap-1">
-                                {riskAnalysis.compliance_flags.map((flag, i) => (
+                                {riskAnalysis.compliance_flags.map((flag: string, i: number) => (
                                     <span
                                         key={i}
                                         className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-warning/10 text-warning font-medium"
@@ -148,14 +149,150 @@ function AIRiskAnalysis({ requestId }: { requestId: string }) {
                             </div>
                         </div>
                     )}
-
-                    {/* Historical Context */}
                     {riskAnalysis.historical_context && (
                         <div>
                             <p className="text-[10px] text-muted-foreground mb-1">历史分析</p>
                             <p className="text-xs text-foreground/80 leading-relaxed">
                                 {riskAnalysis.historical_context}
                             </p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── 催办信息展示组件 ────────────────────────────────────────
+
+function UrgeInfo({ approval }: { approval: ApprovalRequest }) {
+    const metadata = (approval as unknown as { metadata?: { urge_count?: number; last_urged_at?: string } }).metadata;
+    const urgeCount = metadata?.urge_count ?? 0;
+    const lastUrgedAt = metadata?.last_urged_at;
+
+    if (urgeCount === 0) return null;
+
+    return (
+        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+            <BellRing className="w-3 h-3 text-warning" />
+            <span>已催办 <span className="font-semibold text-warning">{urgeCount}</span> 次</span>
+            {lastUrgedAt && (
+                <span>· 最近催办: {new Date(lastUrgedAt).toLocaleString('zh-CN')}</span>
+            )}
+        </div>
+    );
+}
+
+// ─── 风险分析面板（从 API 获取） ─────────────────────────────
+
+interface RiskAnalysisData {
+    risk_score: number;
+    compliance_flags: string[];
+    ai_suggestions: string[];
+}
+
+function RiskAnalysisPanel({ approvalId }: { approvalId: string }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [data, setData] = useState<RiskAnalysisData | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [fetched, setFetched] = useState(false);
+
+    const handleToggle = async () => {
+        if (!fetched) {
+            setLoading(true);
+            try {
+                const res = await aiClient.get<RiskAnalysisData>(`api/approval/risk-analysis/${approvalId}`);
+                setData(res.data);
+                setFetched(true);
+                setIsExpanded(true);
+            } catch {
+                toast.error('获取风险分析失败');
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setIsExpanded(!isExpanded);
+        }
+    };
+
+    const riskColor = !data ? 'text-muted-foreground'
+        : data.risk_score >= 70 ? 'text-destructive'
+        : data.risk_score >= 40 ? 'text-warning'
+        : 'text-success';
+
+    return (
+        <div className="mt-3 border border-border/50 rounded-lg overflow-hidden">
+            <button
+                type="button"
+                onClick={handleToggle}
+                disabled={loading}
+                className="w-full flex items-center justify-between p-2.5 hover:bg-secondary/30 transition-colors"
+            >
+                <div className="flex items-center gap-2">
+                    <ShieldAlert className={cn("w-4 h-4", riskColor)} />
+                    <span className="text-xs font-medium text-foreground">风险分析</span>
+                    {data && (
+                        <span className={cn("text-xs font-bold", riskColor)}>
+                            {data.risk_score}分
+                        </span>
+                    )}
+                </div>
+                {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                ) : isExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+            </button>
+            {isExpanded && data && (
+                <div className="p-3 pt-0 space-y-2 border-t border-border/50">
+                    <div className="mt-2">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>风险评分</span>
+                            <span className={cn("font-bold", riskColor)}>
+                                {data.risk_score}/100
+                            </span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                                className={cn(
+                                    "h-full rounded-full transition-all",
+                                    data.risk_score >= 70 ? 'bg-destructive' :
+                                    data.risk_score >= 40 ? 'bg-warning' :
+                                    'bg-success'
+                                )}
+                                style={{ width: `${data.risk_score}%` }}
+                            />
+                        </div>
+                    </div>
+                    {data.compliance_flags.length > 0 && (
+                        <div>
+                            <p className="text-[10px] text-muted-foreground mb-1">合规标记</p>
+                            <div className="flex flex-wrap gap-1">
+                                {data.compliance_flags.map((flag, i) => (
+                                    <Badge
+                                        key={i}
+                                        variant="secondary"
+                                        className="text-[10px] bg-warning/10 text-warning"
+                                    >
+                                        {flag}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {data.ai_suggestions.length > 0 && (
+                        <div>
+                            <p className="text-[10px] text-muted-foreground mb-1">AI 建议</p>
+                            <ul className="space-y-1">
+                                {data.ai_suggestions.map((suggestion, i) => (
+                                    <li key={i} className="text-xs text-foreground/80 leading-relaxed flex items-start gap-1.5">
+                                        <Bot className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
+                                        {suggestion}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
                 </div>
@@ -199,6 +336,8 @@ export function BossApprovalCard({
     const status = statusConfig[approval.status as keyof typeof statusConfig] || statusConfig.pending;
     const isPending = approval.status === 'pending';
     const isSelfSubmitted = currentUserId && approval.submitted_by === currentUserId;
+    const urgeMutation = useUrgeApproval();
+    const isUrging = urgeMutation.isPending && (urgeMutation.variables as string || null) === approval.id;
 
     return (
         <div className={cn(
@@ -220,7 +359,6 @@ export function BossApprovalCard({
                         </div>
                         <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
                             <span>申请人：{approval.submitter_name}</span>
-                            {/* 显示AI代提交标识 */}
                             {(approval as unknown as { submitted_via?: string }).submitted_via === 'ai_assistant' && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/10 text-purple-500 font-medium">
                                     <Bot className="w-3 h-3" />
@@ -243,19 +381,40 @@ export function BossApprovalCard({
                                 驳回原因：{approval.rejection_reason}
                             </p>
                         )}
+
+                        {/* 催办信息 */}
+                        <UrgeInfo approval={approval} />
+
                         {/* 自定义表单数据展示 */}
                         <FormDataDisplay approval={approval} />
 
                         {/* 审批链进度 */}
                         <ApprovalChainProgress requestId={approval.id} />
 
-                        {/* AI 风险分析 */}
+                        {/* AI 风险分析（来自审批链进度 hook） */}
                         <AIRiskAnalysis requestId={approval.id} />
+
+                        {/* 风险分析面板（从 API 获取） */}
+                        <RiskAnalysisPanel approvalId={approval.id} />
                     </div>
                 </div>
 
                 {isPending && !isSelfSubmitted && (
                     <div className="flex gap-2 flex-shrink-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isUrging}
+                            onClick={() => urgeMutation.mutate(approval.id)}
+                            className="text-warning hover:text-warning hover:bg-warning/10"
+                        >
+                            {isUrging ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <BellRing className="w-4 h-4 mr-1" />
+                            )}
+                            催办
+                        </Button>
                         <Button
                             variant="outline"
                             size="sm"

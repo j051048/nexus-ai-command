@@ -73,7 +73,7 @@ class GetCustomersTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         search = args.get("search")
         if search:
@@ -89,27 +89,21 @@ class GetCustomersTool(BaseTool):
             )
 
         if not customers:
-            return "当前暂无客户记录。您可以说「创建客户」来添加新客户。"
-
-        stage_labels = {
-            "lead": "线索",
-            "prospect": "意向",
-            "opportunity": "商机",
-            "customer": "成交",
-            "churned": "流失",
-        }
-
-        lines = [f"📋 共找到 {len(customers)} 位客户:\n"]
-        for c in customers:
-            stage = stage_labels.get(c.get("stage", ""), c.get("stage", ""))
-            value = c.get("estimated_value") or 0
-            value_str = f"¥{float(value):,.0f}" if value else "未评估"
-            lines.append(
-                f"- **{c.get('name', '未知')}** ({c.get('company', '')}) "
-                f"| 阶段: {stage} | 预估金额: {value_str} | ID: {c['id'][:8]}..."
+            return self.format_result(
+                data=[],
+                summary="当前暂无客户记录",
+                actions=[{"label": "创建客户", "tool": "create_customer", "args": {}}],
             )
 
-        return "\n".join(lines)
+        return self.format_result(
+            data=customers,
+            summary=f"共找到 {len(customers)} 位客户",
+            actions=[
+                {"label": "查看详情", "tool": "get_customer_detail", "args": {"customer_id": customers[0]["id"]}},
+                {"label": "查看销售漏斗", "tool": "get_sales_pipeline", "args": {}},
+                {"label": "创建客户", "tool": "create_customer", "args": {}},
+            ],
+        )
 
 
 class GetCustomerDetailTool(BaseTool):
@@ -144,67 +138,33 @@ class GetCustomerDetailTool(BaseTool):
         client = _get_client(config)
         customer_id = args.get("customer_id", "")
         if not customer_id:
-            return "❌ 请提供客户ID（customer_id）"
+            return self.format_result(data=None, summary="请提供客户ID（customer_id）")
         if err := _validate_uuid(customer_id, "customer_id"):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=err)
 
         customer = await crm_service.get_customer(customer_id, db=client)
         if not customer:
-            return f"❌ 未找到ID为 {customer_id} 的客户"
+            return self.format_result(data=None, summary=f"未找到ID为 {customer_id} 的客户")
 
         contacts = await crm_service.list_contacts(customer_id, db=client)
         activities = await crm_service.get_activity_timeline(
             customer_id, limit=5, db=client
         )
 
-        stage_labels = {
-            "lead": "线索",
-            "prospect": "意向",
-            "opportunity": "商机",
-            "customer": "成交",
-            "churned": "流失",
+        detail = {
+            **customer,
+            "contacts": contacts or [],
+            "recent_activities": activities or [],
         }
 
-        value = customer.get("estimated_value") or 0
-        lines = [
-            f"## 客户详情: {customer.get('name', '未知')}",
-            f"- 公司: {customer.get('company', '未填写')}",
-            f"- 行业: {customer.get('industry', '未填写')}",
-            f"- 阶段: {stage_labels.get(customer.get('stage', ''), customer.get('stage', ''))}",
-            f"- 来源: {customer.get('source', '未填写')}",
-            f"- 预估金额: ¥{float(value):,.0f}" if value else "- 预估金额: 未评估",
-            f"- 创建时间: {str(customer.get('created_at', ''))[:10]}",
-        ]
-
-        if contacts:
-            lines.append(f"\n### 联系人 ({len(contacts)}人)")
-            for ct in contacts:
-                primary = " ⭐主要" if ct.get("is_primary") else ""
-                lines.append(
-                    f"- {ct.get('name', '未知')}{primary} | {ct.get('title', '')} "
-                    f"| 📞{ct.get('phone', '')} | 📧{ct.get('email', '')}"
-                )
-
-        if activities:
-            type_labels = {
-                "call": "电话",
-                "email": "邮件",
-                "meeting": "会议",
-                "note": "备注",
-                "deal_update": "商机更新",
-            }
-            lines.append(f"\n### 最近跟进 ({len(activities)}条)")
-            for act in activities:
-                t = type_labels.get(
-                    act.get("activity_type", ""), act.get("activity_type", "")
-                )
-                lines.append(
-                    f"- [{t}] {act.get('content', '')[:80]} ({str(act.get('created_at', ''))[:10]})"
-                )
-        else:
-            lines.append("\n### 最近跟进\n暂无跟进记录")
-
-        return "\n".join(lines)
+        return self.format_result(
+            data=detail,
+            summary=f"客户 {customer.get('name', '未知')} 的详细信息",
+            actions=[
+                {"label": "查看跟进记录", "tool": "get_follow_ups", "args": {"customer_id": customer_id}},
+                {"label": "更新客户", "tool": "update_customer", "args": {"customer_id": customer_id}},
+            ],
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -259,11 +219,11 @@ class CreateCustomerTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         name = args.get("name", "").strip()
         if not name:
-            return "❌ 客户名称不能为空"
+            return self.format_result(data=None, summary="客户名称不能为空")
 
         # 预估金额校验
         estimated_value = args.get("estimated_value")
@@ -271,9 +231,9 @@ class CreateCustomerTool(BaseTool):
             try:
                 estimated_value = float(estimated_value)
             except (TypeError, ValueError):
-                return "❌ 预估金额格式错误，请提供有效的数字。"
+                return self.format_result(data=None, summary="预估金额格式错误，请提供有效的数字")
             if estimated_value < 0:
-                return "❌ 预估金额不能为负数。"
+                return self.format_result(data=None, summary="预估金额不能为负数")
 
         data = {"name": name, "assigned_to": user_id}
         for field in ("company", "industry", "stage", "source", "estimated_value"):
@@ -286,15 +246,16 @@ class CreateCustomerTool(BaseTool):
             return safe_tool_error(e, "创建客户")
 
         if not customer:
-            return "❌ 创建客户失败，请稍后重试"
+            return self.format_result(data=None, summary="创建客户失败，请稍后重试")
 
-        return (
-            f"✅ 客户创建成功！\n\n"
-            f"- 名称: {customer.get('name')}\n"
-            f"- 公司: {customer.get('company', '未填写')}\n"
-            f"- 阶段: {customer.get('stage', 'lead')}\n"
-            f"- ID: {customer['id']}\n\n"
-            f"您可以继续添加联系人或跟进记录。"
+        return self.format_result(
+            data=customer,
+            summary=f"客户 {customer.get('name')} 创建成功",
+            actions=[
+                {"label": "查看详情", "tool": "get_customer_detail", "args": {"customer_id": customer["id"]}},
+                {"label": "更新客户", "tool": "update_customer", "args": {"customer_id": customer["id"]}},
+                {"label": "添加跟进", "tool": "add_follow_up", "args": {"customer_id": customer["id"]}},
+            ],
         )
 
 
@@ -347,9 +308,9 @@ class UpdateCustomerTool(BaseTool):
         client = _get_client(config)
         customer_id = args.get("customer_id", "")
         if not customer_id:
-            return "❌ 请提供客户ID（customer_id）"
+            return self.format_result(data=None, summary="请提供客户ID（customer_id）")
         if err := _validate_uuid(customer_id, "customer_id"):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=err)
 
         data = {}
         for field in (
@@ -364,7 +325,7 @@ class UpdateCustomerTool(BaseTool):
                 data[field] = args[field]
 
         if not data:
-            return "❌ 请提供至少一个要更新的字段"
+            return self.format_result(data=None, summary="请提供至少一个要更新的字段")
 
         try:
             customer = await crm_service.update_customer(customer_id, data, db=client)
@@ -372,10 +333,17 @@ class UpdateCustomerTool(BaseTool):
             return safe_tool_error(e, "更新客户")
 
         if not customer:
-            return f"❌ 未找到ID为 {customer_id} 的客户"
+            return self.format_result(data=None, summary=f"未找到ID为 {customer_id} 的客户")
 
         updated_fields = ", ".join(f"{k}={v}" for k, v in data.items())
-        return f"✅ 客户 {customer.get('name', '')} 已更新: {updated_fields}"
+        return self.format_result(
+            data=customer,
+            summary=f"客户 {customer.get('name', '')} 已更新: {updated_fields}",
+            actions=[
+                {"label": "查看详情", "tool": "get_customer_detail", "args": {"customer_id": customer_id}},
+                {"label": "推进阶段", "tool": "update_customer_stage", "args": {"customer_id": customer_id}},
+            ],
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -435,9 +403,9 @@ class AddFollowUpTool(BaseTool):
         content = args.get("content", "")
 
         if not customer_id or not content:
-            return "❌ 客户ID和跟进内容不能为空"
+            return self.format_result(data=None, summary="客户ID和跟进内容不能为空")
         if err := _validate_uuid(customer_id, "customer_id"):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=err)
 
         if activity_type not in ACTIVITY_TYPES:
             activity_type = "note"
@@ -450,7 +418,7 @@ class AddFollowUpTool(BaseTool):
             return safe_tool_error(e, "添加跟进记录")
 
         if not activity:
-            return "❌ 添加跟进记录失败，请确认客户ID是否正确"
+            return self.format_result(data=None, summary="添加跟进记录失败，请确认客户ID是否正确")
 
         type_labels = {
             "call": "电话",
@@ -459,7 +427,15 @@ class AddFollowUpTool(BaseTool):
             "note": "备注",
             "deal_update": "商机更新",
         }
-        return f"✅ 跟进记录已添加: [{type_labels.get(activity_type, activity_type)}] {content[:80]}"
+        return self.format_result(
+            data=activity,
+            summary=f"跟进记录已添加: [{type_labels.get(activity_type, activity_type)}] {content[:80]}",
+            actions=[
+                {"label": "查看跟进记录", "tool": "get_follow_ups", "args": {"customer_id": customer_id}},
+                {"label": "查看客户详情", "tool": "get_customer_detail", "args": {"customer_id": customer_id}},
+                {"label": "推进阶段", "tool": "update_customer_stage", "args": {"customer_id": customer_id}},
+            ],
+        )
 
 
 class GetFollowUpsTool(BaseTool):
@@ -504,10 +480,10 @@ class GetFollowUpsTool(BaseTool):
         customer_id = args.get("customer_id", "")
         limit = args.get("limit", 20)
         if not customer_id:
-            return "❌ 请提供客户ID（customer_id）"
+            return self.format_result(data=None, summary="请提供客户ID（customer_id）")
 
         if err := _validate_uuid(customer_id, "customer_id"):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=err)
 
         # Clamp limit to safe range
         try:
@@ -519,25 +495,20 @@ class GetFollowUpsTool(BaseTool):
             customer_id, limit=limit, db=client
         )
         if not activities:
-            return "暂无跟进记录。您可以说「添加跟进」来记录新的跟进。"
-
-        type_labels = {
-            "call": "📞电话",
-            "email": "📧邮件",
-            "meeting": "🤝会议",
-            "note": "📝备注",
-            "deal_update": "💰商机更新",
-        }
-
-        lines = [f"📋 跟进记录 (共{len(activities)}条):\n"]
-        for act in activities:
-            t = type_labels.get(
-                act.get("activity_type", ""), act.get("activity_type", "")
+            return self.format_result(
+                data=[],
+                summary="暂无跟进记录",
+                actions=[{"label": "添加跟进", "tool": "add_follow_up", "args": {"customer_id": customer_id}}],
             )
-            date = str(act.get("created_at", ""))[:10]
-            lines.append(f"- {date} [{t}] {act.get('content', '')[:100]}")
 
-        return "\n".join(lines)
+        return self.format_result(
+            data=activities,
+            summary=f"共 {len(activities)} 条跟进记录",
+            actions=[
+                {"label": "添加跟进", "tool": "add_follow_up", "args": {"customer_id": customer_id}},
+                {"label": "查看客户详情", "tool": "get_customer_detail", "args": {"customer_id": customer_id}},
+            ],
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -587,16 +558,16 @@ class UpdateCustomerStageTool(BaseTool):
         new_stage = args.get("new_stage", "")
 
         if not customer_id or not new_stage:
-            return "❌ 客户ID和新阶段不能为空"
+            return self.format_result(data=None, summary="客户ID和新阶段不能为空")
         if err := _validate_uuid(customer_id, "customer_id"):
-            return f"❌ {err}"
+            return self.format_result(data=None, summary=err)
 
         if new_stage not in CUSTOMER_STAGES:
-            return f"❌ 无效的阶段: {new_stage}，可选: {', '.join(CUSTOMER_STAGES)}"
+            return self.format_result(data=None, summary=f"无效的阶段: {new_stage}，可选: {', '.join(CUSTOMER_STAGES)}")
 
         old_customer = await crm_service.get_customer(customer_id, db=client)
         if not old_customer:
-            return f"❌ 未找到ID为 {customer_id} 的客户"
+            return self.format_result(data=None, summary=f"未找到ID为 {customer_id} 的客户")
 
         old_stage = old_customer.get("stage", "unknown")
 
@@ -642,9 +613,13 @@ class UpdateCustomerStageTool(BaseTool):
             "churned": "流失",
         }
 
-        return (
-            f"✅ 客户 {customer.get('name', '')} 阶段已更新: "
-            f"{stage_labels.get(old_stage, old_stage)} → {stage_labels.get(new_stage, new_stage)}"
+        return self.format_result(
+            data={"customer": customer, "old_stage": old_stage, "new_stage": new_stage},
+            summary=f"客户 {customer.get('name', '')} 阶段已更新: {stage_labels.get(old_stage, old_stage)} → {stage_labels.get(new_stage, new_stage)}",
+            actions=[
+                {"label": "查看详情", "tool": "get_customer_detail", "args": {"customer_id": customer_id}},
+                {"label": "查看销售漏斗", "tool": "get_sales_pipeline", "args": {}},
+            ],
         )
 
 
@@ -671,11 +646,15 @@ class GetSalesPipelineTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         stats = await crm_service.get_customer_stats(org_id, db=client)
         if not stats or stats.get("total_customers", 0) == 0:
-            return "当前暂无客户数据。您可以说「创建客户」来添加新客户。"
+            return self.format_result(
+                data=None,
+                summary="当前暂无客户数据",
+                actions=[{"label": "创建客户", "tool": "create_customer", "args": {}}],
+            )
 
         # stage_distribution is a list of {stage, name, count, color} — convert to dict
         stage_dist_list = stats.get("stage_distribution", [])
@@ -684,13 +663,6 @@ class GetSalesPipelineTool(BaseTool):
             if isinstance(stage_dist_list, list)
             else stage_dist_list
         )
-        stage_labels = {
-            "lead": "🔵 线索",
-            "prospect": "🟡 意向",
-            "opportunity": "🟠 商机",
-            "customer": "🟢 成交",
-            "churned": "🔴 流失",
-        }
 
         # 获取各阶段金额
         all_customers = await crm_service.list_customers(org_id, db=client)
@@ -700,25 +672,25 @@ class GetSalesPipelineTool(BaseTool):
             v = float(c.get("estimated_value") or 0)
             stage_values[s] = stage_values.get(s, 0) + v
 
-        lines = [
-            "## 📊 销售漏斗概览\n",
-            f"- 客户总数: **{stats.get('total_customers', 0)}**",
-            f"- 本月新增: **{stats.get('new_this_month', 0)}**",
-            f"- 转化率: **{stats.get('conversion_rate', 0):.1f}%**",
-            f"- 总预估金额: **¥{float(stats.get('total_estimated_value', 0)):,.0f}**",
-            "",
-            "### 各阶段分布\n",
-            "| 阶段 | 客户数 | 预估金额 |",
-            "| --- | --- | --- |",
-        ]
+        pipeline_data = {
+            "total_customers": stats.get("total_customers", 0),
+            "new_this_month": stats.get("new_this_month", 0),
+            "conversion_rate": stats.get("conversion_rate", 0),
+            "total_estimated_value": float(stats.get("total_estimated_value", 0)),
+            "stages": {
+                stage_key: {"count": stage_dist.get(stage_key, 0), "value": stage_values.get(stage_key, 0)}
+                for stage_key in ("lead", "prospect", "opportunity", "customer", "churned")
+            },
+        }
 
-        for stage_key in ("lead", "prospect", "opportunity", "customer", "churned"):
-            count = stage_dist.get(stage_key, 0)
-            value = stage_values.get(stage_key, 0)
-            label = stage_labels.get(stage_key, stage_key)
-            lines.append(f"| {label} | {count} | ¥{value:,.0f} |")
-
-        return "\n".join(lines)
+        return self.format_result(
+            data=pipeline_data,
+            summary=f"销售漏斗: {stats.get('total_customers', 0)} 位客户, 总金额 ¥{float(stats.get('total_estimated_value', 0)):,.0f}",
+            actions=[
+                {"label": "查看客户列表", "tool": "get_customers", "args": {}},
+                {"label": "推进阶段", "tool": "update_customer_stage", "args": {}},
+            ],
+        )
 
 
 @register_tool(
@@ -744,28 +716,24 @@ class GetPipelineKanbanTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
 
         kanban_list = await crm_service.get_pipeline_kanban(org_id, db=client)
         if not kanban_list:
-            return "当前暂无客户数据。您可以说「创建客户」来添加新客户。"
-
-        lines = ["## 🎯 销售漏斗 Kanban 视图\n"]
-        for stage in kanban_list:
-            if stage["id"] == "churned":
-                continue  # Kanban 视图通常不重点展示已流失，或者可折叠
-
-            lines.append(
-                f"### {stage['name']} ({len(stage['customers'])}名客户) - ¥{stage['total_value']:,.0f}"
+            return self.format_result(
+                data=None,
+                summary="当前暂无客户数据",
+                actions=[{"label": "创建客户", "tool": "create_customer", "args": {}}],
             )
-            if not stage["customers"]:
-                lines.append("- 暂无预先商机\n")
-            else:
-                for c in stage["customers"]:
-                    val = float(c.get("estimated_value") or 0)
-                    lines.append(
-                        f"  - **{c.get('name', '未知')}** ({c.get('company', '')}) | ¥{val:,.0f}"
-                    )
-                lines.append("")
 
-        return "\n".join(lines)
+        # Filter out churned for kanban view
+        kanban_data = [stage for stage in kanban_list if stage.get("id") != "churned"]
+
+        return self.format_result(
+            data=kanban_data,
+            summary=f"销售漏斗看板: {len(kanban_data)} 个阶段",
+            actions=[
+                {"label": "查看客户列表", "tool": "get_customers", "args": {}},
+                {"label": "查看销售漏斗", "tool": "get_sales_pipeline", "args": {}},
+            ],
+        )

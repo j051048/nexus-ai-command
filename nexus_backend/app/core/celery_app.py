@@ -147,4 +147,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.push_smart_recommendations",
         "schedule": crontab(minute=0, hour="*/2"),  # 每2小时
     },
+    # ── P1-4: Lead scoring ──
+    "lead-scoring": {
+        "task": "app.tasks.scheduler.score_all_leads_task",
+        "schedule": crontab(minute=15),  # 每小时:15
+    },
 }

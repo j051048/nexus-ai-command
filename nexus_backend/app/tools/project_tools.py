@@ -109,7 +109,7 @@ class CreateProjectTool(BaseTool):
             res = await client.table("projects").insert(data).execute()
             if res.data:
                 pid = res.data[0]["id"]
-                return f"✅ 项目 '{name}' 已成功立项 (ID: {pid})！您可以继续添加项目事件或里程碑。"
+                return self.format_result(data={}, summary=f"项目 '{name}' 已成功立项 (ID: {pid})！您可以继续添加项目事件或里程碑。")
             return "创建失败。"
         except Exception as e:
             return f"系统错误: {str(e)}"

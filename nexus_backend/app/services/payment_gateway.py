@@ -125,6 +125,20 @@ class PaymentGatewayService:
         )
         return {"url": session.url, "session_id": session.id}
 
+    # -- Customer Portal -------------------------------------------------------
+    async def create_portal_session(
+        self, tenant_id: str, return_url: str
+    ) -> dict[str, Any]:
+        """Create a Stripe Customer Portal session for self-serve subscription management."""
+        stripe = self._require_stripe()
+        customer_id = await self._ensure_stripe_customer(tenant_id)
+
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=return_url,
+        )
+        return {"url": session.url}
+
     # -- Subscription CRUD ---------------------------------------------------
     async def create_subscription(
         self, tenant_id: str, stripe_price_id: str

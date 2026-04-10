@@ -141,7 +141,7 @@ class GenerateBidDocumentTool(BaseTool):
 
         try:
             result = await AIService.call_llm(prompt, system)
-            return f"📋 **投标文件框架 — {project_name}**\n\n{result}"
+            return self.format_result(data={}, summary=f"**投标文件框架 — {project_name}**\n\n{result}")
         except Exception as e:
             logger.error(f"Failed to generate bid document: {e}")
             return safe_tool_error(e, "生成投标文件")
@@ -254,7 +254,7 @@ class GenerateDeviationTableTool(BaseTool):
 
         try:
             result = await AIService.call_llm(prompt, system)
-            return f"📊 **技术偏离表**\n\n{result}"
+            return self.format_result(data={}, summary=f"**技术偏离表**\n\n{result}")
         except Exception as e:
             logger.error(f"Failed to generate deviation table: {e}")
             return safe_tool_error(e, "生成偏离表")
@@ -348,7 +348,7 @@ class CheckBidComplianceTool(BaseTool):
 
         try:
             result = await AIService.call_llm(prompt, system)
-            return f"🔍 **投标合规性检查报告**\n\n{result}"
+            return self.format_result(data={}, summary=f"**投标合规性检查报告**\n\n{result}")
         except Exception as e:
             logger.error(f"Failed to check bid compliance: {e}")
             return safe_tool_error(e, "合规检查")
@@ -436,7 +436,7 @@ class ExtractBidRequirementsTool(BaseTool):
 
         try:
             result = await AIService.call_llm(prompt, system)
-            return f"📋 **招标要求提取清单**\n\n{result}"
+            return self.format_result(data={}, summary=f"**招标要求提取清单**\n\n{result}")
         except Exception as e:
             logger.error(f"Failed to extract bid requirements: {e}")
             return safe_tool_error(e, "提取招标要求")

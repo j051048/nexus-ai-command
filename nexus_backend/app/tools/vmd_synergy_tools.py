@@ -268,7 +268,7 @@ class GenerateMarketResearchTool(BaseTool):
 
         try:
             result = await AIService.call_llm(prompt, system)
-            return f"📊 **市场调研报告 — {market_segment}**\n\n{result}"
+            return self.format_result(data={}, summary=f"**市场调研报告 — {market_segment}**\n\n{result}")
         except Exception as e:
             logger.error(f"Failed to generate market research: {e}")
             return safe_tool_error(e, "生成市场调研报告")

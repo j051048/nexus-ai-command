@@ -205,7 +205,7 @@ class DataAttributionTool(BaseTool):
             logger.debug("审批数据查询失败: %s", e)
 
         if not data_context:
-            return "📊 暂无足够数据进行归因分析。请确保相关业务数据已录入系统。"
+            return self.format_result(data={}, summary=f"暂无足够数据进行归因分析。请确保相关业务数据已录入系统。")
 
         prompt = (
             f"请对以下{period_name}经营数据进行多维度归因分析:\n\n"
@@ -226,7 +226,7 @@ class DataAttributionTool(BaseTool):
 
         try:
             analysis = await AIService.call_llm(prompt, system)
-            return f"📊 {period_name}数据智能归因分析:\n\n{analysis}"
+            return self.format_result(data={}, summary=f"{period_name}数据智能归因分析:\n\n{analysis}")
         except Exception as e:
             return safe_tool_error(e, "归因分析")
 
