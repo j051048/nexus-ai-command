@@ -828,6 +828,32 @@ export function useVMDStats() {
   });
 }
 
+export interface VMDROIMetrics {
+  completed_tasks: number;
+  manual_hours_saved: number;
+  labor_cost_saved_cny: number;
+  ai_cost_cny: number;
+  net_savings_cny: number;
+  roi_percentage: number;
+  automation_rate: number;
+  budget_daily_usd: number;
+  budget_monthly_usd: number;
+  actual_monthly_usd: number;
+  budget_utilization: number;
+  scene_savings: { scene: string; tasks: number; hours_saved: number; cost_saved_cny: number }[];
+}
+
+export function useVMDROI() {
+  return useQuery({
+    queryKey: ['vmd-roi'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: VMDROIMetrics }>('api/vmd/dashboard/roi');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
 export function useVMDDashboard(range: string = 'week') {
   return useQuery({
     queryKey: ['vmd-dashboard', range],

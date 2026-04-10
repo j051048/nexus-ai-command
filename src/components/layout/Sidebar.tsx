@@ -68,6 +68,7 @@ import {
   Star,
   Network,
   Search,
+  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -145,6 +146,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Swords size={18} />, label: "竞品库", href: "battlecards", group: "更多" },
   { icon: <Target size={18} />, label: "目标看板", href: "target-dashboard", group: "更多" },
   { icon: <BarChart3 size={18} />, label: "数据报表", href: "reports", group: "更多" },
+  { icon: <Sparkles size={18} />, label: "AI 报表引擎", href: "report-builder", roles: ["boss", "founder", "manager"], group: "更多" },
   { icon: <Calendar size={18} />, label: "OA办公", href: "oa", group: "更多" },
   { icon: <Clock size={18} />, label: "人事", href: "hr", roles: ["manager", "boss", "founder"], group: "更多" },
   { icon: <DollarSign size={18} />, label: "财务", href: "finance", group: "更多" },

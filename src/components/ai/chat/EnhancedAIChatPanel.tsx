@@ -26,6 +26,7 @@ import { useToolMetadata } from '@/hooks/useToolMetadata';
 import { useSavedPrompts } from '@/hooks/useSavedPrompts';
 import { useAISettings } from '@/hooks/useAISettings';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
+import { handleEditMessage as treeEditMessage, handleSwitchBranch as treeSwitchBranch } from '@/lib/messageTree';
 
 interface QuotaAlert {
   alert_level: 'normal' | 'warning' | 'critical' | 'exhausted';
@@ -717,9 +718,17 @@ export function EnhancedAIChatPanel({
   }, [input, handleSend]);
 
   const handleRegenerate = useCallback(() => {
+    // Create a new branch: remove last assistant message and re-send the last user message
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUserMessage) {
-      setMessages((prev) => prev.slice(0, -1));
+      // Remove the last assistant message (creates a branch point)
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant') {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
       setInput(lastUserMessage.content);
     }
   }, [messages]);
@@ -766,6 +775,32 @@ export function EnhancedAIChatPanel({
   const handleDeleteMessage = useCallback((id: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== id));
     toast.success('消息已删除');
+  }, []);
+
+  const handleEditMessage = useCallback((messageId: string, newContent: string) => {
+    setMessages((prev) => {
+      const updated = treeEditMessage(prev, messageId, newContent);
+      // After editing, auto-send the edited message
+      const editedMsg = updated.find(m => m.content === newContent && m.isEdited);
+      if (editedMsg) {
+        // Remove any subsequent messages after the edited one (they belong to the old branch)
+        const editedIdx = updated.findIndex(m => m.id === editedMsg.id);
+        if (editedIdx >= 0) {
+          const trimmed = updated.slice(0, editedIdx + 1);
+          // Trigger send after state update
+          setTimeout(() => {
+            setInput(newContent);
+            commandBarSendRef.current = true;
+          }, 0);
+          return trimmed;
+        }
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleSwitchBranch = useCallback((parentMessageId: string, branchIndex: number) => {
+    setMessages((prev) => treeSwitchBranch(prev, parentMessageId, branchIndex));
   }, []);
 
   const handleClearChat = useCallback(() => {
@@ -966,6 +1001,8 @@ export function EnhancedAIChatPanel({
               handleRegenerate={handleRegenerate}
               handleRetry={handleRetry}
               handleDeleteMessage={handleDeleteMessage}
+              handleEditMessage={handleEditMessage}
+              handleSwitchBranch={handleSwitchBranch}
               pendingConfirmation={pendingConfirmation}
               confirmAndResend={confirmAndResend}
               dismissConfirmation={dismissConfirmation}

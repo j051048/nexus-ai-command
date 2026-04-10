@@ -21,6 +21,7 @@ import FormBuilder from '../genui/FormBuilder';
 
 import { CapabilityCards } from './CapabilityCards';
 import { WorkflowStepper } from './WorkflowStepper';
+import { getActivePath, linkMessagesSequentially, getBranchInfo } from '@/lib/messageTree';
 
 const VIRTUAL_THRESHOLD = 30;
 
@@ -34,6 +35,8 @@ interface ChatMessageListProps {
   handleRegenerate: () => void;
   handleRetry?: () => void;
   handleDeleteMessage: (id: string) => void;
+  handleEditMessage?: (messageId: string, newContent: string) => void;
+  handleSwitchBranch?: (parentMessageId: string, branchIndex: number) => void;
   pendingConfirmation: ConfirmationRequest | null;
   confirmAndResend: (
     messages: AIMessage[],
@@ -68,6 +71,8 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   handleRegenerate,
   handleRetry,
   handleDeleteMessage,
+  handleEditMessage,
+  handleSwitchBranch,
   pendingConfirmation,
   confirmAndResend,
   dismissConfirmation,
@@ -86,6 +91,10 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   // Use ref for messages to avoid re-creating callback on every messages change
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+
+  // Link messages into tree structure (backward compat) and get active path
+  const linkedMessages = React.useMemo(() => linkMessagesSequentially(messages), [messages]);
+  const activeMessages = React.useMemo(() => getActivePath(linkedMessages), [linkedMessages]);
 
   // Stable feedback callback — uses ref to avoid messages dependency
   const handleFeedback = useCallback((type: 'positive' | 'negative', messageId: string) => {
@@ -108,11 +117,11 @@ export const ChatMessageList = React.memo(function ChatMessageList({
     }).catch(() => { /* silent — toast already shown by MessageBubble */ });
   }, [userId]);
 
-  const useVirtual = messages.length >= VIRTUAL_THRESHOLD;
+  const useVirtual = activeMessages.length >= VIRTUAL_THRESHOLD;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
-    count: messages.length,
+    count: activeMessages.length,
     getScrollElement: () => scrollContainerRef.current,
     estimateSize: () => 120,
     overscan: 5,
@@ -121,10 +130,10 @@ export const ChatMessageList = React.memo(function ChatMessageList({
 
   // Auto-scroll to bottom when new messages arrive (virtual mode)
   useEffect(() => {
-    if (useVirtual && messages.length > 0) {
-      virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+    if (useVirtual && activeMessages.length > 0) {
+      virtualizer.scrollToIndex(activeMessages.length - 1, { align: 'end' });
     }
-  }, [messages.length, useVirtual, virtualizer]);
+  }, [activeMessages.length, useVirtual, virtualizer]);
 
   // Shared footer content (status, trace, confirmations, etc.)
   const footerContent = (
@@ -335,8 +344,8 @@ export const ChatMessageList = React.memo(function ChatMessageList({
           style={{ height: `${virtualizer.getTotalSize()}px` }}
         >
           {virtualizer.getVirtualItems().map((virtualItem) => {
-            const msg = messages[virtualItem.index];
-            const isLast = virtualItem.index === messages.length - 1;
+            const msg = activeMessages[virtualItem.index];
+            const isLast = virtualItem.index === activeMessages.length - 1;
             return (
               <div
                 key={msg.id}
@@ -358,10 +367,13 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                     onFeedback={handleFeedback}
                     onDelete={handleDeleteMessage}
                     onSendMessage={onSendMessage}
+                    onEditMessage={handleEditMessage}
+                    onSwitchBranch={handleSwitchBranch}
+                    branchInfo={getBranchInfo(linkedMessages, msg.id)}
                     isLatest={isLast}
                     isTyping={isLast && isAiTyping}
                   />
-                  {virtualItem.index === 0 && messages.length <= 1 && onSendMessage && (
+                  {virtualItem.index === 0 && activeMessages.length <= 1 && onSendMessage && (
                     <div className="mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
                       <CapabilityCards onSelect={onSendMessage} />
                     </div>
@@ -386,8 +398,8 @@ export const ChatMessageList = React.memo(function ChatMessageList({
         aria-live="polite"
         aria-label="聊天记录"
       >
-        {messages.map((msg, index) => {
-          const isLast = index === messages.length - 1;
+        {activeMessages.map((msg, index) => {
+          const isLast = index === activeMessages.length - 1;
           return (
             <React.Fragment key={msg.id}>
               <MessageBubble
@@ -402,10 +414,13 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                 onFeedback={handleFeedback}
                 onDelete={handleDeleteMessage}
                 onSendMessage={onSendMessage}
+                onEditMessage={handleEditMessage}
+                onSwitchBranch={handleSwitchBranch}
+                branchInfo={getBranchInfo(linkedMessages, msg.id)}
                 isLatest={isLast}
                 isTyping={isLast && isAiTyping}
               />
-              {index === 0 && messages.length <= 1 && onSendMessage && (
+              {index === 0 && activeMessages.length <= 1 && onSendMessage && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
                   <CapabilityCards onSelect={onSendMessage} />
                 </div>

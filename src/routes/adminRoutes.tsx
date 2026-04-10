@@ -27,6 +27,7 @@ import {
   CustomDashboard,
   NotificationCenter,
   ReportsPage,
+  ReportBuilderPage,
   PaymentPage,
   AssetManagement,
   CertificateManagement,
@@ -54,6 +55,7 @@ export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.Re
       <Route path="custom-dashboard" element={<ModuleErrorBoundary moduleName="自定义仪表盘"><CustomDashboard /></ModuleErrorBoundary>} />
       <Route path="notification-center" element={<ModuleErrorBoundary moduleName="消息中心"><NotificationCenter /></ModuleErrorBoundary>} />
       <Route path="reports" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="报表"><ReportsPage /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="report-builder" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="报表构建"><ReportBuilderPage /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="payments" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="支付"><PaymentPage /></ModuleErrorBoundary></AdminRoute>} />
 
       {/* Admin only */}

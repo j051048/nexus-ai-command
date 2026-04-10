@@ -14,6 +14,9 @@ import {
   Shield,
   Users,
   Loader2,
+  Palette,
+  Image,
+  Type,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { httpClient } from '@/lib/httpClient';
@@ -64,6 +67,40 @@ function CompanySettingsPage() {
   const [regenerating, setRegenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [orgName, setOrgName] = useState('');
+  // Brand state
+  const [brand, setBrand] = useState<Record<string, unknown>>({});
+  const [savingBrand, setSavingBrand] = useState(false);
+
+  // Load brand config
+  const loadBrand = useCallback(async () => {
+    if (!orgId) return;
+    try {
+      const res = await httpClient.get<ApiResponse<Record<string, unknown>>>('/api/organization/brand');
+      setBrand(res.data?.data || {});
+    } catch {
+      // brand is optional, ignore errors
+    }
+  }, [orgId]);
+
+  useEffect(() => {
+    loadBrand();
+  }, [loadBrand]);
+
+  // Save brand config
+  const handleSaveBrand = async () => {
+    try {
+      setSavingBrand(true);
+      const res = await httpClient.put<ApiResponse<Record<string, unknown>>>('/api/organization/brand', { brand });
+      if (res.data?.status !== 200) throw new Error(res.data?.message || '更新失败');
+      toast.success('品牌配置已保存');
+      setBrand(res.data.data || brand);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }, message?: string };
+      toast.error(`保存品牌配置失败: ${e.response?.data?.message || e.message || '未知错误'}`);
+    } finally {
+      setSavingBrand(false);
+    }
+  };
 
   // 版本标记：确认最新代码已加载 (v5 - 2026-03-25)
   useEffect(() => {
@@ -360,6 +397,97 @@ function CompanySettingsPage() {
           </div>
         </CardContent>
       </Card>
+      {/* White-Label Branding Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Palette className="w-5 h-5" />
+            品牌白标配置
+          </CardTitle>
+          <CardDescription>自定义登录页 Logo、主题色、标题等品牌元素</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Logo URL</Label>
+              <Input
+                value={safeStr(brand.logo_url)}
+                onChange={(e) => setBrand({ ...brand, logo_url: e.target.value })}
+                placeholder="https://your-cdn.com/logo.png"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> 主题色</Label>
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={safeStr(brand.primary_color) || '#3b82f6'}
+                  onChange={(e) => setBrand({ ...brand, primary_color: e.target.value })}
+                  className="w-10 h-10 rounded-lg border border-border cursor-pointer"
+                />
+                <Input
+                  value={safeStr(brand.primary_color)}
+                  onChange={(e) => setBrand({ ...brand, primary_color: e.target.value })}
+                  placeholder="#3b82f6"
+                  className="flex-1"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Type className="w-3.5 h-3.5" /> 公司名称</Label>
+              <Input
+                value={safeStr(brand.company_name)}
+                onChange={(e) => setBrand({ ...brand, company_name: e.target.value })}
+                placeholder="留空则使用企业名称"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>标语</Label>
+              <Input
+                value={safeStr(brand.tagline)}
+                onChange={(e) => setBrand({ ...brand, tagline: e.target.value })}
+                placeholder="企业标语/副标题"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>登录页标题</Label>
+              <Input
+                value={safeStr(brand.login_title)}
+                onChange={(e) => setBrand({ ...brand, login_title: e.target.value })}
+                placeholder="企业级 AI 中控枢纽"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>登录页副标题</Label>
+              <Input
+                value={safeStr(brand.login_subtitle)}
+                onChange={(e) => setBrand({ ...brand, login_subtitle: e.target.value })}
+                placeholder="重塑智能化工作流"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveBrand} disabled={savingBrand} size="sm">
+              {savingBrand ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              保存品牌配置
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Help Text */}
+      <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+        <p>* 品牌配置将应用到登录页等面向用户的界面</p>
+        <p>* Logo URL 需为可公开访问的图片链接</p>
+        <p>* 主题色支持 HEX 格式，如 #3b82f6</p>
+      </div>
     </div>
   );
 }

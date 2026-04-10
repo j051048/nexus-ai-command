@@ -271,3 +271,69 @@ export function useCreateActivity(customerId: string) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Customer Health Score & Churn Prediction
+// ---------------------------------------------------------------------------
+
+export interface CustomerHealth {
+  customer_id: string;
+  health_score: number;
+  risk_level: 'healthy' | 'at_risk' | 'churn_risk' | 'unknown';
+  breakdown: {
+    activity_recency: number;
+    activity_frequency: number;
+    contact_richness: number;
+    stage_progression: number;
+    value_indicator: number;
+  };
+  days_since_last_activity: number | null;
+  activities_last_30d: number;
+  contact_count: number;
+  stage: string;
+  estimated_value: number;
+}
+
+export interface HealthOverview {
+  customers: Array<{
+    id: string;
+    name: string;
+    stage: string;
+    estimated_value: number;
+    quick_score: number;
+    risk_level: string;
+  }>;
+  summary: {
+    healthy: number;
+    at_risk: number;
+    churn_risk: number;
+  };
+}
+
+export function useCustomerHealth(customerId: string | null) {
+  return useQuery({
+    queryKey: ['crm-health', customerId],
+    queryFn: async () => {
+      if (!customerId) return null;
+      const res = await aiClient.fetch<{ success: boolean; data: CustomerHealth }>(
+        `api/crm/customers/${customerId}/health`
+      );
+      return res.data;
+    },
+    enabled: !!customerId,
+    staleTime: 60_000,
+  });
+}
+
+export function useHealthOverview() {
+  return useQuery({
+    queryKey: ['crm-health-overview'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: HealthOverview }>(
+        'api/crm/health-overview'
+      );
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}

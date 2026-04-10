@@ -51,6 +51,7 @@ export const CustomDashboard = lazyWithRetry(() => import("@/pages/CustomDashboa
 export const AuditPanel = lazyWithRetry(() => import("@/pages/AuditPanel"));
 export const NotificationCenter = lazyWithRetry(() => import("@/pages/NotificationCenter"));
 export const ReportsPage = lazyWithRetry(() => import("@/pages/ReportsPage"));
+export const ReportBuilderPage = lazyWithRetry(() => import("@/pages/ReportBuilderPage"));
 export const PaymentPage = lazyWithRetry(() => import("@/pages/PaymentPage"));
 
 // Admin

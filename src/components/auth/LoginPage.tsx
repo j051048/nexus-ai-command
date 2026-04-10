@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,39 @@ import { LogIn, UserPlus, Loader2, Briefcase, Users, KeyRound, ArrowLeft, Mail, 
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { httpClient } from '@/lib/httpClient';
 
 type AppRole = 'boss' | 'employee';
 
+interface BrandConfig {
+  logo_url?: string;
+  primary_color?: string;
+  company_name?: string;
+  tagline?: string;
+  login_title?: string;
+  login_subtitle?: string;
+  feature_cards?: { icon?: string; title?: string; desc?: string }[];
+}
+
 export function LoginPage() {
+  const [brand, setBrand] = useState<BrandConfig>({});
+
+  // Load org brand config (public, no auth required)
+  useEffect(() => {
+    httpClient.get<{ status: number; data?: BrandConfig }>('/api/organization/brand')
+      .then((res) => {
+        if (res.data?.data) setBrand(res.data.data);
+      })
+      .catch(() => { /* brand is optional */ });
+  }, []);
+
+  // Derived brand values with defaults
+  const brandName = brand.company_name || 'Project Nexus';
+  const brandInitial = brandName.charAt(0).toUpperCase();
+  const brandTitle = brand.login_title || '企业级 AI 中控枢纽';
+  const brandSubtitle = brand.login_subtitle || '重塑智能化工作流';
+  const brandTagline = brand.tagline || '消除数据孤岛，赋能业务创新。基于先进的大模型架构，为您提供全天候的智能协作与决策支持。';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -478,51 +507,64 @@ export function LoginPage() {
 
         <div className="relative z-10 flex flex-col gap-8 ml-auto max-w-xl w-full translate-x-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 border border-white/10">
-              <span className="text-xl font-bold font-sans">N</span>
-            </div>
+            {brand.logo_url ? (
+              <img src={brand.logo_url} alt={brandName} className="w-10 h-10 rounded-xl object-cover border border-white/10" />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 border border-white/10">
+                <span className="text-xl font-bold font-sans">{brandInitial}</span>
+              </div>
+            )}
             <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-100 to-zinc-400">
-              Project Nexus
+              {brandName}
             </span>
           </div>
           
           <div className="mt-8">
             <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight mb-6 leading-[1.15]">
-              企业级 AI 中控枢纽
+              {brandTitle}
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 inline-block mt-2">
-                重塑智能化工作流
+                {brandSubtitle}
               </span>
             </h1>
             <p className="text-zinc-400 text-lg max-w-md leading-relaxed font-light">
-              消除数据孤岛，赋能业务创新。基于先进的大模型架构，为您提供全天候的智能协作与决策支持。
+              {brandTagline}
             </p>
           </div>
 
           {/* Feature Highlight List */}
           <div className="mt-10 space-y-4 max-w-md">
-            {[
-              { icon: <Sparkles className="w-5 h-5 text-blue-400" />, title: '深层智慧洞察', desc: '秒级解析高维数据，辅助制定战略级决策' },
-              { icon: <Zap className="w-5 h-5 text-purple-400" />, title: '工作流自动化', desc: '通过智能 Agent 矩阵，无缝串联日常繁冗任务' },
-              { icon: <ShieldCheck className="w-5 h-5 text-emerald-400" />, title: '强隔离安全架构', desc: '租户沙箱级别的私有化安全隔离，保障核心资产无忧' },
-            ].map((feature, i) => (
+            {(brand.feature_cards && brand.feature_cards.length > 0
+              ? brand.feature_cards
+              : [
+                  { icon: 'sparkles', title: '深层智慧洞察', desc: '秒级解析高维数据，辅助制定战略级决策' },
+                  { icon: 'zap', title: '工作流自动化', desc: '通过智能 Agent 矩阵，无缝串联日常繁冗任务' },
+                  { icon: 'shield', title: '强隔离安全架构', desc: '租户沙箱级别的私有化安全隔离，保障核心资产无忧' },
+                ]
+            ).map((feature, i) => {
+              const iconColors = ['text-blue-400', 'text-purple-400', 'text-emerald-400'];
+              const iconEl = feature.icon === 'zap' ? <Zap className={`w-5 h-5 ${iconColors[i % 3]}`} />
+                : feature.icon === 'shield' ? <ShieldCheck className={`w-5 h-5 ${iconColors[i % 3]}`} />
+                : <Sparkles className={`w-5 h-5 ${iconColors[i % 3]}`} />;
+              return (
               <div key={i} className="flex items-start gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md transition-all duration-500 hover:bg-white/[0.08] hover:border-blue-500/30 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] group relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 <div className="mt-0.5 bg-white/10 p-3 rounded-xl group-hover:scale-110 group-hover:bg-blue-500/20 transition-all duration-300 relative z-10">
-                  {feature.icon}
+                  {iconEl}
                 </div>
                 <div className="relative z-10">
                   <h3 className="font-bold text-zinc-100 text-base tracking-tight group-hover:text-blue-400 transition-colors">{feature.title}</h3>
                   <p className="text-zinc-400 text-sm mt-1.5 leading-relaxed font-light">{feature.desc}</p>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         {/* Footer */}
         <div className="relative z-10 flex items-center justify-between text-sm text-zinc-500 ml-auto max-w-xl w-full translate-x-4">
-          <p>© 2026 Nexus AI. All rights reserved.</p>
+          <p>© 2026 {brandName}. All rights reserved.</p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-zinc-300 transition-colors">隐私政策</a>
             <a href="#" className="hover:text-zinc-300 transition-colors">服务协议</a>
@@ -543,18 +585,22 @@ export function LoginPage() {
           
           {/* Mobile Logo Only (Hidden on Desktop) */}
           <div className="lg:hidden text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-blue-600 mx-auto flex items-center justify-center mb-5 shadow-xl shadow-primary/20">
-              <span className="text-3xl font-bold text-white">N</span>
-            </div>
-            <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Project Nexus</h1>
-            <p className="text-muted-foreground mt-2 font-medium">企业智能中控台</p>
+            {brand.logo_url ? (
+              <img src={brand.logo_url} alt={brandName} className="w-16 h-16 rounded-2xl mx-auto mb-5 object-cover shadow-xl shadow-primary/20" />
+            ) : (
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-blue-600 mx-auto flex items-center justify-center mb-5 shadow-xl shadow-primary/20">
+                <span className="text-3xl font-bold text-white">{brandInitial}</span>
+              </div>
+            )}
+            <h1 className="text-3xl font-extrabold text-foreground tracking-tight">{brandName}</h1>
+            <p className="text-muted-foreground mt-2 font-medium">{brandSubtitle}</p>
           </div>
           
           {renderAuthContent()}
           
           <div className="text-center pt-2 animate-in fade-in slide-in-from-bottom-4 delay-500">
              <p className="text-xs text-muted-foreground/60">
-               Nexus AI 采用最高等级数据加密协议保障您的安全
+               {brandName} 采用最高等级数据加密协议保障您的安全
              </p>
           </div>
         </div>

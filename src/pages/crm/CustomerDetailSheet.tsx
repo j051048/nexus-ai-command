@@ -32,6 +32,9 @@ import {
   Trash2,
   Loader2,
   Tag,
+  Heart,
+  AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   useCustomerTimeline,
@@ -42,6 +45,7 @@ import {
   useCreateActivity,
   useUpdateContact,
   useDeleteContact,
+  useCustomerHealth,
 } from '@/hooks/useCRM';
 import type { Customer, CustomerActivity, CustomerContact } from '@/hooks/useCRM';
 import { toast } from 'sonner';
@@ -476,6 +480,7 @@ export default function CustomerDetailSheet({
 }: CustomerDetailSheetProps) {
   const { data: timeline = [], isLoading: timelineLoading } = useCustomerTimeline(customer?.id || null);
   const { data: contacts = [], isLoading: contactsLoading } = useCustomerContacts(customer?.id || null);
+  const { data: health } = useCustomerHealth(customer?.id || null);
   const updateMutation = useUpdateCustomer();
   const deleteMutation = useDeleteCustomer();
 
@@ -596,6 +601,54 @@ export default function CustomerDetailSheet({
                       </Badge>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Health Score */}
+              {health && health.risk_level !== 'unknown' && (
+                <div className="p-3 rounded-lg border bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium flex items-center gap-1.5">
+                      <Heart className="w-4 h-4" />
+                      健康度评分
+                    </span>
+                    <Badge
+                      className={cn(
+                        'text-xs',
+                        health.risk_level === 'healthy' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+                        health.risk_level === 'at_risk' && 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+                        health.risk_level === 'churn_risk' && 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+                      )}
+                    >
+                      {health.risk_level === 'healthy' && <ShieldCheck className="w-3 h-3 mr-1" />}
+                      {health.risk_level === 'at_risk' && <AlertTriangle className="w-3 h-3 mr-1" />}
+                      {health.risk_level === 'churn_risk' && <AlertTriangle className="w-3 h-3 mr-1" />}
+                      {health.risk_level === 'healthy' ? '健康' : health.risk_level === 'at_risk' ? '有风险' : '流失预警'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl font-bold">{health.health_score}</div>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          health.risk_level === 'healthy' && 'bg-green-500',
+                          health.risk_level === 'at_risk' && 'bg-amber-500',
+                          health.risk_level === 'churn_risk' && 'bg-red-500',
+                        )}
+                        style={{ width: `${health.health_score}%` }}
+                      />
+                    </div>
+                  </div>
+                  {health.breakdown && (
+                    <div className="grid grid-cols-5 gap-1 mt-2 text-[10px] text-muted-foreground">
+                      <span>活跃度 {health.breakdown.activity_recency}</span>
+                      <span>频率 {health.breakdown.activity_frequency}</span>
+                      <span>联系人 {health.breakdown.contact_richness}</span>
+                      <span>阶段 {health.breakdown.stage_progression}</span>
+                      <span>价值 {health.breakdown.value_indicator}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

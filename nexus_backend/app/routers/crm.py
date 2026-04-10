@@ -337,3 +337,141 @@ async def get_stages():
 async def get_activity_types():
     """获取活动类型定义"""
     return api_success(data={"activity_types": ACTIVITY_TYPES})
+
+
+@router.get("/customers/{customer_id}/health")
+async def get_customer_health(
+    customer_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取客户健康度评分与流失风险"""
+    try:
+        db = getattr(req.state, "db", None) or _get_db()
+        org_id = getattr(req.state, "org_id", None)
+        if not db or not org_id:
+            return api_success(data={"health_score": 0, "risk_level": "unknown"})
+
+        from datetime import datetime, timedelta
+
+        now = datetime.utcnow()
+        tenant_id = str(org_id)
+
+        # 1. Fetch customer
+        cust_res = await db.table("customers").select("*").eq("id", customer_id).eq("organization_id", tenant_id).execute()
+        if not cust_res.data:
+            return api_success(data={"health_score": 0, "risk_level": "unknown"})
+        cust = cust_res.data[0]
+
+        # 2. Activity recency (0-30): days since last activity
+        act_res = await db.table("customer_activities").select("created_at").eq("customer_id", customer_id).order("created_at", desc=True).limit(1).execute()
+        if act_res.data:
+            last_act = datetime.fromisoformat(act_res.data[0]["created_at"].replace("Z", "+00:00")).replace(tzinfo=None)
+            days_since = (now - last_act).days
+            activity_score = max(0, 30 - days_since)  # 30 if today, 0 if 30+ days
+        else:
+            activity_score = 0
+
+        # 3. Activity frequency (0-20): count of activities in last 30 days
+        month_ago = (now - timedelta(days=30)).isoformat()
+        freq_res = await db.table("customer_activities").select("id", count="exact").eq("customer_id", customer_id).gte("created_at", month_ago).execute()
+        freq_count = freq_res.count or 0
+        frequency_score = min(20, freq_count * 2)  # 2 pts per activity, max 20
+
+        # 4. Contact richness (0-15): number of contacts
+        contact_res = await db.table("customer_contacts").select("id", count="exact").eq("customer_id", customer_id).execute()
+        contact_count = contact_res.count or 0
+        contact_score = min(15, contact_count * 5)  # 5 pts per contact, max 15
+
+        # 5. Stage progression (0-20): based on customer stage
+        stage_scores = {"lead": 5, "prospect": 10, "opportunity": 15, "customer": 20, "churned": 0}
+        stage_score = stage_scores.get(cust.get("stage", ""), 5)
+
+        # 6. Value indicator (0-15): estimated value
+        ev = float(cust.get("estimated_value", 0) or 0)
+        if ev >= 100000:
+            value_score = 15
+        elif ev >= 50000:
+            value_score = 10
+        elif ev >= 10000:
+            value_score = 5
+        else:
+            value_score = 2
+
+        health_score = activity_score + frequency_score + contact_score + stage_score + value_score
+
+        # Risk classification
+        if health_score >= 70:
+            risk_level = "healthy"
+        elif health_score >= 40:
+            risk_level = "at_risk"
+        else:
+            risk_level = "churn_risk"
+
+        return api_success(data={
+            "customer_id": customer_id,
+            "health_score": health_score,
+            "risk_level": risk_level,
+            "breakdown": {
+                "activity_recency": activity_score,
+                "activity_frequency": frequency_score,
+                "contact_richness": contact_score,
+                "stage_progression": stage_score,
+                "value_indicator": value_score,
+            },
+            "days_since_last_activity": days_since if act_res.data else None,
+            "activities_last_30d": freq_count,
+            "contact_count": contact_count,
+            "stage": cust.get("stage"),
+            "estimated_value": ev,
+        })
+    except Exception as e:
+        logger.error(f"Customer health error: id={customer_id} err={e}")
+        return api_success(data={"health_score": 0, "risk_level": "unknown"})
+
+
+@router.get("/health-overview")
+async def get_health_overview(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取所有客户健康度概览（用于管理视图）"""
+    try:
+        db = getattr(req.state, "db", None) or _get_db()
+        org_id = getattr(req.state, "org_id", None)
+        if not db or not org_id:
+            return api_success(data={"customers": [], "summary": {"healthy": 0, "at_risk": 0, "churn_risk": 0}})
+
+        tenant_id = str(org_id)
+        cust_res = await db.table("customers").select("id,name,stage,estimated_value,organization_id").eq("organization_id", tenant_id).execute()
+        customers = cust_res.data or []
+
+        # Batch compute health for all customers (simplified — uses stage + value only for speed)
+        summary = {"healthy": 0, "at_risk": 0, "churn_risk": 0}
+        results = []
+        for c in customers:
+            stage_scores = {"lead": 5, "prospect": 10, "opportunity": 15, "customer": 20, "churned": 0}
+            stage_score = stage_scores.get(c.get("stage", ""), 5)
+            ev = float(c.get("estimated_value", 0) or 0)
+            value_score = 15 if ev >= 100000 else (10 if ev >= 50000 else (5 if ev >= 10000 else 2))
+            quick_score = stage_score + value_score  # Simplified — full score requires per-customer API
+            risk = "healthy" if quick_score >= 25 else ("at_risk" if quick_score >= 12 else "churn_risk")
+            summary[risk] = summary.get(risk, 0) + 1
+            results.append({
+                "id": c["id"],
+                "name": c.get("name", ""),
+                "stage": c.get("stage"),
+                "estimated_value": ev,
+                "quick_score": quick_score,
+                "risk_level": risk,
+            })
+
+        return api_success(data={"customers": results, "summary": summary})
+    except Exception as e:
+        logger.error(f"Health overview error: err={e}")
+        return api_success(data={"customers": [], "summary": {"healthy": 0, "at_risk": 0, "churn_risk": 0}})
+
+
+def _get_db():
+    from app.core.database import supabase
+    return supabase

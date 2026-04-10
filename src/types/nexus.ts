@@ -92,6 +92,11 @@ export interface AIMessage {
   isProactive?: boolean;
   status?: 'sending' | 'error';  // Message delivery status
   errorMessage?: string;         // Error details for failed messages
+  // Branch/edit support (mid-term: message tree)
+  parentId?: string | null;      // Parent message ID (null = root)
+  children?: string[];           // Child message IDs (sibling = branch)
+  activeBranchIndex?: number;    // Which child branch is active (0-based)
+  isEdited?: boolean;            // Whether this message was edited
 }
 
 // Agent thinking chain types for AI-first experience

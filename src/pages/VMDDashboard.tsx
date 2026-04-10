@@ -15,6 +15,9 @@ import {
   ShieldCheck,
   TrendingUp,
   TrendingDown,
+  DollarSign,
+  Clock,
+  Percent,
 } from 'lucide-react';
 import { iconColors, iconBackgrounds, spacing, typography } from '@/lib/design-tokens';
 import {
@@ -36,6 +39,7 @@ import {
 } from 'recharts';
 import {
   useVMDStats,
+  useVMDROI,
   useVMDTaskTrend,
   useVMDSceneDistribution,
   useVMDAgentWorkload,
@@ -74,6 +78,7 @@ export default function VMDDashboard() {
 
   // Queries
   const { data: stats, isLoading: statsLoading } = useVMDStats();
+  const { data: roi } = useVMDROI();
   const { data: taskTrend } = useVMDTaskTrend(trendDays);
   const { data: sceneDist } = useVMDSceneDistribution();
   const { data: agentWorkload } = useVMDAgentWorkload();
@@ -182,6 +187,52 @@ export default function VMDDashboard() {
             );
           })
         )}
+      </div>
+
+      {/* ====== Row 1.5: ROI Metrics ====== */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-green-500" />
+              净节省成本
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">¥{(roi?.net_savings_cny ?? 0).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              人工节省 ¥{(roi?.labor_cost_saved_cny ?? 0).toLocaleString()} − AI 成本 ¥{(roi?.ai_cost_cny ?? 0).toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4 text-blue-500" />
+              人工替代率
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{roi?.automation_rate ?? 0}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              节省 {(roi?.manual_hours_saved ?? 0).toLocaleString()} 人工工时（{roi?.completed_tasks ?? 0} 个任务）
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Percent className="h-4 w-4 text-amber-500" />
+              ROI / 预算使用
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{roi?.roi_percentage ?? 0}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              月度预算 ${roi?.budget_monthly_usd ?? 0}，已用 {roi?.budget_utilization ?? 0}%
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ====== Row 2: Task Trend (line) + Scene Distribution (pie) ====== */}

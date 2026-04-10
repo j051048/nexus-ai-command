@@ -2,7 +2,7 @@ import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { lazyWithRetry } from '@/lib/lazyPreload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw } from 'lucide-react';
+import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SyntaxProps {
   children?: React.ReactNode;
@@ -118,6 +118,9 @@ interface MessageBubbleProps {
   onFeedback?: (type: 'positive' | 'negative', messageId: string) => void;
   onDelete?: (messageId: string) => void;
   onSendMessage?: (prompt: string) => void;
+  onEditMessage?: (messageId: string, newContent: string) => void;
+  onSwitchBranch?: (parentMessageId: string, branchIndex: number) => void;
+  branchInfo?: { total: number; current: number } | null;
   isLatest?: boolean;
   isTyping?: boolean;
 }
@@ -130,11 +133,16 @@ export const MessageBubble = React.memo(function MessageBubble({
   onFeedback,
   onDelete,
   onSendMessage,
+  onEditMessage,
+  onSwitchBranch,
+  branchInfo,
   isLatest,
   isTyping,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
   const isUser = message.role === 'user';
 
   // Memoize bare GenUI extraction to avoid re-parsing JSON on every render
@@ -209,7 +217,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           )}
         >
           {/* 用户附件显示优化 */}
-          {isUser && message.imageUrls && message.imageUrls.length > 0 && (
+          {isUser && message.imageUrls && message.imageUrls.length > 0 && !isEditing && (
             <div className="flex gap-2 flex-wrap mb-3">
               {message.imageUrls.map((url, i) => (
                 <div key={i} className="relative group/img overflow-hidden rounded-xl border border-white/20 shadow-md">
@@ -223,8 +231,53 @@ export const MessageBubble = React.memo(function MessageBubble({
               ))}
             </div>
           )}
-          {/* Error state: show error message with retry button */}
-          {message.status === 'error' ? (
+          {/* Edit mode for user messages */}
+          {isUser && isEditing ? (
+            <div className="flex flex-col gap-2">
+              <textarea
+                className="w-full bg-primary-foreground/10 text-primary-foreground rounded-lg p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-foreground/30 min-h-[60px]"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (editContent.trim() && editContent.trim() !== message.content) {
+                      onEditMessage?.(message.id, editContent.trim());
+                    }
+                    setIsEditing(false);
+                  }
+                  if (e.key === 'Escape') {
+                    setIsEditing(false);
+                  }
+                }}
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-primary-foreground/70"
+                  onClick={() => setIsEditing(false)}
+                >
+                  取消
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-6 px-3 text-xs"
+                  disabled={!editContent.trim() || editContent.trim() === message.content}
+                  onClick={() => {
+                    if (editContent.trim() && editContent.trim() !== message.content) {
+                      onEditMessage?.(message.id, editContent.trim());
+                    }
+                    setIsEditing(false);
+                  }}
+                >
+                  发送
+                </Button>
+              </div>
+            </div>
+          ) : message.status === 'error' ? (
             <div className="flex flex-col items-center gap-2 py-1">
               <div className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="w-4 h-4" />
@@ -404,6 +457,32 @@ export const MessageBubble = React.memo(function MessageBubble({
                 onAction={onSendMessage}
               />
             )}
+
+            {/* Branch Navigator */}
+            {branchInfo && branchInfo.total > 1 && (
+              <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0"
+                  disabled={branchInfo.current <= 0}
+                  onClick={() => onSwitchBranch?.(message.parentId ?? '', branchInfo.current - 1)}
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                </Button>
+                <span>{branchInfo.current + 1}/{branchInfo.total}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0"
+                  disabled={branchInfo.current >= branchInfo.total - 1}
+                  onClick={() => onSwitchBranch?.(message.parentId ?? '', branchInfo.current + 1)}
+                >
+                  <ChevronRight className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
+
             <div className={cn(
             'flex items-center gap-1 mt-1.5 transition-opacity',
             'opacity-0 group-hover:opacity-100'
@@ -523,8 +602,26 @@ export const MessageBubble = React.memo(function MessageBubble({
       </div>
       
       {isUser && (
-        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0 mt-1 border border-border">
+        <div className="flex items-center gap-1 flex-shrink-0 mt-1">
+          {/* Edit button for user messages */}
+          {onEditMessage && !isEditing && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => { setEditContent(message.content); setIsEditing(true); }}
+                >
+                  <Pencil className="w-3 h-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">编辑</TooltipContent>
+            </Tooltip>
+          )}
+          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center border border-border">
             <User className="w-4 h-4 text-muted-foreground" />
+          </div>
         </div>
       )}
     </div>

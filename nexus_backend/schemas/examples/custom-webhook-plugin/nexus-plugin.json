@@ -1,0 +1,55 @@
+{
+  "id": "plugin_custom_webhook",
+  "name": "自定义 Webhook",
+  "version": "1.0.0",
+  "description": "向任意 HTTP 端点发送事件通知，支持自定义请求头和负载模板",
+  "author": "示例开发者",
+  "category": "notification",
+  "icon": "webhook",
+  "extension_points": ["post_chat", "data_export"],
+  "config_schema": {
+    "webhook_url": {
+      "type": "text",
+      "label": "Webhook URL",
+      "required": true,
+      "placeholder": "https://your-server.com/webhook"
+    },
+    "secret": {
+      "type": "password",
+      "label": "签名密钥",
+      "required": false,
+      "placeholder": "用于 HMAC-SHA256 签名验证"
+    },
+    "events": {
+      "type": "select",
+      "label": "监听事件",
+      "required": true,
+      "default": "all",
+      "options": [
+        { "value": "all", "label": "所有事件" },
+        { "value": "chat_only", "label": "仅聊天" },
+        { "value": "export_only", "label": "仅导出" }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "name": "send_message",
+      "description": "发送自定义消息到 Webhook 端点",
+      "params_schema": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "channel": { "type": "string" }
+        },
+        "required": ["message"]
+      }
+    },
+    {
+      "name": "test_connection",
+      "description": "测试 Webhook 连通性"
+    }
+  ],
+  "permissions": ["network"],
+  "min_nexus_version": "1.0.0"
+}

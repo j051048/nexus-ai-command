@@ -32,6 +32,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { aiClient } from '@/api/aiClient';
 
 // 类别配置
 const CATEGORIES = [
@@ -231,6 +232,26 @@ export function PluginMarketplace() {
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
   const [installing, setInstalling] = useState<string | null>(null);
 
+  // Load installed plugins from backend on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await aiClient.fetch<{ success: boolean; data: { plugins: Array<{ plugin_id: string; is_active: boolean; config: Record<string, string> }> } }>('api/plugins/installed');
+        const installed = res.data?.plugins || [];
+        const installedIds = new Set(installed.map((p: { plugin_id: string }) => p.plugin_id));
+        setInstalledSet(installedIds);
+        setPlugins((prev) =>
+          prev.map((p) => {
+            const match = installed.find((i: { plugin_id: string }) => i.plugin_id === p.id);
+            return match ? { ...p, installed: true, is_active: match.is_active, config: match.config } : p;
+          })
+        );
+      } catch {
+        // Fallback: use local state only
+      }
+    })();
+  }, []);
+
   // 筛选插件
   const filteredPlugins = plugins.filter((p) => {
     const matchCategory = activeTab === 'all' || activeTab === 'installed' || p.category === activeTab;
@@ -254,33 +275,47 @@ export function PluginMarketplace() {
 
   const doInstall = async (plugin: Plugin, config: Record<string, string>) => {
     setInstalling(plugin.id);
-    // 模拟安装延迟
-    await new Promise((r) => setTimeout(r, 800));
-    setInstalledSet((prev) => new Set([...prev, plugin.id]));
-    setPlugins((prev) =>
-      prev.map((p) => (p.id === plugin.id ? { ...p, installed: true, config } : p))
-    );
-    setInstalling(null);
-    setConfigDialogOpen(false);
-    toast.success(`${plugin.name} 安装成功`);
+    try {
+      await aiClient.fetch(`api/plugins/${plugin.id}/install`, {
+        method: 'POST',
+        body: JSON.stringify({ config }),
+      });
+      setInstalledSet((prev) => new Set([...prev, plugin.id]));
+      setPlugins((prev) =>
+        prev.map((p) => (p.id === plugin.id ? { ...p, installed: true, config, is_active: true } : p))
+      );
+      toast.success(`${plugin.name} 安装成功`);
+    } catch (err) {
+      toast.error(`安装失败: ${(err as Error)?.message || '未知错误'}`);
+    } finally {
+      setInstalling(null);
+      setConfigDialogOpen(false);
+    }
   };
 
   const handleUninstall = async (plugin: Plugin) => {
     setInstalling(plugin.id);
-    await new Promise((r) => setTimeout(r, 500));
-    setInstalledSet((prev) => {
-      const next = new Set(prev);
-      next.delete(plugin.id);
-      return next;
-    });
-    setPlugins((prev) =>
-      prev.map((p) => (p.id === plugin.id ? { ...p, installed: false, config: {} } : p))
-    );
-    setInstalling(null);
-    toast.success(`${plugin.name} 已卸载`);
+    try {
+      await aiClient.fetch(`api/plugins/${plugin.id}/uninstall`, {
+        method: 'POST',
+      });
+      setInstalledSet((prev) => {
+        const next = new Set(prev);
+        next.delete(plugin.id);
+        return next;
+      });
+      setPlugins((prev) =>
+        prev.map((p) => (p.id === plugin.id ? { ...p, installed: false, config: {}, is_active: false } : p))
+      );
+      toast.success(`${plugin.name} 已卸载`);
+    } catch (err) {
+      toast.error(`卸载失败: ${(err as Error)?.message || '未知错误'}`);
+    } finally {
+      setInstalling(null);
+    }
   };
 
-  const handleConfigSave = () => {
+  const handleConfigSave = async () => {
     if (!selectedPlugin) return;
     const schema = selectedPlugin.config_schema || {};
     for (const [key, field] of Object.entries(schema)) {
@@ -290,14 +325,22 @@ export function PluginMarketplace() {
       }
     }
     if (installedSet.has(selectedPlugin.id)) {
-      // 更新配置
-      setPlugins((prev) =>
-        prev.map((p) =>
-          p.id === selectedPlugin.id ? { ...p, config: { ...configValues } } : p
-        )
-      );
-      setConfigDialogOpen(false);
-      toast.success('配置已更新');
+      // 更新配置 via API
+      try {
+        await aiClient.fetch(`api/plugins/${selectedPlugin.id}/config`, {
+          method: 'PUT',
+          body: JSON.stringify({ config: { ...configValues } }),
+        });
+        setPlugins((prev) =>
+          prev.map((p) =>
+            p.id === selectedPlugin.id ? { ...p, config: { ...configValues } } : p
+          )
+        );
+        setConfigDialogOpen(false);
+        toast.success('配置已更新');
+      } catch (err) {
+        toast.error(`配置更新失败: ${(err as Error)?.message || '未知错误'}`);
+      }
     } else {
       doInstall(selectedPlugin, { ...configValues });
     }

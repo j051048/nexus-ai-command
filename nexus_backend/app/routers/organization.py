@@ -447,3 +447,61 @@ async def admin_delete_organization(
     client = req.state.db
     await client.table("organizations").delete().eq("id", org_id).execute()
     return api_success({}, message="组织已删除")
+
+
+# ============== White-Label Branding Endpoints ==============
+
+
+@router.get("/brand")
+async def get_org_brand(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取组织白标品牌配置"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            return api_success(data={})
+        db = getattr(req.state, "db", None)
+        if not db:
+            return api_success(data={})
+        res = await db.table("organizations").select("brand").eq("id", str(org_id)).maybe_single().execute()
+        brand = (res.data or {}).get("brand", {}) or {}
+        return api_success(data=brand)
+    except Exception as e:
+        logger.error(f"Failed to get org brand: {e}")
+        return api_success(data={})
+
+
+class BrandUpdateRequest(BaseModel):
+    brand: dict
+
+
+@router.put("/brand")
+async def update_org_brand(
+    body: BrandUpdateRequest,
+    req: Request,
+    user_id: str = Depends(require_role(["boss", "founder"])),
+):
+    """更新组织白标品牌配置（仅 boss/founder）"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+
+        # Validate brand fields
+        allowed_keys = {
+            "logo_url", "primary_color", "company_name", "tagline",
+            "login_title", "login_subtitle", "feature_cards",
+            "favicon_url", "custom_domain",
+        }
+        brand = {k: v for k, v in body.brand.items() if k in allowed_keys}
+
+        await db.table("organizations").update({"brand": brand}).eq("id", str(org_id)).execute()
+        return api_success(data=brand, message="品牌配置已更新")
+    except Exception as e:
+        logger.error(f"Failed to update org brand: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新品牌配置失败")

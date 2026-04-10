@@ -113,6 +113,11 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(qa_pairs.router)
     app.include_router(import_data.router)
 
+    # ── 4b. Report Engine ─────────────────────────────────────────────────
+    from app.routers import report_engine
+
+    app.include_router(report_engine.router)
+
     # ── 5. Organization / Users ───────────────────────────────────────────
     from app.routers import (
         hr,
