@@ -19,6 +19,7 @@ from app.services.notification_service import (
 )
 from app.tools._shared import safe_tool_error
 
+from app.core.database import supabase
 from ._shared import _get_client
 from .base_tool import BaseTool
 
@@ -164,16 +165,14 @@ class LeaveRequestTool(BaseTool):
         except Exception:
             pass  # 检查失败不阻塞主流程
 
-        # 查找交接人
+        org_id = config.get("org_id") if config else None
+        # 查找交接人 (Admin client to bypass RLS, then filter by org)
         handover_id = None
         if handover_to:
-            handover_res = (
-                await client.table("users")
-                .select("id, name")
-                .ilike("name", f"%{handover_to}%")
-                .limit(1)
-                .execute()
-            )
+            query = supabase.table("users").select("id, name").ilike("name", f"%{handover_to}%")
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            handover_res = await query.limit(1).execute()
             if handover_res.data:
                 handover_id = handover_res.data[0]["id"]
 
@@ -241,6 +240,7 @@ class LeaveRequestTool(BaseTool):
         # 创建请假记录（OA 业务表）
         leave_data = {
             "user_id": user_id,
+            "organization_id": org_id,
             "type": leave_type,
             "start_date": start_date,
             "end_date": end_date,
@@ -571,17 +571,15 @@ class MeetingBookingTool(BaseTool):
         except Exception as e:
             logger.debug(f"Calendar conflict check skipped: {e}")
 
-        # 查找参会人
+        org_id = config.get("org_id") if config else None
+        # 查找参会人 (Admin client to bypass RLS, then filter by org)
         attendee_ids = []
         attendee_names = []
         for name in attendees:
-            user_res = (
-                await client.table("users")
-                .select("id, name")
-                .ilike("name", f"%{name}%")
-                .limit(1)
-                .execute()
-            )
+            query = supabase.table("users").select("id, name").ilike("name", f"%{name}%")
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            user_res = await query.limit(1).execute()
             if user_res.data:
                 attendee_ids.append(user_res.data[0]["id"])
                 attendee_names.append(user_res.data[0]["name"])
@@ -599,6 +597,7 @@ class MeetingBookingTool(BaseTool):
                 client.table("oa_meeting_bookings")
                 .insert(
                     {
+                        "organization_id": org_id,
                         "organizer_id": user_id,
                         "title": title,
                         "start_time": meeting_time.isoformat(),
@@ -618,22 +617,9 @@ class MeetingBookingTool(BaseTool):
 
         # 同步写入 calendar_events 表
         try:
-            org_id = None
-            try:
-                u_res = (
-                    await client.table("users")
-                    .select("organization_id")
-                    .eq("id", user_id)
-                    .limit(1)
-                    .execute()
-                )
-                if u_res.data:
-                    org_id = u_res.data[0].get("organization_id")
-            except Exception:
-                pass
-
             cal_data = {
                 "user_id": user_id,
+                "organization_id": org_id,
                 "title": title,
                 "event_type": "meeting",
                 "start_time": meeting_time.isoformat(),
@@ -643,27 +629,28 @@ class MeetingBookingTool(BaseTool):
                 "source_table": "oa_meeting_bookings",
                 "status": "active",
             }
-            if org_id:
-                cal_data["organization_id"] = org_id
             await client.table("calendar_events").insert(cal_data).execute()
         except Exception as e:
             logger.error(f"Failed to sync meeting to calendar_events: {e}")
 
-        # 发送会议通知
+        # 发送会议通知 (Use notification_service for consistency and RLS safety)
         for aid in attendee_ids:
-            await (
-                client.table("notifications")
-                .insert(
-                    {
-                        "user_id": aid,
-                        "title": f"📅 会议邀请: {title}",
-                        "content": f"时间: {meeting_time.strftime('%m月%d日 %H:%M')}\n地点: {room_name}",
-                        "type": "info",
-                        "action_url": "/oa?tab=meeting",
-                    }
+            try:
+                await notification_service.send(
+                    Notification(
+                        title=f"📅 会议邀请: {title}",
+                        content=f"时间: {meeting_time.strftime('%m月%d日 %H:%M')}\n地点: {room_name}",
+                        target_user_id=aid,
+                        channel=NotificationChannel.IN_APP,
+                        priority=NotificationPriority.NORMAL,
+                        metadata={
+                            "action_url": "/oa?tab=meeting",
+                            "organization_id": org_id or "",
+                        },
+                    )
                 )
-                .execute()
-            )
+            except Exception as e:
+                logger.warning(f"Failed to notify attendee {aid}: {e}")
 
         return f"""{conflict_warning}✅ 会议已预约成功！
 
@@ -731,15 +718,12 @@ class TaskAssignmentTool(BaseTool):
         priority = args.get("priority", "medium")
         project_name = args.get("project_name")
 
-        client = _get_client(config)
-        # 查找负责人
-        assignee_res = (
-            await client.table("users")
-            .select("id, name")
-            .ilike("name", f"%{assignee_name}%")
-            .limit(1)
-            .execute()
-        )
+        org_id = config.get("org_id") if config else None
+        # 查找负责人 (Admin client to bypass RLS, then filter by org)
+        query = supabase.table("users").select("id, name").ilike("name", f"%{assignee_name}%")
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        assignee_res = await query.limit(1).execute()
         if not assignee_res.data:
             return f"❌ 找不到名为「{assignee_name}」的同事。请确认姓名是否正确。"
 
@@ -877,15 +861,12 @@ class WorkHandoverTool(BaseTool):
         reason = args.get("reason", "临时交接")
         items = args.get("items", [])
 
-        client = _get_client(config)
-        # 查找交接人
-        handover_res = (
-            await client.table("users")
-            .select("id, name")
-            .ilike("name", f"%{handover_to_name}%")
-            .limit(1)
-            .execute()
-        )
+        org_id = config.get("org_id") if config else None
+        # 查找交接人 (Admin client to bypass RLS, then filter by org)
+        query = supabase.table("users").select("id, name").ilike("name", f"%{handover_to_name}%")
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        handover_res = await query.limit(1).execute()
         if not handover_res.data:
             return f"❌ 找不到名为「{handover_to_name}」的同事。"
 
@@ -923,18 +904,19 @@ class WorkHandoverTool(BaseTool):
         )
         user_name = user_res.data.get("name", "同事") if user_res.data else "同事"
 
-        await (
-            client.table("notifications")
-            .insert(
-                {
-                    "user_id": handover_to["id"],
-                    "title": "📋 工作交接通知",
-                    "content": f"{user_name} 将 {transferred} 项工作交接给您。\n原因: {reason}",
-                    "type": "warning",
+        # 通知交接人 (Use notification_service for consistency and RLS safety)
+        await notification_service.send(
+            Notification(
+                title="📋 工作交接通知",
+                content=f"{user_name} 将 {transferred} 项工作交接给您。\n原因: {reason}",
+                target_user_id=handover_to["id"],
+                channel=NotificationChannel.IN_APP,
+                priority=NotificationPriority.NORMAL,
+                metadata={
                     "action_url": "/oa?tab=task",
-                }
+                    "organization_id": org_id or "",
+                },
             )
-            .execute()
         )
 
         return f"""✅ 工作交接单已创建！
@@ -1124,9 +1106,9 @@ class SendNotificationTool(BaseTool):
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
 
-        # 查找收件人
+        # 查找收件人 (Admin client to bypass RLS, then filter by org)
         query = (
-            client.table("users")
+            supabase.table("users")
             .select("id, name")
             .ilike("name", f"%{recipient_name}%")
         )
