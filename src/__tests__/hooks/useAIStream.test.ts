@@ -72,7 +72,7 @@ describe('useAIStream', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFetchFn.mockReset();
-    global.fetch = mockFetchFn;
+    globalThis.fetch = mockFetchFn as typeof fetch;
     // Default: navigator.onLine = true
     Object.defineProperty(navigator, 'onLine', { value: true, writable: true, configurable: true });
   });

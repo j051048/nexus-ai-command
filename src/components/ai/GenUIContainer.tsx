@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- GenUI components have varying props */
 import React, { Suspense, useRef, useEffect, useState, useCallback } from 'react';
 import * as Sentry from '@sentry/react';
 import { lazyWithRetry, ChunkLoadError } from '@/lib/lazyPreload';
@@ -11,8 +12,7 @@ import type { ThinkingStep } from './ThinkingChain';
 // Registry of components available for Generative UI
 // GenUI components use reloadOnFailure=false to prevent page reload on chunk failures;
 // errors are caught by GenUIErrorBoundary instead.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- GenUI components have varying props
-const GEN_UI_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
+const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   // Business components
   BadgePanel: lazyWithRetry(() => import('../dashboard/employee/BadgePanel').then(m => ({ default: m.BadgePanel })), 2, false),
   ApprovalCenter: lazyWithRetry(() => import('../approval/ApprovalCenter').then(m => ({ default: m.ApprovalCenter })), 2, false),
