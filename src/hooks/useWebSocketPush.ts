@@ -83,6 +83,7 @@ export function useWebSocketPush() {
 
       ws.onopen = () => {
         reconnectAttemptRef.current = 0;
+        intentionalCloseRef.current = false; // Reset after successful connection
         if (import.meta.env.DEV) console.log('[WS Push] Connected');
 
         // 启动心跳
