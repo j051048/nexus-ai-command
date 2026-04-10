@@ -119,6 +119,32 @@ _agent_graph = get_agent_graph()
 
 
 async def run_agent_stream(
+    **kwargs
+) -> AsyncGenerator[str, None]:
+    """
+    Wrapper for _run_agent_stream_impl that yields a status immediately
+    and catches all errors to prevent StreamingResponse failures.
+    """
+    yield _sse_status("正在准备 Agent...")
+    
+    # We need to capture these for possible error cleanup
+    tracer = kwargs.get("tracer")
+    _trace_id = kwargs.get("_trace_id") or str(uuid.uuid4())
+    all_thinking_steps = []
+    
+    try:
+        async for chunk in _run_agent_stream_impl(**{**kwargs, "_trace_id": _trace_id}):
+            # Note: We don't have easy access to all_thinking_steps here without
+            # invasive changes to the impl, but the impl handles its own persistence.
+            # This wrapper is primarily for catching crashes.
+            yield chunk
+    except Exception as e:
+        logger.error(f"[Stream] Global agent failure: {e}", exc_info=True)
+        async for evt in _emit_error_and_cleanup(all_thinking_steps, tracer, _trace_id, e):
+            yield evt
+
+
+async def _run_agent_stream_impl(
     messages: list[dict],
     config: dict,
     user_id: str,
@@ -134,6 +160,7 @@ async def run_agent_stream(
     # VMD extensions
     scene_code: str | None = None,
     vmd_agent_code: str | None = None,
+    _trace_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Main entry point: runs the LangGraph agent and streams SSE events.
@@ -141,6 +168,9 @@ async def run_agent_stream(
     This function is a drop-in replacement for ChatService.stream_response,
     maintaining the same SSE protocol for the frontend.
     """
+    # Use provided trace_id or generate new
+    _trace_id = _trace_id or str(uuid.uuid4())
+    all_thinking_steps: list[ThinkingStep] = []
     start_time = time.time()
 
     # ── 0. Build AgentConfig with settings ──
@@ -168,7 +198,6 @@ async def run_agent_stream(
     )
 
     # ── 0b. Start agent trace for observability (P3) ──
-    _trace_id = str(uuid.uuid4())
     _user_query = ""
     for _m in reversed(messages):
         if _m.get("role") == "user":
