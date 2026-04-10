@@ -70,6 +70,18 @@ async def save_memory(
 
     now = datetime.now(UTC).isoformat()
 
+    # Ensure org_id is set — RLS requires organization_id = get_user_org_id(auth.uid())
+    if not org_id:
+        try:
+            from app.core.database import supabase as _supabase
+            org_resp = await _supabase.table("organization_members").select("organization_id").eq("user_id", user_id).maybe_single().execute()
+            if org_resp and org_resp.data:
+                org_id = org_resp.data["organization_id"]
+        except Exception:
+            pass
+    if not org_id:
+        org_id = "00000000-0000-0000-0000-000000000000"
+
     # P0 LoCoMo Fix: Normalize temporal context before storage
     from .temporal_normalizer import normalize_temporal_context
 
