@@ -889,6 +889,40 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     tool_calls_raw = ai_msg.tool_calls
     content = ai_msg.content or ""
 
+    # ── Content Filter Recovery ──
+    # When the LLM provider's safety filter blocks the response (finish_reason=content_filter),
+    # retry with fallback LLM regardless of complexity level.
+    if finish_reason == "content_filter" and not tool_calls_raw and not content.strip():
+        logger.warning(
+            "[PlanNode] Content filter blocked response — retrying with fallback LLM"
+        )
+        try:
+            from app.agent.node_helpers import _get_fallback_llm
+
+            fallback_llm = _get_fallback_llm(agent_config, model=model, streaming=True)
+            if fallback_llm:
+                if tool_schemas:
+                    fallback_llm = fallback_llm.bind_tools(
+                        tool_schemas, parallel_tool_calls=True
+                    )
+                ai_msg = await fallback_llm.ainvoke(lc_msgs)
+                content = ai_msg.content or ""
+                tool_calls_raw = ai_msg.tool_calls
+                if tool_calls_raw or content.strip():
+                    logger.info(
+                        "[PlanNode] Content filter recovery succeeded via fallback LLM"
+                    )
+                else:
+                    logger.warning(
+                        "[PlanNode] Fallback LLM also returned empty after content_filter"
+                    )
+            else:
+                logger.info(
+                    "[PlanNode] No fallback LLM available for content_filter recovery"
+                )
+        except Exception as e:
+            logger.error(f"[PlanNode] Content filter recovery failed: {e}")
+
     # ── Short/Useless Response Recovery (First Iteration) ──
     # When a COMPLEX/CRITICAL query gets a very short response with NO tool calls
     # on the first iteration, the LLM likely failed silently (wrong model, context
