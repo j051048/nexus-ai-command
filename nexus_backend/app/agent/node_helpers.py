@@ -1126,6 +1126,7 @@ async def invoke_with_fallback(
     tool_schemas: list | None = None,
     complexity_tier: str | None = None,
     invoke_timeout: float = 45.0,
+    cascade_budget: float = 50.0,
 ):
     """Invoke LLM with cascade fallback on provider-level failures.
 
@@ -1134,6 +1135,13 @@ async def invoke_with_fallback(
       2. Fallback provider (from settings)
       3. Rate-limit retry: if error is 429, wait 2s and retry primary once
       4. Model-tier downgrade: if auth errors on both providers, try next lower tier
+
+    Timeout strategy:
+      Uses a cascade_budget (default 50s) as the total deadline for all attempts
+      combined. Each candidate gets a share of the remaining budget, ensuring the
+      cascade completes before the client disconnects (~58s). The primary gets
+      at most 25s to leave room for fallback; subsequent attempts get whatever
+      remains (minimum 5s).
 
     Error-type-aware decisions:
       - auth errors: skip immediately to next provider (no retry)
@@ -1144,6 +1152,19 @@ async def invoke_with_fallback(
 
     Cooldown: failed providers are skipped for 60s to avoid hammering.
     """
+    _CASCADE_START = time.monotonic()
+
+    def _remaining_budget() -> float:
+        """Seconds remaining before cascade_budget is exhausted."""
+        return max(cascade_budget - (time.monotonic() - _CASCADE_START), 5.0)
+
+    def _attempt_timeout(is_primary: bool) -> float:
+        """Timeout for a single attempt. Primary capped at 25s to reserve budget for fallback."""
+        remaining = _remaining_budget()
+        if is_primary:
+            return min(remaining, 25.0)
+        return remaining
+
     candidates = [("primary", llm)]
 
     # Build fallback candidate
@@ -1180,19 +1201,21 @@ async def invoke_with_fallback(
             logger.info(f"[LLM Cascade] Skipping {label} (cooldown active)")
             continue
 
+        attempt_to = _attempt_timeout(is_primary=(label == "primary"))
         try:
             result = await asyncio.wait_for(
                 candidate_llm.ainvoke(messages),
-                timeout=invoke_timeout,
+                timeout=attempt_to,
             )
             return result
         except TimeoutError:
             logger.warning(
-                "[LLM Cascade] %s timed out after %.0fs, cascading to next candidate",
+                "[LLM Cascade] %s timed out after %.1fs (budget remaining: %.1fs), cascading to next candidate",
                 label,
-                invoke_timeout,
+                attempt_to,
+                _remaining_budget(),
             )
-            last_error = TimeoutError(f"LLM invoke timeout after {invoke_timeout}s")
+            last_error = TimeoutError(f"LLM invoke timeout after {attempt_to:.1f}s")
             all_auth_errors = False
             _set_provider_cooldown(pkey)
         except Exception as err:
@@ -1213,19 +1236,20 @@ async def invoke_with_fallback(
             if error_type == "rate_limit" and label == "primary":
                 logger.info("[LLM Cascade] Rate-limited, waiting 2s before retry...")
                 await asyncio.sleep(2)
+                retry_to = _attempt_timeout(is_primary=False)
                 try:
                     return await asyncio.wait_for(
                         candidate_llm.ainvoke(messages),
-                        timeout=invoke_timeout,
+                        timeout=retry_to,
                     )
                 except TimeoutError:
                     logger.warning(
-                        "[LLM Cascade] Rate-limit retry on %s timed out after %.0fs",
+                        "[LLM Cascade] Rate-limit retry on %s timed out after %.1fs",
                         label,
-                        invoke_timeout,
+                        retry_to,
                     )
                     last_error = TimeoutError(
-                        f"Rate-limit retry timeout after {invoke_timeout}s"
+                        f"Rate-limit retry timeout after {retry_to:.1f}s"
                     )
                     all_auth_errors = False
                     _set_provider_cooldown(pkey)
@@ -1255,9 +1279,10 @@ async def invoke_with_fallback(
                         downgrade_llm = downgrade_llm.bind_tools(
                             tool_schemas, parallel_tool_calls=True
                         )
+                    dg_to = _remaining_budget()
                     result = await asyncio.wait_for(
                         downgrade_llm.ainvoke(messages),
-                        timeout=invoke_timeout,
+                        timeout=dg_to,
                     )
                     logger.info(
                         f"[LLM Cascade] Model-tier downgrade to '{next_tier}' succeeded"
@@ -1265,7 +1290,7 @@ async def invoke_with_fallback(
                     return result
                 except TimeoutError:
                     logger.warning(
-                        f"[LLM Cascade] Downgrade to '{next_tier}' timed out after {invoke_timeout}s"
+                        f"[LLM Cascade] Downgrade to '{next_tier}' timed out after {dg_to:.1f}s"
                     )
                     last_error = TimeoutError(f"Downgrade to {next_tier} timed out")
                 except Exception as dg_err:
