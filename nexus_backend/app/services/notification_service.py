@@ -147,7 +147,8 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
                 "user_id": notification.target_user_id,
                 "organization_id": org_id,
                 "title": notification.title,
-                "body": notification.content,  # 数据库中列名为 body
+                "content": notification.content,  # NOT NULL column
+                "body": notification.content,  # legacy alias
                 "type": notification_type,
                 "data": notification.metadata,
             }

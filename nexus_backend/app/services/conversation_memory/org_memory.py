@@ -111,8 +111,14 @@ async def search_org_memories(
     if len(results) < limit:
         try:
             # 转义特殊字符，避免 PostgREST 解析错误
+            # Strip newlines/brackets/quotes that break PostgREST logic tree parsing
             safe_query = (
-                query.replace("%", "\\%").replace("_", "\\_").replace('"', '\\"')
+                query.replace("\n", " ").replace("\r", " ")
+                .replace("%", "\\%").replace("_", "\\_")
+                .replace('"', "").replace("'", "")
+                .replace("(", "").replace(")", "")
+                .replace("{", "").replace("}", "")
+                .replace("[", "").replace("]", "")
             )
             kw_res = (
                 await supabase.table("org_memories")
