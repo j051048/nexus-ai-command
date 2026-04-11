@@ -33,6 +33,13 @@ _CACHE_BYPASS_RE = re.compile(
 # Error/rejection prefixes — never cache these responses
 _ERROR_PREFIXES = ("❌", "⚠️", "抱歉", "对不起", "很抱歉", "Error")
 
+# Intermediate state patterns — never cache these (tool confirmations, pending actions)
+# These represent incomplete interactions that require user confirmation before execution
+_INTERMEDIATE_RE = re.compile(
+    r"需要您的确认|需要确认|请确认后再执行|不可逆操作|确认后才能执行"
+    r"|confirmation_message|is_irreversible"
+)
+
 
 def _redis_cache_key(query_hash: str, user_id: str) -> str:
     """Build a namespaced Redis key for hot cache."""
@@ -144,6 +151,12 @@ class SemanticCacheService:
         if any(stripped.startswith(p) for p in _ERROR_PREFIXES):
             return False
 
+        # Rule 2.5: 不缓存中间状态（工具确认请求、不可逆操作提示）
+        # 这些是待用户确认的交互中间态，缓存会导致永远无法执行
+        if _INTERMEDIATE_RE.search(response_text):
+            logger.info("[Cache] Bypass: intermediate state (tool confirmation)")
+            return False
+
         # Rule 3: 字数要求 vs 实际回复长度
         #   "写3000字" → 提取 3000，回复 < 900字(30%) → 拒绝
         m = re.search(r"(\d{3,})\s*字", query)
@@ -164,6 +177,11 @@ class SemanticCacheService:
         """Return an ISO-8601 timestamp for the TTL boundary."""
         cutoff = datetime.now(UTC) - timedelta(hours=self.ttl_hours)
         return cutoff.isoformat()
+
+    @staticmethod
+    def _is_stale_response(text: str) -> bool:
+        """Check if cached text is a stale intermediate state that should not be served."""
+        return bool(_INTERMEDIATE_RE.search(text))
 
     async def get_cache(self, query: str, user_id: str) -> str | None:
         """
@@ -197,12 +215,15 @@ class SemanticCacheService:
                 try:
                     cached_val = await r.get(_redis_cache_key(query_hash, user_id))
                     if cached_val:
-                        logger.info(
-                            f"Semantic Cache Redis-Hit: query='{query[:30]}...'"
-                        )
-                        record_cache_hit()
-                        self._hits += 1
-                        return cached_val
+                        if self._is_stale_response(cached_val):
+                            logger.info("[Cache] Skipping stale intermediate state from Redis")
+                        else:
+                            logger.info(
+                                f"Semantic Cache Redis-Hit: query='{query[:30]}...'"
+                            )
+                            record_cache_hit()
+                            self._hits += 1
+                            return cached_val
                 except Exception:
                     pass  # Redis failure is non-fatal
 
@@ -219,21 +240,25 @@ class SemanticCacheService:
             )
 
             if hash_res and hash_res.data:
-                logger.info(f"Semantic Cache Hash-Hit: query='{query[:30]}...'")
-                import asyncio
+                resp_text = hash_res.data["response_text"]
+                if self._is_stale_response(resp_text):
+                    logger.info("[Cache] Skipping stale intermediate state from DB hash")
+                else:
+                    logger.info(f"Semantic Cache Hash-Hit: query='{query[:30]}...'")
+                    import asyncio
 
-                asyncio.create_task(self._update_hit_count(hash_res.data["id"]))
-                # Backfill Redis hot-cache
-                if r:
-                    with contextlib.suppress(Exception):
-                        await r.setex(
-                            _redis_cache_key(query_hash, user_id),
-                            _REDIS_HOT_CACHE_TTL,
-                            hash_res.data["response_text"],
-                        )
-                record_cache_hit()
-                self._hits += 1
-                return hash_res.data["response_text"]
+                    asyncio.create_task(self._update_hit_count(hash_res.data["id"]))
+                    # Backfill Redis hot-cache
+                    if r:
+                        with contextlib.suppress(Exception):
+                            await r.setex(
+                                _redis_cache_key(query_hash, user_id),
+                                _REDIS_HOT_CACHE_TTL,
+                                resp_text,
+                            )
+                    record_cache_hit()
+                    self._hits += 1
+                    return resp_text
 
             # --- Slow path: vector similarity search ---
             # 1. Resolve embedding model and get embedding for the new query
@@ -256,26 +281,30 @@ class SemanticCacheService:
 
             if res.data and len(res.data) > 0:
                 match = res.data[0]
-                logger.info(
-                    f"Semantic Cache Hit: query='{query[:30]}...', similarity={match['similarity']:.4f}"
-                )
+                resp_text = match["response_text"]
+                if self._is_stale_response(resp_text):
+                    logger.info("[Cache] Skipping stale intermediate state from semantic match")
+                else:
+                    logger.info(
+                        f"Semantic Cache Hit: query='{query[:30]}...', similarity={match['similarity']:.4f}"
+                    )
 
-                # Update hit count (Async, don't wait)
-                import asyncio
+                    # Update hit count (Async, don't wait)
+                    import asyncio
 
-                asyncio.create_task(self._update_hit_count(match["id"]))
+                    asyncio.create_task(self._update_hit_count(match["id"]))
 
-                # Backfill Redis hot-cache for this query hash
-                if r:
-                    with contextlib.suppress(Exception):
-                        await r.setex(
-                            _redis_cache_key(query_hash, user_id),
-                            _REDIS_HOT_CACHE_TTL,
-                            match["response_text"],
-                        )
-                record_cache_hit()
-                self._hits += 1
-                return match["response_text"]
+                    # Backfill Redis hot-cache for this query hash
+                    if r:
+                        with contextlib.suppress(Exception):
+                            await r.setex(
+                                _redis_cache_key(query_hash, user_id),
+                                _REDIS_HOT_CACHE_TTL,
+                                resp_text,
+                            )
+                    record_cache_hit()
+                    self._hits += 1
+                    return resp_text
 
             record_cache_miss()
             self._misses += 1
