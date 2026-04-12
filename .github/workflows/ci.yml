@@ -235,14 +235,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+      - name: Run Trivy vulnerability scanner (SARIF)
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: "fs"
           scan-ref: "."
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
+
+      - name: Run Trivy vulnerability scanner (summary)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "table"
+          output: "trivy-results.txt"
+          severity: "CRITICAL,HIGH"
+
+      - name: Add Trivy results to summary
+        if: always()
+        run: |
+          echo "## Trivy Vulnerability Scan" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat trivy-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No vulnerabilities found." >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v4
@@ -519,6 +536,28 @@ jobs:
           DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Scan Docker image for vulnerabilities
+        if: env.DOCKER_REGISTRY != ''
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "nexus-backend:staging-${{ github.sha }}"
+          format: "table"
+          exit-code: "0"
+          severity: "CRITICAL,HIGH"
+          output: "docker-scan-results.txt"
+        env:
+          DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+
+      - name: Add Docker scan results to summary
+        if: always() && env.DOCKER_REGISTRY != ''
+        run: |
+          echo "## Docker Image Vulnerability Scan" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat docker-scan-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No scan results." >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        env:
+          DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
 
       - name: Trigger backend staging deployment
         if: env.STAGING_DEPLOY_WEBHOOK_URL != ''
