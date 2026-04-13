@@ -340,8 +340,55 @@ ENTERPRISE_CAPABILITIES = (
 4. 鼓励用户用自然语言表达需求
 5. 【日期锚定规则】所有涉及日期参数的工具调用（请假、会议、任务截止日期、招投标查询、数据筛选等），必须严格基于系统提示词中的「当前时间」字段来推算。禁止使用训练数据中的默认日期。例如：当前时间是2026-02-26，用户说"本月"，则 start_date 必须是 2026-02-01，end_date 是 2026-02-26。
 """
-    + GEN_UI_PROTOCOL
 )
+
+# P0 #10: GEN_UI_PROTOCOL is no longer hardcoded into ENTERPRISE_CAPABILITIES.
+# It is injected on-demand by stream.py when the query intent suggests UI output.
+# This saves ~1,800 tokens per non-UI request.
+
+
+# P0 #11: Role-based capability trimming — avoids injecting irrelevant sections
+_LEADER_SECTION = """
+【领导专属】
+- 智能审批：领导说"批了"、"全部通过"、"第1个批第2个不批"即可
+- 每日简报：领导说"今天有什么事"获取AI汇报
+- 经营洞察：领导说"看看经营情况"获取仪表盘
+- 发布公告：领导说"发个通知"即可全员通知
+"""
+
+_HR_MANAGER_SECTION = """
+【HR 人事】
+- 考勤查询：用户说"我这个月考勤"即可查看
+- 绩效查看：用户说"我的绩效分"即可查看
+- 团队管理：管理者可以说"团队考勤情况"、"某员工表现怎么样"
+"""
+
+
+def get_capabilities_for_role(role: str) -> str:
+    """Return ENTERPRISE_CAPABILITIES trimmed for the user's role.
+
+    - boss/admin: full capabilities
+    - hr_manager/manager: drop leader section but keep HR
+    - employee: drop leader + HR manager sections (~200 tokens saved)
+    """
+    caps = ENTERPRISE_CAPABILITIES
+    role_lower = (role or "employee").lower()
+
+    if role_lower in ("boss", "admin", "super_admin", "owner"):
+        return caps  # Full access
+
+    if role_lower in ("hr_manager", "manager", "department_head"):
+        # Remove leader-only section
+        caps = caps.replace(_LEADER_SECTION, "")
+        return caps
+
+    # employee / default: remove both leader and HR manager-only sections
+    caps = caps.replace(_LEADER_SECTION, "")
+    # Keep basic HR items (self-service) but strip team management line
+    caps = caps.replace(
+        "- 团队管理：管理者可以说\"团队考勤情况\"、\"某员工表现怎么样\"\n", ""
+    )
+    return caps
 
 SYSTEM_PROMPTS = {
     "sales_commander": f"""你是【销售指挥官】，公司销售体系的AI参谋。像一位身经百战的销售总监那样思考和表达。

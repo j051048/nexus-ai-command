@@ -48,7 +48,7 @@ interface ChatInputAreaProps {
   toggleRecording: () => void;
   showMobileMenu: boolean;
   setShowMobileMenu: (v: React.SetStateAction<boolean>) => void;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLTextAreaElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   variant: 'overlay' | 'embedded';
@@ -174,13 +174,16 @@ export const ChatInputArea = React.memo(function ChatInputArea({
             </div>
 
             <div className="flex-1 relative flex items-center min-w-0">
-              <input
+              <textarea
                 ref={inputRef}
-                type="text"
                 value={input}
+                rows={1}
                 onChange={(e) => {
                   const val = e.target.value;
                   setInput(val);
+                  // Auto-grow: reset height then set to scrollHeight (max 5 rows ~120px)
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
                   if (val.endsWith('@') && !showAgents) setShowAgents(true);
                   if (val.endsWith('/') && !showToolPalette && setShowToolPalette) setShowToolPalette(true);
                 }}
@@ -189,11 +192,14 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                     e.preventDefault();
                     setInput(matchedHint);
                   } else if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
                     handleSend();
                   }
+                  // Shift+Enter inserts newline (default textarea behavior)
                 }}
                 placeholder={currentAgent ? `对话专家: ${currentAgent}` : "输入指令并回车 / 或输入 @ 召唤专家..."}
-                className="w-full bg-black/20 dark:bg-white/5 rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/40"
+                className="w-full bg-black/20 dark:bg-white/5 rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/40 resize-none overflow-y-auto leading-normal"
+                style={{ maxHeight: '120px' }}
               />
             </div>
 

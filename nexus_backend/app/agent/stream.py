@@ -233,20 +233,24 @@ async def _run_agent_stream_impl(
         logger.error("[Stream] Failed to start agent trace", exc_info=True)
 
     # ── 0c. Pre-resolve model configs for all tiers (Step 2: centralized resolution) ──
+    # P0 #1: Parallel resolution via asyncio.gather (was 4x serial await)
     try:
         from app.services.llm_helpers import resolve_model_config
 
-        _resolved_configs = {}
-        for _tier in ("economy", "balanced", "power", "flagship"):
+        _tiers = ("economy", "balanced", "power", "flagship")
+
+        async def _resolve_one(tier: str):
             try:
-                _rc = await resolve_model_config(
+                return tier, await resolve_model_config(
                     org_id=org_id or "default",
                     scene_code=scene_code or "",
-                    complexity_tier=_tier,
+                    complexity_tier=tier,
                 )
-                _resolved_configs[_tier] = _rc
             except Exception:
-                pass
+                return tier, None
+
+        _resolve_results = await asyncio.gather(*[_resolve_one(t) for t in _tiers])
+        _resolved_configs = {t: rc for t, rc in _resolve_results if rc is not None}
         if _resolved_configs:
             agent_config.resolved_configs = _resolved_configs
             logger.info(
@@ -255,13 +259,15 @@ async def _run_agent_stream_impl(
     except Exception:
         logger.error("[Stream] Failed to pre-resolve model configs", exc_info=True)
 
-    # ── 1-2. Pre-flight checks (token budget, moderation, PII) ──
+    # ── 1-2. Pre-flight checks (token budget, PII) ──
+    # P0 #5: skip_moderation=True because chat.py already ran content moderation
     checks_passed, check_events, last_user_content = await run_pre_checks(
         messages=messages,
         user_id=user_id,
         model=agent_config.model,
         session_id=session_id,
         org_id=org_id,
+        skip_moderation=True,
     )
     if not checks_passed:
         for evt in check_events:
@@ -277,21 +283,74 @@ async def _run_agent_stream_impl(
     # Also gate RAG for MODERATE queries: only enable when query suggests
     # the user needs information from uploaded documents / knowledge base.
 
-    # ── 2a-bis. Load user behavior preferences ──
-    _behavior_prefs: dict = {}
+    # ── P0 #11: Trim ENTERPRISE_CAPABILITIES by user role ──
     try:
-        _prefs_res = (
-            await (db_client or supabase)
-            .table("ai_settings")
-            .select("behavior_preferences")
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
+        from app.core.prompts_registry import (
+            ENTERPRISE_CAPABILITIES,
+            get_capabilities_for_role,
         )
-        if _prefs_res.data and _prefs_res.data[0].get("behavior_preferences"):
-            _behavior_prefs = _prefs_res.data[0]["behavior_preferences"]
+
+        _trimmed_caps = get_capabilities_for_role(user_role)
+        if _trimmed_caps != ENTERPRISE_CAPABILITIES:
+            system_prompt = system_prompt.replace(ENTERPRISE_CAPABILITIES, _trimmed_caps)
+            logger.debug(f"[Stream] Trimmed capabilities for role={user_role}")
     except Exception:
         pass
+
+    # ── P1 #6: Early complexity classification (moved up from L368) ──
+    # Determines _is_simple BEFORE behavior_preferences and soul_document
+    # so SIMPLE queries can skip those expensive lookups.
+    _is_simple = False
+    early_complexity = None
+    intent_summary = ""
+    if last_user_content:
+        from app.agent.router import _should_enable_rag, classify_query
+
+        early_complexity, intent_summary = classify_query(last_user_content)
+        if early_complexity == QueryComplexity.SIMPLE:
+            _prev_was_contextual = False
+            if len(last_user_content.strip()) <= 4 and len(messages) >= 3:
+                for prev_msg in reversed(messages[:-1]):
+                    if prev_msg.get("role") == "user":
+                        prev_text = prev_msg.get("content", "")
+                        prev_cx, _ = classify_query(prev_text)
+                        if prev_cx != QueryComplexity.SIMPLE:
+                            _prev_was_contextual = True
+                        break
+            if _prev_was_contextual:
+                early_complexity = QueryComplexity.MODERATE
+                intent_summary = "短消息跟进(保留上下文)"
+                logger.debug(
+                    f"[Stream] Short follow-up detected, upgraded to MODERATE: '{last_user_content}'"
+                )
+            else:
+                agent_config.enable_rag_inject = False
+                _is_simple = True
+        elif agent_config.enable_rag_inject and not _should_enable_rag(
+            last_user_content
+        ):
+            agent_config.enable_rag_inject = False
+            logger.debug(
+                "[Stream] RAG skipped: query has no document/knowledge indicators"
+            )
+
+    # ── 2a-bis. Load user behavior preferences ──
+    # P1 #6: Skip for SIMPLE queries — greetings don't need style preferences
+    _behavior_prefs: dict = {}
+    if not _is_simple:
+        try:
+            _prefs_res = (
+                await (db_client or supabase)
+                .table("ai_settings")
+                .select("behavior_preferences")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+            if _prefs_res.data and _prefs_res.data[0].get("behavior_preferences"):
+                _behavior_prefs = _prefs_res.data[0]["behavior_preferences"]
+        except Exception:
+            pass
 
     if _behavior_prefs:
         _pref_lines: list[str] = []
@@ -328,60 +387,39 @@ async def _run_agent_stream_impl(
             logger.debug("[Stream] A/B prompt injection skipped", exc_info=True)
 
     # ── 2b. Soul Document — 用灵魂文档替换默认身份认知 ──
-    try:
-        from app.services.soul_document_service import soul_document_service
+    # P1 #6: Skip for SIMPLE queries — soul document is expensive and unnecessary for greetings
+    if not _is_simple:
+        try:
+            from app.services.soul_document_service import soul_document_service
 
-        _soul_prompt = await soul_document_service.get_compiled_prompt(org_id)
-        if _soul_prompt:
-            from app.core.prompts_registry import SELF_AWARENESS
+            _soul_prompt = await soul_document_service.get_compiled_prompt(org_id)
+            if _soul_prompt:
+                from app.core.prompts_registry import SELF_AWARENESS
 
-            # 如果 system_prompt 包含默认 SELF_AWARENESS，替换之
-            _sa_marker = SELF_AWARENESS[:30]
-            if _sa_marker in system_prompt:
-                system_prompt = system_prompt.replace(SELF_AWARENESS, _soul_prompt)
-            else:
-                # DB/YAML 加载的 prompt 可能不含 SELF_AWARENESS，追加到头部
-                system_prompt = _soul_prompt + "\n\n" + system_prompt
-    except Exception:
-        logger.debug("[Stream] Soul document injection skipped", exc_info=True)
+                # 如果 system_prompt 包含默认 SELF_AWARENESS，替换之
+                _sa_marker = SELF_AWARENESS[:30]
+                if _sa_marker in system_prompt:
+                    system_prompt = system_prompt.replace(SELF_AWARENESS, _soul_prompt)
+                else:
+                    # DB/YAML 加载的 prompt 可能不含 SELF_AWARENESS，追加到头部
+                    system_prompt = _soul_prompt + "\n\n" + system_prompt
+        except Exception:
+            logger.debug("[Stream] Soul document injection skipped", exc_info=True)
 
-    _is_simple = False
-    early_complexity = None
-    intent_summary = ""
-    if last_user_content:
-        from app.agent.router import _should_enable_rag, classify_query
-
-        early_complexity, intent_summary = classify_query(last_user_content)
-        if early_complexity == QueryComplexity.SIMPLE:
-            # Short follow-up heuristic: if the current message is very short (<=4 chars)
-            # and the previous user message triggered memory/context, keep memory active.
-            # This handles cases like: User: "还记得我的同学么?" → AI: "..." → User: "林凯"
-            _prev_was_contextual = False
-            if len(last_user_content.strip()) <= 4 and len(messages) >= 3:
-                for prev_msg in reversed(messages[:-1]):
-                    if prev_msg.get("role") == "user":
-                        prev_text = prev_msg.get("content", "")
-                        prev_cx, _ = classify_query(prev_text)
-                        if prev_cx != QueryComplexity.SIMPLE:
-                            _prev_was_contextual = True
-                        break
-            if _prev_was_contextual:
-                # Upgrade to MODERATE so memory/context is preserved for follow-up
-                early_complexity = QueryComplexity.MODERATE
-                intent_summary = "短消息跟进(保留上下文)"
-                logger.debug(
-                    f"[Stream] Short follow-up detected, upgraded to MODERATE: '{last_user_content}'"
-                )
-            else:
-                agent_config.enable_rag_inject = False
-                _is_simple = True
-        elif agent_config.enable_rag_inject and not _should_enable_rag(
-            last_user_content
-        ):
-            agent_config.enable_rag_inject = False
-            logger.debug(
-                "[Stream] RAG skipped: query has no document/knowledge indicators"
-            )
+    # ── P0 #10: On-demand GenUI protocol injection ──
+    # Only inject the ~1,800 token GenUI prompt when intent suggests UI output
+    _GENUI_INTENT_KEYWORDS = (
+        "数据", "报表", "图表", "分析", "对比", "排名", "审批", "日报", "周报",
+        "写邮件", "待办", "日程", "看板", "漏斗", "进度", "热力", "甘特",
+        "表格", "统计", "趋势", "同比", "环比", "占比", "分布",
+        "report", "chart", "dashboard", "compare", "status",
+    )
+    if last_user_content and not _is_simple:
+        _need_genui = any(kw in last_user_content for kw in _GENUI_INTENT_KEYWORDS)
+        if _need_genui:
+            from app.core.prompts_registry import GEN_UI_PROTOCOL
+            system_prompt += "\n" + GEN_UI_PROTOCOL
+            logger.debug("[Stream] GenUI protocol injected (intent match)")
 
     if tracer:
         tracer.log_start(

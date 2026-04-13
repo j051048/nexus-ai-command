@@ -22,8 +22,15 @@ async def run_pre_checks(
     model: str,
     session_id: str | None,
     org_id: str | None,
+    *,
+    skip_moderation: bool = False,
 ) -> tuple[bool, list[str], str]:
     """Execute all pre-flight checks before running the agent.
+
+    Parameters
+    ----------
+    skip_moderation : bool
+        If True, skip input moderation (caller already did it, e.g. chat.py).
 
     Returns
     -------
@@ -78,13 +85,14 @@ async def run_pre_checks(
             logger.warning(f"[Stream] Tenant credit check failed (non-blocking): {e}")
 
     # ── 2. Input moderation ──
+    # P0 #5: Skip if caller already performed moderation (e.g. chat.py)
     last_user_content = ""
     for msg in reversed(messages):
         if msg.get("role") == "user":
             last_user_content = msg.get("content", "")
             break
 
-    if last_user_content:
+    if last_user_content and not skip_moderation:
         is_safe, warning = check_user_input(last_user_content)
         if not is_safe:
             sse_events.append(_sse_content(f"⛔ 安全警告: {warning}"))

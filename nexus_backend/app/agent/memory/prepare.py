@@ -79,30 +79,14 @@ async def prepare_initial_state(
     raw_messages = [m for m in raw_messages if m.get("role") != "system"]
 
     # ── 1. Semantic Cache Lookup ──
+    # P0 #3: Skipped — semantic cache is already checked in chat.py entry point.
+    # If we reach here, cache was already missed or bypassed (system_confirmed).
+    # The skip_semantic flag still controls downstream RAG/memory behavior.
     last_user_msg = ""
     for msg in reversed(raw_messages):
         if msg.get("role") == "user":
             last_user_msg = msg.get("content", "")
             break
-
-    if (
-        last_user_msg
-        and config.user_id
-        and not config.system_confirmed
-        and not skip_semantic
-    ):
-        try:
-            from app.services.semantic_cache import semantic_cache_service
-
-            cached = await semantic_cache_service.get_cache(
-                last_user_msg, config.user_id
-            )
-            if cached:
-                logger.info(f"[Memory] Semantic cache hit for user {config.user_id}")
-                result["cached_response"] = cached
-                return result
-        except Exception as e:
-            logger.error(f"[Memory] Semantic cache lookup failed: {e}")
 
     # ── 2. RAG Retrieval with Query Transformation ──
     # P1 Fix #22: Add HyDE and Multi-Query for better retrieval
@@ -297,26 +281,13 @@ async def prepare_initial_state(
             )
 
             dept_name = None
-            if config.org_id:
-                try:
-                    emp_res = (
-                        await client.table("users")
-                        .select("department")
-                        .eq("id", config.user_id)
-                        .maybe_single()
-                        .execute()
-                    )
-                    if emp_res.data:
-                        dept_name = emp_res.data.get("department")
-                except Exception:
-                    pass
+            # P0 #4: department is already in the users query above — no need for a second query
+            if user_res.data:
+                dept_name = user_res.data.get("department")
 
             if user_res.data:
                 name = user_res.data.get("name", "")
                 role = user_res.data.get("role", "employee")
-                # Fallback to department column on users table if employees lookup didn't find one
-                if not dept_name:
-                    dept_name = user_res.data.get("department")
                 dept_str = f"，{dept_name}" if dept_name else ""
                 parts.append(f"当前用户: {name}（{role}{dept_str}）")
 

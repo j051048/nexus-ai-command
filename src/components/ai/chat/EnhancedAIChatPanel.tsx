@@ -108,7 +108,7 @@ export function EnhancedAIChatPanel({
   const [entityDialogEntity, setEntityDialogEntity] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -500,9 +500,22 @@ export function EnhancedAIChatPanel({
     loadProactiveFromDB();
   }, [user.id]);
 
+  // P1 #20: Scroll follows streaming content, not just message count
+  // During streaming, messages.length stays constant while the last message's
+  // content grows — derive a lightweight change signal from the last message.
+  const lastMsgContent = messages[messages.length - 1]?.content;
+  const scrollTrigger = `${messages.length}::${typeof lastMsgContent === 'string' ? lastMsgContent.length : 0}`;
+  const scrollRafRef = useRef<number>(0);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    // RAF-throttle: only one pending scroll at a time
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    scrollRafRef.current = requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: isAiTyping ? 'instant' : 'smooth' });
+      scrollRafRef.current = 0;
+    });
+    return () => { if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current); };
+  }, [scrollTrigger, isAiTyping]);
 
   useEffect(() => {
     if (isExpanded && inputRef.current) {

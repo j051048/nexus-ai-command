@@ -1004,7 +1004,22 @@ async def route_node(state: AgentState) -> dict:
             last_user_msg = msg.get("content", "")
             break
 
-    complexity, intent_summary = classify_query(last_user_msg)
+    # P1 #7: Reuse early classification from stream.py if available (avoids re-calling classify_query)
+    _early_complexity = state.get("complexity")
+    _early_intent = state.get("intent_summary", "")
+    if (
+        _early_complexity is not None
+        and isinstance(_early_complexity, QueryComplexity)
+        and _early_intent
+        and _early_intent != "一般对话"
+    ):
+        complexity = _early_complexity
+        intent_summary = _early_intent
+        logger.info(
+            f"[Router] Reusing early classification: {complexity.value} ({intent_summary})"
+        )
+    else:
+        complexity, intent_summary = classify_query(last_user_msg)
 
     # ── Cost-aware routing log ──
     _routed_model = config.get_model_for_complexity(complexity)

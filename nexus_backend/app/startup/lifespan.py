@@ -101,6 +101,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Tiktoken warmup skipped: {e}")
 
+    # P0 #9: Pre-load jieba dictionary (prevents ~1s delay on first query)
+    try:
+        import jieba
+
+        jieba.setLogLevel(40)  # WARNING level
+        jieba.initialize()
+        logger.info("Jieba dictionary pre-loaded")
+    except ImportError:
+        logger.debug("Jieba not installed, skipping pre-load")
+    except Exception as e:
+        logger.warning(f"Jieba pre-load skipped: {e}")
+
     # P0-2: Background tasks migrated to Celery Beat (see app/tasks/scheduler.py)
     # - monitor_tenants (every 5 min)
     # - check_approval_timeouts (every 5 min)

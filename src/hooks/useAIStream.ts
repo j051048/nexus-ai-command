@@ -128,6 +128,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         onThinkingComplete?: (totalSteps: number) => void,
         onToolProgress?: (progress: { tool_name: string; status: string; duration_ms?: number }) => void,
         onOrchestration?: (event: Record<string, unknown>) => void,
+        onActivity?: () => void,  // P0 #19: callback to reset stream timeout on activity
     ): Promise<void> => {
         if (!response.body) throw new Error('响应体为空');
 
@@ -258,6 +259,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     // Handle tool execution progress events
                     if (parsed.tool_progress) {
                         onToolProgress?.(parsed.tool_progress);
+                        onActivity?.();  // P0 #19: reset timeout — tool is actively running
                         continue;
                     }
 
@@ -290,6 +292,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         setAiStatus(undefined);
                         assistantContent += content;
                         scheduleFlush();
+                        onActivity?.();  // P0 #19: reset timeout on content received
                     }
                 } catch {
                     // JSON incomplete — re-buffer and wait for next chunk
@@ -494,16 +497,21 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         setPendingConfirmation(null);
         setFollowUpSuggestions([]);
 
-        // 添加超时保护
-        const STREAM_TIMEOUT = 60000; // 60秒超时
-        const timeoutId = setTimeout(() => {
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
-            setIsTyping(false);
-            setAiStatus(undefined);
-            toast.error('AI 响应超时（60秒），请简化请求或稍后重试', { duration: 5000 });
-        }, STREAM_TIMEOUT);
+        // 添加超时保护 — P0 #19: Dynamic timeout with tool_progress reset
+        const STREAM_TIMEOUT = 120000; // 120s base timeout (was 60s — too short for multi-tool)
+        let streamTimeoutId: ReturnType<typeof setTimeout>;
+        const resetStreamTimeout = () => {
+            clearTimeout(streamTimeoutId);
+            streamTimeoutId = setTimeout(() => {
+                if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                }
+                setIsTyping(false);
+                setAiStatus(undefined);
+                toast.error('AI 响应超时（120秒），请简化请求或稍后重试', { duration: 5000 });
+            }, STREAM_TIMEOUT);
+        };
+        resetStreamTimeout();
 
         // Support both old callback style and new object style
         const onUpdate = typeof callbacks === 'function' ? callbacks : callbacks?.onUpdate;
@@ -582,7 +590,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
                 if (response.ok) {
                     setAiStatus(undefined);
-                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration);
+                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration, resetStreamTimeout);
                     tier1Succeeded = true;
                 } else if (response.status >= 500) {
                     // 5xx: backend down, fall through to next tier
@@ -632,7 +640,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         });
                         if (retryResponse.ok) {
                             setAiStatus(undefined);
-                            await parseBackendStream(retryResponse, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration);
+                            await parseBackendStream(retryResponse, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration, resetStreamTimeout);
                             tier1Succeeded = true;
                         }
                     } catch (retryErr) {
@@ -664,7 +672,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
                 if (response.ok) {
                     setAiStatus(undefined);
-                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration);
+                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration, resetStreamTimeout);
                     tier1Succeeded = true;
                 } else {
                     // Proxy failed, fall through to Tier 2
@@ -709,7 +717,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
             throw error;
         } finally {
-            clearTimeout(timeoutId);
+            clearTimeout(streamTimeoutId);
             setIsTyping(false);
             setAiStatus(undefined);
         }

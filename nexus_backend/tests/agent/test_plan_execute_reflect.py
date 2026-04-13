@@ -60,7 +60,7 @@ class TestPlanNode:
     """Plan 节点测试"""
 
     @pytest.mark.asyncio
-    @patch("app.agent.node_plan._get_llm")
+    @patch("app.agent.plan.tool_binding._get_llm")
     async def test_plan_with_tool_calls(self, mock_get_llm):
         from app.agent.node_plan import plan_node
 
@@ -83,7 +83,7 @@ class TestPlanNode:
         assert len(result.get("plan", [])) > 0 or len(result.get("thinking_steps", [])) > 0
 
     @pytest.mark.asyncio
-    @patch("app.agent.node_plan._get_llm")
+    @patch("app.agent.plan.tool_binding._get_llm")
     async def test_plan_no_tools_goes_to_respond(self, mock_get_llm):
         from app.agent.node_plan import plan_node
 

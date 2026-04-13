@@ -13,7 +13,10 @@ import React, { Suspense } from "react";
 import * as Sentry from "@sentry/react";
 import { toast } from "sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { ProductTour } from "@/components/common/ProductTour";
+// P1 #22: Lazy load ProductTour (~50KB react-joyride) — only needed for new users
+const ProductTour = React.lazy(() =>
+  import("@/components/common/ProductTour").then(m => ({ default: m.ProductTour }))
+);
 import { DashboardLayout, NotFound, AdminPanel } from "@/routes/lazyImports";
 import { coreRoutes } from "@/routes/coreRoutes";
 import { businessRoutes } from "@/routes/businessRoutes";
@@ -94,7 +97,7 @@ const App = () => (
       <Sonner position="top-right" expand={false} richColors closeButton />
       <BrowserRouter>
         <AuthProvider>
-          <ProductTour />
+          <Suspense fallback={null}><ProductTour /></Suspense>
           <GlobalCommandBar />
           <Suspense fallback={<LoadingFallback />}>
             <Routes>

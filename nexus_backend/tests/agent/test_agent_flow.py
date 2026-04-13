@@ -133,9 +133,9 @@ class TestPlanNode:
         }
 
         with (
-            patch("app.agent.node_plan._get_llm") as mock_get_llm,
-            patch("app.agent.node_plan.plugin_system_service.run_hooks", new_callable=AsyncMock),
-            patch("app.agent.node_plan.llm_circuit_breaker") as mock_cb,
+            patch("app.agent.plan.tool_binding._get_llm") as mock_get_llm,
+            patch("app.agent.plan.llm_caller.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.agent.plan.llm_caller.llm_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = True
             mock_llm = AsyncMock()
@@ -174,9 +174,9 @@ class TestPlanNode:
         }
 
         with (
-            patch("app.agent.node_plan._get_llm") as mock_get_llm,
-            patch("app.agent.node_plan.plugin_system_service.run_hooks", new_callable=AsyncMock),
-            patch("app.agent.node_plan.llm_circuit_breaker") as mock_cb,
+            patch("app.agent.plan.tool_binding._get_llm") as mock_get_llm,
+            patch("app.agent.plan.llm_caller.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.agent.plan.llm_caller.llm_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = True
             mock_llm = AsyncMock()
@@ -205,7 +205,7 @@ class TestPlanNode:
             "total_output_tokens": 0,
         }
 
-        with patch("app.agent.node_plan.llm_circuit_breaker") as mock_cb:
+        with patch("app.agent.plan.llm_caller.llm_circuit_breaker") as mock_cb:
             mock_cb.allow_request.return_value = False
 
             result = await plan_node(state)
