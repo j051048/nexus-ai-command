@@ -8,10 +8,19 @@ Strategy:
 1. Keep the most recent K turns (default 3) intact
 2. Summarize all older turns into a concise LLM-generated summary
 3. Return compressed message list: [system, summary, ...recent_turns]
+
+v2 Improvements (inspired by Hermes Agent context_compressor.py):
+  - Structured summary template with Resolved/Pending question tracking
+  - Handoff framing: summary is reference-only, NOT active instructions
+  - Token-budget tail protection instead of fixed message count
+  - Scaled summary budget (proportional to compressed content)
+  - Compression failure cooldown to prevent retry storms
+  - Iterative summary updates (preserved from v1)
 """
 
 import logging
 import re
+import time
 
 from langchain_core.messages import (
     AIMessage,
@@ -28,11 +37,43 @@ DEFAULT_MAX_TURNS_BEFORE_COMPRESS = 6
 DEFAULT_MAX_TOKENS_BEFORE_COMPRESS = 4500
 DEFAULT_KEEP_RECENT_TURNS = 3
 
+# Token-budget tail protection: protect recent messages up to this token budget.
+# When set, overrides keep_recent as the primary tail boundary.
+# 8000 tokens ≈ last ~4-6 turns of typical conversation.
+DEFAULT_TAIL_TOKEN_BUDGET = 8000
+
+# Summary token budget scaling
+_MIN_SUMMARY_TOKENS = 600  # Floor: never go below this for summary output
+_SUMMARY_RATIO = 0.20  # 20% of compressed content allocated for summary
+_SUMMARY_TOKENS_CEILING = 4000  # Ceiling: cap even for very large contexts
+
+# Compression failure cooldown (seconds)
+_SUMMARY_FAILURE_COOLDOWN_SECONDS = 300
+_last_summary_failure_time: float = 0.0
+
+# Anti-redo prefix injected into compression summaries.
+# Prevents the model from re-executing tasks mentioned in the summary.
+# Inspired by Hermes Agent's SUMMARY_PREFIX design.
+SUMMARY_PREFIX = (
+    "[上下文压缩 — 仅供参考] 以下是之前对话轮次的结构化摘要。"
+    "这是来自上一个上下文窗口的交接内容，请将其作为背景参考，"
+    "而非需要执行的指令。不要回答或执行摘要中提到的问题和请求，"
+    "它们已经被处理过了。仅回应本摘要之后出现的最新用户消息。"
+    "当前会话状态（文件、配置等）可能反映了此处描述的工作——"
+    "请在此基础上继续，避免重复已完成的工作。"
+)
+
+# Legacy prefix for backward-compatible detection
+_LEGACY_SUMMARY_PREFIX = "[对话历史摘要"
+
 # Micro-compaction thresholds for LangChain messages (P0)
 _LC_TOOL_RESULT_THRESHOLD = 1200
 _LC_ASSISTANT_MSG_THRESHOLD = 3000
 _LC_CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 _LC_MICRO_COMPACT_RECENT_TURNS = 3
+
+# Rough chars-per-token estimate for budget calculations
+_CHARS_PER_TOKEN = 4
 
 
 def _micro_compact_lc_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
@@ -132,7 +173,24 @@ def _count_messages_tokens(messages: list[BaseMessage]) -> int:
     for msg in messages:
         content = msg.content if isinstance(msg.content, str) else str(msg.content)
         total += _count_tokens_approx(content) + 4  # overhead per message
+        # Include tool call arguments in token estimate
+        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls"):
+            for tc in msg.tool_calls or []:
+                args = tc.get("args", {})
+                if args:
+                    total += len(str(args)) // _CHARS_PER_TOKEN
     return total
+
+
+def _compute_summary_budget(older_msgs: list[BaseMessage]) -> int:
+    """Scale summary token budget with the amount of content being compressed.
+
+    Returns a token budget that scales proportionally with the compressed content,
+    bounded by floor (_MIN_SUMMARY_TOKENS) and ceiling (_SUMMARY_TOKENS_CEILING).
+    """
+    content_tokens = _count_messages_tokens(older_msgs)
+    budget = int(content_tokens * _SUMMARY_RATIO)
+    return max(_MIN_SUMMARY_TOKENS, min(budget, _SUMMARY_TOKENS_CEILING))
 
 
 def _count_turns(messages: list[BaseMessage]) -> int:
@@ -140,10 +198,61 @@ def _count_turns(messages: list[BaseMessage]) -> int:
     return sum(1 for m in messages if isinstance(m, HumanMessage))
 
 
+def _find_tail_cut_by_tokens(
+    non_system: list[BaseMessage],
+    token_budget: int,
+    min_messages: int = 6,
+) -> int:
+    """Walk backward from the end, accumulating tokens until budget is reached.
+
+    Returns the index where the tail (protected region) starts.
+    Ensures at least `min_messages` are always protected.
+
+    Token budget is the primary criterion. The min_messages count acts as
+    a hard floor so we always keep some recent context even if it exceeds
+    the budget slightly.
+    """
+    n = len(non_system)
+    if n <= min_messages:
+        return 0
+
+    accumulated = 0
+    cut_idx = n
+
+    for i in range(n - 1, -1, -1):
+        msg = non_system[i]
+        content = msg.content if isinstance(msg.content, str) else str(msg.content)
+        msg_tokens = len(content) // _CHARS_PER_TOKEN + 10
+        # Include tool call arguments in estimate
+        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls"):
+            for tc in msg.tool_calls or []:
+                args = tc.get("args", {})
+                if args:
+                    msg_tokens += len(str(args)) // _CHARS_PER_TOKEN
+
+        if accumulated + msg_tokens > token_budget and (n - i) >= min_messages:
+            break
+        accumulated += msg_tokens
+        cut_idx = i
+
+    # Ensure minimum protected messages
+    fallback_cut = max(0, n - min_messages)
+    if cut_idx > fallback_cut:
+        cut_idx = fallback_cut
+
+    return cut_idx
+
+
 def _split_messages(
-    messages: list[BaseMessage], keep_recent: int = DEFAULT_KEEP_RECENT_TURNS
+    messages: list[BaseMessage],
+    keep_recent: int = DEFAULT_KEEP_RECENT_TURNS,
+    tail_token_budget: int | None = None,
 ) -> tuple[list[BaseMessage], list[BaseMessage], list[BaseMessage]]:
     """Split messages into system, older, and recent groups.
+
+    When tail_token_budget is provided, uses token-budget tail protection
+    instead of fixed message count. This allows protecting more context
+    when messages are short and fewer when they are long.
 
     Returns:
         (system_messages, older_messages, recent_messages)
@@ -160,14 +269,26 @@ def _split_messages(
     if not non_system:
         return system_msgs, [], []
 
-    # Find the boundary: keep the last `keep_recent` human messages and their responses
+    # Token-budget tail protection (primary) vs fixed message count (fallback)
+    if tail_token_budget is not None and tail_token_budget > 0:
+        # Use token budget to determine how many recent messages to protect
+        cutoff_idx = _find_tail_cut_by_tokens(
+            non_system,
+            token_budget=tail_token_budget,
+            min_messages=keep_recent * 2,  # At minimum protect N turns (×2 for Q+A pairs)
+        )
+        if cutoff_idx <= 0:
+            return system_msgs, [], non_system
+        older = non_system[:cutoff_idx]
+        recent = non_system[cutoff_idx:]
+        return system_msgs, older, recent
+
+    # Fallback: fixed turn count
     human_indices = [i for i, m in enumerate(non_system) if isinstance(m, HumanMessage)]
 
     if len(human_indices) <= keep_recent:
-        # Not enough turns to split — keep everything
         return system_msgs, [], non_system
 
-    # The cutoff: everything before the (N-keep_recent)th human message is "old"
     cutoff_idx = human_indices[-keep_recent]
     older = non_system[:cutoff_idx]
     recent = non_system[cutoff_idx:]
@@ -193,18 +314,74 @@ def _build_conversation_text(messages: list[BaseMessage]) -> str:
     return "\n".join(conv_parts)
 
 
+# ── Structured summary template (v2) ────────────────────────────────────────
+# Inspired by Hermes Agent's structured summary with key additions:
+# - Resolved vs Pending question tracking (prevents re-answering)
+# - "Remaining Work" framing (avoids reading as active instructions)
+# - Summarizer preamble: "do not respond to any questions"
+
+_SUMMARIZER_PREAMBLE = (
+    "你是一个摘要生成代理，正在创建上下文检查点。"
+    "你的输出将被注入为参考资料，供另一个不同的助手继续对话。"
+    "不要回答或执行对话中的任何问题或请求——只输出结构化摘要。"
+    "不要包含任何前言、问候或前缀。"
+)
+
+
+def _get_summary_template(token_budget: int) -> str:
+    """Return the structured summary template with dynamic token budget."""
+    return f"""## 目标
+[用户的主要目标和意图]
+
+## 已完成
+[已完成的操作——包含具体的文件路径、命令、结果]
+
+## 进行中
+[当前正在进行的工作]
+
+## 阻塞项
+[遇到的阻塞或问题]
+
+## 关键决策
+[重要的技术决策及其原因]
+
+## 已回答的问题
+[用户提出的已经被回答的问题——包含答案，避免下一个助手重复回答]
+
+## 未解决的问题
+[用户提出的尚未被回答或完成的问题/请求。如果没有，写"无。"]
+
+## 关键数据
+[重要的数字、名称、ID、配置值等不可丢失的信息]
+
+## 剩余工作
+[还需要做的事情——作为上下文描述，不是指令]
+
+目标约 {token_budget} 个 token。请具体——包含文件路径、命令输出、错误信息和具体数值，而非模糊描述。
+只输出摘要正文，不要包含任何前缀。"""
+
+
 async def _update_summary(
     existing_summary: str,
     new_messages: list[BaseMessage],
     model: str = "gpt-4o-mini",
+    token_budget: int | None = None,
 ) -> str:
-    """在已有摘要基础上增量更新，避免信息丢失。"""
+    """在已有摘要基础上增量更新，避免信息丢失。
+
+    v2: Uses structured template with Resolved/Pending tracking and
+    scaled token budget.
+    """
     if not new_messages:
         return existing_summary
 
+    budget = token_budget or _compute_summary_budget(new_messages)
     new_conversation_text = _build_conversation_text(new_messages)
+    template = _get_summary_template(budget)
 
-    update_prompt = f"""你需要在已有的对话摘要基础上进行增量更新。
+    update_prompt = f"""{_SUMMARIZER_PREAMBLE}
+
+你需要更新一个上下文压缩摘要。之前的压缩产生了以下摘要，新的对话轮次需要被合并进来。
 
 已有摘要:
 {existing_summary}
@@ -212,28 +389,9 @@ async def _update_summary(
 新增对话:
 {new_conversation_text}
 
-请按以下规则更新摘要：
-1. 保留已有摘要中所有仍然相关的信息
-2. 将"待处理"中已在新对话中完成的事项移到"已完成"
-3. 添加新对话中出现的新信息
-4. 严格使用以下格式输出：
+请使用以下结构更新摘要。保留所有仍然相关的信息。添加新的进展。将已完成的事项从"进行中"移到"已完成"。将已回答的问题移到"已回答的问题"。只在信息明显过时时才删除。
 
-## 目标
-用户的主要目标和意图（1-2句）
-
-## 已完成
-- 已经完成的操作和获得的结果
-
-## 关键决策
-- 做出的重要决策和原因
-
-## 待处理
-- 尚未完成的事项
-
-## 关键数据
-- 重要的数字、名称、ID等不可丢失的信息
-
-请保留所有关键事实和数字，不要遗漏。"""
+{template}"""
 
     try:
         from openai import AsyncOpenAI
@@ -251,56 +409,52 @@ async def _update_summary(
             client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": update_prompt}],
-                max_tokens=500,
+                max_tokens=min(budget * 2, 8000),
                 temperature=0.3,
             ),
-            timeout=10,
+            timeout=15,
         )
         summary = response.choices[0].message.content.strip()
         logger.info(
-            f"[PromptCompression] Incremental update: merged {len(new_messages)} new messages into existing summary"
+            f"[PromptCompression] Incremental update: merged {len(new_messages)} new messages "
+            f"(budget={budget} tokens)"
         )
         return summary
     except Exception as e:
         logger.warning(
             f"[PromptCompression] Incremental update failed: {e}, appending new summary"
         )
-        # Fallback: 在已有摘要后追加新消息的简单摘要
-        fallback = await _summarize_messages(new_messages, model=model)
+        fallback = await _summarize_messages(new_messages, model=model, token_budget=budget)
         return f"{existing_summary}\n\n[后续补充]\n{fallback}"
 
 
 async def _summarize_messages(
     messages: list[BaseMessage],
     model: str = "gpt-4o-mini",
+    token_budget: int | None = None,
 ) -> str:
-    """Use LLM to generate a structured summary of conversation messages."""
+    """Use LLM to generate a structured summary of conversation messages.
+
+    v2: Uses structured template with Resolved/Pending tracking, scaled
+    token budget, and summarizer preamble.
+    """
     if not messages:
         return ""
 
+    budget = token_budget or _compute_summary_budget(messages)
     conversation_text = _build_conversation_text(messages)
+    template = _get_summary_template(budget)
 
-    summary_prompt = f"""请将以下对话历史压缩为结构化摘要。使用以下格式：
+    summary_prompt = f"""{_SUMMARIZER_PREAMBLE}
 
-## 目标
-用户的主要目标和意图（1-2句）
+为另一个将继续此对话的助手创建结构化交接摘要。下一个助手应该能够在不重新阅读原始对话的情况下理解发生了什么。
 
-## 已完成
-- 已经完成的操作和获得的结果
-
-## 关键决策
-- 做出的重要决策和原因
-
-## 待处理
-- 尚未完成的事项
-
-## 关键数据
-- 重要的数字、名称、ID等不可丢失的信息
-
-对话历史:
+需要总结的对话:
 {conversation_text}
 
-请严格按照上述格式输出，保留所有关键事实和数字。"""
+请使用以下结构:
+
+{template}"""
 
     try:
         from openai import AsyncOpenAI
@@ -318,15 +472,16 @@ async def _summarize_messages(
             client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": summary_prompt}],
-                max_tokens=300,
+                max_tokens=min(budget * 2, 8000),
                 temperature=0.3,
             ),
-            timeout=10,
+            timeout=15,
         )
         summary = response.choices[0].message.content.strip()
         logger.info(
             f"[PromptCompression] Compressed {len(messages)} messages "
-            f"({_count_messages_tokens(messages)} tokens) → summary ({_count_tokens_approx(summary)} tokens)"
+            f"({_count_messages_tokens(messages)} tokens) → summary "
+            f"({_count_tokens_approx(summary)} tokens, budget={budget})"
         )
         return summary
     except Exception as e:
@@ -453,9 +608,17 @@ async def compress_conversation_history(
     model: str = "gpt-4o-mini",
     max_turns: int = DEFAULT_MAX_TURNS_BEFORE_COMPRESS,
     keep_recent: int = DEFAULT_KEEP_RECENT_TURNS,
+    tail_token_budget: int | None = DEFAULT_TAIL_TOKEN_BUDGET,
 ) -> list[BaseMessage]:
     """
     Compress conversation history when it exceeds thresholds.
+
+    v2 improvements:
+    - Token-budget tail protection (dynamic, replaces fixed keep_recent)
+    - Scaled summary token budget (proportional to compressed content)
+    - Anti-redo prefix prevents model from re-executing summarized tasks
+    - Resolved/Pending question tracking in summary template
+    - Compression failure cooldown prevents retry storms
 
     Also deduplicates consecutive identical AI responses to prevent
     context pollution (where the LLM repeats a cached bad response).
@@ -465,11 +628,16 @@ async def compress_conversation_history(
         max_tokens: Token threshold to trigger compression
         model: LLM model to use for summarization
         max_turns: Turn threshold to trigger compression
-        keep_recent: Number of recent turns to preserve intact
+        keep_recent: Number of recent turns to preserve intact (fallback)
+        tail_token_budget: Token budget for tail protection (primary).
+            When set, protects recent messages up to this token count
+            instead of using fixed turn count.
 
     Returns:
         Compressed message list. If compression is not needed, returns original list unchanged.
     """
+    global _last_summary_failure_time
+
     if not messages:
         return messages
 
@@ -492,40 +660,92 @@ async def compress_conversation_history(
         f"(thresholds: {max_turns} turns, {max_tokens} tokens)"
     )
 
-    # Split into system, older, recent
-    system_msgs, older_msgs, recent_msgs = _split_messages(messages, keep_recent)
+    # Split into system, older, recent (using token-budget tail protection)
+    system_msgs, older_msgs, recent_msgs = _split_messages(
+        messages, keep_recent, tail_token_budget=tail_token_budget
+    )
 
     if not older_msgs:
         # Nothing to compress
         return messages
 
+    # Compute dynamic summary token budget based on content being compressed
+    summary_budget = _compute_summary_budget(older_msgs)
+
     # Check if there's an existing summary from a previous compression (iterative update)
     existing_summary = None
     for msg in system_msgs:
         content = msg.content if isinstance(msg.content, str) else str(msg.content)
-        if "[对话历史摘要" in content:
+        # Support both legacy and v2 summary prefixes
+        if _LEGACY_SUMMARY_PREFIX in content or SUMMARY_PREFIX in content:
             existing_summary = content
             break
 
-    if existing_summary:
+    # Compression failure cooldown check
+    now = time.time()
+    in_cooldown = (now - _last_summary_failure_time) < _SUMMARY_FAILURE_COOLDOWN_SECONDS
+
+    if in_cooldown:
+        logger.info(
+            "[PromptCompression] In cooldown after previous failure, "
+            f"skipping LLM summarization ({int(_SUMMARY_FAILURE_COOLDOWN_SECONDS - (now - _last_summary_failure_time))}s remaining)"
+        )
+        summary = None
+    elif existing_summary:
         # Incremental update mode: merge new messages into existing summary
-        summary = await _update_summary(existing_summary, older_msgs, model=model)
+        try:
+            summary = await _update_summary(
+                existing_summary, older_msgs, model=model, token_budget=summary_budget
+            )
+        except Exception as e:
+            logger.warning(f"[PromptCompression] Incremental update failed: {e}")
+            _last_summary_failure_time = time.time()
+            summary = None
         # Remove the old summary from system_msgs to avoid duplication
         system_msgs = [
             msg
             for msg in system_msgs
-            if "[对话历史摘要"
-            not in (msg.content if isinstance(msg.content, str) else str(msg.content))
+            if not any(
+                prefix
+                in (msg.content if isinstance(msg.content, str) else str(msg.content))
+                for prefix in (_LEGACY_SUMMARY_PREFIX, SUMMARY_PREFIX)
+            )
         ]
     else:
-        summary = await _summarize_messages(older_msgs, model=model)
+        try:
+            summary = await _summarize_messages(
+                older_msgs, model=model, token_budget=summary_budget
+            )
+        except Exception as e:
+            logger.warning(f"[PromptCompression] Summarization failed: {e}")
+            _last_summary_failure_time = time.time()
+            summary = None
 
     # Reconstruct compressed message list
     compressed = list(system_msgs)
     if summary:
+        # Inject anti-redo prefix to prevent model from re-executing summarized tasks
         compressed.append(
             SystemMessage(
-                content=f"[对话历史摘要（前 {len(older_msgs)} 条消息）]\n{summary}"
+                content=(
+                    f"{SUMMARY_PREFIX}\n\n"
+                    f"以下是前 {len(older_msgs)} 条消息的压缩摘要:\n\n"
+                    f"{summary}"
+                )
+            )
+        )
+    elif older_msgs:
+        # Fallback when summary generation failed: insert a static marker
+        # so the model knows context was lost
+        n_dropped = len(older_msgs)
+        compressed.append(
+            SystemMessage(
+                content=(
+                    f"{SUMMARY_PREFIX}\n\n"
+                    f"摘要生成暂时不可用。{n_dropped} 条对话消息已被移除以释放上下文空间，"
+                    f"但无法生成摘要。被移除的消息包含此会话中的早期工作。"
+                    f"请基于以下最近的消息和当前文件/资源状态继续工作。"
+                )
             )
         )
     compressed.extend(recent_msgs)
@@ -534,7 +754,7 @@ async def compress_conversation_history(
     logger.info(
         f"[PromptCompression] Compressed: {len(messages)} → {len(compressed)} messages, "
         f"~{token_count} → ~{new_token_count} tokens "
-        f"(saved ~{token_count - new_token_count} tokens)"
+        f"(saved ~{token_count - new_token_count} tokens, summary_budget={summary_budget})"
     )
 
     # Fix orphaned tool call/result pairs caused by compression
