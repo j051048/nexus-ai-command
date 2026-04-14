@@ -1069,3 +1069,256 @@ def score_all_leads_task():
         return f"Scored {total_scored} leads across {len(org_ids)} orgs"
 
     return _run_async(_run())
+
+
+# ── AI ROI Daily Aggregation ─────────────────────────────────────────────────
+
+
+# Tool name → ROI category mapping
+_TOOL_CATEGORY_MAP = {
+    "approve_request": "approval", "reject_request": "approval",
+    "get_pending_approvals": "approval", "smart_approve": "approval",
+    "submit_approval_on_behalf": "approval", "list_approval_flows": "approval",
+    "create_approval_flow": "approval", "approve_expense": "approval",
+    "get_employee_approval_history": "approval",
+    "get_customers": "crm", "get_customer_detail": "crm",
+    "create_customer": "crm", "update_customer": "crm",
+    "add_follow_up": "crm", "get_follow_ups": "crm",
+    "update_customer_stage": "crm", "get_sales_pipeline": "crm",
+    "get_contracts": "crm", "create_contract": "crm",
+    "get_expiring_contracts": "crm", "analyze_contract": "crm",
+    "generate_customer_profile": "crm",
+    "get_performance_report": "report", "smart_report": "report",
+    "get_company_stats": "report", "get_business_dashboard": "report",
+    "get_team_insight": "report", "anomaly_detection": "report",
+    "analyze_data_attribution": "report", "strategy_simulation": "report",
+    "generate_weekly_report": "report",
+    "clock_in_out": "attendance", "get_attendance_record": "attendance",
+    "attendance_statistics": "attendance", "query_attendance": "attendance",
+    "query_team_attendance": "attendance", "create_shift_schedule": "attendance",
+    "list_shift_schedules": "attendance",
+    "create_expense_claim": "finance", "query_expense_status": "finance",
+    "query_budget": "finance", "query_salary": "finance",
+    "recognize_invoice": "finance", "submit_expense": "finance",
+    "list_expenses": "finance", "check_budget": "finance",
+    "create_leave_request": "leave", "query_leave_status": "leave",
+    "request_leave": "leave",
+    "create_scheduled_task": "schedule", "list_scheduled_tasks": "schedule",
+    "delete_scheduled_task": "schedule", "get_daily_briefing": "schedule",
+    "book_meeting": "schedule", "create_task": "schedule",
+    "update_task": "schedule", "list_tasks": "schedule",
+    "query_knowledge_base": "knowledge", "batch_analyze_documents": "knowledge",
+    "load_knowledge": "knowledge",
+}
+
+
+@celery_app.task
+@_with_redis_lock("aggregate_ai_roi_daily", lock_ttl=600)
+def aggregate_ai_roi_daily():
+    """每日聚合 AI ROI 指标 → ai_roi_daily 表。"""
+
+    async def _run():
+        from datetime import date, timedelta
+
+        from app.core.database import supabase
+
+        if not supabase:
+            return "skipped: no db"
+
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        logger.info("[ROI] Aggregating AI ROI for %s", yesterday)
+
+        # ── 1. Get all tenant_ids from llm_call_log ──
+        try:
+            tenant_res = (
+                await supabase.table("llm_call_log")
+                .select("org_id")
+                .gte("created_at", yesterday + "T00:00:00")
+                .lt("created_at", yesterday + "T23:59:59.999")
+                .execute()
+            )
+            org_ids = list({
+                r["org_id"] for r in (tenant_res.data or [])
+                if r.get("org_id")
+            })
+        except Exception:
+            # Fallback: try tenant_usage_records
+            try:
+                tenant_res = (
+                    await supabase.table("tenant_usage_records")
+                    .select("tenant_id")
+                    .gte("recorded_at", yesterday)
+                    .execute()
+                )
+                org_ids = list({
+                    r["tenant_id"] for r in (tenant_res.data or [])
+                    if r.get("tenant_id")
+                })
+            except Exception:
+                org_ids = ["default"]
+
+        if not org_ids:
+            return "no tenants with activity"
+
+        # ── 2. Load baselines ──
+        baselines = {}
+        try:
+            bl_res = (
+                await supabase.table("ai_roi_baselines")
+                .select("action_category, baseline_minutes, hourly_labor_cost")
+                .execute()
+            )
+            for row in (bl_res.data or []):
+                baselines[row["action_category"]] = {
+                    "minutes": float(row["baseline_minutes"]),
+                    "hourly_cost": float(row["hourly_labor_cost"]),
+                }
+        except Exception as e:
+            logger.warning("[ROI] Failed to load baselines: %s", e)
+
+        total_upserted = 0
+
+        for org_id in org_ids:
+            try:
+                metrics = await _aggregate_one_tenant(
+                    supabase, org_id, yesterday, baselines
+                )
+                if metrics:
+                    await supabase.table("ai_roi_daily").upsert(
+                        metrics, on_conflict="tenant_id,metric_date"
+                    ).execute()
+                    total_upserted += 1
+            except Exception as e:
+                logger.error("[ROI] Failed for tenant %s: %s", org_id, e)
+
+        return f"Aggregated ROI for {total_upserted}/{len(org_ids)} tenants on {yesterday}"
+
+    return _run_async(_run())
+
+
+async def _aggregate_one_tenant(
+    supabase, org_id: str, date_str: str, baselines: dict
+) -> dict | None:
+    """Aggregate ROI metrics for one tenant on one date."""
+    metrics = {
+        "tenant_id": org_id,
+        "metric_date": date_str,
+        "ai_cost_usd": 0,
+        "total_tokens": 0,
+        "total_llm_calls": 0,
+        "tool_calls_total": 0,
+        "tool_calls_success": 0,
+        "cat_approval": 0, "cat_crm": 0, "cat_report": 0,
+        "cat_attendance": 0, "cat_finance": 0, "cat_leave": 0,
+        "cat_schedule": 0, "cat_knowledge": 0, "cat_other": 0,
+        "estimated_minutes_saved": 0,
+        "estimated_labor_cost_saved": 0,
+        "roi_percent": 0,
+        "avg_response_time_ms": 0,
+        "positive_feedback": 0,
+        "negative_feedback": 0,
+    }
+
+    day_start = date_str + "T00:00:00"
+    day_end = date_str + "T23:59:59.999"
+
+    # ── LLM cost from llm_call_log ──
+    try:
+        llm_res = (
+            await supabase.table("llm_call_log")
+            .select("cost_usd, total_tokens, duration_ms")
+            .eq("org_id", org_id)
+            .gte("created_at", day_start)
+            .lt("created_at", day_end)
+            .execute()
+        )
+        rows = llm_res.data or []
+        metrics["total_llm_calls"] = len(rows)
+        total_cost = 0.0
+        total_tokens = 0
+        total_ms = 0
+        for r in rows:
+            total_cost += float(r.get("cost_usd") or 0)
+            total_tokens += int(r.get("total_tokens") or 0)
+            total_ms += int(r.get("duration_ms") or 0)
+        metrics["ai_cost_usd"] = round(total_cost, 4)
+        metrics["total_tokens"] = total_tokens
+        if rows:
+            metrics["avg_response_time_ms"] = int(total_ms / len(rows))
+    except Exception as e:
+        logger.debug("[ROI] llm_call_log query failed for %s: %s", org_id, e)
+
+    # ── Tool execution from tool_execution_audit ──
+    try:
+        tool_res = (
+            await supabase.table("tool_execution_audit")
+            .select("tool_name, success")
+            .eq("org_id", org_id)
+            .gte("created_at", day_start)
+            .lt("created_at", day_end)
+            .execute()
+        )
+        tool_rows = tool_res.data or []
+        metrics["tool_calls_total"] = len(tool_rows)
+        success_count = 0
+        for r in tool_rows:
+            if r.get("success"):
+                success_count += 1
+            cat = _TOOL_CATEGORY_MAP.get(r.get("tool_name", ""), "other")
+            col = f"cat_{cat}"
+            if col in metrics:
+                metrics[col] += 1
+            else:
+                metrics["cat_other"] += 1
+        metrics["tool_calls_success"] = success_count
+    except Exception as e:
+        logger.debug("[ROI] tool_execution_audit query failed for %s: %s", org_id, e)
+
+    # ── Feedback from ai_feedback ──
+    try:
+        fb_res = (
+            await supabase.table("ai_feedback")
+            .select("rating")
+            .eq("org_id", org_id)
+            .gte("created_at", day_start)
+            .lt("created_at", day_end)
+            .execute()
+        )
+        for r in (fb_res.data or []):
+            rating = r.get("rating", 0)
+            if rating and rating >= 4:
+                metrics["positive_feedback"] += 1
+            elif rating and rating <= 2:
+                metrics["negative_feedback"] += 1
+    except Exception as e:
+        logger.debug("[ROI] ai_feedback query failed for %s: %s", org_id, e)
+
+    # ── Calculate savings based on baselines ──
+    total_minutes_saved = 0.0
+    total_labor_saved = 0.0
+    cat_fields = [
+        "cat_approval", "cat_crm", "cat_report", "cat_attendance",
+        "cat_finance", "cat_leave", "cat_schedule", "cat_knowledge", "cat_other",
+    ]
+    for col in cat_fields:
+        cat_name = col.replace("cat_", "")
+        count = metrics[col]
+        if count > 0:
+            bl = baselines.get(cat_name, {"minutes": 8, "hourly_cost": 45})
+            minutes = count * bl["minutes"]
+            cost = minutes / 60 * bl["hourly_cost"]
+            total_minutes_saved += minutes
+            total_labor_saved += cost
+
+    metrics["estimated_minutes_saved"] = round(total_minutes_saved, 1)
+    metrics["estimated_labor_cost_saved"] = round(total_labor_saved, 2)
+
+    ai_cost = float(metrics["ai_cost_usd"])
+    if ai_cost > 0:
+        metrics["roi_percent"] = round(
+            (total_labor_saved - ai_cost) / ai_cost * 100, 2
+        )
+    elif total_labor_saved > 0:
+        metrics["roi_percent"] = 9999.0  # effectively infinite ROI
+
+    return metrics

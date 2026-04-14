@@ -35,6 +35,7 @@ import {
   BillingDashboard,
   CheckoutSuccessPage,
   CheckoutCancelPage,
+  AiRoiDashboard,
 } from "./lazyImports";
 
 export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.ReactNode; allowedRoles?: string[] }>) {
@@ -78,6 +79,7 @@ export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.Re
       <Route path="plugins" element={<AdminRoute><ModuleErrorBoundary moduleName="插件市场"><PluginMarketplace /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="llm/models" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM模型"><LLMModelManagement /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="llm/costs" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM成本"><LLMCostDashboard /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="ai-roi" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="AI ROI"><AiRoiDashboard /></ModuleErrorBoundary></AdminRoute>} />
 
       {/* Developer Tools */}
       <Route path="dev/animations" element={<AnimationShowcase />} />

@@ -152,4 +152,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.score_all_leads_task",
         "schedule": crontab(minute=15),  # 每小时:15
     },
+    "ai-roi-aggregation": {
+        "task": "app.tasks.scheduler.aggregate_ai_roi_daily",
+        "schedule": crontab(hour=0, minute=30),  # 每天凌晨0:30
+    },
 }

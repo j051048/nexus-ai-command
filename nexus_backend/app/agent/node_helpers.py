@@ -787,14 +787,9 @@ def _get_tool_schemas(
         elif not scene_code:
             # Fallback: no keyword match + no scene policy → use high-frequency domains
             _FALLBACK_DOMAINS = [
-                "oa_leave",
                 "crm",
                 "approval",
-                "finance",
-                "hr",
                 "analytics",
-                "knowledge",
-                "tender",
             ]
             relevant_tools = _ALWAYS_INCLUDE_TOOLS.copy()
             for d in _FALLBACK_DOMAINS:
@@ -844,7 +839,7 @@ def _get_tool_schemas(
             )
 
     # Safety cap: if filtering still leaves too many tools, keep only the most relevant
-    MAX_TOOLS = 30
+    MAX_TOOLS = 20
     if len(filtered) > MAX_TOOLS:
         logger.info(
             f"[ToolFilter] Capping {len(filtered)} tools to {MAX_TOOLS} (always-include + domain-sorted)"

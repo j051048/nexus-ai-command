@@ -86,3 +86,6 @@ export const IntentRulesPage = lazyWithRetry(() => import("@/pages/admin/IntentR
 
 // Dev
 export const AnimationShowcase = lazyWithRetry(() => import("@/pages/AnimationShowcase"));
+
+// ROI
+export const AiRoiDashboard = lazyWithRetry(() => import("@/pages/AiRoiDashboard"));

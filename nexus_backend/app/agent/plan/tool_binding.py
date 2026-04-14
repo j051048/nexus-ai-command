@@ -6,11 +6,12 @@ from app.agent.node_helpers import (
     QueryComplexity,
     _get_llm,
     _get_tool_schemas,
+    logger,
 )
 from app.agent.plan.tracing import log_decision
 
 
-def bind_tools_to_llm(
+async def bind_tools_to_llm(
     *,
     agent_config: AgentConfig,
     model: str | None,
@@ -20,6 +21,7 @@ def bind_tools_to_llm(
     iteration: int,
     resolved: dict | None,
     trace_id: str | None,
+    user_query: str = "",
 ):
     """Create LLM instance and bind appropriate tools. Returns (llm, bind_kwargs)."""
     llm = _get_llm(agent_config, model=model, streaming=True, resolved_config=resolved)
@@ -62,15 +64,45 @@ def bind_tools_to_llm(
             )
         ):
             bind_kwargs["tool_choice"] = "required"
-        llm = llm.bind_tools(
-            _get_tool_schemas(
-                agent_config.user_role,
-                intent_summary=intent_summary,
-                scene_code=state.get("scene_code"),
-                intent_domains=state.get("intent_domains"),
-            ),
-            **bind_kwargs,
+        schemas = _get_tool_schemas(
+            agent_config.user_role,
+            intent_summary=intent_summary,
+            scene_code=state.get("scene_code"),
+            intent_domains=state.get("intent_domains"),
         )
+
+        # ── Embedding-based secondary filtering ──
+        # When schemas are still too many and we have a user query, use semantic
+        # retrieval to keep only the most relevant tools.
+        _embedding_pruned = False
+        _pre_embed_count = len(schemas)
+        if len(schemas) > 15 and user_query:
+            try:
+                from app.agent.tool_embedding_index import tool_embedding_index
+
+                candidate_names = {s["function"]["name"] for s in schemas}
+                ranked = await tool_embedding_index.retrieve(
+                    query=user_query,
+                    top_k=12,
+                    min_score=0.20,
+                    candidate_names=candidate_names,
+                )
+                if ranked:
+                    keep_names = _ALWAYS_INCLUDE_TOOLS | {name for name, _ in ranked}
+                    schemas = [
+                        s for s in schemas if s["function"]["name"] in keep_names
+                    ]
+                    _embedding_pruned = True
+                    logger.info(
+                        "[ToolBind] Embedding pruned %d → %d tools (query='%s')",
+                        _pre_embed_count,
+                        len(schemas),
+                        user_query[:60],
+                    )
+            except Exception as e:
+                logger.debug("[ToolBind] Embedding pruning skipped: %s", e)
+
+        llm = llm.bind_tools(schemas, **bind_kwargs)
 
     # ── Explainability: log tool binding decision ──
     _tool_choice_mode = (

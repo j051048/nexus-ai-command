@@ -279,3 +279,137 @@ async def ai_activity_stats(
             "active_agents": max(active_agents, 1),
         }
     )
+
+
+@router.get("/roi")
+async def ai_roi_dashboard(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    days: int = 30,
+):
+    """AI ROI 仪表盘 — 投资回报率、节省时间/成本、操作分布。"""
+    from datetime import datetime, timedelta, timezone
+
+    client = request.state.db
+    if not client:
+        raise api_error(
+            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
+        )
+
+    days = min(max(days, 1), 365)
+    CN_TZ = timezone(timedelta(hours=8))
+    start_date = (datetime.now(CN_TZ) - timedelta(days=days)).strftime("%Y-%m-%d")
+
+    try:
+        # Get user's org_id
+        user_res = await client.table("users").select("org_id").eq("id", user_id).single().execute()
+        org_id = (user_res.data or {}).get("org_id", "default")
+    except Exception:
+        org_id = "default"
+
+    # Fetch daily ROI data
+    try:
+        roi_res = (
+            await client.table("ai_roi_daily")
+            .select("*")
+            .eq("tenant_id", org_id)
+            .gte("metric_date", start_date)
+            .order("metric_date", desc=False)
+            .execute()
+        )
+        rows = roi_res.data or []
+    except Exception as e:
+        logger.error("ROI query failed: %s", e)
+        rows = []
+
+    # Aggregate summary
+    summary = {
+        "total_ai_cost": 0,
+        "total_tokens": 0,
+        "total_llm_calls": 0,
+        "total_tool_calls": 0,
+        "total_tool_success": 0,
+        "total_minutes_saved": 0,
+        "total_labor_saved": 0,
+        "avg_roi_percent": 0,
+        "total_positive_feedback": 0,
+        "total_negative_feedback": 0,
+        "avg_response_time_ms": 0,
+    }
+    by_category = {
+        "approval": 0, "crm": 0, "report": 0, "attendance": 0,
+        "finance": 0, "leave": 0, "schedule": 0, "knowledge": 0, "other": 0,
+    }
+
+    if rows:
+        total_cost = 0.0
+        total_saved = 0.0
+        total_rt = 0
+        for r in rows:
+            summary["total_ai_cost"] += float(r.get("ai_cost_usd") or 0)
+            summary["total_tokens"] += int(r.get("total_tokens") or 0)
+            summary["total_llm_calls"] += int(r.get("total_llm_calls") or 0)
+            summary["total_tool_calls"] += int(r.get("tool_calls_total") or 0)
+            summary["total_tool_success"] += int(r.get("tool_calls_success") or 0)
+            summary["total_minutes_saved"] += float(r.get("estimated_minutes_saved") or 0)
+            summary["total_labor_saved"] += float(r.get("estimated_labor_cost_saved") or 0)
+            summary["total_positive_feedback"] += int(r.get("positive_feedback") or 0)
+            summary["total_negative_feedback"] += int(r.get("negative_feedback") or 0)
+            total_rt += int(r.get("avg_response_time_ms") or 0)
+
+            for cat in by_category:
+                by_category[cat] += int(r.get(f"cat_{cat}") or 0)
+
+            total_cost += float(r.get("ai_cost_usd") or 0)
+            total_saved += float(r.get("estimated_labor_cost_saved") or 0)
+
+        summary["total_ai_cost"] = round(summary["total_ai_cost"], 2)
+        summary["total_labor_saved"] = round(summary["total_labor_saved"], 2)
+        summary["total_minutes_saved"] = round(summary["total_minutes_saved"], 1)
+        summary["avg_response_time_ms"] = int(total_rt / len(rows)) if rows else 0
+        if total_cost > 0:
+            summary["avg_roi_percent"] = round(
+                (total_saved - total_cost) / total_cost * 100, 1
+            )
+
+    # Daily trend (simplified for frontend charts)
+    daily = [
+        {
+            "date": r["metric_date"],
+            "cost": float(r.get("ai_cost_usd") or 0),
+            "saved": float(r.get("estimated_labor_cost_saved") or 0),
+            "tool_calls": int(r.get("tool_calls_total") or 0),
+            "minutes_saved": float(r.get("estimated_minutes_saved") or 0),
+            "roi": float(r.get("roi_percent") or 0),
+        }
+        for r in rows
+    ]
+
+    return api_success(
+        data={
+            "summary": summary,
+            "daily": daily,
+            "by_category": by_category,
+            "days": days,
+        }
+    )
+
+
+@router.get("/roi/baselines")
+async def ai_roi_baselines(
+    request: Request,
+    _user_id: str = Depends(get_current_user_id),
+):
+    """AI ROI 基线配置 — 各操作类别的人工耗时基线。"""
+    client = request.state.db
+    if not client:
+        raise api_error(
+            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
+        )
+
+    try:
+        res = await client.table("ai_roi_baselines").select("*").execute()
+        return api_success(data=res.data or [])
+    except Exception as e:
+        logger.error("ROI baselines query failed: %s", e)
+        return api_success(data=[])

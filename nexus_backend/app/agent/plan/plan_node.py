@@ -153,7 +153,20 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     )
     _trace_id = _configurable_early.get("trace_id")
 
-    llm, bind_kwargs = bind_tools_to_llm(
+    # Extract last user message for embedding-based tool filtering
+    _last_user_msg = ""
+    for _m in reversed(messages):
+        _content = getattr(_m, "content", None) or (
+            _m.get("content") if isinstance(_m, dict) else ""
+        )
+        _role = getattr(_m, "role", None) or (
+            _m.get("role") if isinstance(_m, dict) else ""
+        )
+        if _role == "user" and _content:
+            _last_user_msg = _content[:200]
+            break
+
+    llm, bind_kwargs = await bind_tools_to_llm(
         agent_config=agent_config,
         model=model,
         state=state,
@@ -162,6 +175,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         iteration=iteration,
         resolved=resolved,
         trace_id=_trace_id,
+        user_query=_last_user_msg or intent_summary,
     )
 
     thinking_step = ThinkingStep(
