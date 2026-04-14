@@ -655,6 +655,9 @@ def detect_multi_intent(query: str) -> tuple[bool, list[str]]:
                     return True, parts
 
     return False, [query]
+
+
+def detect_agent_role(query: str, complexity: QueryComplexity) -> tuple[str, str, bool]:
     """
     Detect which VMD agent role should handle this query.
 
