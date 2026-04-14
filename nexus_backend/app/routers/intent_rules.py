@@ -11,7 +11,7 @@ import re
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, field_validator
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ class RegexValidateRequest(BaseModel):
 @router.get("")
 async def list_intent_rules(
     request: Request,
-    current_user=Depends(get_current_user),
+    user_id: str = Depends(get_current_user_id),
 ):
     """获取所有意图规则"""
     try:
@@ -88,7 +88,7 @@ async def list_intent_rules(
 async def create_intent_rule(
     body: IntentRuleCreate,
     request: Request,
-    current_user=Depends(get_current_user),
+    user_id: str = Depends(get_current_user_id),
 ):
     """创建意图规则"""
     try:
@@ -134,7 +134,7 @@ async def update_intent_rule(
     rule_id: str,
     body: IntentRuleUpdate,
     request: Request,
-    current_user=Depends(get_current_user),
+    user_id: str = Depends(get_current_user_id),
 ):
     """更新意图规则"""
     try:
@@ -167,7 +167,7 @@ async def update_intent_rule(
 async def delete_intent_rule(
     rule_id: str,
     request: Request,
-    current_user=Depends(get_current_user),
+    user_id: str = Depends(get_current_user_id),
 ):
     """删除意图规则"""
     try:
@@ -192,7 +192,7 @@ async def delete_intent_rule(
 @router.post("/validate-regex")
 async def validate_regex(
     body: RegexValidateRequest,
-    current_user=Depends(get_current_user),
+    user_id: str = Depends(get_current_user_id),
 ):
     """验证正则表达式是否合法"""
     try:

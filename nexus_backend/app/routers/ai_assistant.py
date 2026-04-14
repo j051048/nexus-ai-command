@@ -12,7 +12,7 @@ from time import time as _time
 
 from fastapi import APIRouter, Depends, Request
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_id
 from app.core.database import supabase
 from app.core.errors import api_success
 from app.services.ai_voice_parser import parse_voice_intent
@@ -27,19 +27,26 @@ _MEMORY_SUMMARY_TTL = 600  # 10 minutes
 
 
 @router.post("/parse-voice-intent")
-async def parse_voice(text: str, current_user=Depends(get_current_user)):
+async def parse_voice(
+    text: str,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
     """解析语音意图"""
+    org_id = request.headers.get("X-Org-ID", "default")
     result = await parse_voice_intent(
         text=text,
-        user_id=current_user["id"],
-        org_id=current_user.get("org_id", "default"),
+        user_id=user_id,
+        org_id=org_id,
     )
     return result
 
 
 @router.post("/batch-approval-suggestions")
 async def batch_approval_suggestions(
-    request_ids: list[str], current_user=Depends(get_current_user)
+    request_ids: list[str],
+    request: Request,
+    user_id: str = Depends(get_current_user_id)
 ):
     """AI批量审批建议"""
     # 获取申请详情
@@ -51,7 +58,8 @@ async def batch_approval_suggestions(
     )
 
     # AI分析
-    llm = get_llm(org_id=current_user.get("org_id", "default"))
+    org_id = request.headers.get("X-Org-ID", "default")
+    llm = get_llm(org_id=org_id)
     prompt = f"""分析以下{len(requests.data)}个审批申请,给出批量审批建议:
 {[f"{r['title']}: ¥{r.get('amount', 0)}" for r in requests.data]}
 
@@ -68,15 +76,14 @@ async def batch_approval_suggestions(
 async def get_customer_memory_summary(
     customer_name: str,
     request: Request,
-    current_user=Depends(get_current_user),
+    user_id: str = Depends(get_current_user_id),
 ):
     """获取客户的 AI 记忆摘要
 
     通过客户名称在 conversation_memories 中搜索相关记忆，
     利用 LLM 生成结构化洞察摘要。结果缓存10分钟。
     """
-    user_id = current_user["id"]
-    org_id = current_user.get("org_id", "default")
+    org_id = request.headers.get("X-Org-ID", "default")
     cache_key = (customer_name.lower(), user_id)
 
     # 检查缓存
