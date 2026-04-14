@@ -35,6 +35,8 @@ import CustomerDetailSheet from './CustomerDetailSheet';
 import CustomerFormDialog from './CustomerFormDialog';
 import { EditCustomerDialog } from './CustomerDetailSheet';
 import { iconColors, iconBackgrounds, spacing, typography } from '@/lib/design-tokens';
+import { AIQuickActions } from '@/components/ai/AIQuickActions';
+import { useRegisterPageContext } from '@/hooks/usePageContext';
 
 function StatsBar() {
   const { data: stats, isLoading } = useCustomerStats();
@@ -82,6 +84,13 @@ function CRMPage() {
   const [deleteFromList, setDeleteFromList] = useState<Customer | null>(null);
   const deleteMutation = useDeleteCustomer();
 
+  // Register page context for AI panel
+  useRegisterPageContext(
+    selectedCustomer
+      ? { type: 'customer', id: selectedCustomer.id, name: selectedCustomer.name }
+      : { type: 'crm' }
+  );
+
   const filters = useMemo(() => {
     const f: Record<string, string> = {};
     if (stageFilter !== 'all') f.stage = stageFilter;
@@ -120,6 +129,8 @@ function CRMPage() {
       </div>
 
       <StatsBar />
+
+      <AIQuickActions pageType="crm" />
 
       <CustomerFilters
         searchQuery={searchQuery}

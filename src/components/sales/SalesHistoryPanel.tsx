@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Calendar as CalendarIcon, Download, Search, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Download, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NoDataYet } from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -229,11 +230,11 @@ export function SalesHistoryPanel() {
             加载失败: {(error as Error).message}
           </div>
         ) : !data || data.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>所选日期范围内暂无数据</p>
-            <p className="text-sm mt-1">请选择其他日期范围或录入新数据</p>
-          </div>
+          <NoDataYet
+            title="暂无销售数据"
+            description="所选日期范围内暂无数据，请选择其他日期范围或录入新数据。"
+            className="py-8"
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table>

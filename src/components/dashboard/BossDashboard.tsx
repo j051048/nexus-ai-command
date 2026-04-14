@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { lazyWithRetry } from '@/lib/lazyPreload';
 import { AlertWidget } from './AlertWidget';
 import { AIActivityStats } from './AIActivityStats';
+import { AIQuickActions } from '@/components/ai/AIQuickActions';
 
 const TeamPerformanceChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.TeamPerformanceChart })));
 const RevenueChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.RevenueChart })));
@@ -79,6 +80,9 @@ export function BossDashboard() {
 
   return (
     <div className="space-y-8 pb-12">
+      {/* AI Quick Actions */}
+      <AIQuickActions pageType="dashboard" />
+
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-[2.5rem] glass-premium p-8 sm:p-12 mb-8 animate-fade-slide-up">
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-primary/10 blur-[100px]" />

@@ -35,6 +35,10 @@ import {
   Heart,
   AlertTriangle,
   ShieldCheck,
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from 'lucide-react';
 import {
   useCustomerTimeline,
@@ -49,6 +53,8 @@ import {
 } from '@/hooks/useCRM';
 import type { Customer, CustomerActivity, CustomerContact } from '@/hooks/useCRM';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import { aiClient } from '@/api/aiClient';
 import { STAGES, ACTIVITY_ICONS, ACTIVITY_NAMES } from './constants';
 
 function ContactRow({
@@ -473,6 +479,88 @@ export interface CustomerDetailSheetProps {
   onClose: () => void;
 }
 
+function AIInsightsPanel({ customerName }: { customerName: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data, isLoading } = useQuery({
+    queryKey: ['ai-customer-insights', customerName],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: {
+        has_insights: boolean;
+        summary: string;
+        key_points: string[];
+        sentiment?: string;
+        suggested_action?: string;
+        last_mentioned?: string;
+        memory_count?: number;
+      } }>(`api/ai/customer-memory-summary/${encodeURIComponent(customerName)}`);
+      return res.data;
+    },
+    enabled: expanded,
+    staleTime: 1000 * 60 * 10, // 10 min
+  });
+
+  const sentimentColors: Record<string, string> = {
+    positive: 'text-green-500',
+    neutral: 'text-muted-foreground',
+    negative: 'text-red-500',
+  };
+
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="text-sm font-medium flex items-center gap-1.5">
+          <Brain className="w-4 h-4 text-purple-500" />
+          AI 洞察
+        </span>
+        {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-3 border-t">
+          {isLoading ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              正在分析客户记忆...
+            </div>
+          ) : !data?.has_insights ? (
+            <p className="text-sm text-muted-foreground py-3">暂无 AI 洞察。与 AI 对话中提及此客户后将自动生成。</p>
+          ) : (
+            <div className="space-y-2 pt-2">
+              <div className="flex items-start gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500 mt-0.5 shrink-0" />
+                <p className="text-sm">{data.summary}</p>
+              </div>
+              {data.key_points && data.key_points.length > 0 && (
+                <ul className="space-y-1 ml-5">
+                  {data.key_points.map((point, i) => (
+                    <li key={i} className="text-xs text-muted-foreground list-disc">{point}</li>
+                  ))}
+                </ul>
+              )}
+              {data.suggested_action && (
+                <p className="text-xs text-purple-600 dark:text-purple-400 bg-purple-500/5 rounded px-2 py-1">
+                  建议: {data.suggested_action}
+                </p>
+              )}
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
+                {data.sentiment && (
+                  <span className={sentimentColors[data.sentiment] || ''}>
+                    情感: {data.sentiment === 'positive' ? '正面' : data.sentiment === 'negative' ? '负面' : '中性'}
+                  </span>
+                )}
+                {data.memory_count && <span>基于 {data.memory_count} 条记忆</span>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CustomerDetailSheet({
   customer,
   open,
@@ -651,6 +739,9 @@ export default function CustomerDetailSheet({
                   )}
                 </div>
               )}
+
+              {/* AI Insights Panel */}
+              <AIInsightsPanel customerName={customer.name} />
 
               <Separator />
 

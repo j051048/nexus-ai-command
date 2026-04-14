@@ -13,6 +13,8 @@ from enum import StrEnum
 from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.agent.error_message_mapper import format_friendly_error
+
 # ── Error Classification for Structured Retry ────────────────────────────────
 
 
@@ -914,7 +916,8 @@ async def _execute_single_tool(
 
     record.status = "error"
     record.error_type = _classify_error(str(last_error)).value
-    record.result = f"Error: Tool '{record.tool_name}' failed: {str(last_error)}"
+    friendly = format_friendly_error(record.error_type, str(last_error), record.tool_name)
+    record.result = friendly
     record.duration_ms = int((time.time() - start_time) * 1000)
     record_tool_execution(record.tool_name, False, record.duration_ms)
     check_tool_alert(record.tool_name, False)

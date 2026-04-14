@@ -489,6 +489,17 @@ async def _load_db_intent_rules() -> None:
         )
 
 
+async def reload_db_intent_rules() -> int:
+    """强制重新加载 DB 意图规则（用于管理界面保存后调用）
+
+    Returns: 加载的规则数量
+    """
+    global _db_keywords_loaded
+    _db_keywords_loaded = False
+    await _load_db_intent_rules()
+    return sum(1 for _ in _ALL_BUSINESS_KEYWORDS)
+
+
 # Maps regex patterns to agent_code + scene_code.
 # Checked AFTER complexity classification; used to assign a specific agent role.
 
@@ -587,8 +598,63 @@ _MULTI_AGENT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# ── Multi-intent splitting via conjunction detection ────────────────────
+# Split user messages at explicit conjunction words that signal independent intents.
+# Only split when sub-clauses hit DIFFERENT business domains to avoid false positives.
+_INTENT_SPLIT_RE = re.compile(
+    r"[，,。；;]\s*(?:顺便|另外|还有|同时帮我|同时|再帮我|再|然后帮我|然后再|并且帮我|还想)"
+    r"|(?:顺便|另外|还有|同时帮我|同时|再帮我|再帮|然后帮我|然后再|并且帮我|还想)",
+)
 
-def detect_agent_role(query: str, complexity: QueryComplexity) -> tuple[str, str, bool]:
+# Domain keyword groups for cross-domain detection
+_DOMAIN_KEYWORD_MAP: dict[str, set[str]] = {
+    "crm": {"客户", "线索", "跟进", "商机", "联系人", "客户信息", "销售"},
+    "approval": {"审批", "请假", "报销", "采购", "出差", "批准", "驳回"},
+    "finance": {"财务", "报销", "付款", "发票", "费用", "预算"},
+    "hr": {"考勤", "打卡", "请假", "入职", "离职", "薪资"},
+    "project": {"项目", "任务", "进度", "里程碑", "排期"},
+    "report": {"报表", "报告", "分析", "统计", "数据", "业绩", "销售额"},
+    "contract": {"合同", "签约", "续约", "到期"},
+}
+
+
+def _detect_domain(text: str) -> set[str]:
+    """Detect which business domains a text fragment touches."""
+    domains = set()
+    for domain, keywords in _DOMAIN_KEYWORD_MAP.items():
+        if any(kw in text for kw in keywords):
+            domains.add(domain)
+    return domains
+
+
+def detect_multi_intent(query: str) -> tuple[bool, list[str]]:
+    """Detect if a query contains multiple independent intents across different domains.
+
+    Returns:
+        (is_multi_intent, list_of_sub_queries)
+        If not multi-intent, returns (False, [query])
+    """
+    parts = _INTENT_SPLIT_RE.split(query)
+    parts = [p.strip() for p in parts if p and p.strip()]
+
+    if len(parts) < 2:
+        return False, [query]
+
+    # Check if sub-clauses hit different domains
+    domains_per_part = [_detect_domain(p) for p in parts]
+    all_domains = set()
+    for d in domains_per_part:
+        all_domains.update(d)
+
+    # Only flag as multi-intent if at least 2 different domains are involved
+    if len(all_domains) >= 2:
+        # Verify at least 2 parts have non-overlapping domains
+        for i in range(len(domains_per_part)):
+            for j in range(i + 1, len(domains_per_part)):
+                if domains_per_part[i] and domains_per_part[j] and not domains_per_part[i].intersection(domains_per_part[j]):
+                    return True, parts
+
+    return False, [query]
     """
     Detect which VMD agent role should handle this query.
 
@@ -1052,6 +1118,15 @@ async def route_node(state: AgentState) -> dict:
     # This saves ~500ms per SIMPLE query by avoiding an extra LLM round-trip.
     intent_domains: list[str] = []
     multi_intent = False
+
+    # Pre-check: conjunction-based multi-intent detection (fast, no LLM)
+    _mi_detected, _mi_parts = detect_multi_intent(last_user_msg)
+    if _mi_detected:
+        multi_intent = True
+        logger.info(
+            f"[Router] Multi-intent detected via conjunction split: {len(_mi_parts)} parts"
+        )
+
     if intent_summary == "一般对话" and len(last_user_msg.strip()) > 10:
         # Fast path: semantic router (embedding similarity, ~50ms)
         try:

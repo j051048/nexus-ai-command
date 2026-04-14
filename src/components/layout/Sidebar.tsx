@@ -53,6 +53,7 @@ import {
   Bot as BotIcon,
   ShieldCheck,
   Cpu,
+  Brain,
   Bug,
   Inbox,
   Wrench,
@@ -103,6 +104,7 @@ interface NavItem {
 
 const COLLAPSED_GROUPS_KEY = "nexus:sidebar-collapsed-groups";
 const PINNED_ITEMS_KEY = "nexus:sidebar-pinned-items";
+const ENABLED_MODULES_KEY = "nexus:enabled-modules";
 
 function loadCollapsedGroups(): Record<string, boolean> {
   try {
@@ -128,6 +130,19 @@ function saveCollapsedGroups(state: Record<string, boolean>) {
 
 function savePinnedItems(items: string[]) {
   localStorage.setItem(PINNED_ITEMS_KEY, JSON.stringify(items));
+}
+
+function loadEnabledModules(): string[] {
+  try {
+    const raw = localStorage.getItem(ENABLED_MODULES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveEnabledModules(modules: string[]) {
+  localStorage.setItem(ENABLED_MODULES_KEY, JSON.stringify(modules));
 }
 
 const NAV_CONFIG: NavItem[] = [
@@ -169,6 +184,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Network size={18} />, label: "组织", href: "org-chart", roles: ["boss", "founder"], group: "管理" },
   { icon: <Building2 size={18} />, label: "公司设置", href: "company-settings", roles: ["boss", "founder"], group: "管理" },
   { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "管理" },
+  { icon: <Brain size={18} />, label: "意图规则", href: "admin/intent-rules", roles: ["boss", "founder"], group: "管理" },
   { icon: <Settings size={18} />, label: "系统设置", href: "settings", roles: ["boss", "founder"], group: "管理" },
 ];
 
@@ -182,6 +198,8 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
   const [pinnedHrefs, setPinnedHrefs] = useState<string[]>(loadPinnedItems);
+  const [enabledModules, setEnabledModules] = useState<string[]>(loadEnabledModules);
+  const [showModuleManager, setShowModuleManager] = useState(false);
 
   const { data: exceptions = [] } = useExceptions();
   const pendingApprovalsQuery = usePendingApprovalsCount();
@@ -311,11 +329,70 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
       )}
 
       <div className="flex-1 overflow-y-auto no-scrollbar py-2">
-        {NAV_GROUPS.map(group => 
+        {NAV_GROUPS.filter(group =>
+          group === "primary" || enabledModules.includes(group)
+        ).map(group =>
           renderNavGroup(group, NAV_CONFIG.filter(i => {
             const hasRole = !i.roles || i.roles.includes((role || user?.role || "employee") as AppRole);
             return i.group === group && hasRole;
           }))
+        )}
+
+        {/* 模块管理器 */}
+        {!isCollapsed && (
+          <div className="px-3 mt-2 border-t border-white/5 pt-2">
+            <button
+              onClick={() => setShowModuleManager(!showModuleManager)}
+              className="flex items-center justify-between w-full px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <Puzzle size={10} />
+                更多模块
+              </span>
+              {showModuleManager ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+            </button>
+            {showModuleManager && (
+              <div className="space-y-1 mt-1">
+                {NAV_GROUPS.filter(g => g !== "primary").map(group => {
+                  const enabled = enabledModules.includes(group);
+                  const groupItems = NAV_CONFIG.filter(i => {
+                    const hasRole = !i.roles || i.roles.includes((role || user?.role || "employee") as AppRole);
+                    return i.group === group && hasRole;
+                  });
+                  if (groupItems.length === 0) return null;
+                  return (
+                    <button
+                      key={group}
+                      onClick={() => {
+                        const next = enabled
+                          ? enabledModules.filter(m => m !== group)
+                          : [...enabledModules, group];
+                        setEnabledModules(next);
+                        saveEnabledModules(next);
+                      }}
+                      className={cn(
+                        "flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs transition-all",
+                        enabled
+                          ? "text-white/80 bg-white/5"
+                          : "text-white/40 hover:text-white/60 hover:bg-white/[0.02]"
+                      )}
+                    >
+                      <span>{group} ({groupItems.length})</span>
+                      <div className={cn(
+                        "w-7 h-4 rounded-full transition-colors flex items-center px-0.5",
+                        enabled ? "bg-primary" : "bg-white/10"
+                      )}>
+                        <div className={cn(
+                          "w-3 h-3 rounded-full bg-white transition-transform",
+                          enabled ? "translate-x-3" : "translate-x-0"
+                        )} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

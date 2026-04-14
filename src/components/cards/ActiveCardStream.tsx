@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/contexts/UserContext';
+import { NoDataYet } from '@/components/common/EmptyState';
 import {
   Target,
   Gift,
@@ -113,7 +114,7 @@ export function ActiveCardStream() {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3">
       {cards.length === 0 && (
-        <div className="text-center py-8 text-sm text-muted-foreground">暂无消息</div>
+        <NoDataYet title="暂无消息" description="当前没有新的消息通知" className="py-6" />
       )}
       {cards.map((card) => (
         <div

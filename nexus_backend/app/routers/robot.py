@@ -1,14 +1,18 @@
 """
-Robot / RPA Command Endpoint MVP.
+Robot / RPA Command Endpoint MVP + WeChat Work Integration.
 
-Provides a stub interface for future robot and RPA device management.  All
-endpoints return synthetic data with development warnings so that frontend
-integration work can proceed before real device drivers are available.
+Provides:
+1. Stub interface for future robot and RPA device management
+2. WeChat Work (企业微信) callback endpoints for message integration
 
-Endpoints:
+Robot Endpoints:
     POST /api/robot/command           - Queue a command for a robot device
     GET  /api/robot/devices           - List registered devices
     GET  /api/robot/status/{device_id} - Get device status
+
+WeChat Work Endpoints:
+    GET  /api/wecom/callback          - URL verification (企微验证)
+    POST /api/wecom/callback          - Message callback (消息处理)
 """
 
 import logging
@@ -17,7 +21,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Query, Response
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
@@ -206,3 +210,96 @@ async def get_device_status(
             _dev_warning=_DEV_WARNING,
         ).model_dump()
     )
+
+
+# ---------------------------------------------------------------------------
+# WeChat Work (企业微信) Endpoints
+# ---------------------------------------------------------------------------
+
+wecom_router = APIRouter(prefix="/api/wecom", tags=["WeChat Work"])
+
+
+@wecom_router.get("/callback")
+async def wecom_verify(
+    msg_signature: str = Query(..., description="微信签名"),
+    timestamp: str = Query(..., description="时间戳"),
+    nonce: str = Query(..., description="随机数"),
+    echostr: str = Query("", description="回声字符串"),
+):
+    """企业微信 URL 验证回调
+
+    企微管理后台配置回调 URL 时，会向此端点发送 GET 请求验证。
+    验证通过后返回 echostr 即可。
+    """
+    from app.services.wecom_service import wecom_service
+
+    is_valid, result = wecom_service.verify_signature(
+        msg_signature, timestamp, nonce, echostr
+    )
+
+    if is_valid:
+        logger.info("[WeCom] URL verification successful")
+        return Response(content=result, media_type="text/plain")
+    else:
+        logger.warning(f"[WeCom] URL verification failed: {result}")
+        return Response(content="verification failed", status_code=403)
+
+
+@wecom_router.post("/callback")
+async def wecom_message(
+    request: Request,
+    msg_signature: str = Query(..., description="微信签名"),
+    timestamp: str = Query(..., description="时间戳"),
+    nonce: str = Query(..., description="随机数"),
+):
+    """企业微信消息回调
+
+    接收来自企微的消息推送，处理文本消息并返回 AI 回复。
+    非文本消息返回"暂不支持"提示。
+    """
+    from app.services.wecom_service import wecom_service
+
+    # 验证签名
+    is_valid, _ = wecom_service.verify_signature(msg_signature, timestamp, nonce)
+    if not is_valid:
+        logger.warning("[WeCom] Message signature verification failed")
+        return Response(content="invalid signature", status_code=403)
+
+    # 解析消息
+    body = await request.body()
+    xml_body = body.decode("utf-8")
+
+    # 注意: 实际生产环境需要先解密消息（AES 解密）
+    # 此处简化处理，假设消息已解密或使用明文模式
+    msg = wecom_service.parse_xml_message(xml_body)
+
+    if not msg:
+        return Response(content="", media_type="application/xml")
+
+    msg_type = msg.get("MsgType", "")
+    from_user = msg.get("FromUserName", "")
+    to_user = msg.get("ToUserName", "")
+
+    logger.info(f"[WeCom] Received message type={msg_type} from={from_user[:8]}...")
+
+    # 处理文本消息
+    if msg_type == "text":
+        reply_content = await wecom_service.handle_text_message(msg)
+    elif msg_type == "event":
+        event_type = msg.get("Event", "")
+        if event_type == "subscribe":
+            reply_content = "欢迎使用 Nexus AI 助手！发送任何文字消息即可与 AI 对话。"
+        else:
+            reply_content = ""
+    else:
+        reply_content = wecom_service.handle_unsupported_message(msg_type)
+
+    if reply_content:
+        reply_xml = wecom_service.format_text_reply(from_user, to_user, reply_content)
+        return Response(content=reply_xml, media_type="application/xml")
+
+    return Response(content="", media_type="application/xml")
+
+
+# Expose wecom_router for registration in startup/routers.py
+router_wecom = wecom_router

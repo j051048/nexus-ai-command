@@ -17,6 +17,7 @@ import { useOrchestrationTrace, type OrchestrationEvent } from '@/hooks/useOrche
 import { aiClient } from '@/api/aiClient';
 import { supabase } from '@/integrations/supabase/client';
 import { drainProactiveMessages, PROACTIVE_MSG_EVENT } from '@/lib/proactiveMessageStore';
+import { usePageContext } from '@/hooks/usePageContext';
 import { ChatHeader } from './ChatHeader';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputArea } from './ChatInputArea';
@@ -136,6 +137,8 @@ export function EnhancedAIChatPanel({
     sessionId,
     setSessionId
   } = useAIStream({ userId: user.id });
+
+  const { formatContextPrefix } = usePageContext();
 
   const { trace, startTrace, endTrace, addThinkingStep, clearTrace, addToolProgress } = useAgentTrace();
   const { orchestration, handleOrchestrationEvent, resetOrchestration } = useOrchestrationTrace();
@@ -635,8 +638,11 @@ export function EnhancedAIChatPanel({
       startTrace();
       resetOrchestration();
       if (autoExpandTrace) setShowTrace(true);
+      // Inject page context prefix for context-aware AI responses
+      const contextPrefix = formatContextPrefix();
+      const enrichedMessage = contextPrefix ? `${contextPrefix} ${messageToSend}` : messageToSend;
       await streamChat(
-        messageToSend,
+        enrichedMessage,
         messagesRef.current,
         detectedAgent,
         {

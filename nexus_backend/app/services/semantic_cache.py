@@ -583,5 +583,78 @@ class SemanticCacheService:
             logger.warning(f"Failed to cleanup expired cache entries: {e}")
             return 0
 
+    # ── Cache warmup ────────────────────────────────────────────────────
+
+    # Common queries that most organizations will ask frequently.
+    # Pre-computing embeddings for these avoids cold-start latency.
+    _COMMON_QUERY_TEMPLATES = [
+        "本月销售额",
+        "本月业绩",
+        "待审批数量",
+        "今日待办",
+        "客户总数",
+        "本周新增客户",
+        "合同到期提醒",
+        "本月报销总额",
+        "团队业绩排名",
+        "项目进度汇总",
+    ]
+
+    async def warmup_common_queries(self, org_id: str = "default"):
+        """Pre-warm embedding cache for common high-frequency queries.
+
+        This only pre-computes and stores embeddings so that the first real
+        query gets a fast vector-similarity lookup instead of a cold miss.
+        It does NOT generate fake responses.
+        """
+        warmed = 0
+        for query in self._COMMON_QUERY_TEMPLATES:
+            try:
+                embedding = await self._get_embedding(query)
+                if embedding:
+                    # Store embedding in Redis for fast lookup
+                    cache_key = self._make_cache_key(query, org_id)
+                    if self.redis:
+                        await self.redis.set(
+                            f"emb:{cache_key}", str(embedding), ex=86400
+                        )
+                    warmed += 1
+            except Exception as e:
+                logger.debug(f"[SemanticCache] Warmup skip '{query}': {e}")
+        logger.info(f"[SemanticCache] Warmed {warmed}/{len(self._COMMON_QUERY_TEMPLATES)} common queries for org={org_id[:8]}...")
+
+    async def auto_warmup_from_history(self, org_id: str = "default", min_hits: int = 3):
+        """Auto-warm cache from historically popular queries.
+
+        Queries with hit_count >= min_hits are considered popular and worth pre-warming.
+        """
+        try:
+            result = await supabase.table("semantic_cache").select(
+                "query_text"
+            ).gte("hit_count", min_hits).eq("org_id", org_id).limit(20).execute()
+
+            if not result.data:
+                return
+
+            warmed = 0
+            for row in result.data:
+                query = row.get("query_text", "")
+                if not query:
+                    continue
+                try:
+                    embedding = await self._get_embedding(query)
+                    if embedding and self.redis:
+                        cache_key = self._make_cache_key(query, org_id)
+                        await self.redis.set(f"emb:{cache_key}", str(embedding), ex=86400)
+                        warmed += 1
+                except Exception:
+                    pass
+
+            logger.info(
+                f"[SemanticCache] Auto-warmed {warmed} popular queries (min_hits={min_hits}) for org={org_id[:8]}..."
+            )
+        except Exception as e:
+            logger.warning(f"[SemanticCache] Auto-warmup failed: {e}")
+
 
 semantic_cache_service = SemanticCacheService()

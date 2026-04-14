@@ -96,9 +96,11 @@ function StepCompanyInfo({
 function StepImportData({
   onChoose,
   choice,
+  onQuickStart,
 }: {
   onChoose: (choice: 'import' | 'demo' | 'skip') => void;
   choice: string;
+  onQuickStart?: () => void;
 }) {
   return (
     <div className="space-y-6">
@@ -167,6 +169,16 @@ function StepImportData({
           </CardContent>
         </Card>
       </div>
+
+      {/* 一键体验快捷通道 */}
+      {onQuickStart && (
+        <button
+          onClick={onQuickStart}
+          className="w-full mt-4 py-3 px-4 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-bold text-sm shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 transition-all"
+        >
+          ✨ 一键体验（自动生成演示数据，直接开始对话）
+        </button>
+      )}
     </div>
   );
 }
@@ -284,6 +296,26 @@ function StepFirstChat({ onPromptSelect }: { onPromptSelect: (prompt: string) =>
       </div>
 
       <div className="grid gap-3">
+        {/* 推荐的首次体验 */}
+        <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 to-purple-600/10 border border-primary/20">
+          <p className="text-sm font-medium mb-3">推荐：让 AI 帮您生成今日报表</p>
+          <div className="flex gap-2">
+            <Input
+              readOnly
+              value="帮我看看本月销售概况"
+              className="flex-1"
+            />
+            <button
+              onClick={() => onPromptSelect('帮我看看本月销售概况')}
+              className="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-purple-600 text-white font-bold text-sm shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 transition-all whitespace-nowrap"
+            >
+              🚀 立即体验
+            </button>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground text-center">或选择其他话题：</p>
+
         {suggestedPrompts.map((item) => (
           <Card
             key={item.prompt}
@@ -384,6 +416,12 @@ export function OnboardingWizard() {
     await completeOnboarding();
   }, [completeOnboarding]);
 
+  // 一键体验：自动选 demo + 直接跳到对话步骤
+  const handleQuickStart = useCallback(async () => {
+    await saveStepData('data_choice', { choice: 'demo' });
+    setCurrentStep(TOTAL_STEPS - 1);
+  }, [saveStepData, setCurrentStep]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-lg">
@@ -416,7 +454,7 @@ export function OnboardingWizard() {
             <StepCompanyInfo data={companyInfo} onChange={setCompanyInfo} />
           )}
           {currentStep === 1 && (
-            <StepImportData choice={dataChoice} onChoose={setDataChoice} />
+            <StepImportData choice={dataChoice} onChoose={setDataChoice} onQuickStart={handleQuickStart} />
           )}
           {currentStep === 2 && (
             <StepInviteTeam emails={inviteEmails} onEmailsChange={setInviteEmails} />
@@ -426,32 +464,44 @@ export function OnboardingWizard() {
           )}
         </CardContent>
 
-        <CardFooter className="flex justify-between">
-          <div>
-            {currentStep > 0 ? (
-              <Button variant="ghost" onClick={handleBack}>
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                上一步
-              </Button>
-            ) : (
-              <Button variant="ghost" onClick={handleSkipAll}>
-                跳过引导
-              </Button>
-            )}
+        <CardFooter className="flex flex-col gap-3">
+          <div className="flex justify-between w-full">
+            <div>
+              {currentStep > 0 ? (
+                <Button variant="ghost" onClick={handleBack}>
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  上一步
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={handleQuickStart}>
+                  跳过，直接体验 AI →
+                </Button>
+              )}
+            </div>
+
+            <div>
+              {currentStep < TOTAL_STEPS - 1 ? (
+                <Button onClick={handleNext} disabled={!canGoNext()}>
+                  下一步
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={handleSkipAll}>
+                  跳过，直接进入
+                </Button>
+              )}
+            </div>
           </div>
 
-          <div>
-            {currentStep < TOTAL_STEPS - 1 ? (
-              <Button onClick={handleNext} disabled={!canGoNext()}>
-                下一步
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            ) : (
-              <Button variant="ghost" onClick={handleSkipAll}>
-                跳过，直接进入
-              </Button>
-            )}
-          </div>
+          {/* 每步底部的跳过链接 */}
+          {currentStep > 0 && currentStep < TOTAL_STEPS - 1 && (
+            <button
+              onClick={handleSkipAll}
+              className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            >
+              跳过全部，直接进入系统
+            </button>
+          )}
         </CardFooter>
       </Card>
     </div>

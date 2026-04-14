@@ -25,6 +25,7 @@ import { httpClient } from '@/lib/httpClient';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
+import { NoDataYet } from '@/components/common/EmptyState';
 
 interface ProjectDetailProps {
     projectId?: string;
@@ -290,9 +291,11 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
 
                             <div className="space-y-10">
                                 {timeline.length === 0 ? (
-                                    <div className="text-center py-12 text-sm text-muted-foreground">
-                                        暂无进展记录，点击右上角"添加记录"开始
-                                    </div>
+                                    <NoDataYet
+                                        title="暂无进展记录"
+                                        description="点击右上角「添加记录」开始记录项目进展"
+                                        className="py-8"
+                                    />
                                 ) : timeline.map((event: ProjectTimeline) => (
                                     <div key={event.id} className="relative pl-12 group">
                                         <div className={cn(
@@ -392,7 +395,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                             </label>
                         ))}
                         {orgMembers.length === 0 && (
-                            <div className="text-center py-8 text-sm text-muted-foreground">暂无团队成员</div>
+                            <NoDataYet title="暂无团队成员" description="组织内暂无可添加的成员" className="py-6" />
                         )}
                     </div>
                     <DialogFooter>
@@ -576,9 +579,11 @@ function ProjectSubtasks({ projectId, tasks, onProgressChange }: {
             </div>
 
             {tasks.length === 0 ? (
-                <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-lg">
-                    暂无关联任务，可通过 AI 助手创建项目任务
-                </div>
+                <NoDataYet
+                    title="暂无关联任务"
+                    description="可通过 AI 助手创建项目任务"
+                    className="py-6 border border-dashed rounded-lg"
+                />
             ) : (
                 <div className="space-y-2">
                     {tasks.map(task => {

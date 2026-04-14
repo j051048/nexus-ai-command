@@ -29,6 +29,7 @@ import { PullToRefreshIndicator } from '@/components/common/PullToRefreshIndicat
 import { useQueryClient } from '@tanstack/react-query';
 
 import { lazyWithRetry } from '@/lib/lazyPreload';
+import { AIQuickActions } from '@/components/ai/AIQuickActions';
 
 // Lazy load heavy components
 const SalesChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.SalesChart })));
@@ -169,6 +170,7 @@ export function EmployeeDashboard() {
       )}
 
       {/* Welcome Header */}
+      <AIQuickActions pageType="dashboard" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-3">

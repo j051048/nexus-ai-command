@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { AIQuickActions } from '@/components/ai/AIQuickActions';
 
 export function ApprovalCenter() {
   const { role } = useAuth();
@@ -84,6 +85,8 @@ export function ApprovalCenter() {
           <NotificationBell />
         </div>
       </div>
+
+      <AIQuickActions pageType="approval" />
 
       {/* 审批类型入口卡片（动态渲染） */}
       {typeConfigs.length > 0 && (

@@ -7,6 +7,7 @@ import { GlobalCommandBar } from "@/components/layout/GlobalCommandBar";
 import { EnhancedThemeProvider } from "@/contexts/EnhancedThemeContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { I18nProvider } from "@/lib/i18n";
+import { PageContextProvider } from "@/hooks/usePageContext";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { ResetPasswordPage } from "@/components/auth/ResetPasswordPage";
 import React, { Suspense } from "react";
@@ -97,6 +98,7 @@ const App = () => (
       <Sonner position="top-right" expand={false} richColors closeButton />
       <BrowserRouter>
         <AuthProvider>
+          <PageContextProvider>
           <Suspense fallback={null}><ProductTour /></Suspense>
           <GlobalCommandBar />
           <Suspense fallback={<LoadingFallback />}>
@@ -116,6 +118,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          </PageContextProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

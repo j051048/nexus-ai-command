@@ -190,6 +190,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(kingdee.router)
     app.include_router(mcp_router.router)
     app.include_router(robot_router.router)
+    app.include_router(robot_router.router_wecom)
 
     # ── 9. System / Admin ─────────────────────────────────────────────────
     from app.routers import (
@@ -201,6 +202,7 @@ def register_routers(app: FastAPI) -> None:
         super_admin,
     )
     from app.routers import dsar as dsar_router
+    from app.routers import intent_rules as intent_rules_router
     from app.routers import system as system_router
     from app.routers import system_configs as system_configs_router
 
@@ -213,6 +215,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(system_configs_router.router)
     app.include_router(dsar_router.router)
     app.include_router(system_router.router)
+    app.include_router(intent_rules_router.router)
 
     # ── 10. VMD / LLM Optional Routers ─────────────────────────────
     from app.routers import llm

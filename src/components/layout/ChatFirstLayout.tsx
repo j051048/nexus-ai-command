@@ -9,6 +9,7 @@ import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
 import { PanelRightClose, PanelRightOpen, Clock } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
+import { TrialBanner } from '@/components/billing/TrialBanner';
 import { useWebSocketPush } from '@/hooks/useWebSocketPush';
 import { Breadcrumbs } from './Breadcrumbs';
 import { GlobalAIBall } from '@/components/ai/GlobalAIBall';
@@ -85,6 +86,9 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     isCanvasOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 w-0",
                     isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[62%]" : "w-full flex-1") : "w-0"
                 )}>
+                    {/* Trial Banner */}
+                    <TrialBanner />
+
                     {/* Floating Header */}
                     <header className="h-14 flex items-center justify-between px-6 bg-card/10 backdrop-blur-md border-b border-border/10 relative z-20">
                         <div className="flex items-center gap-3">

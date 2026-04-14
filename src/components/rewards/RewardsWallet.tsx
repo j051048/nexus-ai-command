@@ -1,6 +1,7 @@
 import React from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { cn } from '@/lib/utils';
+import { NoDataYet } from '@/components/common/EmptyState';
 import {
   Wallet,
   TrendingUp,
@@ -81,10 +82,11 @@ export function RewardsWallet() {
         </div>
 
         {recentBonuses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground">暂无奖金记录</p>
-            <p className="text-xs text-muted-foreground mt-1">完成激励任务后将自动获得奖金</p>
-          </div>
+          <NoDataYet
+            title="暂无奖金记录"
+            description="完成激励任务后将自动获得奖金"
+            className="py-8"
+          />
         ) : (
           <div className="space-y-3">
             {recentBonuses.map((bonus, index) => (
@@ -127,10 +129,11 @@ export function RewardsWallet() {
         </div>
 
         {achievements.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground">暂无成就</p>
-            <p className="text-xs text-muted-foreground mt-1">达成目标后将自动解锁成就徽章</p>
-          </div>
+          <NoDataYet
+            title="暂无成就"
+            description="达成目标后将自动解锁成就徽章"
+            className="py-8"
+          />
         ) : (
           <div className="grid grid-cols-5 gap-4">
             {achievements.map((achievement) => (

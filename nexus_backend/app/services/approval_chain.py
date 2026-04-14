@@ -99,6 +99,57 @@ DEFAULT_CHAINS: dict[str, ApprovalChainConfig] = {
             ApprovalStep(ApprovalLevel.CEO, float("inf"), "founder", timeout_hours=72),
         ],
     ),
+    "business_trip": ApprovalChainConfig(
+        name="出差申请审批链",
+        description="适用于出差申请，含交通、住宿预算审批",
+        applies_to=["business_trip", "trip"],
+        steps=[
+            ApprovalStep(ApprovalLevel.AUTO, 2000, "system", timeout_hours=0),
+            ApprovalStep(ApprovalLevel.MANAGER, 10000, "manager", timeout_hours=24),
+            ApprovalStep(ApprovalLevel.DIRECTOR, 30000, "director", timeout_hours=48),
+            ApprovalStep(ApprovalLevel.CFO, float("inf"), "cfo", timeout_hours=72),
+        ],
+    ),
+}
+
+# ── Quick-start approval templates (pre-filled form defaults) ───────────
+# Used by frontend to offer one-click approval submission with sensible defaults.
+APPROVAL_TEMPLATES: dict[str, dict] = {
+    "leave": {
+        "type": "leave",
+        "chain": "leave",
+        "label": "请假申请",
+        "icon": "calendar",
+        "defaults": {"leave_type": "annual", "days": 1, "reason": ""},
+    },
+    "expense": {
+        "type": "expense",
+        "chain": "expense",
+        "label": "费用报销",
+        "icon": "receipt",
+        "defaults": {"category": "travel", "amount": 0, "description": "", "receipts": []},
+    },
+    "purchase": {
+        "type": "purchase",
+        "chain": "purchase",
+        "label": "采购申请",
+        "icon": "shopping-cart",
+        "defaults": {"item": "", "quantity": 1, "unit_price": 0, "reason": ""},
+    },
+    "business_trip": {
+        "type": "business_trip",
+        "chain": "business_trip",
+        "label": "出差申请",
+        "icon": "plane",
+        "defaults": {"destination": "", "start_date": "", "end_date": "", "budget": 0, "purpose": ""},
+    },
+    "vehicle": {
+        "type": "vehicle",
+        "chain": "default",
+        "label": "用车申请",
+        "icon": "car",
+        "defaults": {"destination": "", "date": "", "passengers": 1, "reason": ""},
+    },
 }
 
 
