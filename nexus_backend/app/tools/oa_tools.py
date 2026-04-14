@@ -18,8 +18,6 @@ from app.services.notification_service import (
     notification_service,
 )
 from app.tools._shared import safe_tool_error
-
-from app.core.database import supabase
 from ._shared import _get_client
 from .base_tool import BaseTool
 
@@ -166,10 +164,10 @@ class LeaveRequestTool(BaseTool):
             pass  # 检查失败不阻塞主流程
 
         org_id = config.get("org_id") if config else None
-        # 查找交接人 (Admin client to bypass RLS, then filter by org)
+        # 查找交接人 (scoped client, RLS enforced)
         handover_id = None
         if handover_to:
-            query = supabase.table("users").select("id, name").ilike("name", f"%{handover_to}%")
+            query = client.table("users").select("id, name").ilike("name", f"%{handover_to}%")
             if org_id:
                 query = query.eq("organization_id", org_id)
             handover_res = await query.limit(1).execute()
@@ -572,11 +570,11 @@ class MeetingBookingTool(BaseTool):
             logger.debug(f"Calendar conflict check skipped: {e}")
 
         org_id = config.get("org_id") if config else None
-        # 查找参会人 (Admin client to bypass RLS, then filter by org)
+        # 查找参会人 (scoped client, RLS enforced)
         attendee_ids = []
         attendee_names = []
         for name in attendees:
-            query = supabase.table("users").select("id, name").ilike("name", f"%{name}%")
+            query = client.table("users").select("id, name").ilike("name", f"%{name}%")
             if org_id:
                 query = query.eq("organization_id", org_id)
             user_res = await query.limit(1).execute()
@@ -711,6 +709,8 @@ class TaskAssignmentTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
+        client = _get_client(config)
+
         title = args.get("title")
         description = args.get("description", "")
         assignee_name = args.get("assignee")
@@ -719,8 +719,8 @@ class TaskAssignmentTool(BaseTool):
         project_name = args.get("project_name")
 
         org_id = config.get("org_id") if config else None
-        # 查找负责人 (Admin client to bypass RLS, then filter by org)
-        query = supabase.table("users").select("id, name").ilike("name", f"%{assignee_name}%")
+        # 查找负责人 (scoped client, RLS enforced)
+        query = client.table("users").select("id, name").ilike("name", f"%{assignee_name}%")
         if org_id:
             query = query.eq("organization_id", org_id)
         assignee_res = await query.limit(1).execute()
@@ -857,13 +857,15 @@ class WorkHandoverTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
+        client = _get_client(config)
+
         handover_to_name = args.get("handover_to")
         reason = args.get("reason", "临时交接")
         items = args.get("items", [])
 
         org_id = config.get("org_id") if config else None
-        # 查找交接人 (Admin client to bypass RLS, then filter by org)
-        query = supabase.table("users").select("id, name").ilike("name", f"%{handover_to_name}%")
+        # 查找交接人 (scoped client, RLS enforced)
+        query = client.table("users").select("id, name").ilike("name", f"%{handover_to_name}%")
         if org_id:
             query = query.eq("organization_id", org_id)
         handover_res = await query.limit(1).execute()
@@ -1106,9 +1108,9 @@ class SendNotificationTool(BaseTool):
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
 
-        # 查找收件人 (Admin client to bypass RLS, then filter by org)
+        # 查找收件人 (scoped client, RLS enforced)
         query = (
-            supabase.table("users")
+            client.table("users")
             .select("id, name")
             .ilike("name", f"%{recipient_name}%")
         )

@@ -9,18 +9,12 @@ import logging
 import uuid as _uuid
 from typing import Any
 
-from app.core.database import supabase
 from app.services.event_bus import EventType, emit
-from app.tools._shared import safe_tool_error
+from app.tools._shared import _get_client, safe_tool_error
 
 from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
-
-
-def _get_client(config: dict = None):
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
 
 
 def _get_org_id(config: dict = None) -> str | None:

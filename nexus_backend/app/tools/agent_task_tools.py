@@ -9,16 +9,10 @@ survive context compression and give the agent a persistent "TODO board".
 import logging
 from typing import Any
 
-from app.tools._shared import safe_tool_error
+from app.tools._shared import _get_client, safe_tool_error
 from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
-
-
-async def _get_db():
-    from app.core.database import supabase
-
-    return supabase
 
 
 # ---------------------------------------------------------------------------
@@ -84,9 +78,9 @@ class CreateTaskTool(BaseTool):
         depends_on = arguments.get("depends_on", [])
 
         try:
-            db = await _get_db()
+            client = _get_client(ctx)
             result = (
-                await db.table("agent_tasks")
+                await client.table("agent_tasks")
                 .insert(
                     {
                         "conversation_id": session_id,
@@ -182,9 +176,9 @@ class UpdateTaskTool(BaseTool):
             return "错误：至少需要提供 status 或 context_summary"
 
         try:
-            db = await _get_db()
+            client = _get_client(ctx)
             # Support partial ID matching (first 8 chars)
-            query = db.table("agent_tasks").update(update_data).eq("user_id", user_id)
+            query = client.table("agent_tasks").update(update_data).eq("user_id", user_id)
             query = (
                 query.ilike("id", f"{task_id}%")
                 if len(task_id) < 36
@@ -249,9 +243,9 @@ class ListTasksTool(BaseTool):
         status_filter = arguments.get("status_filter", "all")
 
         try:
-            db = await _get_db()
+            client = _get_client(ctx)
             query = (
-                db.table("agent_tasks")
+                client.table("agent_tasks")
                 .select("id, title, status, depends_on, context_summary, sort_order")
                 .eq("user_id", user_id)
                 .eq("conversation_id", session_id)

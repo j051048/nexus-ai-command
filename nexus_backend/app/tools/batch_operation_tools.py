@@ -8,6 +8,8 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from ._shared import _get_client
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,6 +18,7 @@ async def batch_import_customers(
     data: list[dict[str, Any]],
     org_id: str,
     user_id: str,
+    config: dict | None = None,
 ) -> dict[str, Any]:
     """批量导入客户数据
 
@@ -23,6 +26,7 @@ async def batch_import_customers(
         data: 客户数据列表，每个元素包含 name, industry, contact 等字段
         org_id: 组织ID
         user_id: 操作用户ID
+        config: 运行时配置（含 user token，用于 RLS 隔离）
 
     Returns:
         导入结果统计
@@ -38,7 +42,7 @@ async def batch_import_customers(
         )
     """
     try:
-        from app.core.database import supabase
+        client = _get_client(config)
 
         success_count = 0
         failed_count = 0
@@ -46,7 +50,7 @@ async def batch_import_customers(
 
         for idx, customer in enumerate(data):
             try:
-                await supabase.table("crm_customers").insert(
+                await client.table("crm_customers").insert(
                     {
                         "org_id": org_id,
                         "name": customer.get("name"),
@@ -80,6 +84,7 @@ async def batch_update_leads(
     lead_ids: list[str],
     updates: dict[str, Any],
     org_id: str,
+    config: dict | None = None,
 ) -> dict[str, Any]:
     """批量更新线索状态
 
@@ -87,15 +92,16 @@ async def batch_update_leads(
         lead_ids: 线索ID列表
         updates: 要更新的字段（如 {"stage": "商机", "priority": "高"}）
         org_id: 组织ID
+        config: 运行时配置（含 user token，用于 RLS 隔离）
 
     Returns:
         更新结果统计
     """
     try:
-        from app.core.database import supabase
+        client = _get_client(config)
 
         result = (
-            await supabase.table("crm_leads")
+            await client.table("crm_leads")
             .update(updates)
             .in_("id", lead_ids)
             .eq("org_id", org_id)
@@ -118,6 +124,7 @@ async def batch_assign_leads(
     lead_ids: list[str],
     owner_id: str,
     org_id: str,
+    config: dict | None = None,
 ) -> dict[str, Any]:
     """批量分配线索给销售人员
 
@@ -125,15 +132,16 @@ async def batch_assign_leads(
         lead_ids: 线索ID列表
         owner_id: 负责人ID
         org_id: 组织ID
+        config: 运行时配置（含 user token，用于 RLS 隔离）
 
     Returns:
         分配结果统计
     """
     try:
-        from app.core.database import supabase
+        client = _get_client(config)
 
         result = (
-            await supabase.table("crm_leads")
+            await client.table("crm_leads")
             .update({"owner_id": owner_id})
             .in_("id", lead_ids)
             .eq("org_id", org_id)

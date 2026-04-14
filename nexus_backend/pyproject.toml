@@ -67,12 +67,10 @@ omit = [
     "app/templates/*",        # Jinja templates
     "app/integrations/*",     # External integrations (tested separately)
     "app/startup/*",          # Startup hooks
-    "app/tasks/*",            # Celery tasks (tested via integration)
-    "app/monitoring/*",       # Monitoring (tested via integration)
 ]
 
 [tool.coverage.report]
-fail_under = 30
+fail_under = 60
 show_missing = true
 exclude_lines = [
     "pragma: no cover",

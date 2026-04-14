@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from langchain_core.tools import tool
 
+from ._shared import _get_client
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,6 +19,7 @@ async def upload_file(
     filename: str,
     org_id: str,
     file_type: Literal["contract", "tender", "document", "other"] = "document",
+    config: dict | None = None,
 ) -> dict[str, Any]:
     """上传文件到存储
 
@@ -25,6 +28,7 @@ async def upload_file(
         filename: 文件名
         org_id: 组织ID
         file_type: 文件类型
+        config: 运行时配置（含 user token，用于 RLS 隔离）
 
     Returns:
         包含文件URL和ID的字典
@@ -35,6 +39,8 @@ async def upload_file(
 
         from app.core.database import supabase
 
+        client = _get_client(config)
+
         # 解码文件内容
         file_bytes = base64.b64decode(file_content)
 
@@ -42,17 +48,20 @@ async def upload_file(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         storage_path = f"{org_id}/{file_type}/{timestamp}_{filename}"
 
-        # 上传到 Supabase Storage
-        await supabase.storage.from_("documents").upload(
-            storage_path, file_bytes, {"content-type": "application/octet-stream"}
-        )
+        # 上传到 Supabase Storage（Storage API 需要原始 supabase 客户端）
+        # 注意：storage 操作暂用全局客户端，因为 MiniSupabaseClient 未封装 storage
+        # DB 记录操作走 scoped client 确保 RLS
+        if supabase and hasattr(supabase, "storage"):
+            await supabase.storage.from_("documents").upload(
+                storage_path, file_bytes, {"content-type": "application/octet-stream"}
+            )
+            file_url = supabase.storage.from_("documents").get_public_url(storage_path)
+        else:
+            return {"success": False, "error": "存储服务不可用"}
 
-        # 获取公开URL
-        file_url = supabase.storage.from_("documents").get_public_url(storage_path)
-
-        # 记录到数据库
+        # 记录到数据库（走 scoped client，受 RLS 保护）
         file_record = (
-            await supabase.table("file_uploads")
+            await client.table("file_uploads")
             .insert(
                 {
                     "org_id": org_id,
@@ -81,12 +90,14 @@ async def upload_file(
 async def parse_file(
     file_id: str,
     org_id: str,
+    config: dict | None = None,
 ) -> dict[str, Any]:
     """解析文件内容（PDF/Word/Excel）
 
     Args:
         file_id: 文件ID
         org_id: 组织ID
+        config: 运行时配置（含 user token，用于 RLS 隔离）
 
     Returns:
         包含解析后文本内容的字典
@@ -94,9 +105,11 @@ async def parse_file(
     try:
         from app.core.database import supabase
 
-        # 获取文件信息
+        client = _get_client(config)
+
+        # 获取文件信息（走 scoped client，受 RLS 保护）
         file_info = (
-            await supabase.table("file_uploads")
+            await client.table("file_uploads")
             .select("*")
             .eq("id", file_id)
             .eq("org_id", org_id)
@@ -110,8 +123,13 @@ async def parse_file(
         storage_path = file_info.data["storage_path"]
         filename = file_info.data["filename"]
 
-        # 下载文件
-        file_bytes = await supabase.storage.from_("documents").download(storage_path)
+        # 下载文件（Storage API 暂用全局客户端）
+        if supabase and hasattr(supabase, "storage"):
+            file_bytes = await supabase.storage.from_("documents").download(
+                storage_path
+            )
+        else:
+            return {"success": False, "error": "存储服务不可用"}
 
         # 根据文件类型解析
         text_content = ""

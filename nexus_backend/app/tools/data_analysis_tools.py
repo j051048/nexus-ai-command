@@ -10,7 +10,7 @@ import statistics
 from datetime import datetime
 from typing import Any
 
-from app.tools._shared import safe_tool_error
+from app.tools._shared import _get_client, safe_tool_error
 
 from .base_tool import BaseTool
 
@@ -347,12 +347,12 @@ class DataAnalysisTool(BaseTool):
         self, table_name: str, filters: dict | None, config: dict | None
     ) -> list[dict]:
         """Query a whitelisted Supabase table with multi-tenant isolation."""
-        from app.core.database import supabase
+        client = _get_client(config)
 
-        if not supabase:
+        if not client:
             raise ValueError("数据库连接不可用")
 
-        query = supabase.table(table_name).select("*")
+        query = client.table(table_name).select("*")
 
         # 多租户隔离：自动注入 organization_id
         org_id = (config or {}).get("org_id") or (config or {}).get("organization_id")

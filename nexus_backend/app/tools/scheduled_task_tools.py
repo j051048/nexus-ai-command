@@ -8,8 +8,6 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.core.database import supabase
-
 from ._shared import _get_client
 from .base_tool import BaseTool
 
@@ -198,7 +196,7 @@ class CreateScheduledTaskTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        client = supabase
+        client = _get_client(config)
         if not client:
             return "数据库连接不可用"
 

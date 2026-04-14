@@ -8,6 +8,8 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from ._shared import _get_client
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,6 +18,7 @@ async def analyze_data_with_nl(
     query: str,
     org_id: str,
     context: str = "",
+    config: dict | None = None,
 ) -> dict[str, Any]:
     """使用自然语言分析数据
 
@@ -23,6 +26,7 @@ async def analyze_data_with_nl(
         query: 自然语言查询（如"上个月销售额前10的客户"）
         org_id: 组织ID
         context: 额外上下文信息
+        config: 运行时配置（含 user token，用于 RLS 隔离）
 
     Returns:
         包含查询结果和洞察的字典
@@ -34,20 +38,21 @@ async def analyze_data_with_nl(
         )
     """
     try:
-        from app.core.database import supabase
         from app.services.llm_helpers import (
             get_langchain_llm_sync,
             resolve_model_config,
         )
 
+        client = _get_client(config)
+
         # 1. 获取数据库 schema
         schema_info = await _get_schema_info(org_id)
 
         # 2. 使用 LLM 生成 SQL
-        config = await resolve_model_config(
+        model_config = await resolve_model_config(
             scene_code="analysis", complexity_tier="balanced"
         )
-        llm = get_langchain_llm_sync(**config)
+        llm = get_langchain_llm_sync(**model_config)
 
         prompt = f"""你是一个SQL专家。根据用户的自然语言查询生成安全的SQL语句。
 
@@ -71,7 +76,8 @@ SQL:"""
         if not _is_safe_sql(sql):
             return {"success": False, "error": "SQL不安全，拒绝执行"}
 
-        result = await supabase.rpc("execute_safe_query", {"query_sql": sql}).execute()
+        # 使用 scoped client 确保 RLS 过滤
+        result = await client.rpc("execute_safe_query", {"query_sql": sql}).execute()
 
         # 4. 生成洞察
         insight = await _generate_insight(llm, query, result.data)
