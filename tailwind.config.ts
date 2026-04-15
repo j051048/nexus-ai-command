@@ -22,11 +22,11 @@ export default {
         xs: '2px',
       },
       fontSize: {
-        'display-lg': ['3rem', { lineHeight: '1.2', fontWeight: '700' }],
-        'display': ['2.25rem', { lineHeight: '1.25', fontWeight: '700' }],
-        'heading-lg': ['1.875rem', { lineHeight: '1.3', fontWeight: '600' }],
-        'heading': ['1.5rem', { lineHeight: '1.4', fontWeight: '600' }],
-        'heading-sm': ['1.25rem', { lineHeight: '1.4', fontWeight: '600' }],
+        'display-lg': ['3rem', { lineHeight: '1.1', fontWeight: '700', letterSpacing: '-0.03em' }],
+        'display': ['2.25rem', { lineHeight: '1.15', fontWeight: '700', letterSpacing: '-0.025em' }],
+        'heading-lg': ['1.875rem', { lineHeight: '1.2', fontWeight: '600', letterSpacing: '-0.02em' }],
+        'heading': ['1.5rem', { lineHeight: '1.3', fontWeight: '600', letterSpacing: '-0.015em' }],
+        'heading-sm': ['1.25rem', { lineHeight: '1.4', fontWeight: '600', letterSpacing: '-0.01em' }],
         'body-lg': ['1.125rem', { lineHeight: '1.6', fontWeight: '400' }],
         'body': ['1rem', { lineHeight: '1.5', fontWeight: '400' }],
         'body-sm': ['0.875rem', { lineHeight: '1.5', fontWeight: '400' }],
@@ -108,6 +108,9 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      transitionTimingFunction: {
+        'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
       keyframes: {
         "accordion-down": {

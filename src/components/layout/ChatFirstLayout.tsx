@@ -55,7 +55,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     return (
         <div className="flex h-[100dvh] w-full bg-background overflow-hidden text-foreground">
             {isPendingBoss && (
-                <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500/90 text-white text-center text-xs py-2 px-4 backdrop-blur-md flex items-center justify-center gap-2">
+                <div className="fixed top-0 left-0 right-0 z-50 bg-warning text-warning-foreground text-center text-xs py-2 px-4 backdrop-blur-md flex items-center justify-center gap-2">
                     <Clock className="w-3.5 h-3.5" />
                     账号审核中 · 您目前以普通员工身份模式运行
                 </div>
@@ -70,7 +70,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Chat Panel - Glassy and subtle */}
                 <div className={cn(
-                    "flex flex-col transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) h-full relative z-10 border-r border-border",
+                    "flex flex-col transition-all duration-500 ease-out-expo h-full relative z-10 border-r border-border",
                     isChatOpen ? (isCanvasOpen ? "w-[45%] lg:w-[38%] xl:w-[35%]" : "w-full") : "w-0 overflow-hidden opacity-0"
                 )}>
                     <EnhancedAIChatPanel
@@ -82,7 +82,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
 
                 {/* Canvas Area - Bento Styled */}
                 <div className={cn(
-                    "transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) overflow-hidden flex flex-col relative",
+                    "transition-all duration-500 ease-out-expo overflow-hidden flex flex-col relative",
                     isCanvasOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 w-0",
                     isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[62%] xl:w-[65%]" : "w-full flex-1") : "w-0"
                 )}>
@@ -93,7 +93,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     <header className="h-14 flex items-center justify-between px-6 bg-card/10 backdrop-blur-md border-b border-border/10 relative z-20">
                         <div className="flex items-center gap-3">
                             <div className="h-2 w-2 rounded-full bg-primary/40 animate-pulse" />
-                            <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80">
+                            <span className="text-caption font-semibold uppercase tracking-[0.15em] text-muted-foreground/80">
                                 {getPageTitle()}
                             </span>
                         </div>
@@ -113,7 +113,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     {/* Scrollable Content with Staggered Entrance Container */}
                     <main className="flex-1 overflow-y-auto no-scrollbar p-6 bg-background">
                         <div className="max-w-[1600px] xl:max-w-[1800px] mx-auto min-h-full pb-20">
-                            <div className="mb-6 opacity-60">
+                            <div className="mb-6 opacity-70">
                                 <Breadcrumbs items={[
                                     { label: 'Nexus AI', href: '/' },
                                     ...location.pathname.split('/').filter(Boolean).map((segment, idx, arr) => ({

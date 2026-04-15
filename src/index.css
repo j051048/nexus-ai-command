@@ -58,9 +58,9 @@ html, body {
     --muted: 210 15% 94%;
     --muted-foreground: 215 16% 40%;
 
-    /* Accent - Success Green */
-    --accent: 142 69% 45%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent - Neutral interactive (derived from primary) */
+    --accent: 217 91% 96%;
+    --accent-foreground: 217 91% 30%;
     --success: 142 69% 45%;
     --success-glow: 142 69% 55%;
 
@@ -87,14 +87,14 @@ html, body {
     --spacing-xl: 2rem;      /* 32px */
     --spacing-2xl: 3rem;     /* 48px */
 
-    /* Sidebar - Light */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 222 47% 30%;
-    --sidebar-primary: 217 91% 50%;
+    /* Sidebar - Always Dark (even in light mode) */
+    --sidebar-background: 220 15% 13%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 217 91% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 96%;
-    --sidebar-accent-foreground: 217 30% 20%;
-    --sidebar-border: 214 20% 90%;
+    --sidebar-accent: 220 15% 20%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 220 10% 20%;
     --sidebar-ring: 217 91% 50%;
 
     /* Gamification Colors */
@@ -112,12 +112,12 @@ html, body {
     --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
     --gradient-cyber: linear-gradient(135deg, hsl(217 91% 50% / 0.08) 0%, hsl(142 69% 45% / 0.08) 100%);
 
-    /* Shadows - Light Mode */
+    /* Shadows - Light Mode (multi-layer, inspired by Stripe/Notion) */
     --shadow-glow-primary: 0 4px 20px hsl(217 91% 50% / 0.15);
     --shadow-glow-success: 0 4px 20px hsl(142 69% 45% / 0.15);
     --shadow-glow-warning: 0 4px 20px hsl(36 100% 50% / 0.15);
-    --shadow-card: 0 2px 8px hsl(0 0% 0% / 0.06), 0 4px 16px hsl(0 0% 0% / 0.04);
-    --shadow-elevated: 0 4px 24px hsl(0 0% 0% / 0.1);
+    --shadow-card: 0 0 0 1px hsl(0 0% 0% / 0.03), 0 2px 4px hsl(0 0% 0% / 0.04), 0 8px 24px hsl(0 0% 0% / 0.06);
+    --shadow-elevated: 0 0 0 1px hsl(0 0% 0% / 0.04), 0 4px 12px hsl(0 0% 0% / 0.06), 0 16px 48px hsl(0 0% 0% / 0.1);
   }
 
   .dark {
@@ -146,8 +146,8 @@ html, body {
     --muted-foreground: 0 0% 75%;
 
     /* Accent */
-    --accent: 142 69% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 217 30% 18%;
+    --accent-foreground: 217 91% 85%;
     --success: 142 69% 50%;
     --success-glow: 142 69% 60%;
 
@@ -189,12 +189,12 @@ html, body {
     --gradient-card: linear-gradient(135deg, hsl(0 0% 12%) 0%, hsl(0 0% 9%) 100%);
     --gradient-cyber: linear-gradient(135deg, hsl(211 100% 50% / 0.1) 0%, hsl(142 69% 50% / 0.1) 100%);
 
-    /* Shadows - Dark Mode */
+    /* Shadows - Dark Mode (multi-layer with brightness steps) */
     --shadow-glow-primary: 0 0 20px hsl(211 100% 50% / 0.15);
     --shadow-glow-success: 0 0 20px hsl(142 69% 50% / 0.15);
     --shadow-glow-warning: 0 0 20px hsl(36 100% 50% / 0.15);
-    --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.3);
-    --shadow-elevated: 0 8px 32px hsl(0 0% 0% / 0.4);
+    --shadow-card: 0 0 0 1px hsl(0 0% 100% / 0.04), 0 4px 12px hsl(0 0% 0% / 0.2), 0 8px 24px hsl(0 0% 0% / 0.25);
+    --shadow-elevated: 0 0 0 1px hsl(0 0% 100% / 0.06), 0 8px 24px hsl(0 0% 0% / 0.3), 0 16px 48px hsl(0 0% 0% / 0.35);
   }
 }
 
@@ -205,7 +205,7 @@ html, body {
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv01", "cv11", "ss03";
   }
 
   /* Custom scrollbar */
@@ -305,7 +305,7 @@ html, body {
   .btn-gradient {
     background: var(--gradient-primary);
     border: none;
-    color: white;
+    color: hsl(var(--primary-foreground));
     transition: all 0.3s ease;
   }
 
@@ -887,19 +887,43 @@ html, body {
 /* ==================== Glassmorphism 玻璃态样式 ==================== */
 @layer components {
   .glass-card {
-    @apply backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 
-           border border-white/20 dark:border-white/10
-           shadow-lg shadow-black/5;
+    @apply backdrop-blur-xl border shadow-lg shadow-black/5;
+    background: hsl(var(--card) / 0.8);
+    border-color: hsl(var(--border) / 0.3);
   }
-  
+
   .glass-sidebar {
-    @apply backdrop-blur-2xl bg-white/60 dark:bg-gray-950/60
-           border-r border-white/10;
+    @apply backdrop-blur-2xl;
+    background: hsl(var(--sidebar-background) / 0.6);
+    border-right: 1px solid hsl(var(--sidebar-border) / 0.3);
   }
-  
+
   .glass-header {
-    @apply backdrop-blur-xl bg-white/70 dark:bg-gray-900/70
-           border-b border-white/10;
+    @apply backdrop-blur-xl;
+    background: hsl(var(--card) / 0.7);
+    border-bottom: 1px solid hsl(var(--border) / 0.3);
+  }
+
+  /* Premium glassmorphism (used in BossDashboard, ChatInputArea, MessageBubble) */
+  .glass-premium {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(24px);
+    border: 1px solid hsl(var(--border) / 0.3);
+    box-shadow: 0 4px 24px hsl(0 0% 0% / 0.08), 0 1px 2px hsl(0 0% 0% / 0.04);
+  }
+
+  /* Command input capsule shape */
+  .command-capsule {
+    border-radius: 1.25rem;
+    overflow: hidden;
+  }
+
+  /* Bento grid card with hover lift */
+  .bento-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .bento-card:hover {
+    transform: translateY(-2px);
   }
 }
 

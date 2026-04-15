@@ -228,7 +228,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
             }}
             aria-expanded={isOpen}
             aria-label={`${title} 分组 ${isOpen ? "收起" : "展开"}`}
-            className="flex items-center justify-between w-full px-3 py-2 text-micro font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
+            className="flex items-center justify-between w-full px-3 py-2 text-micro font-black text-sidebar-foreground/30 uppercase tracking-[0.2em] hover:text-sidebar-foreground/50 transition-colors"
           >
             {title}
             {isOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -258,12 +258,12 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                   className={cn(
                     "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 relative group border border-transparent",
                     isActive(item.href)
-                      ? "bg-white/10 text-white shadow-[0_4px_20px_rgba(0,0,0,0.2)] border-white/10 font-bold"
-                      : "text-white/60 hover:text-white hover:bg-white/5 hover:border-white/5"
+                      ? "bg-sidebar-accent text-sidebar-foreground shadow-[var(--shadow-card)] border-sidebar-border font-bold"
+                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-border/50"
                   )}
                 >
                   {isActive(item.href) && (
-                    <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-primary rounded-r-full shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+                    <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-sidebar-primary rounded-r-full shadow-[0_0_6px_hsl(var(--sidebar-primary)/0.5)]" />
                   )}
                   <span className={cn("shrink-0 transition-transform duration-300", !isActive(item.href) && "group-hover:scale-110")}>
                     {item.icon}
@@ -272,7 +272,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                     <>
                       <span className="text-sm font-semibold tracking-tight truncate flex-1">{item.label}</span>
                       {badge && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-white/90 text-micro font-bold border border-white/5">{badge}</span>
+                        <span className="px-1.5 py-0.5 rounded-full bg-sidebar-accent text-sidebar-foreground/90 text-micro font-bold border border-sidebar-border">{badge}</span>
                       )}
                     </>
                   )}
@@ -297,14 +297,14 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
       <div className={cn("p-6 flex items-center gap-3", isCollapsed && "justify-center")}>
         <div 
           onClick={() => navigate("/")}
-          className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-purple-600 flex items-center justify-center shadow-md shadow-primary/10 cursor-pointer hover:rotate-6 transition-transform"
+          className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-primary/60 flex items-center justify-center shadow-md shadow-primary/10 cursor-pointer hover:rotate-6 transition-transform"
         >
-          <Bot className="w-6 h-6 text-white" />
+          <Bot className="w-6 h-6 text-sidebar-primary-foreground" />
         </div>
         {!isCollapsed && (
           <div className="animate-fade-in">
-            <h1 className="text-sm font-extrabold text-white tracking-tight uppercase">Nexus AI</h1>
-            <p className="text-micro text-white/40 font-mono font-bold tracking-wider">COMMAND CENTER</p>
+            <h1 className="text-sm font-extrabold text-sidebar-foreground tracking-tight uppercase">Nexus AI</h1>
+            <p className="text-micro text-sidebar-foreground/40 font-mono font-bold tracking-wider">COMMAND CENTER</p>
           </div>
         )}
       </div>
@@ -318,7 +318,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
               type="text"
               aria-label="搜索系统功能 (快捷键 ⌘K)"
               placeholder="搜索功能 (⌘K)"
-              className="w-full pl-9 pr-3 h-10 bg-white/[0.03] border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 focus:bg-white/5 transition-all shadow-inner"
+              className="w-full pl-9 pr-3 h-10 bg-sidebar-accent/30 border border-sidebar-border rounded-xl text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:border-sidebar-primary/30 focus:bg-sidebar-accent/50 transition-all shadow-inner"
               onFocus={() => {
                 const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
                 document.dispatchEvent(event);
@@ -340,10 +340,10 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
 
         {/* 模块管理器 */}
         {!isCollapsed && (
-          <div className="px-3 mt-2 border-t border-white/5 pt-2">
+          <div className="px-3 mt-2 border-t border-sidebar-border pt-2">
             <button
               onClick={() => setShowModuleManager(!showModuleManager)}
-              className="flex items-center justify-between w-full px-3 py-2 text-micro font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
+              className="flex items-center justify-between w-full px-3 py-2 text-micro font-black text-sidebar-foreground/30 uppercase tracking-[0.2em] hover:text-sidebar-foreground/50 transition-colors"
             >
               <span className="flex items-center gap-1.5">
                 <Puzzle size={10} />
@@ -373,17 +373,17 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                       className={cn(
                         "flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs transition-all",
                         enabled
-                          ? "text-white/80 bg-white/5"
-                          : "text-white/40 hover:text-white/60 hover:bg-white/[0.02]"
+                          ? "text-sidebar-foreground/80 bg-sidebar-accent/50"
+                          : "text-sidebar-foreground/40 hover:text-sidebar-foreground/60 hover:bg-sidebar-accent/20"
                       )}
                     >
                       <span>{group} ({groupItems.length})</span>
                       <div className={cn(
                         "w-7 h-4 rounded-full transition-colors flex items-center px-0.5",
-                        enabled ? "bg-primary" : "bg-white/10"
+                        enabled ? "bg-primary" : "bg-sidebar-accent"
                       )}>
                         <div className={cn(
-                          "w-3 h-3 rounded-full bg-white transition-transform",
+                          "w-3 h-3 rounded-full bg-sidebar-foreground transition-transform",
                           enabled ? "translate-x-3" : "translate-x-0"
                         )} />
                       </div>
@@ -396,7 +396,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
         )}
       </div>
 
-      <div className="p-element border-t border-white/10 bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
+      <div className="p-element border-t border-sidebar-border bg-gradient-to-t from-sidebar/40 to-transparent backdrop-blur-sm">
         <div className={cn("flex flex-col gap-3", !isCollapsed && "px-2")}>
           <div className={cn("flex", isCollapsed ? "justify-center" : "justify-end mb-2")}>
             <ThemeToggle />
@@ -404,31 +404,31 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           <div 
             onClick={() => navigate("/personal-settings")}
             className={cn(
-              "flex items-center gap-3 p-2 rounded-2xl cursor-pointer hover:bg-white/10 transition-all duration-300 group",
+              "flex items-center gap-3 p-2 rounded-2xl cursor-pointer hover:bg-sidebar-accent transition-all duration-300 group",
               isCollapsed && "justify-center"
             )}
           >
-            <div className="relative shrink-0 w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden group-hover:border-white/20 group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all">
+            <div className="relative shrink-0 w-9 h-9 rounded-full bg-sidebar-accent/50 border border-sidebar-border flex items-center justify-center overflow-hidden group-hover:border-sidebar-primary/30 group-hover:shadow-[var(--shadow-card)] transition-all">
               {profile?.avatar ? (
                 <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
               ) : (
                 <UserIcon className="w-5 h-5 text-primary" />
               )}
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-sidebar rounded-full shadow-[0_0_8px_rgba(74,222,128,0.6)]"></div>
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success border-2 border-sidebar rounded-full shadow-[0_0_8px_hsl(var(--success)/0.6)]"></div>
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0 transition-opacity duration-300">
-                <p className="text-xs font-bold text-white group-hover:text-primary transition-colors truncate">
+                <p className="text-xs font-bold text-sidebar-foreground group-hover:text-sidebar-primary transition-colors truncate">
                   {(() => {
                     if (import.meta.env.DEV) console.log('[Sidebar] Rendering name with profile:', profile?.name);
                     return profile?.name || "BOSS";
                   })()}
                 </p>
                 <div className="flex items-center gap-1">
-                  <p className="text-micro text-white/50 uppercase font-bold tracking-tighter italic truncate">
+                  <p className="text-micro text-sidebar-foreground/50 uppercase font-bold tracking-tighter italic truncate">
                     {role || "顶级精英"}
                   </p>
-                  <Settings size={10} className="text-white/20 group-hover:text-primary/60 transition-colors" />
+                  <Settings size={10} className="text-sidebar-foreground/20 group-hover:text-sidebar-primary/60 transition-colors" />
                 </div>
               </div>
             )}
@@ -437,7 +437,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           {!isCollapsed && (
             <button 
               onClick={signOut}
-              className="flex items-center gap-2 mt-1 px-3 py-2 text-micro font-bold uppercase tracking-widest text-white/50 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-300 group/logout"
+              className="flex items-center gap-2 mt-1 px-3 py-2 text-micro font-bold uppercase tracking-widest text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all duration-300 group/logout"
             >
               <LogOut size={12} className="group-hover:rotate-12 transition-transform" />
               <span>Sign Out Safely</span>
@@ -450,7 +450,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
         onClick={() => setIsCollapsed(!isCollapsed)}
         aria-label={isCollapsed ? "展开侧边栏" : "折叠侧边栏"}
         aria-expanded={!isCollapsed}
-        className="absolute -right-3 top-20 w-6 h-6 bg-primary rounded-full md:flex items-center justify-center text-white shadow-sm shadow-primary/20 hover:scale-110 hover:shadow-md hover:shadow-primary/30 active:scale-95 transition-all z-50 border-4 border-sidebar hidden"
+        className="absolute -right-3 top-20 w-6 h-6 bg-sidebar-primary rounded-full md:flex items-center justify-center text-sidebar-primary-foreground shadow-sm shadow-primary/20 hover:scale-110 hover:shadow-md hover:shadow-primary/30 active:scale-95 transition-all z-50 border-4 border-sidebar hidden"
       >
         {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>

@@ -56,15 +56,15 @@ export const cardPadding = {
   lg: 'p-8',
 } as const;
 
-// 字体层级
+// 字体层级 (对齐 tailwind.config.ts 自定义 fontSize token)
 export const typography = {
-  h1: 'text-3xl font-semibold',
-  h2: 'text-2xl font-semibold',
-  h3: 'text-xl font-medium',
-  h4: 'text-lg font-medium',
-  body: 'text-base',
-  small: 'text-sm',
-  xs: 'text-xs text-muted-foreground',
+  h1: 'text-heading-lg',
+  h2: 'text-heading',
+  h3: 'text-heading-sm',
+  h4: 'text-body-lg font-medium',
+  body: 'text-body',
+  small: 'text-body-sm',
+  xs: 'text-caption text-muted-foreground',
 } as const;
 
 // 阴影层级
