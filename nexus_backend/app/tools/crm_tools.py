@@ -258,6 +258,30 @@ class CreateCustomerTool(BaseTool):
             ],
         )
 
+    async def compensate(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str | None:
+        """Saga 补偿：删除刚创建的客户记录。"""
+        try:
+            client = _get_client(config)
+            org_id = _get_org_id(config)
+            name = args.get("name", "").strip()
+            if not name or not org_id:
+                return None
+            # 按 name + assigned_to 定位刚创建的记录并删除
+            result = (
+                await client.table("customers")
+                .delete()
+                .eq("name", name)
+                .eq("assigned_to", user_id)
+                .execute()
+            )
+            deleted = len(result.data) if result.data else 0
+            return f"已回滚创建客户 '{name}'（删除 {deleted} 条）"
+        except Exception as e:
+            logger.error("compensate create_customer failed: %s", e)
+            return None
+
 
 class UpdateCustomerTool(BaseTool):
     """更新客户信息"""

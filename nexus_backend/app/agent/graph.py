@@ -286,9 +286,8 @@ def _after_execute(state: AgentState) -> str:
             )
             _background_tasks.add(_t)
             _t.add_done_callback(_background_tasks.discard)
-        except Exception:
-            pass
-        return "reflect"
+        except Exception as e:
+            logger.warning("[Graph] Failed to log loop-detected failure: %s", e)
 
     # Fast synthesis: when all tools succeeded, use lightweight synthesize_node
     # instead of full plan second-pass. Saves ~60% tokens.

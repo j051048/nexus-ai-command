@@ -9,9 +9,12 @@ Phase 3: TurboQuant integration for vector state compression (6x bandwidth reduc
 """
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -56,8 +59,8 @@ class SharedBlackboard:
             async with self._lock:
                 if task_idx in self._results:
                     self._results[task_idx].vector_state = quantized
-        except Exception:
-            pass  # Graceful degradation
+        except Exception as e:
+            logger.debug("[Blackboard] write_vector_state failed (graceful): %s", e)
 
     def read_vector_state(self, task_idx: int) -> np.ndarray | None:
         """Phase 3: Read and decompress vector state"""
@@ -67,8 +70,8 @@ class SharedBlackboard:
                 from app.services.vector_service import VectorService
 
                 return np.array(VectorService.dequantize_embedding(result.vector_state))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[Blackboard] read_vector_state failed (graceful): %s", e)
         return None
 
     def read(self, task_idx: int) -> TaskResult | None:

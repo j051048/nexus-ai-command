@@ -2,6 +2,7 @@ import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { lazyWithRetry } from '@/lib/lazyPreload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SyntaxProps {
@@ -317,6 +318,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             <div className={cn("prose prose-sm max-w-none dark:prose-invert break-words", isUser && "text-primary-foreground prose-headings:text-primary-foreground prose-a:text-primary-foreground prose-strong:text-primary-foreground prose-code:text-primary-foreground/90")}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeSanitize]}
                 components={{
                   code({ node, inline, className, children, ...props }: React.ClassAttributes<HTMLElement> & React.HTMLAttributes<HTMLElement> & { inline?: boolean, node?: unknown }) {
                     const match = /language-(\w+[-]?\w*)/.exec(className || '');

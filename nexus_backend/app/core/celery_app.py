@@ -28,6 +28,9 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_reject_on_worker_lost=True,
     worker_max_tasks_per_child=1000,
+    # P1-8: Global task timeout defaults (individual tasks can override)
+    task_soft_time_limit=300,   # 5 min soft limit → SoftTimeLimitExceeded
+    task_time_limit=600,        # 10 min hard kill
 )
 
 # ── Distributed Beat Lock ────────────────────────────────────────────────────

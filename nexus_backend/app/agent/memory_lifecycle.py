@@ -174,8 +174,8 @@ async def compress_semantic(
                             .execute()
                         )
                         compressed_count += 1
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("[MemoryLifecycle] Compression failed for mem %s: %s", mem.get("id"), e)
 
     if compressed_count:
         logger.info(

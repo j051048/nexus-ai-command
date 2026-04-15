@@ -139,8 +139,8 @@ async def _inject_error_learning(lc_msgs, agent_config, state, complexity, inten
                 2 if len(lc_msgs) > 1 else len(lc_msgs),
                 SystemMessage(content=_warn_text),
             )
-    except Exception:
-        pass  # Learning system injection is optional, never block planning
+    except Exception as e:
+        logger.debug("[PromptBuilder] Learning system injection skipped: %s", e)
 
 
 async def _inject_few_shot(lc_msgs, agent_config, state, intent_summary):
@@ -174,8 +174,8 @@ async def _inject_few_shot(lc_msgs, agent_config, state, intent_summary):
                         decrypt_memory_value(r["value"]) for r in golden_res.data
                     ]
                     few_shot = "【历史优秀对话参考】\n" + "\n---\n".join(ex_parts)
-        except Exception:
-            pass  # Dynamic few-shot lookup failed, will fallback to static
+        except Exception as e:
+            logger.debug("[PromptBuilder] Dynamic few-shot lookup failed, using static: %s", e)
 
         # Fallback to static scene/intent-aware examples
         if not few_shot:
@@ -186,8 +186,8 @@ async def _inject_few_shot(lc_msgs, agent_config, state, intent_summary):
                 2 if len(lc_msgs) > 1 else len(lc_msgs),
                 SystemMessage(content=f"[参考示例]\n{few_shot}"),
             )
-    except Exception:
-        pass  # Few-shot injection is optional, never block planning
+    except Exception as e:
+        logger.debug("[PromptBuilder] Few-shot injection skipped: %s", e)
 
 
 def _inject_role_few_shot(lc_msgs, agent_config):
@@ -205,8 +205,8 @@ def _inject_role_few_shot(lc_msgs, agent_config):
                 2 if len(lc_msgs) > 1 else len(lc_msgs),
                 SystemMessage(content=f"[角色参考示例]\n{_ex_text}"),
             )
-    except Exception:
-        pass  # Role few-shot is optional
+    except Exception as e:
+        logger.debug("[PromptBuilder] Role few-shot injection skipped: %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -260,8 +260,8 @@ async def _inject_task_board(lc_msgs, agent_config, state, iteration):
                 1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
                 SystemMessage(content="\n".join(_lines)),
             )
-    except Exception:
-        pass  # Task board injection is optional
+    except Exception as e:
+        logger.debug("[PromptBuilder] Task board injection skipped: %s", e)
 
 
 def _inject_compacted_summary(lc_msgs, state):

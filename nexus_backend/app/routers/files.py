@@ -5,19 +5,23 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_org_id, get_current_user_id
+from app.core.config import settings
 from app.core.errors import ErrorCode, api_error, api_success
 from app.tools.file_manager import parse_file, upload_file
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/files", tags=["files"])
 
+# P1-10: Base64 encoding inflates size ~33%, so max_length accounts for that
+_MAX_FILE_CONTENT_LEN = int(settings.MAX_FILE_SIZE_MB * 1024 * 1024 * 1.4)
+
 
 class UploadRequest(BaseModel):
-    file_content: str
-    filename: str
+    file_content: str = Field(..., max_length=_MAX_FILE_CONTENT_LEN)
+    filename: str = Field(..., max_length=255)
     file_type: str = "document"
 
 

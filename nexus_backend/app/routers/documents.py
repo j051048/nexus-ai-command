@@ -39,6 +39,7 @@ async def list_documents(
             await client.table("documents")
             .select("*")
             .order("created_at", desc=True)
+            .limit(200)
             .execute()
         )
         return api_success(data={"documents": result.data or []})

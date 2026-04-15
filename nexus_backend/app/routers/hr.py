@@ -66,7 +66,7 @@ async def list_attendance(
         # hr_attendance 表无 organization_id 列，通过 user_id 过滤
         query = query.eq("user_id", user_id)
 
-        result = await query.execute()
+        result = await query.limit(500).execute()
         return api_success(data={"records": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list attendance: {str(e)}")
@@ -94,7 +94,7 @@ async def list_salary(
         # hr_salary_records 表无 organization_id 列
         query = query.eq("user_id", user_id)
 
-        result = await query.execute()
+        result = await query.limit(500).execute()
         return api_success(data={"records": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list salary: {str(e)}")
@@ -119,7 +119,7 @@ async def list_performance(
         # hr_performance_reviews 表无 organization_id 列，通过 user_id 过滤
         query = query.eq("user_id", user_id)
 
-        result = await query.execute()
+        result = await query.limit(500).execute()
         return api_success(data={"reviews": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list performance: {str(e)}")
@@ -143,7 +143,7 @@ async def list_positions(
         if org_id:
             query = query.eq("organization_id", org_id)
 
-        result = await query.execute()
+        result = await query.limit(200).execute()
         return api_success(data={"positions": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list positions: {str(e)}")
@@ -167,7 +167,7 @@ async def list_candidates(
         if org_id:
             query = query.eq("organization_id", org_id)
 
-        result = await query.execute()
+        result = await query.limit(200).execute()
         return api_success(data={"candidates": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list candidates: {str(e)}")

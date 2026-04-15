@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ws", tags=["WebSocket"])
 
+# P1-11: Maximum incoming WebSocket message size (64 KB)
+WS_MAX_MESSAGE_SIZE = 64 * 1024
+
 
 @router.websocket("/chat")
 async def websocket_chat(
@@ -40,7 +43,7 @@ async def websocket_chat(
     # Authenticate via JWT
     user_id, token_exp = await _authenticate_ws(token)
     if not user_id:
-        logger.error(f"[WS/Chat] Auth failed for token starting with: {token[:10]}...")
+        logger.error("[WS/Chat] Auth failed for token starting with: %s***", token[:4])
         await websocket.close(code=4001, reason="Authentication failed")
         return
 
@@ -72,6 +75,15 @@ async def websocket_chat(
         while True:
             # Wait for client message
             raw = await websocket.receive_text()
+
+            # P1-11: Reject oversized messages
+            if len(raw) > WS_MAX_MESSAGE_SIZE:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"消息过大（{len(raw)} 字节），上限 {WS_MAX_MESSAGE_SIZE} 字节",
+                })
+                continue
+
             try:
                 data = json.loads(raw)
             except json.JSONDecodeError:
@@ -192,7 +204,7 @@ async def websocket_push(
 
     user_id, _ = await _authenticate_ws(token)
     if not user_id:
-        logger.error(f"WS Auth failed for token starting with: {token[:10]}...")
+        logger.error("[WS/Push] Auth failed for token starting with: %s***", token[:4])
         await websocket.close(code=1008, reason="Policy violation")
         return
 

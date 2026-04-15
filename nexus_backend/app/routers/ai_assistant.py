@@ -32,8 +32,10 @@ async def parse_voice(
     user_id: str = Depends(get_current_user_id),
 ):
     """解析语音意图"""
-    # P0 Security: org_id 从中间件注入的 request.state 获取，不从 header 读取
-    org_id = getattr(request.state, "org_id", None) or "default"
+    # P0-2 Security Fix: org_id 必须由中间件注入，不允许回退到 "default"
+    org_id = getattr(request.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.AUTH_ROLE_REQUIRED, "租户上下文缺失，请重新登录")
     result = await parse_voice_intent(
         text=text,
         user_id=user_id,
@@ -66,8 +68,10 @@ async def batch_approval_suggestions(
     if not requests_result.data:
         return api_success(data={"approve_count": 0, "reject_count": 0, "reason": "未找到匹配的审批申请"})
 
-    # P0 Security: org_id 从中间件注入的 request.state 获取
-    org_id = getattr(request.state, "org_id", None) or "default"
+    # P0-2 Security Fix: org_id 必须由中间件注入，不允许回退到 "default"
+    org_id = getattr(request.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.AUTH_ROLE_REQUIRED, "租户上下文缺失，请重新登录")
     llm = get_llm(org_id=org_id)
     prompt = f"""分析以下{len(requests_result.data)}个审批申请,给出批量审批建议:
 {[f"{r.get('title', '未命名')}: ¥{r.get('amount', 0)}" for r in requests_result.data]}
@@ -119,8 +123,10 @@ async def get_customer_memory_summary(
     通过客户名称在 conversation_memories 中搜索相关记忆，
     利用 LLM 生成结构化洞察摘要。结果缓存10分钟。
     """
-    # P0 Security: org_id 从中间件注入的 request.state 获取，不从 header 读取
-    org_id = getattr(request.state, "org_id", None) or "default"
+    # P0-2 Security Fix: org_id 必须由中间件注入，不允许回退到 "default"
+    org_id = getattr(request.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.AUTH_ROLE_REQUIRED, "租户上下文缺失，请重新登录")
     cache_key = (customer_name.lower(), user_id)
 
     # 检查缓存
@@ -130,8 +136,10 @@ async def get_customer_memory_summary(
             return api_success(data=cached, message="客户AI洞察（缓存）")
 
     try:
-        # 在 conversation_memories 中搜索相关记忆
-        db = getattr(request.state, "db", None) or supabase
+        # P0-7 Security Fix: 不回退到全局 supabase client，必须使用 scoped client
+        db = getattr(request.state, "db", None)
+        if db is None:
+            raise api_error(ErrorCode.AUTH_ROLE_REQUIRED, "租户上下文缺失，请重新登录")
 
         # 方法1: 按内容关键字搜索
         result = (

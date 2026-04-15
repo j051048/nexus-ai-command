@@ -13,7 +13,6 @@ import logging
 from fastapi import Depends, HTTPException, Request
 
 from app.core.auth import get_current_user_id
-from app.core.database import supabase  # Global fallback
 from app.core.errors import ErrorCode, api_error
 
 logger = logging.getLogger(__name__)
@@ -26,7 +25,10 @@ async def get_db(request: Request):
     The client is injected into request.state by TenantContextMiddleware:
     - JWT auth → scoped client with RLS via user token
     - API Key auth → OrgFilteredClient with application-level org isolation
-    - Public routes → global service-key client (fallback)
+
+    P0-1 Security Fix: NEVER fall back to global service_role client.
+    If middleware fails to set request.state.db, reject the request
+    to prevent RLS bypass and cross-tenant data leakage.
 
     Usage in routers:
         @router.get("/items")
@@ -35,9 +37,17 @@ async def get_db(request: Request):
     """
     db = getattr(request.state, "db", None)
     if db is None:
-        db = supabase
-    if db is None:
-        raise HTTPException(status_code=503, detail="数据库不可用")
+        logger.error(
+            "P0-1: get_db() called without tenant context — "
+            "TenantContextMiddleware may have failed or route is not covered. "
+            "path=%s method=%s",
+            request.url.path,
+            request.method,
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="租户上下文未建立，请重新登录",
+        )
     return db
 
 

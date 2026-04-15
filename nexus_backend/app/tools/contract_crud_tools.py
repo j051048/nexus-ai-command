@@ -263,6 +263,29 @@ class CreateContractTool(BaseTool):
             f"您可以继续更新合同详情或关联客户。"
         )
 
+    async def compensate(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str | None:
+        """Saga 补偿：删除刚创建的草稿合同。"""
+        try:
+            client = _get_client(config)
+            title = args.get("title", "").strip()
+            if not title:
+                return None
+            result = (
+                await client.table("contracts")
+                .delete()
+                .eq("title", title)
+                .eq("created_by", user_id)
+                .eq("status", "draft")
+                .execute()
+            )
+            deleted = len(result.data) if result.data else 0
+            return f"已回滚创建合同 '{title}'（删除 {deleted} 条草稿）"
+        except Exception as e:
+            logger.error("compensate create_contract failed: %s", e)
+            return None
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  到期合同提醒工具

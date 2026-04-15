@@ -140,7 +140,7 @@ async def list_leave_requests(
         if status:
             query = query.eq("status", status)
 
-        result = await query.execute()
+        result = await query.limit(200).execute()
         return api_success(data={"requests": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list leave requests: {e}")
@@ -313,7 +313,7 @@ async def list_oa_tasks(
         query = db.table("oa_tasks").select("*")
         if assignee_id:
             query = query.eq("assignee_id", assignee_id)
-        result = await query.order("created_at", desc=True).execute()
+        result = await query.order("created_at", desc=True).limit(200).execute()
         return api_success(data={"tasks": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list OA tasks: {e}")

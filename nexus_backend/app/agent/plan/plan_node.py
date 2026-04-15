@@ -96,8 +96,8 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             logger.debug(
                 "Auto-detected tier=%s → complexity=%s", detected_tier, complexity.value
             )
-        except Exception:
-            pass  # Fall through to default MODERATE
+        except Exception as e:
+            logger.debug("[PlanNode] Auto-detect complexity failed, using MODERATE: %s", e)
 
     if agent_config.resolved_configs:
         resolved = agent_config.resolved_configs.get(complexity.model_tier)

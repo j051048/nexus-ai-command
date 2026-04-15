@@ -133,8 +133,8 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             dup_res = await dup_query.limit(1).execute()
             if dup_res.data:
                 return self.format_result(data=None, summary=f"您已有一条相同类型（{approval_type}）的待审批申请，请勿重复提交")
-        except Exception:
-            pass  # 去重检查失败不应阻塞主流程
+        except Exception as e:
+            logger.debug("[SubmitApproval] Dedup check failed (non-blocking): %s", e)
 
         # 验证员工存在
         employee_check = (

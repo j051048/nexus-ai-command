@@ -133,6 +133,31 @@ class SubmitExpenseTool(BaseTool):
             logger.error(f"提交报销失败: {e}")
             return safe_tool_error(e, "提交报销")
 
+    async def compensate(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str | None:
+        """Saga 补偿：撤回刚提交的待审批报销单。"""
+        try:
+            client = _get_client(config)
+            expense_type = args.get("expense_type", "").strip()
+            total_amount = args.get("total_amount")
+            if not expense_type or not total_amount:
+                return None
+            result = (
+                await client.table("expense_claims")
+                .delete()
+                .eq("employee_id", user_id)
+                .eq("expense_type", expense_type)
+                .eq("total_amount", total_amount)
+                .eq("status", "pending")
+                .execute()
+            )
+            deleted = len(result.data) if result.data else 0
+            return f"已回滚报销提交（删除 {deleted} 条待审批记录）"
+        except Exception as e:
+            logger.error("compensate submit_expense failed: %s", e)
+            return None
+
 
 class ListExpensesTool(BaseTool):
     """查询报销记录"""

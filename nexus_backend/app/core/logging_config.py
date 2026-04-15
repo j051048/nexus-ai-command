@@ -75,6 +75,40 @@ class _TraceContextFilter(logging.Filter):
         return True
 
 
+import re as _re
+
+# P1-6: Compiled PII patterns for efficient scrubbing
+_PII_PATTERNS = [
+    # Email addresses
+    (_re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'), '[EMAIL]'),
+    # Chinese phone numbers
+    (_re.compile(r'(?<!\d)1[3-9]\d{9}(?!\d)'), '[PHONE]'),
+    # JWT tokens (3-part base64 dot-separated)
+    (_re.compile(r'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'), '[JWT]'),
+    # API keys / Bearer tokens (generic long alphanumeric strings preceded by key indicators)
+    (_re.compile(r'(?i)(?:api[_-]?key|token|secret|password|authorization)["\s:=]+\S{8,}'), '[REDACTED_CREDENTIAL]'),
+    # Supabase service keys (sbp_ prefix)
+    (_re.compile(r'sbp_[A-Za-z0-9]{20,}'), '[SB_KEY]'),
+    # OpenAI-style keys (sk- prefix)
+    (_re.compile(r'sk-[A-Za-z0-9]{20,}'), '[API_KEY]'),
+]
+
+
+class _PIIScrubFilter(logging.Filter):
+    """P1-6: Scrub PII and secrets from log messages before they reach handlers."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.args:
+            # Format the message first so we can scrub the final string
+            record.msg = record.getMessage()
+            record.args = None
+        msg = str(record.msg)
+        for pattern, replacement in _PII_PATTERNS:
+            msg = pattern.sub(replacement, msg)
+        record.msg = msg
+        return True
+
+
 def setup_logging(
     level: str | None = None,
     format_string: str | None = None,
@@ -120,6 +154,10 @@ def setup_logging(
     # automatically includes trace_id/request_id from ContextVar
     _trace_filter = _TraceContextFilter()
     logging.root.addFilter(_trace_filter)
+
+    # P1-6: Add PII scrubbing filter to prevent sensitive data in logs
+    _pii_filter = _PIIScrubFilter()
+    logging.root.addFilter(_pii_filter)
 
     # Set specific loggers to appropriate levels
     # Reduce noise from third-party libraries

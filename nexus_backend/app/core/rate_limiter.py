@@ -36,10 +36,14 @@ SENSITIVE_ENDPOINT_LIMITS: dict[str, int] = {
     "/api/auth/login": 20,
     "/api/auth/register": 10,
     "/api/auth/reset-password": 10,
-    "/api/chat": 20,
-    "/api/chat/send": 20,
+    # P1-1: SSE streaming endpoints — tighter limit since each holds a worker coroutine
+    "/api/chat": 10,
+    "/api/chat/send": 10,
     "/api/documents/upload": 15,
     "/api/export": 10,
+    # P1-1: WebSocket upgrade — prevent rapid reconnection storms
+    "/ws/chat": 10,
+    "/ws/push": 15,
 }
 
 # Check for Redis availability for distributed rate limiting
@@ -607,8 +611,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                                 "Retry-After": str(tier_meta.get("retry_after", 60)),
                             },
                         )
-            except Exception:
-                pass  # Tiered limiting is best-effort; global limit already passed
+            except Exception as e:
+                logger.warning("[RateLimiter] Tiered limit check failed (best-effort): %s", e)
 
         # #37: 添加标准限速响应头
         best_meta = user_meta if user_id else ip_meta

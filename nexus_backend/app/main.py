@@ -45,8 +45,8 @@ if settings.SENTRY_DSN:
             path = sampling_context.get("asgi_scope", {}).get("path", "")
             if any(path.startswith(p) for p in _security_paths):
                 return settings.SENTRY_SECURITY_SAMPLE_RATE  # default 1.0
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Sentry traces sampler error (fallback to 0.1): %s", e)
         return 0.1
 
     sentry_sdk.init(

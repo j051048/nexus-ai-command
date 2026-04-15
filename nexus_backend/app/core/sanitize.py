@@ -15,9 +15,10 @@ def sanitize_html(text: str) -> str:
 def sanitize_sql(text: str) -> str:
     """移除 SQL 注入风险字符（基础防护）"""
     # 注意：使用 Supabase 参数化查询是最佳实践
-    dangerous = ["--", ";", "/*", "*/", "xp_", "sp_", "exec", "execute"]
+    # P1-2: Use case-insensitive matching to prevent bypass via EXEC, Exec, etc.
+    dangerous = ["--", ";", r"/\*", r"\*/", "xp_", "sp_", "exec", "execute"]
     for pattern in dangerous:
-        text = text.replace(pattern, "")
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE)
     return text
 
 

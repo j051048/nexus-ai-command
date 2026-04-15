@@ -337,8 +337,27 @@ class CreateAssetTool(BaseTool):
             logger.error(f"创建资产失败: {e}")
             return safe_tool_error(e, "创建资产")
 
-
-class UpdateAssetTool(BaseTool):
+    async def compensate(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str | None:
+        """Saga 补偿：删除刚创建的闲置资产。"""
+        try:
+            client = _get_client(config)
+            asset_code = args.get("asset_code", "").strip()
+            if not asset_code:
+                return None
+            result = (
+                await client.table("assets")
+                .delete()
+                .eq("asset_code", asset_code)
+                .eq("status", "idle")
+                .execute()
+            )
+            deleted = len(result.data) if result.data else 0
+            return f"已回滚创建资产 '{asset_code}'（删除 {deleted} 条闲置记录）"
+        except Exception as e:
+            logger.error("compensate create_asset failed: %s", e)
+            return None
     """更新资产"""
 
     name = "update_asset"

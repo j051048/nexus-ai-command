@@ -219,8 +219,8 @@ class ReflectionAgent:
                     context={"complexity": complexity, "tool_count": len(tool_calls)},
                     org_id=org_id or "default",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[ReflectionAgent] Learning system record failed: %s", e)
 
         return True
 

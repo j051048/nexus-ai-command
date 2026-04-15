@@ -117,9 +117,8 @@ class TokenBudgetManager:
             if cache_service._use_redis and cache_service._client:
                 self._redis_client = cache_service._client
                 return self._redis_client
-        except Exception:
-            pass
-        return None
+        except Exception as e:
+            logger.warning("[TokenBudget] Redis client init failed, using memory fallback: %s", e)
 
     def _key(self, dimension: str, entity_id: str) -> str:
         return f"tkbudget:{dimension}:{entity_id}"
@@ -148,9 +147,8 @@ class TokenBudgetManager:
             try:
                 val = await redis.get(key)
                 return float(val) if val else 0
-            except Exception:
-                pass
-        return await self._memory_store.get_val(key)
+            except Exception as e:
+                logger.warning("[TokenBudget] Redis get failed for %s: %s", key, e)
 
     async def check_budget(
         self,

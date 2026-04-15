@@ -106,8 +106,8 @@ class SmartReportTool(BaseTool):
                     emp_query = emp_query.eq("department_id", department_id)
                 emp_result = await emp_query.execute()
                 emp_count = emp_result.count or 0
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SmartReport: employees table query failed (graceful): %s", e)
             if emp_count == 0:
                 try:
                     uq = (
@@ -119,8 +119,8 @@ class SmartReportTool(BaseTool):
                         uq = uq.eq("department", department_id)
                     emp_result = await uq.execute()
                     emp_count = emp_result.count or 0
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("SmartReport: users table fallback failed: %s", e)
 
             # 2. 资产统计（表可能不存在，优雅降级）
             asset_total = 0
@@ -138,8 +138,8 @@ class SmartReportTool(BaseTool):
                 asset_in_use = sum(
                     1 for a in (asset_result.data or []) if a.get("status") == "in_use"
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SmartReport: assets table query failed (graceful): %s", e)
 
             # 3. 工单统计（表可能不存在，优雅降级）
             wo_total = 0
@@ -166,8 +166,8 @@ class SmartReportTool(BaseTool):
                     for w in (wo_result.data or [])
                     if w.get("status") in ("done", "closed", "completed")
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SmartReport: work_orders table query failed (graceful): %s", e)
 
             # 4. 考勤统计（attendance_records 表存在）
             att_total = 0
@@ -187,8 +187,8 @@ class SmartReportTool(BaseTool):
                 att_late = sum(
                     1 for a in (att_result.data or []) if a.get("status") == "late"
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SmartReport: attendance_records query failed (graceful): %s", e)
 
             dept_note = (
                 f"（部门: {department_id[:8]}...）" if department_id else "（全组织）"
@@ -295,8 +295,8 @@ class AnomalyDetectionTool(BaseTool):
                             alerts.append(
                                 f"⏰ **考勤预警**: 本周共 {len(late_records)} 次迟到记录，建议关注"
                             )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("AnomalyDetection: attendance query failed (graceful): %s", e)
 
             # 报销异常检测（expense_claims 表可能不存在）
             if scope in ("expense", "all"):
@@ -323,8 +323,8 @@ class AnomalyDetectionTool(BaseTool):
                                     f"💰 **报销异常**: {len(high_expenses)} 笔报销金额超过平均值3倍 "
                                     f"(平均: ¥{avg_amount:,.0f})"
                                 )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("AnomalyDetection: expense_claims query failed (graceful): %s", e)
 
             # 库存异常检测
             if scope in ("inventory", "all"):
@@ -350,8 +350,8 @@ class AnomalyDetectionTool(BaseTool):
                         alerts.append(
                             f"📦 **库存预警**: {len(low_stock)} 项物资低于安全库存 ({names})"
                         )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("AnomalyDetection: inventory query failed (graceful): %s", e)
 
             if not alerts:
                 scope_labels = {
@@ -562,8 +562,8 @@ class AutoDispatchTool(BaseTool):
                     emp_query = emp_query.eq("department_id", department_id)
                 emp_result = await emp_query.execute()
                 employees = emp_result.data or []
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("AutoDispatch: employees table query failed (graceful): %s", e)
             if not employees:
                 try:
                     uq = (
@@ -575,8 +575,8 @@ class AutoDispatchTool(BaseTool):
                         uq = uq.eq("department", department_id)
                     emp_result = await uq.execute()
                     employees = emp_result.data or []
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("AutoDispatch: users table fallback failed: %s", e)
 
             if not employees:
                 return "❌ 当前部门暂无可用员工进行分配。"
@@ -820,8 +820,8 @@ class OnboardingAssistantTool(BaseTool):
                     .execute()
                 )
                 employee = emp_result.data
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Onboarding: employees table query failed (graceful): %s", e)
             if not employee:
                 try:
                     emp_result = (
@@ -832,8 +832,8 @@ class OnboardingAssistantTool(BaseTool):
                         .execute()
                     )
                     employee = emp_result.data
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Onboarding: users table fallback failed: %s", e)
             if not employee:
                 return f"❌ 未找到ID为 {employee_id} 的员工。"
 

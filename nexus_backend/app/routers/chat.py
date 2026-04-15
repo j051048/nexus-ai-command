@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -16,6 +18,11 @@ from app.services.token_service import validate_request_tokens
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Chat"])
+
+# P1-5: Per-user SSE concurrent connection limit
+MAX_SSE_PER_USER = 3
+_sse_connections: dict[str, int] = defaultdict(int)
+_sse_lock = asyncio.Lock()
 
 
 async def _error_stream(msg: str):
@@ -237,24 +244,41 @@ async def chat(
         f"[Chat] Using LangGraph agent for user={user_id} agent={request.agent} model={ai_config['model']}"
     )
 
+    # P1-5: Check per-user SSE concurrency limit
+    async with _sse_lock:
+        if _sse_connections[user_id] >= MAX_SSE_PER_USER:
+            logger.warning(f"[Chat] SSE limit reached for user={user_id} ({_sse_connections[user_id]}/{MAX_SSE_PER_USER})")
+            return StreamingResponse(
+                _error_stream("⚠️ 并发对话数已达上限，请关闭其他对话后重试"),
+                media_type="text/event-stream; charset=utf-8",
+            )
+        _sse_connections[user_id] += 1
+
+    async def _guarded_stream():
+        try:
+            async for chunk in run_agent_stream(
+                messages=raw_messages,
+                config=ai_config,
+                user_id=user_id,
+                system_prompt=system_prompt,
+                tracer=tracer,
+                system_confirmed=request.system_confirmed,
+                confirmed_tool=request.confirmed_tool,
+                session_id=request.sessionId,
+                db_client=client,
+                agent_name=request.agent,
+                user_role=user_role,
+                org_id=org_id,
+                scene_code=request.scene_code,
+                vmd_agent_code=request.agent_code,
+            ):
+                yield chunk
+        finally:
+            async with _sse_lock:
+                _sse_connections[user_id] = max(0, _sse_connections[user_id] - 1)
+
     return StreamingResponse(
-        run_agent_stream(
-            messages=raw_messages,
-            config=ai_config,
-            user_id=user_id,
-            system_prompt=system_prompt,
-            tracer=tracer,
-            system_confirmed=request.system_confirmed,
-            confirmed_tool=request.confirmed_tool,
-            session_id=request.sessionId,
-            db_client=client,
-            agent_name=request.agent,
-            user_role=user_role,
-            org_id=org_id,
-            # VMD extensions: pass scene/agent codes for role-based routing
-            scene_code=request.scene_code,
-            vmd_agent_code=request.agent_code,
-        ),
+        _guarded_stream(),
         media_type="text/event-stream; charset=utf-8",
     )
 
@@ -359,6 +383,7 @@ async def get_chat_history(
             .eq("user_id", user_id)
             .eq("session_id", session_id)
             .order("created_at", desc=False)
+            .limit(200)
             .execute()
         )
 

@@ -1,6 +1,10 @@
 """Structured decision logging for agent tracing."""
 
+import logging
+
 from app.services.agent_trace_service import agent_trace_service
+
+logger = logging.getLogger(__name__)
 
 
 def log_decision(
@@ -24,5 +28,5 @@ def log_decision(
                 "alternatives": alternatives or [],
             },
         )
-    except Exception:
-        pass  # Never block agent flow for tracing
+    except Exception as e:
+        logger.debug("[Tracing] Decision trace failed (non-blocking): %s", e)
