@@ -61,6 +61,7 @@ function safeStr(v: unknown): string {
 
 function CompanySettingsPage() {
   const { profile } = useAuth();
+  const orgId = profile?.organization_id;
   const [org, setOrg] = useState<OrgInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -102,12 +103,10 @@ function CompanySettingsPage() {
     }
   };
 
-  // 版本标记：确认最新代码已加载 (v5 - 2026-03-25)
+  // 版本标记：确认最新代码已加载 (v6 - 2026-04-15)
   useEffect(() => {
-    console.log('[CompanySettingsPage] v5 loaded, profile:', profile?.id);
+    console.log('[CompanySettingsPage] v6 loaded, profile:', profile?.id);
   }, [profile?.id]);
-
-  const orgId = profile?.organization_id;
 
   // Load organization data
   const loadOrg = useCallback(async () => {
