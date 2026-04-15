@@ -191,6 +191,70 @@ class ChatService:
         return "Error: Unknown tool execution failure"
 
     @staticmethod
+    async def send_message(
+        user_id: str,
+        org_id: str = "default",
+        message: str = "",
+        session_id: str = "default",
+    ) -> dict:
+        """Non-streaming agent invocation for background tasks (scheduled tasks, system push).
+
+        Builds an AgentState, runs the graph to completion, persists the result,
+        and returns {"response": str}.
+        """
+        from app.agent.graph import get_agent_graph
+        from app.agent.memory.persistence import persist_result
+        from app.agent.memory.prepare import prepare_initial_state
+        from app.agent.state import AgentConfig
+
+        agent_name = "default"
+        system_prompt = await ChatService.get_system_prompt(
+            agent_name, user_id=user_id, org_id=org_id,
+        )
+        user_role = await ChatService._get_cached_user_role(user_id)
+
+        agent_config = AgentConfig(
+            user_id=user_id,
+            session_id=session_id,
+            agent_name=agent_name,
+            api_key=settings.OPENAI_API_KEY,
+            base_url=settings.AI_BASE_URL,
+            model=settings.AI_DEFAULT_MODEL,
+            mini_model=getattr(settings, "AI_MINI_MODEL", "gpt-4o-mini"),
+            user_role=user_role,
+            org_id=org_id,
+            max_iterations=settings.LANGGRAPH_MAX_ITERATIONS,
+            tool_timeout=settings.LANGGRAPH_TOOL_TIMEOUT,
+            gather_timeout=settings.LANGGRAPH_GATHER_TIMEOUT,
+        )
+
+        raw_messages = [{"role": "user", "content": message}]
+        initial_state = await prepare_initial_state(
+            raw_messages, system_prompt, agent_config,
+        )
+
+        graph = get_agent_graph()
+        thread_id = f"{org_id}::{session_id}"
+        final_state = await graph.run(initial_state, thread_id=thread_id)
+
+        response = final_state.get("final_response", "")
+
+        # Persist conversation
+        try:
+            await persist_result(
+                user_id=user_id,
+                session_id=session_id,
+                user_message=message,
+                assistant_response=response,
+                agent_name=agent_name,
+                org_id=org_id,
+            )
+        except Exception as e:
+            logger.error(f"send_message persist failed: {e}")
+
+        return {"response": response}
+
+    @staticmethod
     async def save_message(
         user_id: str,
         session_id: str,
