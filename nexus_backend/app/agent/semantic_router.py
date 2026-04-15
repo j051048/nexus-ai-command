@@ -171,7 +171,11 @@ class SemanticRouter:
         self._initializing = False
 
     async def _ensure_initialized(self, org_id: str | None = None) -> bool:
-        """Lazily compute and cache exemplar embeddings on first use."""
+        """Lazily compute and cache exemplar embeddings on first use.
+
+        Uses batch embedding API to send all texts in ~2 HTTP calls
+        instead of 84 individual calls.
+        """
         if self._exemplar_embeddings is not None:
             return True
         if self._initializing:
@@ -183,23 +187,25 @@ class SemanticRouter:
 
             from app.services.vector_service import vector_service
 
-            # Collect all (intent, index, text) tuples for parallel embedding
+            # Collect all (intent, index, text) tuples
             tasks: list[tuple[str, int, str]] = []
             for intent, exemplars in INTENT_EXEMPLARS.items():
                 for idx, text in enumerate(exemplars):
                     tasks.append((intent, idx, text))
 
-            # Fire all embedding calls in parallel (~84 calls, 1s vs 4-7s sequential)
-            async def _embed(text: str) -> list[float] | None:
-                return await vector_service.embed_text(text, org_id or "default")
+            all_texts = [t[2] for t in tasks]
 
-            results = await asyncio.gather(
-                *[_embed(t[2]) for t in tasks], return_exceptions=True
+            # Batch embed: ~84 texts in 2 API calls (batch_size=50) with timeout
+            results = await asyncio.wait_for(
+                vector_service.embed_texts_batch(
+                    all_texts, org_id=org_id or "default", batch_size=50, timeout=15.0
+                ),
+                timeout=20.0,
             )
 
             embeddings: dict[str, list[np.ndarray]] = {}
             for (intent, _, _), result in zip(tasks, results, strict=False):
-                if isinstance(result, Exception) or result is None:
+                if result is None:
                     continue
                 arr = np.array(result, dtype=np.float32)
                 embeddings.setdefault(intent, []).append(arr)
@@ -210,6 +216,11 @@ class SemanticRouter:
                 f"{sum(len(v) for v in embeddings.values())} exemplars"
             )
             return True
+        except asyncio.TimeoutError:
+            logger.warning("[SemanticRouter] Initialization timed out (20s)")
+            # Return empty embeddings so we don't block — fallback to LLM classify
+            self._exemplar_embeddings = {}
+            return False
         except Exception as e:
             logger.warning(f"[SemanticRouter] Initialization failed: {e}")
             return False

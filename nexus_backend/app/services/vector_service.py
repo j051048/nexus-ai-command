@@ -688,6 +688,128 @@ class VectorService:
     # Keep backward-compatible private alias
     _embed_text = embed_text
 
+    async def embed_texts_batch(
+        self,
+        texts: list[str],
+        org_id: str = "default",
+        batch_size: int = 50,
+        timeout: float = 30.0,
+    ) -> list[list[float] | None]:
+        """Batch-embed multiple texts in a single API call.
+
+        OpenAI embeddings API natively supports `input` as an array,
+        so we send up to `batch_size` texts per request instead of
+        making N individual HTTP calls.
+
+        Returns a list of embeddings in the same order as `texts`.
+        Failed items are None.
+        """
+        if not texts:
+            return []
+
+        # Truncate and build cache keys
+        truncated = [t.strip()[:8000] for t in texts]
+        cache_keys = [hashlib.md5(t.encode()).hexdigest() for t in truncated]
+
+        # Check cache first — collect misses
+        results: list[list[float] | None] = [None] * len(texts)
+        miss_indices: list[int] = []
+        for i, ck in enumerate(cache_keys):
+            if ck in self._embed_cache:
+                embedding, ts = self._embed_cache[ck]
+                if time.time() - ts < self._EMBED_CACHE_TTL:
+                    self._embed_cache.move_to_end(ck)
+                    results[i] = embedding
+                    continue
+                else:
+                    del self._embed_cache[ck]
+            miss_indices.append(i)
+
+        if not miss_indices:
+            return results
+
+        try:
+            api_key, base_url, model = await self._get_embedding_config(org_id)
+            if not api_key:
+                api_key = settings.OPENAI_API_KEY
+            if not api_key:
+                return results
+
+            # Ensure shared client
+            if (
+                not hasattr(self, "_benchmark_client")
+                or self._benchmark_client.is_closed
+            ):
+                self._benchmark_client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(max(timeout, _OPENAI_TIMEOUT), connect=30.0),
+                    limits=httpx.Limits(
+                        max_connections=50, max_keepalive_connections=20
+                    ),
+                    http2=False,
+                )
+
+            clean_base = (base_url or "https://api.openai.com/v1").rstrip("/")
+            endpoint = f"{clean_base}/embeddings"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+
+            # Process in batches
+            for batch_start in range(0, len(miss_indices), batch_size):
+                batch_idx = miss_indices[batch_start : batch_start + batch_size]
+                batch_texts = [truncated[i] for i in batch_idx]
+
+                payload = {
+                    "input": batch_texts,
+                    "model": model or _DEFAULT_EMBEDDING_MODEL,
+                }
+
+                try:
+                    response = await asyncio.wait_for(
+                        self._benchmark_client.post(
+                            endpoint, headers=headers, json=payload
+                        ),
+                        timeout=timeout,
+                    )
+
+                    if response.status_code != 200:
+                        logger.warning(
+                            f"Batch embedding API error {response.status_code}: "
+                            f"{response.text[:200]}"
+                        )
+                        continue
+
+                    data = response.json().get("data", [])
+                    # API returns results sorted by index
+                    data_sorted = sorted(data, key=lambda x: x.get("index", 0))
+                    for j, item in enumerate(data_sorted):
+                        if j < len(batch_idx):
+                            idx = batch_idx[j]
+                            emb = item.get("embedding")
+                            if emb:
+                                results[idx] = emb
+                                # Cache it
+                                ck = cache_keys[idx]
+                                self._embed_cache[ck] = (emb, time.time())
+                                if len(self._embed_cache) > self._EMBED_CACHE_MAX:
+                                    self._embed_cache.popitem(last=False)
+
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        f"Batch embedding timed out after {timeout}s "
+                        f"(batch {batch_start // batch_size + 1})"
+                    )
+                    break
+                except Exception as e:
+                    logger.warning(f"Batch embedding error: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"Failed to batch embed: {e}")
+
+        return results
+
     async def check_staleness(
         self, org_id: str, staleness_days: int = 30, db=None
     ) -> list[dict]:

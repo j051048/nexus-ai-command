@@ -28,7 +28,11 @@ class ToolEmbeddingIndex:
         self._lock = asyncio.Lock()
 
     async def _build(self) -> None:
-        """批量 embed 所有已注册工具的 description。"""
+        """批量 embed 所有已注册工具的 description。
+
+        Uses batch embedding API to send all texts in ~3 HTTP calls
+        instead of 151 individual serial calls.
+        """
         from app.agent.node_helpers import get_all_tools_schema
         from app.services.vector_service import vector_service
 
@@ -47,15 +51,23 @@ class ToolEmbeddingIndex:
         logger.info("[ToolEmbIdx] Building index for %d tools...", len(texts))
         t0 = time.time()
 
-        # 分批 embed，每批 20 个（串行调用，每次单条）
+        # Batch embed all tool descriptions with timeout
+        all_descs = [t[1] for t in texts]
+        try:
+            embeddings_list = await asyncio.wait_for(
+                vector_service.embed_texts_batch(
+                    all_descs, batch_size=50, timeout=15.0
+                ),
+                timeout=20.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("[ToolEmbIdx] Batch embedding timed out (20s)")
+            return
+
         new_embeddings: dict[str, np.ndarray] = {}
-        for name, text in texts:
-            try:
-                vec = await vector_service.embed_text(text)
-                if vec:
-                    new_embeddings[name] = np.array(vec, dtype=np.float32)
-            except Exception:
-                pass  # 单个工具 embed 失败不阻塞
+        for (name, _), emb in zip(texts, embeddings_list):
+            if emb is not None:
+                new_embeddings[name] = np.array(emb, dtype=np.float32)
 
         if new_embeddings:
             self._embeddings = new_embeddings

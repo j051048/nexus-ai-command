@@ -534,6 +534,8 @@ async def _run_agent_stream_impl(
         "parent_agent_code": None,
         "delegation_results": [],
         "wbs_structure": None,
+        # Memory already injected by prepare_initial_state — skip middleware re-fetch
+        "_memory_injected": True,
         # P0: Context compaction
         "context_compacted_summary": "",
         # P1: Task decomposition
