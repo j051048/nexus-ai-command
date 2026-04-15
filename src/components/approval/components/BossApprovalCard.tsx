@@ -9,6 +9,7 @@ import {
     ChevronUp,
     ShieldAlert,
     BellRing,
+    Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +38,7 @@ interface BossApprovalCardProps {
     approval: ApprovalRequest;
     onApprove: () => void;
     onReject: () => void;
+    onViewDetail?: () => void;
     isApproving: boolean;
     typeIcon?: React.ReactNode;
     currentUserId?: string;
@@ -329,6 +331,7 @@ export function BossApprovalCard({
     approval,
     onApprove,
     onReject,
+    onViewDetail,
     isApproving,
     typeIcon,
     currentUserId,
@@ -401,6 +404,17 @@ export function BossApprovalCard({
 
                 {isPending && !isSelfSubmitted && (
                     <div className="flex gap-2 flex-shrink-0">
+                        {onViewDetail && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={onViewDetail}
+                                className="text-muted-foreground"
+                            >
+                                <Eye className="w-4 h-4 mr-1" />
+                                详情
+                            </Button>
+                        )}
                         <Button
                             variant="outline"
                             size="sm"

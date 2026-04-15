@@ -9,6 +9,7 @@ import {
     CheckSquare,
     X,
     GitBranch,
+    Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,10 +32,12 @@ import {
     useApprovalProgress,
 } from '@/hooks/useApprovals';
 import { BossApprovalCard } from '../components/BossApprovalCard';
+import { ApprovalDetailDialog } from '../components/ApprovalDetailDialog';
 import { approvalTypes } from '../constants';
 import { useFormSchema } from '@/hooks/useFormSchemas';
 import { DynamicFormRenderer } from '@/components/forms/DynamicFormRenderer';
 import { useAuth } from '@/components/auth/AuthContext';
+import type { ApprovalRequest } from '@/hooks/useApprovals';
 
 // ─── 小型内联审批进度指示器 ──────────────────────────────────
 // 在审批列表项中显示简化的审批链进度
@@ -78,9 +81,12 @@ export function BossApprovalView() {
     const [statusFilter, setStatusFilter] = useState('pending');
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
+    const [approvingId, setApprovingId] = useState<string | null>(null);
+    const [approveComment, setApproveComment] = useState('');
     const isMobile = useIsMobile();
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+    const [detailItem, setDetailItem] = useState<ApprovalRequest | null>(null);
 
     const { data: allApprovals, isLoading } = useAllApprovals(statusFilter);
     const { data: pendingCount } = usePendingApprovalsCount();
@@ -129,19 +135,28 @@ export function BossApprovalView() {
     const isAllSelected = pendingApprovals.length > 0 && pendingApprovals.every(a => selectedIds.has(a.id));
     const isSomeSelected = selectedIds.size > 0;
 
-    const handleApprove = async (requestId: string) => {
+    const handleApprove = (requestId: string) => {
+        setApprovingId(requestId);
+        setApproveComment('');
+    };
+
+    const handleConfirmApprove = async () => {
+        if (!approvingId) return;
         try {
-            // Try advance endpoint first (supports multi-step chains)
             await advanceApproval.mutateAsync({
-                requestId,
+                requestId: approvingId,
                 decision: 'approved',
+                comment: approveComment.trim() || undefined,
             });
             toast.success('已批准该项申请');
+            setApprovingId(null);
+            setApproveComment('');
         } catch {
-            // Fallback to direct approve if advance endpoint not available
             try {
-                await approveRequest.mutateAsync(requestId);
+                await approveRequest.mutateAsync(approvingId);
                 toast.success('已批准该项申请');
+                setApprovingId(null);
+                setApproveComment('');
             } catch (error: unknown) {
                 const err = error as Error;
                 toast.error('操作失败: ' + err.message);
@@ -384,13 +399,23 @@ export function BossApprovalView() {
                                             <MiniApprovalProgress requestId={approval.id} />
 
                                             {/* A6: 移动端批准/驳回按钮 */}
-                                            {approval.status === 'pending' && approval.submitted_by !== user?.id && (
+                                            {approval.status === 'pending' && approval.submitted_by !== user?.id ? (
                                                 <div className="flex gap-2 pt-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setDetailItem(approval)}
+                                                        className="text-muted-foreground"
+                                                    >
+                                                        <Eye className="w-4 h-4 mr-1" />
+                                                        详情
+                                                    </Button>
+                                                    <div className="flex-1" />
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => setRejectingId(approval.id)}
-                                                        className="flex-1 text-destructive hover:text-destructive"
+                                                        className="text-destructive hover:text-destructive"
                                                     >
                                                         <XCircle className="w-4 h-4 mr-1" />
                                                         驳回
@@ -399,7 +424,7 @@ export function BossApprovalView() {
                                                         size="sm"
                                                         onClick={() => handleApprove(approval.id)}
                                                         disabled={approveRequest.isPending}
-                                                        className="flex-1 bg-success hover:bg-success/90"
+                                                        className="bg-success hover:bg-success/90"
                                                     >
                                                         {approveRequest.isPending ? (
                                                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -409,6 +434,18 @@ export function BossApprovalView() {
                                                                 批准
                                                             </>
                                                         )}
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex gap-2 pt-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setDetailItem(approval)}
+                                                        className="text-muted-foreground"
+                                                    >
+                                                        <Eye className="w-4 h-4 mr-1" />
+                                                        详情
                                                     </Button>
                                                 </div>
                                             )}
@@ -428,6 +465,7 @@ export function BossApprovalView() {
                                                     approval={approval}
                                                     onApprove={() => handleApprove(approval.id)}
                                                     onReject={() => setRejectingId(approval.id)}
+                                                    onViewDetail={() => setDetailItem(approval)}
                                                     isApproving={approveRequest.isPending}
                                                     typeIcon={approvalTypes.find(t => t.id === approval.type)?.icon}
                                                     currentUserId={user?.id}
@@ -517,6 +555,43 @@ export function BossApprovalView() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* 批准确认弹窗 */}
+            <Dialog open={!!approvingId} onOpenChange={() => setApprovingId(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>确认批准</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                        <Textarea
+                            value={approveComment}
+                            onChange={(e) => setApproveComment(e.target.value)}
+                            placeholder="填写审批意见（可选）"
+                            className="min-h-24 resize-none"
+                        />
+                        <div className="flex justify-end gap-3">
+                            <Button variant="outline" onClick={() => setApprovingId(null)}>返回</Button>
+                            <Button
+                                onClick={handleConfirmApprove}
+                                disabled={advanceApproval.isPending}
+                                className="px-8 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
+                            >
+                                {advanceApproval.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "确认批准"}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* 审批详情弹窗 */}
+            <ApprovalDetailDialog
+                item={detailItem as Parameters<typeof ApprovalDetailDialog>[0]['item']}
+                open={!!detailItem}
+                onClose={() => setDetailItem(null)}
+                showActions={detailItem?.status === 'pending' && detailItem?.submitted_by !== user?.id}
+                onApprove={(id) => { setDetailItem(null); handleApprove(id); }}
+                onReject={(id) => { setDetailItem(null); setRejectingId(id); }}
+            />
         </div>
     );
 }
