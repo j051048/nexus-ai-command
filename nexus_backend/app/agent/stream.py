@@ -124,20 +124,38 @@ async def run_agent_stream(
     """
     Wrapper for _run_agent_stream_impl that yields a status immediately
     and catches all errors to prevent StreamingResponse failures.
+
+    P0: Includes backpressure protection — if the output buffer grows too large
+    (client not consuming), we abort to prevent memory exhaustion.
     """
     yield _sse_status("正在准备 Agent...")
-    
+
     # We need to capture these for possible error cleanup
     tracer = kwargs.get("tracer")
     _trace_id = kwargs.get("_trace_id") or str(uuid.uuid4())
     all_thinking_steps = []
-    
+
+    # P0 backpressure: track buffered output to detect stalled consumers
+    _buffered_bytes = 0
+    _MAX_BUFFER_BYTES = 2 * 1024 * 1024  # 2 MB — if client not consuming, abort
+
     try:
         async for chunk in _run_agent_stream_impl(**{**kwargs, "_trace_id": _trace_id}):
-            # Note: We don't have easy access to all_thinking_steps here without
-            # invasive changes to the impl, but the impl handles its own persistence.
-            # This wrapper is primarily for catching crashes.
+            _buffered_bytes += len(chunk.encode("utf-8")) if isinstance(chunk, str) else len(chunk)
+            if _buffered_bytes > _MAX_BUFFER_BYTES:
+                logger.warning(
+                    "[Stream] Backpressure limit hit (%d bytes buffered), aborting stream "
+                    "to prevent memory exhaustion. Client may have disconnected.",
+                    _buffered_bytes,
+                )
+                yield _sse_content("\n\n⚠️ 响应数据过大，已自动中断。")
+                yield "data: [DONE]\n\n"
+                return
             yield chunk
+    except asyncio.CancelledError:
+        # Client disconnected — FastAPI/Starlette cancels the generator
+        logger.info("[Stream] Client disconnected (CancelledError), cleaning up")
+        return
     except Exception as e:
         logger.error(f"[Stream] Global agent failure: {e}", exc_info=True)
         async for evt in _emit_error_and_cleanup(all_thinking_steps, tracer, _trace_id, e):
@@ -997,6 +1015,12 @@ async def _run_agent_stream_impl(
     # Belt-and-suspenders: strip any remaining reasoning artifacts
     if final_response:
         final_response = strip_think_tags(final_response)
+
+        # P1: Validate gen-ui blocks in final response before streaming
+        if "```gen-ui" in final_response:
+            from app.agent.sse_protocol import validate_genui_blocks
+
+            final_response = validate_genui_blocks(final_response)
 
     # Last resort fallback — provide actionable guidance instead of generic error
     if not final_response:

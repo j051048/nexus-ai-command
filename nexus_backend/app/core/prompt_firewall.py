@@ -67,6 +67,8 @@ class FirewallConfig:
     enable_injection: bool = True
     enable_role_reversal: bool = True
     enable_context_overflow: bool = True
+    # P0: LLM-as-Judge secondary detection for MEDIUM+ risk inputs
+    enable_llm_judge: bool = True
 
     # Context overflow threshold (characters)
     max_input_length: int = 8000
@@ -317,6 +319,32 @@ class PromptFirewall:
         max_risk = max(violations, key=lambda v: _RISK_ORDER[v.risk_level])
         aggregate_risk = max_risk.risk_level
 
+        # P0 Enhancement: LLM-as-Judge secondary detection for MEDIUM+ risk
+        # Regex catches obvious patterns; LLM catches paraphrased/obfuscated attacks
+        if (
+            self._config.enable_llm_judge
+            and _RISK_ORDER[aggregate_risk] >= _RISK_ORDER[RiskLevel.MEDIUM]
+        ):
+            llm_verdict = await self._llm_judge(text, violations, user_id)
+            if llm_verdict is not None:
+                if llm_verdict["escalate"]:
+                    # LLM confirms it's a real attack — escalate to CRITICAL
+                    aggregate_risk = RiskLevel.CRITICAL
+                    violations.append(
+                        FirewallViolation(
+                            layer="llm_judge",
+                            rule_name="llm_secondary_detection",
+                            matched_text=llm_verdict.get("reason", "LLM confirmed attack")[:60],
+                            risk_level=RiskLevel.CRITICAL,
+                        )
+                    )
+                elif llm_verdict["dismiss"]:
+                    # LLM says false positive — downgrade to LOW
+                    aggregate_risk = RiskLevel.LOW
+                    logger.info(
+                        f"[PromptFirewall] LLM judge dismissed false positive for user={user_id}"
+                    )
+
         # is_safe = False when risk >= block_threshold
         is_safe = (
             _RISK_ORDER[aggregate_risk] < _RISK_ORDER[self._config.block_threshold]
@@ -359,6 +387,65 @@ class PromptFirewall:
             violations=violations,
             sanitized_input=sanitized,
         )
+
+    # -- LLM-as-Judge secondary detection ------------------------------------
+
+    async def _llm_judge(
+        self,
+        text: str,
+        violations: list,
+        user_id: str,
+    ) -> dict | None:
+        """
+        P0: LLM-based secondary analysis for ambiguous prompt injection cases.
+
+        Uses a small/fast model to classify whether regex-flagged input is a
+        genuine attack or a false positive. Only called for MEDIUM+ risk.
+
+        Returns:
+            {"escalate": True, "reason": "..."} — confirm attack, escalate to CRITICAL
+            {"dismiss": True} — false positive, downgrade to LOW
+            None — LLM judge unavailable or timed out, fall through to regex verdict
+        """
+        try:
+            import asyncio
+            import json as _json
+
+            from app.services.llm_gateway import get_llm
+
+            llm = get_llm(org_id="default", model_tier="mini")
+            rules_triggered = ", ".join(v.rule_name for v in violations[:5])
+
+            prompt = (
+                "你是一个安全分析系统。判断以下用户输入是否为 prompt injection 攻击。\n"
+                f"正则规则已触发: {rules_triggered}\n"
+                f"用户输入（前500字）: {text[:500]}\n\n"
+                "回答 JSON: {\"is_attack\": true/false, \"reason\": \"一句话理由\"}\n"
+                "只返回 JSON。"
+            )
+
+            result = await asyncio.wait_for(llm.ainvoke(prompt), timeout=5.0)
+            content = str(result.content if hasattr(result, "content") else result)
+
+            # Parse response
+            clean = content.strip()
+            if clean.startswith("```"):
+                clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+                clean = clean.rsplit("```", 1)[0]
+            parsed = _json.loads(clean.strip())
+
+            is_attack = parsed.get("is_attack", True)
+            if is_attack:
+                return {"escalate": True, "reason": parsed.get("reason", "")}
+            else:
+                return {"dismiss": True}
+
+        except asyncio.TimeoutError:
+            logger.debug("[PromptFirewall] LLM judge timed out, using regex verdict")
+            return None
+        except Exception as e:
+            logger.debug(f"[PromptFirewall] LLM judge failed: {e}, using regex verdict")
+            return None
 
     # -- detection helpers ---------------------------------------------------
 

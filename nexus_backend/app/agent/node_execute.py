@@ -545,25 +545,24 @@ async def _execute_single_tool(
         record.result = "Error: 工具服务断路器已打开，请稍后重试。"
         return record
 
-    # 1. RBAC Check — use role hierarchy for generic level comparison
-    if tool.required_role not in ("all", "ai_assistant"):
-        from app.agent.node_helpers import _ROLE_HIERARCHY
+    # 1. RBAC Check — delegated to unified tool_rbac module (single authority)
+    from app.core.tool_rbac import check_tool_access
 
-        req_level = _ROLE_HIERARCHY.get(tool.required_role, 1)
-        user_level = _ROLE_HIERARCHY.get(config.user_role, 1)
-        if user_level < req_level:
-            role_label = {"boss": "领导", "manager": "管理者", "admin": "管理员"}.get(
-                tool.required_role, tool.required_role
-            )
-            record.status = "blocked"
-            record.result = f"⛔ 权限不足: 工具 [{record.tool_name}] 需要{role_label}权限，当前角色为 [{config.user_role}]。"
-            _log_decision(
-                trace_id,
-                f"exec_rbac_{record.tool_name}",
-                "blocked_rbac",
-                f"用户角色{config.user_role}(level={user_level}) < 工具要求{tool.required_role}(level={req_level})",
-            )
-            return record
+    rbac_allowed, rbac_reason = check_tool_access(
+        user_role=config.user_role,
+        tool_name=record.tool_name,
+        tool_required_role=tool.required_role,
+    )
+    if not rbac_allowed:
+        record.status = "blocked"
+        record.result = rbac_reason
+        _log_decision(
+            trace_id,
+            f"exec_rbac_{record.tool_name}",
+            "blocked_rbac",
+            rbac_reason,
+        )
+        return record
 
     # 2. Confirmation Gate (irreversible operations)
     confirmation_msg, confirmation_type = tool.check_confirmation(
@@ -1006,6 +1005,52 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
             ],
         }
 
+    # ── P0 Saga: Compensation rollback for failed tool chains ──────────────
+
+    async def _saga_compensate(
+        completed: list, agent_config, trace_id: str | None
+    ) -> None:
+        """
+        Saga 补偿：当工具链中有工具失败时，逆序调用已成功的不可逆工具的 compensate()。
+
+        只对标记了 is_irreversible=True 且提供了 compensate() 实现的工具执行补偿。
+        补偿失败不会中断流程（best-effort），但会记录日志供人工介入。
+        """
+        successful_irreversible = [
+            r for r in completed
+            if r.status == "success" and getattr(get_tool(r.tool_name), "is_irreversible", False)
+        ]
+        if not successful_irreversible:
+            return
+
+        for record in reversed(successful_irreversible):
+            tool = get_tool(record.tool_name)
+            if not tool or not getattr(tool, "supports_compensation", False):
+                logger.warning(
+                    f"[Saga] Tool {record.tool_name} is irreversible but has no compensate() — "
+                    f"manual rollback may be required"
+                )
+                continue
+            try:
+                comp_config = {
+                    "org_id": getattr(agent_config, "org_id", None),
+                    "token": getattr(agent_config, "token", None),
+                }
+                comp_result = await asyncio.wait_for(
+                    tool.compensate(record.tool_args or {}, agent_config.user_id, comp_config),
+                    timeout=15.0,
+                )
+                logger.info(
+                    f"[Saga] Compensated {record.tool_name}: {comp_result}"
+                )
+                record.result = f"{record.result}\n[已补偿回滚: {comp_result}]"
+            except Exception as e:
+                logger.error(
+                    f"[Saga] Compensation FAILED for {record.tool_name}: {e}. "
+                    f"Manual intervention required.",
+                    extra={"trace_id": trace_id},
+                )
+
     tool_names = ", ".join(t.tool_name for t in pending)
     thinking_step = ThinkingStep(
         phase=AgentPhase.EXECUTING.value,
@@ -1065,6 +1110,12 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
                 timeout=gather_timeout,
             )
             completed.extend(layer_results)
+
+            # P0 Saga: 当某层工具失败且有已成功的不可逆工具时，尝试补偿回滚
+            failed_in_layer = [r for r in layer_results if r.status == "error"]
+            if failed_in_layer:
+                await _saga_compensate(completed, agent_config, _trace_id)
+
             # 更新 prior_completed 供下一层依赖检查
             prior_completed.update(
                 r.tool_name for r in layer_results if r.status == "success"

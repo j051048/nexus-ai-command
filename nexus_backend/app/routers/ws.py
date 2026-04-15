@@ -6,8 +6,10 @@ Endpoints:
   /ws/push    — Server-push channel for notifications and trigger results
 """
 
+import asyncio
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
@@ -36,7 +38,7 @@ async def websocket_chat(
        - {"type": "done"}
     """
     # Authenticate via JWT
-    user_id = await _authenticate_ws(token)
+    user_id, token_exp = await _authenticate_ws(token)
     if not user_id:
         logger.error(f"[WS/Chat] Auth failed for token starting with: {token[:10]}...")
         await websocket.close(code=4001, reason="Authentication failed")
@@ -45,6 +47,26 @@ async def websocket_chat(
     connected = await ws_manager.connect(websocket, user_id)
     if not connected:
         return
+
+    # P1: Schedule token expiry check — auto-disconnect when JWT expires
+    _token_expiry_task = None
+    if token_exp:
+        async def _check_token_expiry():
+            remaining = token_exp - time.time()
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+            logger.info(f"[WS/Chat] Token expired for user {user_id}, disconnecting")
+            try:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "登录已过期，请重新登录",
+                    "code": "TOKEN_EXPIRED",
+                })
+                await websocket.close(code=4002, reason="Token expired")
+            except Exception:
+                pass  # Connection may already be closed
+
+        _token_expiry_task = asyncio.create_task(_check_token_expiry())
 
     try:
         while True:
@@ -76,6 +98,45 @@ async def websocket_chat(
                 )
                 continue
 
+            # P1 Security: Prompt Firewall + Content Moderation (same as /api/chat)
+            last_user_msg = next(
+                (m for m in reversed(messages) if m.get("role") == "user"), None
+            )
+            if last_user_msg:
+                user_content = last_user_msg.get("content", "")
+                # Layer 1: Prompt Firewall
+                try:
+                    from app.core.prompt_firewall import prompt_firewall
+
+                    fw_result = await prompt_firewall.scan_input(
+                        user_content, user_id=user_id
+                    )
+                    if not fw_result.is_safe:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"⚠️ 安全拦截: 检测到风险等级 {fw_result.risk_level.value} 的异常输入",
+                        })
+                        continue
+                    # Use sanitized input
+                    if fw_result.sanitized_input and fw_result.sanitized_input != user_content:
+                        last_user_msg["content"] = fw_result.sanitized_input
+                except Exception as e:
+                    logger.warning(f"[WS/Chat] Firewall check failed (non-blocking): {e}")
+
+                # Layer 2: Content Moderation
+                try:
+                    from app.services.content_moderation import check_user_input
+
+                    is_safe, warning = check_user_input(user_content)
+                    if not is_safe:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"⚠️ 安全拦截: {warning}",
+                        })
+                        continue
+                except Exception as e:
+                    logger.warning(f"[WS/Chat] Moderation check failed (non-blocking): {e}")
+
             # Get user info for the stream
             user_role, org_id = await _get_user_context(user_id)
 
@@ -102,6 +163,8 @@ async def websocket_chat(
     except Exception as e:
         logger.error(f"[WS/Chat] Error: {e}")
     finally:
+        if _token_expiry_task and not _token_expiry_task.done():
+            _token_expiry_task.cancel()
         ws_manager.disconnect(websocket, user_id)
 
 
@@ -127,7 +190,7 @@ async def websocket_push(
         await websocket.close(code=1008, reason="Policy violation")
         return
 
-    user_id = await _authenticate_ws(token)
+    user_id, _ = await _authenticate_ws(token)
     if not user_id:
         logger.error(f"WS Auth failed for token starting with: {token[:10]}...")
         await websocket.close(code=1008, reason="Policy violation")
@@ -174,8 +237,10 @@ async def ws_status():
 # ── Internal helpers ──
 
 
-async def _authenticate_ws(token: str) -> str | None:
+async def _authenticate_ws(token: str) -> tuple[str | None, float | None]:
     """Authenticate a WebSocket connection via JWT token.
+
+    Returns (user_id, exp_timestamp) on success, (None, None) on failure.
 
     Reuses the same two-stage strategy as auth.py:
     1. ES256/RS256 → JWKS public key from Supabase
@@ -196,7 +261,7 @@ async def _authenticate_ws(token: str) -> str | None:
             unverified_header = pyjwt.get_unverified_header(token)
         except Exception as e:
             logger.warning(f"[WS/Auth] Could not read JWT header: {e}")
-            return None
+            return None, None
 
         claimed_alg = unverified_header.get("alg")
         payload = None
@@ -218,7 +283,7 @@ async def _authenticate_ws(token: str) -> str | None:
                 logger.debug(f"[WS/Auth] Verified via JWKS ({claimed_alg})")
             except pyjwt.ExpiredSignatureError:
                 logger.warning("[WS/Auth] Token expired (JWKS)")
-                return None
+                return None, None
             except Exception as e:
                 logger.debug(f"[WS/Auth] JWKS attempt failed (falling back): {e}")
 
@@ -227,7 +292,7 @@ async def _authenticate_ws(token: str) -> str | None:
             secrets = [s for s in [supabase_jwt_secret, jwt_secret] if s]
             if not secrets:
                 logger.error("[WS/Auth] No JWT secrets configured in environment")
-                return None
+                return None, None
 
             for index, secret in enumerate(secrets):
                 try:
@@ -242,7 +307,7 @@ async def _authenticate_ws(token: str) -> str | None:
                     break
                 except pyjwt.ExpiredSignatureError:
                     logger.warning("[WS/Auth] Token expired (HS256)")
-                    return None
+                    return None, None
                 except PyJWTError as e:
                     logger.debug(
                         f"[WS/Auth] HS256 secret #{index} attempt failed: {str(e)}"
@@ -253,21 +318,28 @@ async def _authenticate_ws(token: str) -> str | None:
             logger.warning(
                 f"[WS/Auth] Token verification failed for all strategies (Alg: {claimed_alg})"
             )
-            return None
+            return None, None
 
         user_id = payload.get("sub")
         if not user_id:
             logger.error("[WS/Auth] Payload missing 'sub' field")
-            return None
+            return None, None
 
-        return str(user_id)
+        # P1: Extract exp for token expiry monitoring
+        token_exp = payload.get("exp")
+        return str(user_id), float(token_exp) if token_exp else None
     except Exception as e:
         logger.error(f"[WS/Auth] Unexpected error: {e}", exc_info=True)
-        return None
+        return None, None
 
 
 async def _get_user_context(user_id: str) -> tuple[str, str | None]:
-    """Get user role and org_id for agent context."""
+    """Get user role and org_id for agent context.
+
+    P1 Security: Query uses user_id filter for isolation.
+    The global supabase client is acceptable here because we're reading
+    the user's own record (filtered by id), not arbitrary tenant data.
+    """
     try:
         from app.core.database import supabase
 
@@ -276,7 +348,7 @@ async def _get_user_context(user_id: str) -> tuple[str, str | None]:
                 await supabase.table("users")
                 .select("role, org_id")
                 .eq("id", user_id)
-                .single()
+                .maybe_single()
                 .execute()
             )
             if result.data:

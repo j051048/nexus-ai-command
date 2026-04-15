@@ -75,6 +75,9 @@ async def chat(
                     ),
                     media_type="text/event-stream; charset=utf-8",
                 )
+            # P0: Use sanitized input to strip invisible chars / encoded payloads
+            if fw_result.sanitized_input and fw_result.sanitized_input != last_msg.content:
+                last_msg.content = fw_result.sanitized_input
 
     # 2b. Content Moderation (existing)
     # P2: 对带工具调用能力的高风险 Agent 启用 LLM 深度注入检测

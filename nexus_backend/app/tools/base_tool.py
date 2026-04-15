@@ -233,6 +233,27 @@ class BaseTool(ABC):
         When True, the execution layer will reject calls without org_id."""
         return True
 
+    async def compensate(
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
+    ) -> str | None:
+        """
+        Saga 补偿操作：回滚 run() 产生的副作用。
+
+        当工具链中后续工具失败时，execute node 会按逆序调用已成功工具的 compensate()。
+        默认返回 None（表示该工具不支持补偿），子类可覆盖实现具体回滚逻辑。
+
+        :param args: 原始调用参数（与 run() 相同）
+        :param user_id: 调用用户 ID
+        :param config: AI 配置
+        :return: 补偿结果描述，或 None 表示不支持补偿
+        """
+        return None
+
+    @property
+    def supports_compensation(self) -> bool:
+        """Whether this tool has a custom compensate() implementation."""
+        return type(self).compensate is not BaseTool.compensate
+
     @abstractmethod
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None

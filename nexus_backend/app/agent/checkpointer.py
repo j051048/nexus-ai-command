@@ -175,11 +175,11 @@ def _build_postgres_url() -> str:
     project_ref = supabase_url.replace("https://", "").split(".")[0]
 
     # Use connection pooler for serverless/production
-    # Direct connection: db.xxxx.supabase.co:5432
-    # Pooler: aws-0-ap-southeast-1.pooler.supabase.com:6543
-    # For simplicity, use direct connection
+    # Direct connection: db.xxxx.supabase.co:5432 (limited connections)
+    # Pooler: aws-0-ap-southeast-1.pooler.supabase.com:6543 (recommended)
+    # P0 Fix: Use pooler port 6543 to avoid hitting connection limits in production
     db_host = f"db.{project_ref}.supabase.co"
-    db_port = 5432
+    db_port = 6543  # Supabase connection pooler (pgBouncer)
     db_name = "postgres"
     db_user = "postgres"
 
@@ -227,3 +227,28 @@ def reset_checkpointer():
     _checkpointer_instance = None
     _checkpointer_persistent = False
     logger.info("[Checkpointer] Instance reset")
+
+
+async def shutdown_checkpointer():
+    """
+    P0 Fix: Gracefully close the checkpointer's connection pool on app shutdown.
+    Prevents connection leaks and ensures clean teardown.
+    Call this in the app lifespan shutdown handler.
+    """
+    global _checkpointer_instance
+    if _checkpointer_instance is None:
+        return
+
+    # AsyncPostgresSaver wraps a psycopg AsyncConnectionPool
+    pool = getattr(_checkpointer_instance, "conn", None) or getattr(
+        _checkpointer_instance, "pool", None
+    )
+    if pool and hasattr(pool, "close"):
+        try:
+            await pool.close()
+            logger.info("[Checkpointer] Connection pool closed gracefully")
+        except Exception as e:
+            logger.warning(f"[Checkpointer] Pool close error (non-fatal): {e}")
+
+    _checkpointer_instance = None
+    logger.info("[Checkpointer] Shutdown complete")

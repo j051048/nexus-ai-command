@@ -42,6 +42,8 @@ class _JSONFormatter(logging.Formatter):
         # Include tracing / tenant context fields
         if hasattr(record, "trace_id") and record.trace_id:
             log_obj["trace_id"] = record.trace_id
+        if hasattr(record, "request_id") and record.request_id:
+            log_obj["request_id"] = record.request_id
         if hasattr(record, "user_id") and record.user_id:
             log_obj["user_id"] = record.user_id
         if hasattr(record, "org_id") and record.org_id:
@@ -52,6 +54,25 @@ class _JSONFormatter(logging.Formatter):
             if val is not None:
                 log_obj[key] = val
         return _json.dumps(log_obj, ensure_ascii=False)
+
+
+class _TraceContextFilter(logging.Filter):
+    """
+    P1: Automatically inject trace_id, request_id from ContextVar into every log record.
+
+    This bridges the gap between RequestIDMiddleware (sets ContextVar)
+    and _JSONFormatter (reads record.trace_id). Without this filter,
+    only log calls with explicit `extra={"trace_id": ...}` get the field.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        from app.core.trace_context import get_request_id, get_trace_id
+
+        if not getattr(record, "trace_id", None):
+            record.trace_id = get_trace_id()  # type: ignore[attr-defined]
+        if not getattr(record, "request_id", None):
+            record.request_id = get_request_id()  # type: ignore[attr-defined]
+        return True
 
 
 def setup_logging(
@@ -94,6 +115,11 @@ def setup_logging(
         json_formatter = _JSONFormatter()
         for handler in logging.root.handlers:
             handler.setFormatter(json_formatter)
+
+    # P1: Add trace context filter to root logger so every log record
+    # automatically includes trace_id/request_id from ContextVar
+    _trace_filter = _TraceContextFilter()
+    logging.root.addFilter(_trace_filter)
 
     # Set specific loggers to appropriate levels
     # Reduce noise from third-party libraries

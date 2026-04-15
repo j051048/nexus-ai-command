@@ -181,4 +181,9 @@ async def lifespan(app: FastAPI):
     await audit_logger.force_flush()
     with suppress(Exception):
         await connection_pool_service.close()
+    # P0 Fix: Gracefully close checkpointer connection pool
+    with suppress(Exception):
+        from app.agent.checkpointer import shutdown_checkpointer
+
+        await shutdown_checkpointer()
     logger.info("Cleanup complete")

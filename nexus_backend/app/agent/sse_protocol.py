@@ -162,6 +162,70 @@ def _sse_circuit_break(reason: str) -> str:
     )
 
 
+import logging as _logging
+import re as _re
+
+_logger = _logging.getLogger(__name__)
+
+# P1: Known GenUI component names for validation
+_KNOWN_GENUI_COMPONENTS = {
+    "DataCard", "MetricCard", "MetricComparison", "ComparisonTable",
+    "BarChart", "LineChart", "PieChart", "FunnelChart", "HeatMap",
+    "RadarChart", "ScatterChart", "GaugeChart", "TreeMap",
+    "Timeline", "ProgressTracker", "KanbanBoard", "GanttChart",
+    "ApprovalCard", "ApprovalList", "TodoList", "CalendarView",
+    "EmailDraft", "NotificationCard", "UserProfileCard",
+    "Table", "DataTable", "StatusCard", "RankingList",
+    "AreaChart", "WaterfallChart", "SankeyDiagram",
+}
+
+# Regex to extract gen-ui code blocks from LLM output
+_GENUI_BLOCK_RE = _re.compile(
+    r"```gen-ui\s*\n(.*?)```", _re.DOTALL
+)
+
+
+def validate_genui_blocks(text: str) -> str:
+    """
+    P1: Validate and sanitize gen-ui code blocks in LLM output.
+
+    - Parses each ```gen-ui block as JSON
+    - Checks for required 'component' and 'props' fields
+    - Validates component name against known list
+    - Replaces malformed blocks with error messages
+
+    Returns the text with invalid gen-ui blocks replaced.
+    """
+    def _validate_block(match: _re.Match) -> str:
+        raw = match.group(1).strip()
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            _logger.warning("[GenUI] Malformed JSON in gen-ui block")
+            return "```\n⚠️ GenUI 组件渲染失败：JSON 格式错误\n```"
+
+        if not isinstance(parsed, dict):
+            return "```\n⚠️ GenUI 组件渲染失败：需要 JSON 对象\n```"
+
+        component = parsed.get("component")
+        if not component:
+            _logger.warning("[GenUI] Missing 'component' field")
+            return "```\n⚠️ GenUI 组件渲染失败：缺少 component 字段\n```"
+
+        if component not in _KNOWN_GENUI_COMPONENTS:
+            _logger.warning(f"[GenUI] Unknown component: {component}")
+            # Don't block — new components may be added; just log
+            pass
+
+        if "props" not in parsed:
+            _logger.warning(f"[GenUI] Component {component} missing 'props'")
+            return f"```\n⚠️ GenUI 组件 {component} 渲染失败：缺少 props 字段\n```"
+
+        return match.group(0)  # Valid — return unchanged
+
+    return _GENUI_BLOCK_RE.sub(_validate_block, text)
+
+
 def _chunk_text(text: str, chunk_size: int = 4) -> list[str]:
     """
     Split text into small chunks for smooth streaming.
