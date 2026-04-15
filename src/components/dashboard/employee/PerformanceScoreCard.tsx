@@ -13,7 +13,7 @@ export function PerformanceScoreCard({
     progressToNextBadge
 }: PerformanceScoreCardProps) {
     return (
-        <div className="col-span-2 bg-gradient-card rounded-2xl p-4 sm:p-6 cyber-border">
+        <div className="col-span-2 bg-gradient-card rounded-2xl p-4 sm:p-6 border border-border/50">
             <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                     <p className="text-sm text-muted-foreground">今日AI绩效分</p>

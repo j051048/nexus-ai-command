@@ -86,30 +86,41 @@ def push_daily_briefing():
             logger.warning("DB not available, skipping daily briefing")
             return "skipped: no db"
 
-        # 查询所有管理层用户 (founder = boss, manager = 管理者)
-        result = (
-            await supabase.table("users")
-            .select("id, role")
-            .in_("role", ["manager", "founder"])
-            .execute()
+        # P0 Security: 按组织遍历，使用 OrgFilteredClient 防止跨租户数据泄露
+        orgs_res = (
+            await supabase.table("organizations").select("id").execute()
         )
-        users = result.data or []
+        org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         tool = DailyBriefingTool()
         sent = 0
-        for u in users:
+        for org_id in org_ids:
             try:
-                briefing = await tool.run({}, u["id"], config={})
-                await send_notification(
-                    title="每日晨报",
-                    content=briefing[:500],
-                    target_user_id=u["id"],
+                org_client = supabase.get_org_filtered_client(org_id)
+                # 查询该组织的管理层用户
+                result = (
+                    await org_client.table("users")
+                    .select("id, role")
+                    .in_("role", ["manager", "founder"])
+                    .execute()
                 )
-                sent += 1
-            except Exception as e:
-                logger.error(f"Briefing failed for user {u['id']}: {e}")
+                users = result.data or []
 
-        return f"Sent daily briefing to {sent}/{len(users)} users"
+                for u in users:
+                    try:
+                        briefing = await tool.run({}, u["id"], config={"org_id": org_id})
+                        await send_notification(
+                            title="每日晨报",
+                            content=briefing[:500],
+                            target_user_id=u["id"],
+                        )
+                        sent += 1
+                    except Exception as e:
+                        logger.error(f"Briefing failed for user {u['id']}: {e}")
+            except Exception as e:
+                logger.error(f"Daily briefing failed for org {org_id}: {e}")
+
+        return f"Sent daily briefing to {sent} users across {len(org_ids)} orgs"
 
     return _run_async(_run())
 
@@ -132,37 +143,45 @@ def mine_sales_leads():
 
         seven_days_ago = (datetime.now() - timedelta(days=7)).isoformat()
 
-        result = (
-            await supabase.table("sales_leads")
-            .select("*")
-            .eq("stage", "lead")
-            .lt("updated_at", seven_days_ago)
-            .limit(20)
-            .execute()
+        # P0 Security: 按组织遍历，防止跨租户数据泄露
+        orgs_res = (
+            await supabase.table("organizations").select("id").execute()
         )
-
-        stale_leads = result.data or []
-        if not stale_leads:
-            return "No stale leads found"
+        org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         processed = 0
-        for lead in stale_leads:
+        for org_id in org_ids:
             try:
-                suggestion = await AIService.call_llm(
-                    f"商机: {lead['company_name']}, 状态: {lead['status']}, 最后更新: {lead['updated_at']}",
-                    "你是销售顾问。这个线索已经超过7天未跟进，请给出简短的跟进建议（1-2句话）。",
+                org_client = supabase.get_org_filtered_client(org_id)
+                result = (
+                    await org_client.table("sales_leads")
+                    .select("*")
+                    .eq("stage", "lead")
+                    .lt("updated_at", seven_days_ago)
+                    .limit(20)
+                    .execute()
                 )
-                if lead.get("assigned_to"):
-                    await send_notification(
-                        title=f"线索跟进提醒: {lead['company_name']}",
-                        content=suggestion[:300],
-                        target_user_id=lead["assigned_to"],
-                    )
-                processed += 1
-            except Exception as e:
-                logger.error(f"Lead mining failed for {lead['id']}: {e}")
 
-        return f"Processed {processed} stale leads"
+                stale_leads = result.data or []
+                for lead in stale_leads:
+                    try:
+                        suggestion = await AIService.call_llm(
+                            f"商机: {lead.get('company_name', '')}, 状态: {lead.get('status', '')}, 最后更新: {lead.get('updated_at', '')}",
+                            "你是销售顾问。这个线索已经超过7天未跟进，请给出简短的跟进建议（1-2句话）。",
+                        )
+                        if lead.get("assigned_to"):
+                            await send_notification(
+                                title=f"线索跟进提醒: {lead.get('company_name', '')}",
+                                content=suggestion[:300],
+                                target_user_id=lead["assigned_to"],
+                            )
+                        processed += 1
+                    except Exception as e:
+                        logger.error(f"Lead mining failed for {lead.get('id', '?')}: {e}")
+            except Exception as e:
+                logger.error(f"Lead mining failed for org {org_id}: {e}")
+
+        return f"Processed {processed} stale leads across {len(org_ids)} orgs"
 
     return _run_async(_run())
 
@@ -183,53 +202,62 @@ def monitor_competitors():
         if not supabase:
             return "skipped: no db"
 
-        # 查询近期竞品分析
-        try:
-            result = (
-                await supabase.table("battlecard_analyses")
-                .select("id, competitor_name, user_id, created_at")
-                .order("created_at", desc=True)
-                .limit(10)
-                .execute()
-            )
-        except Exception:
-            logger.info("battlecard_analyses table not available")
-            return "skipped: table not available"
-
-        analyses = result.data or []
-        if not analyses:
-            return "No competitor data"
-
-        # 汇总竞品名称
-        competitors = list(
-            set(
-                a.get("competitor_name", "")
-                for a in analyses
-                if a.get("competitor_name")
-            )
+        # P0 Security: 按组织遍历，防止跨租户数据泄露
+        orgs_res = (
+            await supabase.table("organizations").select("id").execute()
         )
-        if not competitors:
-            return "No competitors found"
+        org_ids = [o["id"] for o in (orgs_res.data or [])]
+        total_notified = 0
 
-        try:
-            analysis = await AIService.call_llm(
-                f"我们跟踪的竞品列表: {', '.join(competitors[:5])}",
-                "你是竞争情报分析师。根据竞品列表，生成简短的竞品动态提醒（3-5条要点），用中文。",
+        for org_id in org_ids:
+            try:
+                org_client = supabase.get_org_filtered_client(org_id)
+                # 查询该组织的近期竞品分析
+                result = (
+                    await org_client.table("battlecard_analyses")
+                    .select("id, competitor_name, user_id, created_at")
+                    .order("created_at", desc=True)
+                    .limit(10)
+                    .execute()
+                )
+            except Exception:
+                logger.info(f"battlecard_analyses table not available for org {org_id}")
+                continue
+
+            analyses = result.data or []
+            if not analyses:
+                continue
+
+            # 汇总竞品名称
+            competitors = list(
+                set(
+                    a.get("competitor_name", "")
+                    for a in analyses
+                    if a.get("competitor_name")
+                )
             )
+            if not competitors:
+                continue
 
-            # 通知所有相关用户
-            user_ids = list(set(a.get("user_id") for a in analyses if a.get("user_id")))
-            for uid in user_ids[:10]:
-                await send_notification(
-                    title="竞品动态周报",
-                    content=analysis[:500],
-                    target_user_id=uid,
+            try:
+                analysis = await AIService.call_llm(
+                    f"我们跟踪的竞品列表: {', '.join(competitors[:5])}",
+                    "你是竞争情报分析师。根据竞品列表，生成简短的竞品动态提醒（3-5条要点），用中文。",
                 )
 
-            return f"Competitor analysis sent to {len(user_ids)} users"
-        except Exception as e:
-            logger.error(f"Competitor monitoring failed: {e}")
-            return f"failed: {e}"
+                # 仅通知该组织的相关用户
+                user_ids = list(set(a.get("user_id") for a in analyses if a.get("user_id")))
+                for uid in user_ids[:10]:
+                    await send_notification(
+                        title="竞品动态周报",
+                        content=analysis[:500],
+                        target_user_id=uid,
+                    )
+                    total_notified += 1
+            except Exception as e:
+                logger.error(f"Competitor monitoring failed for org {org_id}: {e}")
+
+        return f"Competitor analysis sent to {total_notified} users across {len(org_ids)} orgs"
 
     return _run_async(_run())
 
@@ -458,44 +486,49 @@ def check_contract_expiry():
         thirty_days_later = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
         today = datetime.now().strftime("%Y-%m-%d")
 
-        try:
-            result = (
-                await supabase.table("contracts")
-                .select("id, title, end_date, user_id, status")
-                .gte("end_date", today)
-                .lte("end_date", thirty_days_later)
-                .eq("status", "active")
-                .execute()
-            )
-        except Exception:
-            logger.info("contracts table not available")
-            return "skipped: table not available"
-
-        expiring = result.data or []
-        if not expiring:
-            return "No expiring contracts"
+        # P0 Security: 按组织遍历，防止跨租户数据泄露
+        orgs_res = (
+            await supabase.table("organizations").select("id").execute()
+        )
+        org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         notified = 0
-        for contract in expiring:
+        for org_id in org_ids:
             try:
-                if contract.get("user_id"):
-                    days_left = (
-                        datetime.strptime(contract["end_date"], "%Y-%m-%d")
-                        - datetime.now()
-                    ).days
-                    await send_notification(
-                        title=f"合同到期预警: {contract.get('title', '未命名')}",
-                        content=f"合同将在 {days_left} 天后到期 ({contract['end_date']})，请及时处理续签或结算。",
-                        target_user_id=contract["user_id"],
-                        priority=NotificationPriority.HIGH,
-                    )
-                    notified += 1
-            except Exception as e:
-                logger.error(
-                    f"Contract expiry notification failed for {contract['id']}: {e}"
+                org_client = supabase.get_org_filtered_client(org_id)
+                result = (
+                    await org_client.table("contracts")
+                    .select("id, title, end_date, user_id, status")
+                    .gte("end_date", today)
+                    .lte("end_date", thirty_days_later)
+                    .eq("status", "active")
+                    .execute()
                 )
+            except Exception:
+                logger.info(f"contracts table not available for org {org_id}")
+                continue
 
-        return f"Notified {notified} expiring contracts"
+            expiring = result.data or []
+            for contract in expiring:
+                try:
+                    if contract.get("user_id"):
+                        days_left = (
+                            datetime.strptime(contract["end_date"], "%Y-%m-%d")
+                            - datetime.now()
+                        ).days
+                        await send_notification(
+                            title=f"合同到期预警: {contract.get('title', '未命名')}",
+                            content=f"合同将在 {days_left} 天后到期 ({contract['end_date']})，请及时处理续签或结算。",
+                            target_user_id=contract["user_id"],
+                            priority=NotificationPriority.HIGH,
+                        )
+                        notified += 1
+                except Exception as e:
+                    logger.error(
+                        f"Contract expiry notification failed for {contract.get('id', '?')}: {e}"
+                    )
+
+        return f"Notified {notified} expiring contracts across {len(org_ids)} orgs"
 
     return _run_async(_run())
 

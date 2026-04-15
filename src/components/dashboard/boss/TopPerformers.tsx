@@ -13,12 +13,12 @@ interface TopPerformersProps {
 
 export function TopPerformers({ performers }: TopPerformersProps) {
     return (
-        <div className="relative overflow-hidden glass rounded-3xl p-6 sm:p-8 cyber-border transition-all duration-300 h-full">
+        <div className="relative overflow-hidden card-glass rounded-3xl p-6 sm:p-8 border border-border/50 transition-all duration-300 h-full">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gold/10 blur-3xl rounded-full mix-blend-screen animate-pulse-glow pointer-events-none" />
             
             <div className="flex items-center justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-gold/20 animate-bounce-subtle">
+                    <div className="p-2 rounded-xl bg-gold/20">
                         <span className="text-xl">🏆</span>
                     </div>
                     <div>

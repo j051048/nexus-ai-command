@@ -24,7 +24,7 @@ const getHeatColor = (score: number) => {
 
 export function TeamPerformanceHeatmap({ data }: TeamPerformanceHeatmapProps) {
     return (
-        <div className="relative overflow-hidden glass rounded-3xl p-6 sm:p-8 cyber-border transition-all duration-300 h-full">
+        <div className="relative overflow-hidden card-glass rounded-3xl p-6 sm:p-8 border border-border/50 transition-all duration-300 h-full">
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 blur-[50px] rounded-full mix-blend-screen pointer-events-none animate-pulse-glow" />
             
             <div className="flex items-center justify-between mb-8 relative z-10">

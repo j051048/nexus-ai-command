@@ -5,6 +5,9 @@ Provides fair-share scheduling for concurrent LLM requests across tenants.
 When a single tenant exceeds MAX_CONCURRENT_LLM_PER_TENANT, new requests
 are queued and dispatched via round-robin across waiting tenants.
 
+P0 Enhancement: Added GLOBAL_MAX_CONCURRENT_LLM to prevent total system
+LLM request count from exhausting all uvicorn workers.
+
 Usage:
     from app.core.tenant_throttle import tenant_throttle
 
@@ -22,18 +25,32 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# P0: Global system-wide LLM concurrency limit.
+# Prevents all tenants combined from consuming all uvicorn workers.
+GLOBAL_MAX_CONCURRENT_LLM = getattr(settings, "GLOBAL_MAX_CONCURRENT_LLM", 50)
+
 
 class TenantThrottle:
     """
-    Fair-share concurrency limiter for LLM requests, per tenant.
+    Fair-share concurrency limiter for LLM requests, per tenant + global.
 
     - Each tenant gets at most `max_concurrent` simultaneous LLM requests.
+    - System-wide total is capped at `global_max` to prevent worker exhaustion.
     - When a tenant exceeds the limit, new requests are queued.
     - A simple round-robin scheduler drains queues fairly when slots free up.
     """
 
-    def __init__(self, max_concurrent: int | None = None):
+    def __init__(
+        self,
+        max_concurrent: int | None = None,
+        global_max: int | None = None,
+    ):
         self.max_concurrent = max_concurrent or settings.MAX_CONCURRENT_LLM_PER_TENANT
+        # P0: Global semaphore — hard cap on total concurrent LLM requests
+        self._global_semaphore = asyncio.Semaphore(
+            global_max or GLOBAL_MAX_CONCURRENT_LLM
+        )
+        self._global_max = global_max or GLOBAL_MAX_CONCURRENT_LLM
         # tenant_id -> current active count
         self._active: dict[str, int] = defaultdict(int)
         # tenant_id -> queue of asyncio.Event objects waiting for a slot
@@ -46,13 +63,18 @@ class TenantThrottle:
     async def acquire(self, tenant_id: str):
         """
         Async context manager that acquires a concurrency slot for the tenant.
-        Blocks if the tenant has reached its concurrent limit.
+        Blocks if the global system limit OR per-tenant limit is reached.
+
+        P0: Two-layer throttle:
+        1. Global semaphore — prevents total LLM requests from exhausting workers
+        2. Per-tenant fair-share — prevents noisy-neighbor monopolization
         """
-        await self._wait_for_slot(tenant_id)
-        try:
-            yield
-        finally:
-            await self._release_slot(tenant_id)
+        async with self._global_semaphore:  # Layer 1: global cap
+            await self._wait_for_slot(tenant_id)  # Layer 2: per-tenant cap
+            try:
+                yield
+            finally:
+                await self._release_slot(tenant_id)
 
     async def _wait_for_slot(self, tenant_id: str) -> None:
         """Wait until a concurrency slot is available for this tenant."""
@@ -132,6 +154,8 @@ class TenantThrottle:
         """Return current throttle statistics for monitoring."""
         return {
             "max_concurrent_per_tenant": self.max_concurrent,
+            "global_max_concurrent": self._global_max,
+            "global_active": self._global_max - self._global_semaphore._value,
             "active_tenants": {k: v for k, v in self._active.items() if v > 0},
             "queued_tenants": {k: len(v) for k, v in self._waiters.items() if v},
             "total_active": sum(self._active.values()),

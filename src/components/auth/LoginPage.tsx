@@ -158,7 +158,7 @@ export function LoginPage() {
   const renderAuthContent = () => {
     if (showForgotPassword) {
       return (
-        <div className="bg-white/60 dark:bg-black/40 backdrop-blur-3xl rounded-3xl border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] p-8 sm:p-10 relative overflow-hidden group">
+        <div className="bg-white/60 dark:bg-black/40 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] p-8 sm:p-10 relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/0 dark:from-white/5 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
           <div className="text-center mb-8 relative z-10">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
@@ -205,7 +205,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/40 backdrop-blur-sm border-white/20 dark:border-white/10 hover:bg-background/60 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
                 />
               </div>
               <Button
@@ -237,7 +237,7 @@ export function LoginPage() {
 
     // Default Login/Register Tabs
     return (
-      <div className="bg-white/60 dark:bg-black/40 backdrop-blur-3xl rounded-3xl border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] p-8 sm:p-10 relative overflow-hidden group">
+      <div className="bg-white/60 dark:bg-black/40 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] p-8 sm:p-10 relative overflow-hidden group">
         <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/0 dark:from-white/5 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
         <Tabs defaultValue="login" className="space-y-8 relative z-10">
           <TabsList className="grid w-full grid-cols-2 rounded-xl h-12 p-1 bg-muted/50 backdrop-blur-md">
@@ -262,7 +262,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/40 backdrop-blur-sm border-white/20 dark:border-white/10 hover:bg-background/60 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
                   data-testid="login-email-input"
                 />
               </div>
@@ -284,7 +284,7 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/40 backdrop-blur-sm border-white/20 dark:border-white/10 hover:bg-background/60 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
                   data-testid="login-password-input"
                 />
               </div>
@@ -315,7 +315,7 @@ export function LoginPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/40 backdrop-blur-sm border-white/20 dark:border-white/10 hover:bg-background/60 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
                   data-testid="register-name-input"
                 />
               </div>
@@ -328,7 +328,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/40 backdrop-blur-sm border-white/20 dark:border-white/10 hover:bg-background/60 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
                   data-testid="register-email-input"
                 />
               </div>
@@ -342,7 +342,7 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="h-11 rounded-xl bg-background/40 backdrop-blur-sm border-white/20 dark:border-white/10 hover:bg-background/60 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
                   data-testid="register-password-input"
                 />
               </div>
@@ -479,30 +479,9 @@ export function LoginPage() {
           {/* Animated Blob Gradients */}
           <div className="absolute -top-[10%] -left-[5%] w-[80%] h-[80%] rounded-full bg-blue-600/30 blur-[140px] animate-blob mix-blend-screen" />
           <div className="absolute bottom-[0%] -right-[5%] w-[70%] h-[70%] rounded-full bg-purple-600/30 blur-[140px] animate-blob mix-blend-screen" style={{ animationDelay: '2s' }} />
-          
-          {/* Moving Mesh Grid */}
-          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.07] animate-mesh-float" 
-               style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-          
+
           {/* Edge Glow Transition - Blends the center line */}
           <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-background to-transparent z-10" />
-          
-          {/* Floating Particles (CSS only) */}
-          {[...Array(6)].map((_, i) => (
-            <div 
-              key={i}
-              className="absolute rounded-full bg-white animate-pulse"
-              style={{
-                width: Math.random() * 3 + 1 + 'px',
-                height: Math.random() * 3 + 1 + 'px',
-                top: Math.random() * 100 + '%',
-                left: Math.random() * 100 + '%',
-                opacity: Math.random() * 0.5,
-                animationDelay: i * 0.7 + 's',
-                animationDuration: 3 + Math.random() * 4 + 's'
-              }}
-            />
-          ))}
         </div>
 
         <div className="relative z-10 flex flex-col gap-8 ml-auto max-w-xl w-full translate-x-4">
@@ -574,11 +553,9 @@ export function LoginPage() {
 
       {/* Right Side - Auth Forms Container */}
       <div className="flex items-center justify-start p-6 sm:p-12 xl:p-20 relative overflow-hidden bg-background h-full">
-        {/* High-end ambient mesh gradient behind the form */}
+        {/* Subtle ambient color wash behind the form */}
         <div className="absolute top-0 right-0 w-full h-full overflow-hidden pointer-events-none z-0">
-           <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-blue-500/10 dark:bg-blue-500/5 blur-[100px] animate-blob mix-blend-multiply dark:mix-blend-screen" />
-           <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-purple-500/10 dark:bg-purple-500/5 blur-[120px] animate-blob mix-blend-multiply dark:mix-blend-screen" style={{ animationDelay: '3s' }} />
-           <div className="absolute top-[40%] left-[20%] w-[40%] h-[40%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/5 blur-[100px] animate-blob mix-blend-multiply dark:mix-blend-screen" style={{ animationDelay: '5s' }} />
+           <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[100px]" />
         </div>
 
         <div className="w-full max-w-md space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both -translate-x-4">

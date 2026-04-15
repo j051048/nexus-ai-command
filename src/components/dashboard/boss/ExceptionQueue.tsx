@@ -16,14 +16,14 @@ export function ExceptionQueue({
     isProcessing
 }: ExceptionQueueProps) {
     return (
-        <div className="relative overflow-hidden glass rounded-3xl p-5 sm:p-8 cyber-border transition-all duration-300 h-full flex flex-col">
+        <div className="relative overflow-hidden card-glass rounded-3xl p-5 sm:p-8 border border-border/50 transition-all duration-300 h-full flex flex-col">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-warning to-transparent opacity-50" />
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 relative z-10">
                 <div className="flex items-center gap-4">
                     <div className="relative">
                         <div className="absolute inset-0 bg-warning/20 rounded-2xl blur animate-pulse" />
                         <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-warning/20 to-warning/5 border border-warning/30 flex items-center justify-center shadow-lg">
-                            <AlertTriangle className="w-6 h-6 sm:w-7 sm:h-7 text-warning animate-bounce-subtle" />
+                            <AlertTriangle className="w-6 h-6 sm:w-7 sm:h-7 text-warning" />
                         </div>
                     </div>
                     <div>

@@ -228,7 +228,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
             }}
             aria-expanded={isOpen}
             aria-label={`${title} 分组 ${isOpen ? "收起" : "展开"}`}
-            className="flex items-center justify-between w-full px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
+            className="flex items-center justify-between w-full px-3 py-2 text-micro font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
           >
             {title}
             {isOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -263,7 +263,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                   )}
                 >
                   {isActive(item.href) && (
-                    <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-primary rounded-r-full shadow-[0_0_16px_rgba(59,130,246,0.8)]" />
+                    <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-primary rounded-r-full shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
                   )}
                   <span className={cn("shrink-0 transition-transform duration-300", !isActive(item.href) && "group-hover:scale-110")}>
                     {item.icon}
@@ -272,7 +272,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                     <>
                       <span className="text-sm font-semibold tracking-tight truncate flex-1">{item.label}</span>
                       {badge && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-white/90 text-[10px] font-bold border border-white/5">{badge}</span>
+                        <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-white/90 text-micro font-bold border border-white/5">{badge}</span>
                       )}
                     </>
                   )}
@@ -290,7 +290,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
       data-testid="sidebar-main" 
       aria-label="主要系统导航"
       className={cn(
-        "bg-[#0d0f14]/95 backdrop-blur-xl border-r border-white/5 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
+        "bg-sidebar/95 backdrop-blur-xl border-r border-sidebar-border/30 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
         isCollapsed ? "w-[80px]" : "w-64"
       )}
     >
@@ -304,7 +304,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
         {!isCollapsed && (
           <div className="animate-fade-in">
             <h1 className="text-sm font-extrabold text-white tracking-tight uppercase">Nexus AI</h1>
-            <p className="text-[10px] text-white/40 font-mono font-bold tracking-wider">COMMAND CENTER</p>
+            <p className="text-micro text-white/40 font-mono font-bold tracking-wider">COMMAND CENTER</p>
           </div>
         )}
       </div>
@@ -343,7 +343,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           <div className="px-3 mt-2 border-t border-white/5 pt-2">
             <button
               onClick={() => setShowModuleManager(!showModuleManager)}
-              className="flex items-center justify-between w-full px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
+              className="flex items-center justify-between w-full px-3 py-2 text-micro font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
             >
               <span className="flex items-center gap-1.5">
                 <Puzzle size={10} />
@@ -396,7 +396,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
         )}
       </div>
 
-      <div className="p-4 border-t border-white/10 bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
+      <div className="p-element border-t border-white/10 bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
         <div className={cn("flex flex-col gap-3", !isCollapsed && "px-2")}>
           <div className={cn("flex", isCollapsed ? "justify-center" : "justify-end mb-2")}>
             <ThemeToggle />
@@ -414,7 +414,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
               ) : (
                 <UserIcon className="w-5 h-5 text-primary" />
               )}
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-[#141b2e] rounded-full shadow-[0_0_8px_rgba(74,222,128,0.6)]"></div>
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-sidebar rounded-full shadow-[0_0_8px_rgba(74,222,128,0.6)]"></div>
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0 transition-opacity duration-300">
@@ -425,7 +425,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                   })()}
                 </p>
                 <div className="flex items-center gap-1">
-                  <p className="text-[10px] text-white/50 uppercase font-bold tracking-tighter italic truncate">
+                  <p className="text-micro text-white/50 uppercase font-bold tracking-tighter italic truncate">
                     {role || "顶级精英"}
                   </p>
                   <Settings size={10} className="text-white/20 group-hover:text-primary/60 transition-colors" />
@@ -437,7 +437,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           {!isCollapsed && (
             <button 
               onClick={signOut}
-              className="flex items-center gap-2 mt-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-300 group/logout"
+              className="flex items-center gap-2 mt-1 px-3 py-2 text-micro font-bold uppercase tracking-widest text-white/50 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-300 group/logout"
             >
               <LogOut size={12} className="group-hover:rotate-12 transition-transform" />
               <span>Sign Out Safely</span>
@@ -450,7 +450,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
         onClick={() => setIsCollapsed(!isCollapsed)}
         aria-label={isCollapsed ? "展开侧边栏" : "折叠侧边栏"}
         aria-expanded={!isCollapsed}
-        className="absolute -right-3 top-20 w-6 h-6 bg-primary rounded-full md:flex items-center justify-center text-white shadow-[0_0_16px_rgba(59,130,246,0.5)] hover:scale-110 hover:shadow-[0_0_24px_rgba(59,130,246,0.7)] active:scale-95 transition-all z-50 border-4 border-[#0d0f14] hidden"
+        className="absolute -right-3 top-20 w-6 h-6 bg-primary rounded-full md:flex items-center justify-center text-white shadow-sm shadow-primary/20 hover:scale-110 hover:shadow-md hover:shadow-primary/30 active:scale-95 transition-all z-50 border-4 border-sidebar hidden"
       >
         {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>

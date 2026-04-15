@@ -113,7 +113,7 @@ export function EmployeeApprovalView() {
     return (
         <div className="space-y-6">
             {/* Quick Submit Area */}
-            <div className="bg-gradient-card rounded-2xl p-6 cyber-border relative overflow-hidden">
+            <div className="bg-gradient-card rounded-2xl p-6 border border-border/50 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
                     <Bot size={120} />
                 </div>

@@ -78,7 +78,7 @@ export function RevenueChart() {
   }
 
     return (
-        <div className="relative overflow-hidden glass rounded-3xl p-6 sm:p-8 cyber-border shadow-2xl transition-all duration-300 h-full flex flex-col group">
+        <div className="relative overflow-hidden card-glass rounded-3xl p-6 sm:p-8 border border-border/50 shadow-2xl transition-all duration-300 h-full flex flex-col group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full pointer-events-none group-hover:bg-primary/20 transition-colors duration-700" />
             
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8 relative z-10">

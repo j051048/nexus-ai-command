@@ -31,6 +31,7 @@ export default {
         'body': ['1rem', { lineHeight: '1.5', fontWeight: '400' }],
         'body-sm': ['0.875rem', { lineHeight: '1.5', fontWeight: '400' }],
         'caption': ['0.75rem', { lineHeight: '1.4', fontWeight: '400' }],
+        'micro': ['0.625rem', { lineHeight: '1.4', fontWeight: '400' }],
       },
       spacing: {
         'section': '4rem',

@@ -71,7 +71,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 {/* Chat Panel - Glassy and subtle */}
                 <div className={cn(
                     "flex flex-col transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) h-full relative z-10 border-r border-border",
-                    isChatOpen ? (isCanvasOpen ? "w-[45%] lg:w-[38%]" : "w-full") : "w-0 overflow-hidden opacity-0"
+                    isChatOpen ? (isCanvasOpen ? "w-[45%] lg:w-[38%] xl:w-[35%]" : "w-full") : "w-0 overflow-hidden opacity-0"
                 )}>
                     <EnhancedAIChatPanel
                         isExpanded={isChatOpen}
@@ -84,7 +84,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 <div className={cn(
                     "transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) overflow-hidden flex flex-col relative",
                     isCanvasOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 w-0",
-                    isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[62%]" : "w-full flex-1") : "w-0"
+                    isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[62%] xl:w-[65%]" : "w-full flex-1") : "w-0"
                 )}>
                     {/* Trial Banner */}
                     <TrialBanner />
@@ -112,7 +112,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
 
                     {/* Scrollable Content with Staggered Entrance Container */}
                     <main className="flex-1 overflow-y-auto no-scrollbar p-6 bg-background">
-                        <div className="max-w-[1600px] mx-auto min-h-full pb-20">
+                        <div className="max-w-[1600px] xl:max-w-[1800px] mx-auto min-h-full pb-20">
                             <div className="mb-6 opacity-60">
                                 <Breadcrumbs items={[
                                     { label: 'Nexus AI', href: '/' },

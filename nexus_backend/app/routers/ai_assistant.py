@@ -7,14 +7,13 @@ P0-7: 客户AI记忆摘要
 
 import json
 import logging
-from functools import lru_cache
 from time import time as _time
 
 from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
-from app.core.database import supabase
-from app.core.errors import api_success
+from app.core.dependencies import get_db, get_org_id
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.ai_voice_parser import parse_voice_intent
 from app.services.llm_gateway import get_llm
 
@@ -33,7 +32,8 @@ async def parse_voice(
     user_id: str = Depends(get_current_user_id),
 ):
     """解析语音意图"""
-    org_id = request.headers.get("X-Org-ID", "default")
+    # P0 Security: org_id 从中间件注入的 request.state 获取，不从 header 读取
+    org_id = getattr(request.state, "org_id", None) or "default"
     result = await parse_voice_intent(
         text=text,
         user_id=user_id,
@@ -46,30 +46,66 @@ async def parse_voice(
 async def batch_approval_suggestions(
     request_ids: list[str],
     request: Request,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    db=Depends(get_db),
 ):
     """AI批量审批建议"""
-    # 获取申请详情
-    requests = (
-        await supabase.table("approval_requests")
+    if not request_ids:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "request_ids 不能为空")
+    if len(request_ids) > 50:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "批量审批最多支持50条")
+
+    # P0 Security: 使用 scoped DB client（RLS 隔离），不使用全局 supabase
+    requests_result = (
+        await db.table("approval_requests")
         .select("*")
         .in_("id", request_ids)
         .execute()
     )
 
-    # AI分析
-    org_id = request.headers.get("X-Org-ID", "default")
+    if not requests_result.data:
+        return api_success(data={"approve_count": 0, "reject_count": 0, "reason": "未找到匹配的审批申请"})
+
+    # P0 Security: org_id 从中间件注入的 request.state 获取
+    org_id = getattr(request.state, "org_id", None) or "default"
     llm = get_llm(org_id=org_id)
-    prompt = f"""分析以下{len(requests.data)}个审批申请,给出批量审批建议:
-{[f"{r['title']}: ¥{r.get('amount', 0)}" for r in requests.data]}
+    prompt = f"""分析以下{len(requests_result.data)}个审批申请,给出批量审批建议:
+{[f"{r.get('title', '未命名')}: ¥{r.get('amount', 0)}" for r in requests_result.data]}
 
 返回JSON: {{"approve_count": 数字, "reject_count": 数字, "reason": "原因"}}
 """
 
-    result = await llm.ainvoke(prompt)
-    import json
+    try:
+        result = await llm.ainvoke(prompt)
+        result_text = str(result.content if hasattr(result, "content") else result)
 
-    return json.loads(str(result))
+        # P0 Security: 安全解析 LLM 输出，防止注入
+        clean = result_text.strip()
+        if clean.startswith("```"):
+            clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+            clean = clean.rsplit("```", 1)[0]
+        parsed = json.loads(clean.strip())
+
+        # Schema 校验：只返回预期字段
+        suggestion = {
+            "approve_count": int(parsed.get("approve_count", 0)),
+            "reject_count": int(parsed.get("reject_count", 0)),
+            "reason": str(parsed.get("reason", ""))[:500],
+        }
+        return api_success(data=suggestion)
+
+    except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
+        logger.warning(f"LLM output parse failed for batch-approval: {e}")
+        return api_success(
+            data={
+                "approve_count": 0,
+                "reject_count": len(requests_result.data),
+                "reason": "AI分析结果解析失败，建议人工逐条审批",
+            }
+        )
+    except Exception as e:
+        logger.error(f"Batch approval suggestion failed: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "AI分析失败，请稍后重试")
 
 
 @router.get("/customer-memory-summary/{customer_name}")
@@ -83,7 +119,8 @@ async def get_customer_memory_summary(
     通过客户名称在 conversation_memories 中搜索相关记忆，
     利用 LLM 生成结构化洞察摘要。结果缓存10分钟。
     """
-    org_id = request.headers.get("X-Org-ID", "default")
+    # P0 Security: org_id 从中间件注入的 request.state 获取，不从 header 读取
+    org_id = getattr(request.state, "org_id", None) or "default"
     cache_key = (customer_name.lower(), user_id)
 
     # 检查缓存

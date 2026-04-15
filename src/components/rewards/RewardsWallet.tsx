@@ -33,7 +33,7 @@ export function RewardsWallet() {
 
       {/* Wallet Overview */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2 bg-gradient-card rounded-2xl p-6 cyber-border">
+        <div className="col-span-2 bg-gradient-card rounded-2xl p-6 border border-border/50">
           <div className="flex items-start justify-between mb-6">
             <div>
               <p className="text-sm text-muted-foreground">累计奖金余额</p>

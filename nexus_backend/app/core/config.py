@@ -182,6 +182,12 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_LLM_PER_TENANT: int = Field(
         default=10, description="Max concurrent LLM requests per tenant"
     )
+    # P0: Global system-wide LLM concurrency cap — prevents all tenants
+    # combined from exhausting uvicorn workers
+    GLOBAL_MAX_CONCURRENT_LLM: int = Field(
+        default=50,
+        description="Max total concurrent LLM requests across all tenants (system-wide hard cap)",
+    )
 
     # G5: Token budget / cost circuit-breaker
     TOKEN_BUDGET_MAX_PER_SESSION: int = Field(

@@ -89,7 +89,7 @@ export function NotificationDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] gap-0 p-0 overflow-hidden rounded-2xl cyber-border glass">
+      <DialogContent className="sm:max-w-[500px] gap-0 p-0 overflow-hidden rounded-2xl border border-border/50 card-glass">
         <div className={cn("p-6 flex items-start gap-4 border-b", typeColors[notification.type])}>
           <div className="p-3 rounded-2xl bg-background/50 border border-border/50 shadow-sm">
             {typeIcons[notification.type]}

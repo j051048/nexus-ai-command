@@ -421,7 +421,7 @@ export function BounceBadge({ count, max = 99, className }: BounceBadgeProps) {
       className={cn(
         'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold',
         'bg-destructive text-destructive-foreground rounded-full',
-        shouldBounce && !prefersReducedMotion && 'animate-bounce-subtle',
+        shouldBounce && !prefersReducedMotion && 'animate-bounce',
         className
       )}
     >

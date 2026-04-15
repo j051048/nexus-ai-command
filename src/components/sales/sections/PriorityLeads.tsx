@@ -9,7 +9,7 @@ interface PriorityLeadsProps {
 
 export function PriorityLeads({ leads }: PriorityLeadsProps) {
     return (
-        <div className="bg-gradient-card rounded-2xl p-6 cyber-border relative overflow-hidden group">
+        <div className="bg-gradient-card rounded-2xl p-6 border border-border/50 relative overflow-hidden group">
             {/* Background Decorative Element */}
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-1000" />
 

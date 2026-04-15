@@ -15,7 +15,7 @@ interface AIWeeklyReportProps {
 
 export function AIWeeklyReport({ report }: AIWeeklyReportProps) {
     return (
-        <div className="relative overflow-hidden glass rounded-3xl p-5 sm:p-8 cyber-border shadow-2xl transition-all duration-300">
+        <div className="relative overflow-hidden card-glass rounded-3xl p-5 sm:p-8 border border-border/50 shadow-2xl transition-all duration-300">
             {/* Background glowing orb - Simplified static version for reduced noise */}
             <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 

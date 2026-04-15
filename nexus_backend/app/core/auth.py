@@ -207,10 +207,14 @@ async def get_current_user_id(
 
 
 async def get_current_org_id(request: Request) -> str:
-    """Extract organization ID from X-Org-ID header."""
-    org_id = request.headers.get("X-Org-ID")
+    """Extract organization ID from request state (set by TenantContextMiddleware).
+
+    P0 Security: org_id MUST come from the middleware pipeline (JWT → DB lookup),
+    NOT from a client-supplied X-Org-ID header which can be forged.
+    """
+    org_id = getattr(request.state, "org_id", None)
     if not org_id:
         raise HTTPException(
-            status_code=400, detail="缺少租户ID (Missing X-Org-ID header)"
+            status_code=400, detail="缺少租户上下文 (Missing tenant context — ensure user is authenticated)"
         )
     return org_id

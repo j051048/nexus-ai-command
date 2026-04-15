@@ -460,7 +460,7 @@ if (prefersReducedMotion) {
                     { name: 'animate-pop-in', label: '弹出' },
                     { name: 'animate-blur-fade-in', label: '模糊淡入' },
                     { name: 'animate-rotate-in', label: '旋转进入' },
-                    { name: 'animate-bounce-subtle', label: '轻微弹跳' },
+                    { name: 'animate-bounce', label: '弹跳' },
                     { name: 'animate-glow-pulse', label: '发光脉冲' },
                   ].map((anim, index) => (
                     <div
