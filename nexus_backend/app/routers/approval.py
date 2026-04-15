@@ -48,6 +48,14 @@ class AdvanceDecisionRequest(BaseModel):
     comment: str | None = Field(None, description="审批备注（可选）")
 
 
+class ResubmitRequest(BaseModel):
+    """驳回后重新提交的请求体"""
+
+    description: str | None = Field(None, description="修改后的描述（可选）")
+    amount: float | None = Field(None, ge=0, description="修改后的金额（可选）")
+    form_data: dict[str, Any] | None = Field(None, description="修改后的表单数据（可选）")
+
+
 class SmartSubmitRequest(BaseModel):
     """智能提交审批请求 - 自动匹配工作流链"""
 
@@ -1024,3 +1032,185 @@ async def delete_auto_rule(
             raise
         logger.error("Delete auto rule error: %s", e)
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
+
+
+# ============== 撤回 / 重新提交 ==============
+
+
+@router.post("/{request_id}/recall")
+async def recall_approval(
+    request: Request,
+    request_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    撤回审批申请。
+
+    仅申请人本人可撤回，且仅在 status == 'pending' 时允许。
+    撤回后状态变为 'recalled'。
+    """
+    client = getattr(request.state, "db", None)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
+
+    try:
+        # 查询审批请求
+        result = await (
+            client.table("approval_requests")
+            .select("id, submitted_by, status")
+            .eq("id", request_id)
+            .maybe_single()
+            .execute()
+        )
+        if not result.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "审批请求不存在")
+
+        req = result.data
+
+        # 校验：只有申请人本人可撤回
+        if req.get("submitted_by") != user_id:
+            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "只能撤回自己发起的申请")
+
+        # 校验：只有 pending 状态可撤回
+        if req.get("status") != "pending":
+            raise api_error(
+                ErrorCode.RESOURCE_CONFLICT,
+                "只能撤回待审批状态的申请",
+            )
+
+        # 执行撤回
+        await (
+            client.table("approval_requests")
+            .update({"status": "recalled", "updated_at": datetime.now(UTC).isoformat()})
+            .eq("id", request_id)
+            .eq("status", "pending")  # 乐观锁
+            .execute()
+        )
+
+        # 发布事件
+        try:
+            from app.services.event_bus import EventType, emit
+
+            await emit(
+                EventType.APPROVAL_RECALLED.value,
+                {
+                    "request_id": request_id,
+                    "user_id": user_id,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+        except Exception:
+            pass  # 事件发送失败不影响主流程
+
+        logger.info(f"Approval {request_id} recalled by {user_id}")
+        return api_success(data={"id": request_id, "status": "recalled"}, message="已撤回")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Recall approval error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "撤回操作失败")
+
+
+@router.post("/{request_id}/resubmit")
+async def resubmit_approval(
+    request: Request,
+    request_id: str,
+    body: ResubmitRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    驳回后重新提交审批申请。
+
+    仅申请人本人可重提，且仅在 status 为 'rejected' 或 'pending_resubmit' 时允许。
+    可选修改描述、金额和表单数据，status 重置为 'pending'。
+    """
+    client = getattr(request.state, "db", None)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
+
+    try:
+        # 查询审批请求
+        result = await (
+            client.table("approval_requests")
+            .select("*")
+            .eq("id", request_id)
+            .maybe_single()
+            .execute()
+        )
+        if not result.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "审批请求不存在")
+
+        req = result.data
+
+        # 校验：只有申请人本人可重提
+        if req.get("submitted_by") != user_id:
+            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "只能重新提交自己的申请")
+
+        # 校验：只有被驳回的申请可重提
+        if req.get("status") not in ("rejected", "pending_resubmit"):
+            raise api_error(
+                ErrorCode.RESOURCE_CONFLICT,
+                "只能重新提交被驳回的申请",
+            )
+
+        # 构建更新数据
+        update_data: dict[str, Any] = {
+            "status": "pending",
+            "current_step": req.get("reject_to_step") or 0,
+            "resubmit_count": (req.get("resubmit_count") or 0) + 1,
+            "updated_at": datetime.now(UTC).isoformat(),
+            # 清除上次审批痕迹
+            "approved_by": None,
+            "approved_at": None,
+            "approval_comment": None,
+            "ai_decision": None,
+            "ai_reason": None,
+        }
+
+        # 应用用户修改的字段
+        if body.description is not None:
+            update_data["description"] = body.description
+        if body.amount is not None:
+            update_data["amount"] = body.amount
+        if body.form_data is not None:
+            update_data["form_data"] = body.form_data
+
+        await (
+            client.table("approval_requests")
+            .update(update_data)
+            .eq("id", request_id)
+            .execute()
+        )
+
+        # 发布事件（复用 submitted 事件）
+        try:
+            from app.services.event_bus import EventType, emit
+
+            await emit(
+                EventType.APPROVAL_SUBMITTED.value,
+                {
+                    "request_id": request_id,
+                    "user_id": user_id,
+                    "resubmit": True,
+                    "resubmit_count": update_data["resubmit_count"],
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+        except Exception:
+            pass
+
+        logger.info(
+            f"Approval {request_id} resubmitted by {user_id} "
+            f"(count={update_data['resubmit_count']})"
+        )
+        return api_success(
+            data={"id": request_id, "status": "pending"},
+            message="已重新提交",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Resubmit approval error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "重新提交失败")

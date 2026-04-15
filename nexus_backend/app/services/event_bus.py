@@ -27,6 +27,7 @@ class EventType(Enum):
     APPROVAL_APPROVED = "approval.approved"
     APPROVAL_REJECTED = "approval.rejected"
     APPROVAL_ESCALATED = "approval.escalated"
+    APPROVAL_RECALLED = "approval.recalled"
 
     # Performance Events
     PERFORMANCE_UPDATED = "performance.updated"

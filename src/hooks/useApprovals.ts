@@ -269,3 +269,51 @@ export function useUrgeApproval() {
   });
 }
 
+export function useRecallApproval() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const response = await httpClient.post(`/api/approval/${requestId}/recall`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('已撤回申请');
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+    },
+    onError: (error: Error) => {
+      toast.error('撤回失败: ' + error.message);
+    },
+  });
+}
+
+export function useResubmitApproval() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      description,
+      amount,
+      form_data,
+    }: {
+      requestId: string;
+      description?: string;
+      amount?: number;
+      form_data?: Record<string, unknown>;
+    }) => {
+      const response = await httpClient.post(`/api/approval/${requestId}/resubmit`, {
+        description,
+        amount,
+        form_data,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('已重新提交');
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+    },
+    onError: (error: Error) => {
+      toast.error('重新提交失败: ' + error.message);
+    },
+  });
+}
+
