@@ -249,7 +249,10 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
         return {}
 
     try:
-        from app.agent.memory import persist_result
+        # NOTE: persist_result() is called by stream.py post-processing (with full
+        # completed_tool_calls, metadata, etc.). Do NOT call it here to avoid
+        # duplicate memory/episode saves. This middleware only handles skill
+        # extraction, error learning, and lightweight snapshots.
 
         messages = state.get("messages", [])
         # 获取最后一条用户消息
@@ -260,19 +263,7 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                 break
 
         if user_message:
-            # 异步保存记忆（不阻塞响应）
             import asyncio
-
-            asyncio.create_task(
-                persist_result(
-                    user_id=config.user_id,
-                    session_id=getattr(config, "session_id", ""),
-                    user_message=user_message,
-                    assistant_response=final_response,
-                    org_id=config.org_id,
-                )
-            )
-            logger.debug("[Middleware] Memory update scheduled")
 
             # P0-6: 技能提炼 — 成功的多步工具链自动提炼为可复用技能
             completed = state.get("completed_tool_calls", [])
