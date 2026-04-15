@@ -484,9 +484,11 @@ async def admin_list_pending_bosses(
     user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """列出待审批的Boss申请"""
-    client = req.state.db
+    from app.core.database import supabase
+
+    # Admin 端点需要跨组织查询，使用 service-key client 绕过 RLS
     result = (
-        await client.table("users")
+        await supabase.table("users")
         .select("*")
         .eq("role", "boss")
         .eq("status", "pending")
@@ -501,8 +503,9 @@ async def admin_list_organizations(
     user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """列出所有组织"""
-    client = req.state.db
-    result = await client.table("organizations").select("*").execute()
+    from app.core.database import supabase
+
+    result = await supabase.table("organizations").select("*").execute()
     return api_success(data=result.data or [])
 
 
@@ -513,8 +516,9 @@ async def admin_approve_boss(
     user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """批准Boss申请"""
-    client = req.state.db
-    await client.table("users").update({"status": "approved"}).eq(
+    from app.core.database import supabase
+
+    await supabase.table("users").update({"status": "approved"}).eq(
         "id", target_user_id
     ).execute()
     return api_success({}, message="已批准")
@@ -527,8 +531,9 @@ async def admin_reject_boss(
     user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """拒绝Boss申请"""
-    client = req.state.db
-    await client.table("users").update({"status": "rejected", "role": "employee"}).eq(
+    from app.core.database import supabase
+
+    await supabase.table("users").update({"status": "rejected", "role": "employee"}).eq(
         "id", target_user_id
     ).execute()
     return api_success({}, message="已拒绝")
@@ -541,8 +546,9 @@ async def admin_delete_organization(
     user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """删除组织"""
-    client = req.state.db
-    await client.table("organizations").delete().eq("id", org_id).execute()
+    from app.core.database import supabase
+
+    await supabase.table("organizations").delete().eq("id", org_id).execute()
     return api_success({}, message="组织已删除")
 
 
