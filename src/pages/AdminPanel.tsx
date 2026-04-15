@@ -38,7 +38,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
-import httpClient from '@/lib/httpClient';
+import { httpClient } from '@/lib/httpClient';
 
 // ============== Types ==============
 
