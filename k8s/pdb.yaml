@@ -1,0 +1,23 @@
+# P2-6: PodDisruptionBudget — ensure availability during voluntary disruptions
+# (node drain, cluster upgrade, etc.)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nexus-backend-pdb
+  namespace: nexus-ai
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: nexus-backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nexus-celery-worker-pdb
+  namespace: nexus-ai
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: nexus-celery-worker
