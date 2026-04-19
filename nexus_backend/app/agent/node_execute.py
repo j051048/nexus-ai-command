@@ -545,6 +545,14 @@ async def _execute_single_tool(
         record.result = "Error: 工具服务断路器已打开，请稍后重试。"
         return record
 
+    # 0b. P0-9: Redis-backed cross-worker loop circuit breaker
+    from app.agent.loop_detector import record_tool_call_redis
+
+    if await record_tool_call_redis(config.session_id, record.tool_name):
+        record.status = "error"
+        record.result = f"Error: 工具 '{record.tool_name}' 在本会话中调用次数过多，已触发熔断。"
+        return record
+
     # 1. RBAC Check — delegated to unified tool_rbac module (single authority)
     from app.core.tool_rbac import check_tool_access
 
@@ -634,6 +642,25 @@ async def _execute_single_tool(
             record.duration_ms = 0
             logger.info(f"[QueryCache] Hit for {record.tool_name}, skipping execution")
             return record
+
+    # 2b-pre. P0-6: Prompt Firewall — scan string args for injection payloads
+    from app.core.prompt_firewall import prompt_firewall, RiskLevel
+
+    for arg_key, arg_val in (record.tool_args or {}).items():
+        if isinstance(arg_val, str) and len(arg_val) > 10:
+            fw_result = await prompt_firewall.scan_input(
+                arg_val, user_id=config.user_id, context={"source": "tool_arg", "tool": record.tool_name}
+            )
+            if not fw_result.is_safe and fw_result.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL):
+                record.status = "blocked"
+                record.result = (
+                    f"⚠️ 工具参数 '{arg_key}' 包含可疑注入内容，已拦截。"
+                )
+                logger.warning(
+                    f"[Execute] Firewall blocked tool_arg {record.tool_name}.{arg_key}: "
+                    f"risk={fw_result.risk_level}"
+                )
+                return record
 
     # 2b. Schema Validation — 强制验证 LLM 生成的参数符合工具声明的 JSON Schema
     try:

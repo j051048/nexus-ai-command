@@ -124,13 +124,12 @@ class TokenBudgetManager:
         return f"tkbudget:{dimension}:{entity_id}"
 
     async def _incr(self, key: str, amount: float, ttl: int) -> float:
-        """Atomic increment with TTL. Uses Redis if available, else in-memory."""
+        """Atomic increment with TTL. Fail-closed: Redis failure returns infinity."""
         redis = await self._get_redis()
         if redis:
             try:
                 pipe = redis.pipeline()
                 if isinstance(amount, float):
-                    # Use INCRBYFLOAT for cost
                     pipe.incrbyfloat(key, amount)
                 else:
                     pipe.incrby(key, int(amount))
@@ -138,17 +137,21 @@ class TokenBudgetManager:
                 results = await pipe.execute()
                 return float(results[0])
             except Exception as e:
-                logger.warning(f"[TokenBudget] Redis incr failed, using memory: {e}")
+                logger.warning(f"[TokenBudget] Redis incr failed — fail-closed: {e}")
+                return float("inf")
         return await self._memory_store.incr_by(key, amount, ttl)
 
     async def _get(self, key: str) -> float:
+        """Get counter value. Fail-closed: Redis failure returns infinity to block requests."""
         redis = await self._get_redis()
         if redis:
             try:
                 val = await redis.get(key)
                 return float(val) if val else 0
             except Exception as e:
-                logger.warning("[TokenBudget] Redis get failed for %s: %s", key, e)
+                logger.warning("[TokenBudget] Redis get failed for %s: %s — fail-closed", key, e)
+                return float("inf")
+        return await self._memory_store.get_val(key)
 
     async def check_budget(
         self,

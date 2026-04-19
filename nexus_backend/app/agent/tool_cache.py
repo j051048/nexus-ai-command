@@ -34,21 +34,25 @@ class ToolCache:
     """工具调用缓存"""
 
     @staticmethod
-    def _cache_key(tool_name: str, args: dict) -> str:
-        """生成缓存键"""
+    def _cache_key(tool_name: str, args: dict, org_id: str) -> str:
+        """生成缓存键 (P0-2: 必须包含 org_id 防止跨租户缓存命中)"""
         args_str = json.dumps(args, sort_keys=True, ensure_ascii=False)
         hash_val = hashlib.md5(args_str.encode()).hexdigest()
-        return f"tool_cache:{tool_name}:{hash_val}"
+        return f"tool_cache:{org_id}:{tool_name}:{hash_val}"
 
     async def get_or_execute(
-        self, tool_name: str, args: dict, executor: Callable
+        self, tool_name: str, args: dict, executor: Callable, org_id: str = ""
     ) -> Any:
         """获取缓存或执行工具"""
         # 只缓存只读工具
         if tool_name not in READ_ONLY_TOOLS:
             return await executor()
 
-        cache_key = self._cache_key(tool_name, args)
+        # P0-2: 无 org_id 时不使用缓存，防止跨租户泄露
+        if not org_id:
+            return await executor()
+
+        cache_key = self._cache_key(tool_name, args, org_id)
 
         # 尝试从缓存获取
         cached = await cache_service.get(cache_key)

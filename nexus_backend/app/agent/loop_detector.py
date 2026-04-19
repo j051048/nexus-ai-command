@@ -112,3 +112,28 @@ def detect_loop(state: "AgentState") -> bool:
                 return True
 
     return False
+
+
+async def record_tool_call_redis(session_id: str, tool_name: str) -> bool:
+    """P0-9: Redis-backed cross-worker circuit breaker.
+
+    Records tool call count per session in Redis. Returns True if breaker tripped.
+    TTL = 1 hour (sessions rarely last longer for a single invocation chain).
+    """
+    try:
+        from app.services.cache_service import cache_service
+
+        if not (cache_service._use_redis and cache_service._client):
+            return False
+        key = f"loop_detect:{session_id}:{tool_name}"
+        count = await cache_service._client.incr(key)
+        if count == 1:
+            await cache_service._client.expire(key, 3600)
+        if count >= GLOBAL_CIRCUIT_BREAKER:
+            logger.warning(
+                f"[LoopDetect] Redis circuit breaker: {tool_name} x{count} in session {session_id[:8]}"
+            )
+            return True
+    except Exception as e:
+        logger.debug(f"[LoopDetect] Redis record skipped: {e}")
+    return False

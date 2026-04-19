@@ -72,6 +72,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Schema validation skipped: {e}")
 
+    # P0-5: Startup assert — verify _get_client rejects calls without tenant context
+    from app.tools._shared import _get_client
+
+    try:
+        _get_client({})
+        logger.critical("[SECURITY] _get_client({}) did NOT raise — service_role leak!")
+        raise SystemExit(1)
+    except PermissionError:
+        logger.info("Tenant isolation guard verified (_get_client rejects empty config)")
+    except RuntimeError:
+        # Database not configured — acceptable in test/CI
+        logger.info("Tenant isolation guard: DB not configured (acceptable in CI)")
+
     # #18: 自动执行数据库迁移
     # Item 19: Production默认不执行迁移，使用CI/CD管线；开发环境保持自动
     _run_migrations = os.environ.get(

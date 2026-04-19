@@ -320,10 +320,10 @@ async def sse_endpoint(request: Request, user_id: str = Depends(get_current_user
             yield f"event: endpoint\ndata: {messages_url}\n\n"
 
             # Keep connection alive, forward queued responses
+            # P0-8: keepalive 每 10s 一次,避免 Nginx 60s / Vercel 25s 空闲断连
             while True:
                 try:
-                    # Wait for messages with keepalive ping every 30s
-                    data = await asyncio.wait_for(session.queue.get(), timeout=30.0)
+                    data = await asyncio.wait_for(session.queue.get(), timeout=10.0)
                     payload = json.dumps(data, ensure_ascii=False)
                     yield f"event: message\ndata: {payload}\n\n"
                 except TimeoutError:

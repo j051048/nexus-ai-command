@@ -9,11 +9,9 @@ from app.core.cache import cache
 logger = logging.getLogger(__name__)
 
 
-def _generate_cache_key(user_id: str, query: str, org_id: str = None) -> str:
-    """Generate cache key from user query."""
-    key_parts = [user_id, query.strip().lower()]
-    if org_id:
-        key_parts.append(org_id)
+def _generate_cache_key(user_id: str, query: str, org_id: str = "") -> str:
+    """Generate cache key from user query. P0-2: org_id always included to prevent cross-tenant hits."""
+    key_parts = [org_id or "_no_org", user_id, query.strip().lower()]
     key_str = ":".join(key_parts)
     return f"agent_result:{hashlib.md5(key_str.encode()).hexdigest()}"
 

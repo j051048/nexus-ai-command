@@ -292,10 +292,12 @@ def cleanup_stale_embeddings():
         total_expired = 0
 
         for org_id in org_ids:
+            # P0-1: Use org-scoped client for per-tenant operations
+            org_client = supabase.get_org_filtered_client(org_id)
             try:
                 # Check for stale embeddings (default 30 days)
                 stale_docs = await vs.check_staleness(
-                    org_id, staleness_days=30, db=supabase
+                    org_id, staleness_days=30, db=org_client
                 )
                 total_stale += len(stale_docs)
 
@@ -308,7 +310,7 @@ def cleanup_stale_embeddings():
                 # Clean up expired embeddings (where expires_at < now)
                 try:
                     expired_res = (
-                        await supabase.table("document_embeddings")
+                        await org_client.table("document_embeddings")
                         .select("id, document_id")
                         .eq("organization_id", org_id)
                         .lt("expires_at", datetime.now().isoformat())
@@ -320,7 +322,7 @@ def cleanup_stale_embeddings():
 
                     for chunk in expired:
                         try:
-                            await supabase.table("document_embeddings").delete().eq(
+                            await org_client.table("document_embeddings").delete().eq(
                                 "id", chunk["id"]
                             ).execute()
                             total_expired += 1
@@ -629,6 +631,8 @@ def decompose_vmd_task(task_id: str):
 
         # 3. Create vmd_sub_task records (批量插入替代逐条 INSERT)
         tenant_id = task.get("tenant_id", "default")
+        # P0-1: Use org-scoped client for write operations
+        org_client = supabase.get_org_filtered_client(tenant_id) if tenant_id != "default" else supabase
         records = []
         for idx, st in enumerate(sub_tasks_data):
             records.append(
@@ -643,7 +647,7 @@ def decompose_vmd_task(task_id: str):
                 }
             )
         try:
-            await supabase.table("vmd_sub_task").insert(records).execute()
+            await org_client.table("vmd_sub_task").insert(records).execute()
             created_count = len(records)
         except Exception as e:
             logger.error(
@@ -652,7 +656,7 @@ def decompose_vmd_task(task_id: str):
             created_count = 0
             for sub_record in records:
                 try:
-                    await supabase.table("vmd_sub_task").insert(sub_record).execute()
+                    await org_client.table("vmd_sub_task").insert(sub_record).execute()
                     created_count += 1
                 except Exception as e2:
                     logger.error(f"decompose_vmd_task: failed to create sub-task: {e2}")
@@ -669,7 +673,7 @@ def decompose_vmd_task(task_id: str):
         }
 
         await (
-            supabase.table("vmd_main_task")
+            org_client.table("vmd_main_task")
             .update(
                 {
                     "status": "executing",

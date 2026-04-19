@@ -28,8 +28,35 @@ _sse_lock = asyncio.Lock()
 async def _error_stream(msg: str):
     import json
 
+    # P0-8: 即便是错误流也先推一个心跳,防止代理拒绝空 body
+    yield ": keepalive\n\n"
     yield f"data: {json.dumps({'choices': [{'delta': {'content': msg}}]}, ensure_ascii=False)}\n\n"
     yield "data: [DONE]\n\n"
+
+
+async def _keepalive_wrap(inner, interval: float = 15.0):
+    """P0-8: 通用 SSE 心跳包装器。每 interval 秒无事件则发送一个 comment,
+    防止 Nginx 60s / Vercel 25s 空闲断连。"""
+    import asyncio as _asyncio
+    aiter = inner.__aiter__()
+    fetch = None
+    try:
+        while True:
+            if fetch is None:
+                fetch = _asyncio.create_task(aiter.__anext__())
+            done, _pending = await _asyncio.wait([fetch], timeout=interval)
+            if done:
+                try:
+                    chunk = fetch.result()
+                    fetch = None
+                    yield chunk
+                except StopAsyncIteration:
+                    break
+            else:
+                yield ": keepalive\n\n"
+    finally:
+        if fetch and not fetch.done():
+            fetch.cancel()
 
 
 @router.post("/chat")
@@ -224,6 +251,8 @@ async def chat(
                 async def _cache_stream(text: str):
                     import json
 
+                    # P0-8: 首帧先发心跳,避免代理在 LLM 缓存查询耗时期间断连
+                    yield ": keepalive\n\n"
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n"
                     yield "data: [DONE]\n\n"
 

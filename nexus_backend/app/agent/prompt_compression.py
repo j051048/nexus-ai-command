@@ -49,7 +49,34 @@ _SUMMARY_TOKENS_CEILING = 4000  # Ceiling: cap even for very large contexts
 
 # Compression failure cooldown (seconds)
 _SUMMARY_FAILURE_COOLDOWN_SECONDS = 300
-_last_summary_failure_time: float = 0.0
+_COOLDOWN_REDIS_KEY = "prompt_compress:failure_cooldown"
+
+
+async def _is_in_cooldown() -> bool:
+    """Check if summarization is in cooldown (Redis-backed, cross-worker)."""
+    try:
+        from app.services.cache_service import cache_service
+
+        if cache_service._use_redis and cache_service._client:
+            val = await cache_service._client.get(_COOLDOWN_REDIS_KEY)
+            return val is not None
+    except Exception:
+        pass
+    return False
+
+
+async def _set_cooldown() -> None:
+    """Set cooldown flag in Redis with TTL (cross-worker consistent)."""
+    try:
+        from app.services.cache_service import cache_service
+
+        if cache_service._use_redis and cache_service._client:
+            await cache_service._client.set(
+                _COOLDOWN_REDIS_KEY, "1", ex=_SUMMARY_FAILURE_COOLDOWN_SECONDS
+            )
+            return
+    except Exception:
+        pass
 
 # Anti-redo prefix injected into compression summaries.
 # Prevents the model from re-executing tasks mentioned in the summary.
@@ -636,8 +663,6 @@ async def compress_conversation_history(
     Returns:
         Compressed message list. If compression is not needed, returns original list unchanged.
     """
-    global _last_summary_failure_time
-
     if not messages:
         return messages
 
@@ -681,14 +706,13 @@ async def compress_conversation_history(
             existing_summary = content
             break
 
-    # Compression failure cooldown check
-    now = time.time()
-    in_cooldown = (now - _last_summary_failure_time) < _SUMMARY_FAILURE_COOLDOWN_SECONDS
+    # Compression failure cooldown check (P0-10: Redis-backed, cross-worker)
+    in_cooldown = await _is_in_cooldown()
 
     if in_cooldown:
         logger.info(
             "[PromptCompression] In cooldown after previous failure, "
-            f"skipping LLM summarization ({int(_SUMMARY_FAILURE_COOLDOWN_SECONDS - (now - _last_summary_failure_time))}s remaining)"
+            "skipping LLM summarization"
         )
         summary = None
     elif existing_summary:
@@ -699,7 +723,7 @@ async def compress_conversation_history(
             )
         except Exception as e:
             logger.warning(f"[PromptCompression] Incremental update failed: {e}")
-            _last_summary_failure_time = time.time()
+            await _set_cooldown()
             summary = None
         # Remove the old summary from system_msgs to avoid duplication
         system_msgs = [
@@ -718,7 +742,7 @@ async def compress_conversation_history(
             )
         except Exception as e:
             logger.warning(f"[PromptCompression] Summarization failed: {e}")
-            _last_summary_failure_time = time.time()
+            await _set_cooldown()
             summary = None
 
     # Reconstruct compressed message list
