@@ -1,6 +1,5 @@
 """
-Agent 超时控制装饰器
-放在 nexus_backend/app/core/timeout.py
+Agent 超时控制装饰器 + 复杂度分级 SLO
 """
 
 import asyncio
@@ -12,6 +11,20 @@ from typing import Any, TypeVar
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# P1: 延迟 SLO — 按复杂度分级超时 (秒)
+COMPLEXITY_TIMEOUT: dict[str, int] = {
+    "SIMPLE": 15,
+    "MODERATE": 30,
+    "COMPLEX": 60,
+    "MULTI_AGENT": 120,
+}
+
+DEFAULT_TIMEOUT = 60
+
+
+def get_timeout_for_complexity(complexity: str) -> int:
+    return COMPLEXITY_TIMEOUT.get(complexity, DEFAULT_TIMEOUT)
 
 
 def with_timeout(seconds: int = 60):
@@ -41,7 +54,27 @@ def with_timeout(seconds: int = 60):
     return decorator
 
 
-# 使用示例（在 graph.py 或 nodes.py 中）:
-# @with_timeout(seconds=120)  # Agent 最多执行 2 分钟
-# async def run_agent(state):
-#     ...
+def with_complexity_timeout(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    根据 AgentState 中的 complexity 字段动态选择超时时间。
+    用于 AgentGraph.run() — 第二个参数 initial_state 需包含 complexity。
+    """
+
+    @functools.wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> T:
+        initial_state = args[1] if len(args) > 1 else kwargs.get("initial_state", {})
+        complexity = initial_state.get("complexity", "MODERATE")
+        timeout = get_timeout_for_complexity(complexity)
+
+        try:
+            return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout)
+        except TimeoutError:
+            logger.error(
+                f"Agent 执行超时: complexity={complexity}, timeout={timeout}s",
+                extra={"complexity": complexity, "timeout": timeout},
+            )
+            raise TimeoutError(
+                f"Agent 执行超时 ({timeout}秒, 复杂度={complexity})，请简化请求或稍后重试"
+            )
+
+    return wrapper

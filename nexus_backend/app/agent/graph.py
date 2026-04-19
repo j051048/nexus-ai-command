@@ -102,7 +102,7 @@ from app.agent.state import (
 )
 from app.core.agent_metrics import record_agent_execution
 from app.core.config import settings
-from app.core.timeout import with_timeout
+from app.core.timeout import with_complexity_timeout, with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -884,7 +884,7 @@ class AgentGraph:
         increment_tool_schema_version()
         logger.info("[AgentGraph] Graph marked for reload on next access")
 
-    @with_timeout(120)
+    @with_complexity_timeout
     async def run(
         self, initial_state: AgentState, thread_id: str = "default"
     ) -> AgentState:

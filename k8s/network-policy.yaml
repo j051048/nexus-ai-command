@@ -1,0 +1,44 @@
+# P1: NetworkPolicy — restrict traffic to nexus-ai namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nexus-backend-netpol
+  namespace: nexus-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: nexus-backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    - to: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nexus-celery-netpol
+  namespace: nexus-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: nexus-celery-worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: nexus-backend
+  egress:
+    - to: []
