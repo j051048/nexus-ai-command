@@ -232,6 +232,11 @@ class ChatService:
         initial_state = await prepare_initial_state(
             raw_messages, system_prompt, agent_config,
         )
+        # P1 Fix: prepare_initial_state does not return 'config'; graph nodes
+        # (node_respond/node_reflect/router/...) rely on state["config"].
+        # Without this, background invocations (proactive scheduler, scheduled
+        # tasks) fail with KeyError: 'config' and metrics lose user_id/org_id.
+        initial_state["config"] = agent_config
 
         graph = get_agent_graph()
         thread_id = f"{org_id}::{session_id}"

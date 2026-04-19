@@ -92,6 +92,7 @@ async def prepare_initial_state(
     # P1 Fix #22: Add HyDE and Multi-Query for better retrieval
     if config.enable_rag_inject and last_user_msg:
         try:
+            from app.agent.node_helpers import QueryComplexity
             from app.services.vector_service import vector_service
 
             # Initialize query transformer
@@ -108,8 +109,6 @@ async def prepare_initial_state(
             # 按复杂度自动升级（config 显式设置优先）
             complexity = state.get("complexity") if state else None
             if not getattr(config, "_query_transform_override", False) and complexity:
-                from app.agent.node_helpers import QueryComplexity
-
                 if complexity == QueryComplexity.CRITICAL:
                     use_hyde = True
                     use_multi_query = True
