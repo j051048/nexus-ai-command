@@ -121,7 +121,6 @@ try:
             "knowledge_graph_triples",
             "entity_aliases",
             "agent_traces",
-            "tenant_credits",
             "semantic_cache",
             "webhook_subscriptions",
             "installed_plugins",

@@ -153,7 +153,7 @@ async def get_usage(
             .maybe_single()
             .execute()
         )
-        quota = quota_res.data or {}
+        quota = (quota_res.data if quota_res else None) or {}
 
         # Read credits
         credit_res = (
@@ -162,7 +162,7 @@ async def get_usage(
             .eq("org_id", org_id)
             .execute()
         )
-        credits = credit_res.data or []
+        credits = (credit_res.data if credit_res else None) or []
 
         # Build usage stats
         monthly_token = next(
