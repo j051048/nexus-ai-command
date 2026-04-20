@@ -124,6 +124,7 @@ class SearchLongTermMemoryTool(BaseTool):
                     )
 
             # 搜索组织共享记忆 (Org Memory)
+            org_memories = []
             if org_id:
                 org_memories = await conversation_memory_service.search_org_memories(
                     org_id=org_id,
@@ -149,10 +150,10 @@ class SearchLongTermMemoryTool(BaseTool):
                 )
 
             logger.info(
-                f"[SearchMemoryTool] Found {len(memories)} personal and {len(org_memories) if org_id else 0} org memories for query '{query}'"
+                f"[SearchMemoryTool] Found {len(memories)} personal and {len(org_memories)} org memories for query '{query}'"
             )
             return self.format_result(
-                data={"query": query, "personal": memories, "org": org_memories if org_id else []},
+                data={"query": query, "personal": memories, "org": org_memories},
                 summary="\n".join(results),
             )
 

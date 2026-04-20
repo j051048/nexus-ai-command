@@ -285,12 +285,13 @@ async def get_customer_memory_summary(
         if db is None:
             raise api_error(ErrorCode.AUTH_ROLE_REQUIRED, "租户上下文缺失，请重新登录")
 
-        # 按内容关键字搜索
+        # 按内容关键字搜索（转义 LIKE 通配符防止模式注入）
+        safe_name = customer_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         result = (
             await db.table("conversation_memories")
             .select("content, category, created_at")
             .eq("user_id", user_id)
-            .ilike("content", f"%{customer_name}%")
+            .ilike("content", f"%{safe_name}%")
             .order("created_at", desc=True)
             .limit(20)
             .execute()
@@ -349,8 +350,11 @@ async def get_task_result(
     entry = _task_results[task_id]
     data = entry["data"]
 
-    # 完成或出错后清理（客户端已拿到结果）
+    # 完成或出错后标记已读，第二次轮询再清理（容忍一次网络重试）
     if data.get("status") in ("completed", "error"):
-        _task_results.pop(task_id, None)
+        if entry.get("_read_once"):
+            _task_results.pop(task_id, None)
+        else:
+            entry["_read_once"] = True
 
     return api_success(data=data)
