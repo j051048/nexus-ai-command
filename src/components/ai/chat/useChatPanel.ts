@@ -456,32 +456,6 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
     if (!isExpanded && isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); }
   }, [isExpanded, isRecording]);
 
-  // Load chat history
-  const loadHistory = useCallback(async () => {
-    const greeting: AIMessage = user.role === 'boss'
-      ? { id: '1', role: 'assistant', content: `早上好，${user.name}！📊\n\n我是您的AI助手，随时为您服务。\n您可以问我：\n• 有哪些待审批事项？\n• 本周销售情况如何？\n• 查看经营数据报表\n\n有什么需要了解的？`, timestamp: new Date(), agent: '@企业小助手' }
-      : { id: '1', role: 'assistant', content: `早上好，${user.name}！我是您的AI助手 🚀\n\n您可以问我：\n• 今天有什么待办事项？\n• 帮我查看商机进展\n• 我的绩效数据\n\n有什么我可以帮您的？`, timestamp: new Date(), agent: '@销售指挥官' };
-    try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-      if (!API_BASE) { setMessages([greeting]); return; }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) { setMessages([greeting]); return; }
-      const res = await fetch(`${API_BASE}/api/history/${sessionId}?limit=50`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (!res.ok) { setMessages([greeting]); return; }
-      const json = await res.json();
-      const rawMessages = json?.data?.messages;
-      if (!Array.isArray(rawMessages) || rawMessages.length === 0) { setMessages([greeting]); return; }
-      const loaded: AIMessage[] = rawMessages.map((m: Record<string, unknown>) => ({
-        id: String(m.id), role: m.role as 'user' | 'assistant', content: String(m.content || ''),
-        timestamp: new Date(m.created_at as string), agent: m.agent as string | undefined,
-      }));
-      setMessages([greeting, ...loaded]);
-    } catch { setMessages([greeting]); }
-  }, [user.role, user.name, sessionId]);
-
-  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   // Load proactive messages from DB
   useEffect(() => {
