@@ -1,0 +1,349 @@
+# 意图识别回归测试黄金数据集
+# 验证维度: complexity + agent_role + multi_agent
+# CI 门禁: 总通过率 >= 90%, CRITICAL 类 >= 95%
+#
+# 断言模式:
+#   expected_complexity: 精确匹配
+#   expected_complexity_min: >= 匹配
+#   expected_complexity_not: != 匹配
+
+version: "1.0"
+pass_threshold: 0.90
+critical_threshold: 0.95
+
+test_cases:
+  # ═══════════════════════════════════════════════════════════════
+  # SIMPLE — 问候/闲聊/自我介绍
+  # ═══════════════════════════════════════════════════════════════
+  - id: s_001
+    user_message: "你好"
+    expected_complexity: "simple"
+    tags: ["greeting"]
+
+  - id: s_002
+    user_message: "hi"
+    expected_complexity: "simple"
+    tags: ["greeting", "english"]
+
+  - id: s_003
+    user_message: "你是谁？你能做什么？"
+    expected_complexity: "simple"
+    tags: ["self_description"]
+
+  - id: s_004
+    user_message: "今天天气真好"
+    expected_complexity_not: "critical"
+    tags: ["chitchat"]
+
+  - id: s_005
+    user_message: "哈哈哈"
+    expected_complexity: "simple"
+    tags: ["chitchat"]
+
+  - id: s_006
+    user_message: "谢谢"
+    expected_complexity: "simple"
+    tags: ["greeting"]
+
+  - id: s_007
+    user_message: "早上好呀"
+    expected_complexity: "simple"
+    tags: ["greeting"]
+
+  - id: s_008
+    user_message: "你好厉害"
+    expected_complexity: "simple"
+    tags: ["chitchat"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # MODERATE — 单工具查询/状态查看
+  # ═══════════════════════════════════════════════════════════════
+  - id: m_001
+    user_message: "查看我的考勤记录"
+    expected_complexity: "moderate"
+    tags: ["attendance"]
+
+  - id: m_002
+    user_message: "帮我请假三天"
+    expected_complexity_min: "moderate"
+    tags: ["leave"]
+
+  - id: m_003
+    user_message: "查询本月预算剩余"
+    expected_complexity_min: "moderate"
+    tags: ["finance"]
+
+  - id: m_004
+    user_message: "帮我查一下张三的客户信息"
+    expected_complexity_min: "moderate"
+    tags: ["crm"]
+
+  - id: m_005
+    user_message: "本月成交了多少单"
+    expected_complexity_min: "moderate"
+    tags: ["sales"]
+
+  - id: m_006
+    user_message: "查看审批记录"
+    expected_complexity: "moderate"
+    tags: ["approval", "query_verb_downgrade"]
+
+  - id: m_007
+    user_message: "我的项目进度怎么样了"
+    expected_complexity_min: "moderate"
+    tags: ["project"]
+
+  - id: m_008
+    user_message: "查一下知识库里关于退货政策的内容"
+    expected_complexity_min: "moderate"
+    tags: ["knowledge"]
+
+  - id: m_009
+    user_message: "上次我们聊了什么"
+    expected_complexity_not: "critical"
+    tags: ["memory_recall"]
+
+  - id: m_010
+    user_message: "之前讨论的方案是什么"
+    expected_complexity_not: "critical"
+    tags: ["memory_recall"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # COMPLEX — 多步分析/报告/对比
+  # ═══════════════════════════════════════════════════════════════
+  - id: c_001
+    user_message: "分析Q1销售漏斗转化率"
+    expected_complexity_min: "complex"
+    tags: ["sales", "analysis"]
+
+  - id: c_002
+    user_message: "对比去年同期营收趋势"
+    expected_complexity_min: "complex"
+    tags: ["finance", "analysis"]
+
+  - id: c_003
+    user_message: "生成竞品分析报告"
+    expected_complexity_min: "complex"
+    tags: ["sales", "report"]
+
+  - id: c_004
+    user_message: "生成团队绩效排名报告"
+    expected_complexity_min: "complex"
+    tags: ["hr", "report"]
+
+  - id: c_005
+    user_message: "写一篇关于AI在销售领域应用的深度分析"
+    expected_complexity_min: "complex"
+    tags: ["content", "longform"]
+
+  - id: c_006
+    user_message: "统计各部门本季度费用占比并给出优化建议"
+    expected_complexity_min: "complex"
+    tags: ["finance", "analysis"]
+
+  - id: c_007
+    user_message: "预测下个季度的销售额"
+    expected_complexity_min: "complex"
+    tags: ["sales", "prediction"]
+
+  - id: c_008
+    user_message: "对比三家供应商的报价和交付能力"
+    expected_complexity_min: "complex"
+    tags: ["procurement", "analysis"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # CRITICAL — 审批/财务变更/HR敏感操作
+  # ═══════════════════════════════════════════════════════════════
+  - id: cr_001
+    user_message: "批准张三的报销申请"
+    expected_complexity: "critical"
+    tags: ["approval", "critical"]
+
+  - id: cr_002
+    user_message: "提交报销申请"
+    expected_complexity: "critical"
+    tags: ["expense", "critical"]
+
+  - id: cr_003
+    user_message: "解雇张三"
+    expected_complexity: "critical"
+    tags: ["hr", "critical"]
+
+  - id: cr_004
+    user_message: "调岗李四到市场部"
+    expected_complexity: "critical"
+    tags: ["hr", "critical"]
+
+  - id: cr_005
+    user_message: "批准李四的5万元合同"
+    expected_complexity: "critical"
+    tags: ["approval", "critical"]
+
+  - id: cr_006
+    user_message: "驳回这个审批"
+    expected_complexity: "critical"
+    tags: ["approval", "critical"]
+
+  - id: cr_007
+    user_message: "批准裁员方案并发布公告"
+    expected_complexity: "critical"
+    tags: ["announcement", "critical"]
+
+  - id: cr_008
+    user_message: "删除所有过期数据"
+    expected_complexity: "critical"
+    tags: ["data_deletion", "critical"]
+
+  - id: cr_009
+    user_message: "执行转账操作"
+    expected_complexity: "critical"
+    tags: ["payment", "critical"]
+
+  - id: cr_010
+    user_message: "降职王五"
+    expected_complexity: "critical"
+    tags: ["hr", "critical"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # VMD Agent 角色路由
+  # ═══════════════════════════════════════════════════════════════
+  - id: vmd_001
+    user_message: "帮我写一篇白皮书"
+    expected_complexity_min: "complex"
+    expected_agent: "content_agent"
+    tags: ["vmd", "content"]
+
+  - id: vmd_002
+    user_message: "设计一张产品海报"
+    expected_complexity_min: "moderate"
+    expected_agent: "design_agent"
+    tags: ["vmd", "design"]
+
+  - id: vmd_003
+    user_message: "制定媒介投放计划"
+    expected_complexity_min: "moderate"
+    expected_agent: "media_agent"
+    tags: ["vmd", "media"]
+
+  - id: vmd_004
+    user_message: "线索获取和客户拓展"
+    expected_complexity_min: "moderate"
+    expected_agent: "clue_agent"
+    tags: ["vmd", "clue"]
+
+  - id: vmd_005
+    user_message: "准备一套销售话术"
+    expected_complexity_min: "moderate"
+    expected_agent: "sales_agent"
+    tags: ["vmd", "sales"]
+
+  - id: vmd_006
+    user_message: "监控品牌舆情"
+    expected_complexity_min: "moderate"
+    expected_agent: "pr_agent"
+    tags: ["vmd", "pr"]
+
+  - id: vmd_007
+    user_message: "检查广告合规性"
+    expected_complexity_min: "moderate"
+    expected_agent: "compliance_agent"
+    tags: ["vmd", "compliance"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # 多 Agent 编排
+  # ═══════════════════════════════════════════════════════════════
+  - id: ma_001
+    user_message: "制定完整的Q3营销方案，包括内容、设计和投放"
+    expected_complexity_min: "complex"
+    expected_agent: "director_agent"
+    expected_multi_agent: true
+    tags: ["vmd", "multi_agent"]
+
+  - id: ma_002
+    user_message: "制定一个完整的推广方案，包括内容创作、视觉设计和媒介投放"
+    expected_complexity_min: "complex"
+    expected_agent: "director_agent"
+    expected_multi_agent: true
+    tags: ["vmd", "multi_agent"]
+
+  - id: ma_003
+    user_message: "做一个整合营销全案，涵盖竞品分析、内容策划和渠道投放"
+    expected_complexity_min: "complex"
+    expected_agent: "director_agent"
+    expected_multi_agent: true
+    tags: ["vmd", "multi_agent"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # 边缘案例
+  # ═══════════════════════════════════════════════════════════════
+
+  # 否定前缀 — "不需要报销" 不应触发 CRITICAL
+  - id: edge_001
+    user_message: "不需要报销了"
+    expected_complexity_not: "critical"
+    tags: ["negation", "edge_case"]
+
+  - id: edge_002
+    user_message: "算了不审批了"
+    expected_complexity: "simple"
+    tags: ["negation", "edge_case"]
+
+  # 查询动词降级 — "查看审批" vs "批准审批"
+  - id: edge_003
+    user_message: "看看有哪些待审批的"
+    expected_complexity: "moderate"
+    tags: ["query_verb_downgrade"]
+
+  - id: edge_004
+    user_message: "查看报销记录"
+    expected_complexity: "moderate"
+    tags: ["query_verb_downgrade"]
+
+  # 中英混合
+  - id: edge_005
+    user_message: "帮我check一下CRM里的leads"
+    expected_complexity_min: "moderate"
+    tags: ["mixed_lang"]
+
+  - id: edge_006
+    user_message: "帮我generate一份竞品分析report"
+    expected_complexity_min: "complex"
+    tags: ["mixed_lang"]
+
+  # emoji
+  - id: edge_007
+    user_message: "👋"
+    expected_complexity: "simple"
+    tags: ["emoji"]
+
+  # 超长输入
+  - id: edge_008
+    user_message: "我想了解一下我们公司目前在华东地区的销售情况，包括各个城市的成交量、客户数量、平均客单价，以及和去年同期的对比分析，最好能给出一些改进建议"
+    expected_complexity_min: "complex"
+    tags: ["long_input"]
+
+  # 误分类防护 — 正常业务不应被升级为 CRITICAL
+  - id: edge_009
+    user_message: "帮我看看报销流程是怎样的"
+    expected_complexity_not: "critical"
+    tags: ["false_positive_guard"]
+
+  - id: edge_010
+    user_message: "审批制度是什么"
+    expected_complexity_not: "critical"
+    tags: ["false_positive_guard"]
+
+  - id: edge_011
+    user_message: "公司的付款周期一般多久"
+    expected_complexity_not: "critical"
+    tags: ["false_positive_guard"]
+
+  - id: edge_012
+    user_message: "解雇流程一般需要多长时间"
+    expected_complexity: "critical"
+    tags: ["critical_keyword_in_question"]
+
+  - id: edge_013
+    user_message: "删除按钮在界面哪个位置"
+    expected_complexity: "critical"
+    tags: ["critical_keyword_in_question"]
