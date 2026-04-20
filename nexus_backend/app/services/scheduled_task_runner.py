@@ -58,17 +58,31 @@ class ScheduledTaskRunner:
         await asyncio.sleep(10)
 
         self._last_system_task_date: str | None = None  # track daily execution
+        consecutive_errors = 0
 
         while self._running:
             try:
                 await self._check_and_execute()
                 await self._maybe_run_system_tasks()
+                consecutive_errors = 0
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error("[ScheduledTaskRunner] Loop error: %s", e, exc_info=True)
+                consecutive_errors += 1
+                msg = str(e)
+                # Supabase transient 502/503 — log short summary, not the full HTML
+                if any(code in msg for code in ("502", "503", "Bad gateway")):
+                    logger.warning(
+                        "[ScheduledTaskRunner] Supabase transient error (attempt %d): %s",
+                        consecutive_errors,
+                        msg[:120],
+                    )
+                else:
+                    logger.error("[ScheduledTaskRunner] Loop error: %s", e, exc_info=True)
 
-            await asyncio.sleep(self._check_interval)
+            # Exponential backoff on consecutive failures (cap at 5 min)
+            backoff = min(self._check_interval * (2 ** min(consecutive_errors, 3)), 300)
+            await asyncio.sleep(backoff)
 
     async def _maybe_run_system_tasks(self):
         """Run system-level tasks once per day at ~09:00 CN time."""
