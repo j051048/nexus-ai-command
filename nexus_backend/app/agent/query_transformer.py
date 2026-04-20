@@ -36,63 +36,31 @@ class QueryTransformer:
         self._llm_client = None
         self._resolved_model = None
 
-    async def _get_llm(self):
-        """Lazy load LLM client, resolving via LLM gateway when available."""
-        if self._llm_client is None:
-            try:
-                from openai import AsyncOpenAI
+    async def _call_gateway(self, prompt: str, max_tokens: int = 300, temperature: float = 0.3) -> str | None:
+        """Call LLM via unified gateway."""
+        try:
+            from app.services.llm_gateway import get_gateway
 
-                from app.core.config import settings
-
-                api_key = ""
-                base_url = ""
-                model = self.config.mini_model
-
-                # Try gateway resolution first
-                try:
-                    from app.services.llm_helpers import resolve_model_config
-
-                    resolved = await resolve_model_config(
-                        org_id=getattr(self.config, "org_id", None) or "default",
-                    )
-                    api_key = resolved.get("api_key", "") or ""
-                    base_url = resolved.get("base_url", "") or ""
-                    model = resolved.get("model") or model
-                except Exception:
-                    logger.debug(
-                        "LLM gateway model config unavailable, using default fallback"
-                    )
-
-                # Fallback chain: gateway → AgentConfig → global settings
-                api_key = api_key or self.config.api_key or settings.OPENAI_API_KEY
-                base_url = (
-                    base_url
-                    or self.config.base_url
-                    or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
-                )
-
-                if not api_key:
-                    logger.warning(
-                        "[QueryTransformer] No API key resolved from gateway, config, or settings"
-                    )
-                    return None
-
-                self._llm_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-                self._resolved_model = model
-            except Exception as e:
-                logger.warning(
-                    f"Failed to init LLM for query transformation: {e}", exc_info=True
-                )
-        return self._llm_client
+            gateway = get_gateway()
+            org_id = getattr(self.config, "org_id", None) or "default"
+            response = await gateway.chat(
+                messages=[{"role": "user", "content": prompt}],
+                org_id=org_id,
+                scene_code="query_transform",
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            return response.content.strip() if response and response.content else None
+        except Exception as e:
+            logger.warning(f"Gateway call failed for query transformation: {e}")
+            return None
 
     async def generate_hyde(self, query: str) -> str:
         """
         Generate a hypothetical document that would answer the query.
         This document is then used for embedding search.
         """
-        llm = await self._get_llm()
-        if not llm:
-            return query
+
 
         prompt = f"""请模拟用户在对话中提到这个问题时的自然表达方式，生成一段简短的对话片段。
 
@@ -107,15 +75,11 @@ class QueryTransformer:
 对话片段:"""
 
         try:
-            response = await llm.chat.completions.create(
-                model=self._resolved_model or self.config.mini_model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=300,
-                temperature=0.3,
-            )
-            hyde_doc = response.choices[0].message.content.strip()
-            logger.debug(f"[HyDE] Generated hypothetical doc: {hyde_doc[:100]}...")
-            return hyde_doc
+            result = await self._call_gateway(prompt, max_tokens=300, temperature=0.3)
+            if result:
+                logger.debug(f"[HyDE] Generated hypothetical doc: {result[:100]}...")
+                return result
+            return query
         except Exception as e:
             logger.warning(f"HyDE generation failed: {e}", exc_info=True)
             return query
@@ -124,9 +88,7 @@ class QueryTransformer:
         """
         Generate multiple related queries for better retrieval coverage.
         """
-        llm = await self._get_llm()
-        if not llm:
-            return [query]
+
 
         prompt = f"""请根据用户的问题，生成{num_queries}个语义相近但表达方式不同的问题。
 这些问题将用于检索相关知识，以提高检索的全面性。
@@ -142,19 +104,14 @@ class QueryTransformer:
 生成的问题:"""
 
         try:
-            response = await llm.chat.completions.create(
-                model=self._resolved_model or self.config.mini_model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=200,
-                temperature=0.5,
-            )
-            expanded = response.choices[0].message.content.strip().split("\n")
-            expanded = [q.strip() for q in expanded if q.strip()][:num_queries]
-
-            # Always include original query
-            all_queries = [query] + expanded
-            logger.debug(f"[MultiQuery] Generated {len(all_queries)} query variants")
-            return all_queries
+            result = await self._call_gateway(prompt, max_tokens=200, temperature=0.5)
+            if result:
+                expanded = result.split("\n")
+                expanded = [q.strip() for q in expanded if q.strip()][:num_queries]
+                all_queries = [query] + expanded
+                logger.debug(f"[MultiQuery] Generated {len(all_queries)} query variants")
+                return all_queries
+            return [query]
         except Exception as e:
             logger.warning(f"Multi-query expansion failed: {e}", exc_info=True)
             return [query]
@@ -166,9 +123,7 @@ class QueryTransformer:
         Rewrite query for better semantic matching.
         Supports context-aware rewriting with recent conversation history.
         """
-        llm = await self._get_llm()
-        if not llm:
-            return query
+
 
         # 构建对话上下文（最近 3 轮）用于代词消解
         context_block = ""
@@ -203,15 +158,11 @@ class QueryTransformer:
 重写后的问题:"""
 
         try:
-            response = await llm.chat.completions.create(
-                model=self._resolved_model or self.config.mini_model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=100,
-                temperature=0.2,
-            )
-            rewritten = response.choices[0].message.content.strip()
-            logger.debug(f"[QueryRewrite] '{query}' -> '{rewritten}'")
-            return rewritten
+            result = await self._call_gateway(prompt, max_tokens=100, temperature=0.2)
+            if result:
+                logger.debug(f"[QueryRewrite] '{query}' -> '{result}'")
+                return result
+            return query
         except Exception as e:
             logger.warning(f"Query rewriting failed: {e}", exc_info=True)
             return query
@@ -227,21 +178,12 @@ async def llm_rerank(
     if len(docs) <= top_k:
         return docs
 
-    from openai import AsyncOpenAI
-
     try:
-        from app.core.config import settings
+        from app.services.llm_gateway import get_gateway
 
-        api_key = config.api_key or settings.OPENAI_API_KEY
-        base_url = config.base_url or getattr(
-            settings, "AI_BASE_URL", "https://api.openai.com/v1"
-        )
+        gateway = get_gateway()
+        org_id = getattr(config, "org_id", None) or "default"
 
-        if not api_key:
-            logger.warning("[LLMRerank] No API key available, skipping rerank")
-            return docs[:top_k]
-
-        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         doc_list = "\n".join(
             f"[{i}] {doc.get('content', '')[:200]}" for i, doc in enumerate(docs)
         )
@@ -250,16 +192,17 @@ async def llm_rerank(
             f"以下是检索到的文档片段，请对每个片段与用户问题的相关性打分（0-10），"
             f"只输出 JSON 数组，格式如 [8, 3, 7, ...]:\n\n{doc_list}"
         )
-        resp = await asyncio.wait_for(
-            client.chat.completions.create(
-                model=config.mini_model,
+        response = await asyncio.wait_for(
+            gateway.chat(
                 messages=[{"role": "user", "content": prompt}],
+                org_id=org_id,
+                scene_code="rerank",
                 max_tokens=100,
                 temperature=0,
             ),
             timeout=5.0,
         )
-        raw = resp.choices[0].message.content.strip()
+        raw = response.content.strip() if response and response.content else ""
         arr_match = re.search(r"\[[\d\s,\.]+\]", raw)
         if arr_match:
             scores = json.loads(arr_match.group())

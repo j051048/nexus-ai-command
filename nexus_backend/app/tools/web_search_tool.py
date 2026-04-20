@@ -80,14 +80,14 @@ class WebSearchTool(BaseTool):
     ) -> str:
         query = args.get("query", "").strip()
         if not query:
-            return "❌ 请提供搜索关键词。"
+            return self.format_result(data={}, summary="❌ 请提供搜索关键词。")
 
         count = min(max(args.get("count", 5), 1), 10)
         freshness = args.get("freshness")
 
         api_key = settings.BRAVE_SEARCH_API_KEY
         if not api_key:
-            return "❌ 未配置 Brave Search API Key，无法执行联网搜索。请在环境变量中设置 BRAVE_SEARCH_API_KEY。"
+            return self.format_result(data={}, summary="❌ 未配置 Brave Search API Key，无法执行联网搜索。")
 
         # Check cache
         import time
@@ -96,7 +96,7 @@ class WebSearchTool(BaseTool):
         if cache_key in _CACHE:
             ts, cached = _CACHE[cache_key]
             if time.time() - ts < _CACHE_TTL:
-                return cached
+                return self.format_result(data={"cached": True}, summary=cached)
 
         # Call Brave Search API
         params: dict[str, Any] = {
@@ -122,48 +122,54 @@ class WebSearchTool(BaseTool):
                 resp.raise_for_status()
                 data = resp.json()
         except httpx.TimeoutException:
-            return "❌ 搜索超时，请稍后重试。"
+            return self.format_result(data={}, summary="❌ 搜索超时，请稍后重试。")
         except httpx.HTTPStatusError as e:
             logger.error(
                 f"Brave Search API error: {e.response.status_code} {e.response.text[:200]}"
             )
-            return f"❌ 搜索服务异常（HTTP {e.response.status_code}），请稍后重试。"
+            return self.format_result(data={}, summary=f"❌ 搜索服务异常（HTTP {e.response.status_code}），请稍后重试。")
         except Exception as e:
             logger.error(f"Web search failed: {e}")
-            return safe_tool_error(e, "搜索")
+            return self.format_result(data={}, summary=safe_tool_error(e, "搜索"))
 
         # Parse results
         web_results = data.get("web", {}).get("results", [])
         if not web_results:
-            return f'🔍 搜索 "{query}" 未找到相关结果。'
+            return self.format_result(data={"results": []}, summary=f'🔍 搜索 "{query}" 未找到相关结果。')
 
-        lines = [f'🔍 **搜索结果 — "{query}"**（共 {len(web_results)} 条）\n']
+        # 结构化搜索数据
+        structured_results = []
+        for item in web_results:
+            structured_results.append({
+                "title": item.get("title", "无标题"),
+                "url": item.get("url", ""),
+                "description": item.get("description", "无摘要"),
+                "age": item.get("age", ""),
+            })
 
-        for i, item in enumerate(web_results, 1):
-            title = item.get("title", "无标题")
-            url = item.get("url", "")
-            description = item.get("description", "无摘要")
-            age = item.get("age", "")
-
-            lines.append(f"### {i}. {title}")
-            if age:
-                lines.append(f"📅 {age}")
-            lines.append(f"{description}")
-            lines.append(f"🔗 {url}\n")
-
-        # Also include news if available
+        news_items = []
         news_results = data.get("news", {}).get("results", [])
-        if news_results:
-            lines.append("---\n📰 **相关新闻**\n")
-            for item in news_results[:3]:
-                title = item.get("title", "")
-                url = item.get("url", "")
-                age = item.get("age", "")
-                lines.append(f"- **{title}** {f'({age})' if age else ''} — {url}")
+        for item in news_results[:3]:
+            news_items.append({
+                "title": item.get("title", ""),
+                "url": item.get("url", ""),
+                "age": item.get("age", ""),
+            })
 
-        result = "\n".join(lines)
+        result_data = {
+            "query": query,
+            "results": structured_results,
+            "news": news_items,
+            "total": len(structured_results),
+        }
+
+        # 生成摘要文本（兼容 LLM 可读）
+        lines = [f'🔍 搜索 "{query}" 共 {len(structured_results)} 条结果。']
+        for i, r in enumerate(structured_results[:3], 1):
+            lines.append(f"{i}. {r['title']} — {r['description'][:80]}")
+        summary = "\n".join(lines)
 
         # Update cache
-        _CACHE[cache_key] = (time.time(), result)
+        _CACHE[cache_key] = (time.time(), summary)
 
-        return result
+        return self.format_result(data=result_data, summary=summary)

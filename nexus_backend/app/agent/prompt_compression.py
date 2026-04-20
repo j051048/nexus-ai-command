@@ -421,27 +421,21 @@ async def _update_summary(
 {template}"""
 
     try:
-        from openai import AsyncOpenAI
+        from app.services.llm_gateway import llm_gateway
 
-        from app.core.config import settings
-
-        client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            base_url=settings.AI_BASE_URL,
+        response = await llm_gateway.chat(
+            scene_code="prompt_compression",
+            agent_code="summarizer",
+            user_id="system",
+            org_id="system",
+            system_prompt="",
+            messages=[{"role": "user", "content": update_prompt}],
+            max_tokens=min(budget * 2, 8000),
+            temperature=0.3,
         )
-
-        import asyncio
-
-        response = await asyncio.wait_for(
-            client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": update_prompt}],
-                max_tokens=min(budget * 2, 8000),
-                temperature=0.3,
-            ),
-            timeout=15,
-        )
-        summary = response.choices[0].message.content.strip()
+        if response.finish_reason == "error":
+            raise RuntimeError(f"LLM gateway error: {response.raw_response}")
+        summary = response.content.strip()
         logger.info(
             f"[PromptCompression] Incremental update: merged {len(new_messages)} new messages "
             f"(budget={budget} tokens)"
@@ -484,27 +478,21 @@ async def _summarize_messages(
 {template}"""
 
     try:
-        from openai import AsyncOpenAI
+        from app.services.llm_gateway import llm_gateway
 
-        from app.core.config import settings
-
-        client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            base_url=settings.AI_BASE_URL,
+        response = await llm_gateway.chat(
+            scene_code="prompt_compression",
+            agent_code="summarizer",
+            user_id="system",
+            org_id="system",
+            system_prompt="",
+            messages=[{"role": "user", "content": summary_prompt}],
+            max_tokens=min(budget * 2, 8000),
+            temperature=0.3,
         )
-
-        import asyncio
-
-        response = await asyncio.wait_for(
-            client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": summary_prompt}],
-                max_tokens=min(budget * 2, 8000),
-                temperature=0.3,
-            ),
-            timeout=15,
-        )
-        summary = response.choices[0].message.content.strip()
+        if response.finish_reason == "error":
+            raise RuntimeError(f"LLM gateway error: {response.raw_response}")
+        summary = response.content.strip()
         logger.info(
             f"[PromptCompression] Compressed {len(messages)} messages "
             f"({_count_messages_tokens(messages)} tokens) → summary "

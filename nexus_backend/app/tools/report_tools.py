@@ -212,9 +212,9 @@ class ReportGeneratorTool(BaseTool):
         fmt = args.get("format", "markdown")
 
         if not title:
-            return "请提供报告标题（title 参数）。"
+            return self.format_result(data={}, summary="请提供报告标题（title 参数）。")
         if not sections or not isinstance(sections, list):
-            return "请提供至少一个报告章节（sections 参数）。"
+            return self.format_result(data={}, summary="请提供至少一个报告章节（sections 参数）。")
 
         # 构建 Markdown
         md_content = _build_markdown(title, sections)
@@ -226,4 +226,7 @@ class ReportGeneratorTool(BaseTool):
             "content": content,
             "char_count": len(content),
         }
-        return json.dumps(result, ensure_ascii=False, indent=2)
+        return self.format_result(
+            data=result,
+            summary=f"📊 报告『{title}』已生成（{fmt}格式，{len(content)} 字符）",
+        )

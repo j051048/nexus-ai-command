@@ -119,7 +119,10 @@ class SaveMemoryTool(BaseTool):
                 f"[SaveMemory] Agent actively saved: key={key}, category={category}, importance={importance}"
             )
             snippet = value[:80] + ("…" if len(value) > 80 else "")
-            return f"✅ 已记住: {key} = {snippet}"
+            return self.format_result(
+                data={"key": key, "category": category, "importance": importance},
+                summary=f"✅ 已记住: {key} = {snippet}",
+            )
         except Exception as e:
             logger.warning(f"[SaveMemory] Failed to save memory: {e}")
-            return safe_tool_error(e, "⚠️ 记忆保存")
+            return self.format_result(data={}, summary=safe_tool_error(e, "⚠️ 记忆保存"))

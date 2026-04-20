@@ -45,6 +45,9 @@ class ExpenseClaimTool(BaseTool):
     ]
     gotchas = "金额必须大于0。招待费用建议填写参与人员以通过合规检查。人均招待标准为200元，差旅单日上限1500元。"
 
+    is_irreversible = True  # P0-3: 报销申请会写库创建记录，必须经过 HITL 确认
+    confirmation_message = "即将提交报销申请并创建报销记录，请确认金额和类型无误。"
+
     parameters = {
         "type": "object",
         "properties": {
@@ -515,59 +518,45 @@ class InvoiceOCRTool(BaseTool):
             return "❌ 请提供发票图片URL。"
 
         try:
-            import httpx
-
-            from app.core.config import settings
+            from app.services.llm_gateway import llm_gateway
 
             type_hint = (
                 f"（提示类型: {invoice_type}）" if invoice_type != "auto" else ""
             )
 
-            # P3: 使用 Vision API multimodal content 格式（之前只是把 URL 当文本传给 LLM）
-            payload = {
-                "model": (config.get("model", "gpt-4o") if config else "gpt-4o"),
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": (
-                                    f"请识别以下发票信息，提取结构化数据{type_hint}：\n"
-                                    "请提取：发票号码、开票日期、金额（不含税）、税额、价税合计、"
-                                    "开票单位、发票类型。\n如无法识别某字段，标注'未识别'。以中文列表格式返回。"
-                                ),
-                            },
-                            {"type": "image_url", "image_url": {"url": image_url}},
-                        ],
-                    }
-                ],
-                "max_tokens": 2000,
-            }
+            # 使用 Vision multimodal content 格式
+            user_content = [
+                {
+                    "type": "text",
+                    "text": (
+                        f"请识别以下发票信息，提取结构化数据{type_hint}：\n"
+                        "请提取：发票号码、开票日期、金额（不含税）、税额、价税合计、"
+                        "开票单位、发票类型。\n如无法识别某字段，标注'未识别'。以中文列表格式返回。"
+                    ),
+                },
+                {"type": "image_url", "image_url": {"url": image_url}},
+            ]
 
-            base_url = (
-                (config.get("base_url") if config else None)
-                or getattr(settings, "AI_BASE_URL", "")
-                or "https://api.openai.com/v1"
+            # 获取 org_id 用于计费追踪
+            org_id = config.get("org_id", "system") if config else "system"
+
+            response = await llm_gateway.chat(
+                scene_code="invoice_ocr",
+                agent_code="ocr",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt="",
+                messages=[{"role": "user", "content": user_content}],
+                max_tokens=2000,
             )
-            api_key = (
-                config.get("api_key") if config else None
-            ) or settings.OPENAI_API_KEY
-            url = f"{base_url.rstrip('/')}/chat/completions"
 
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                resp = await client.post(
-                    url,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
+            if response.finish_reason == "error":
+                return self.format_result(
+                    data={},
+                    summary=f"发票识别失败: {response.raw_response.get('error', '未知错误')}\n\n请手动填写发票信息。",
                 )
-                if resp.status_code != 200:
-                    return self.format_result(data={}, summary=f"发票识别失败: API返回 {resp.status_code}\n\n请手动填写发票信息。")
-                data = resp.json()
-                result = data["choices"][0]["message"]["content"]
+
+            result = response.content
 
             return self.format_result(data={}, summary=f"发票识别结果:\n\n{result}")
         except Exception as e:

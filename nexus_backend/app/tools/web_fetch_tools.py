@@ -139,9 +139,9 @@ class WebFetchTool(BaseTool):
 
         # --- 参数校验 ---
         if not url:
-            return "请提供要抓取的 URL。"
+            return self.format_result(data={}, summary="请提供要抓取的 URL。")
         if not url.startswith(("http://", "https://")):
-            return "URL 必须以 http:// 或 https:// 开头。"
+            return self.format_result(data={}, summary="URL 必须以 http:// 或 https:// 开头。")
 
         try:
             max_length = max(100, min(int(max_length), 10000))
@@ -150,7 +150,7 @@ class WebFetchTool(BaseTool):
 
         # --- 安全检查 ---
         if _is_private_url(url):
-            return "出于安全限制，不允许访问内网地址。"
+            return self.format_result(data={}, summary="出于安全限制，不允许访问内网地址。")
 
         # --- 抓取 ---
         try:
@@ -165,7 +165,7 @@ class WebFetchTool(BaseTool):
                 resp.raise_for_status()
                 html = resp.text
         except Exception as e:
-            return safe_tool_error(e, "抓取")
+            return self.format_result(data={}, summary=safe_tool_error(e, "抓取"))
 
         # --- 解析 ---
         title, text = _html_to_text(html)
@@ -180,4 +180,7 @@ class WebFetchTool(BaseTool):
             "content": truncated,
             "content_length": len(truncated),
         }
-        return json.dumps(result, ensure_ascii=False, indent=2)
+        return self.format_result(
+            data=result,
+            summary=f"📄 已抓取: {title or url}  ({len(truncated)} 字符)",
+        )

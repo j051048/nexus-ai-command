@@ -198,7 +198,7 @@ class CreateScheduledTaskTool(BaseTool):
     ) -> str:
         client = _get_client(config)
         if not client:
-            return "数据库连接不可用"
+            return self.format_result(data={}, summary="数据库连接不可用")
 
         name = args.get("name", "")
         prompt = args.get("prompt", "")
@@ -212,17 +212,17 @@ class CreateScheduledTaskTool(BaseTool):
 
         # Defensive input validation (defense-in-depth)
         if not name or not prompt:
-            return "请提供任务名称和执行提示词。"
+            return self.format_result(data={}, summary="请提供任务名称和执行提示词。")
         if schedule_type not in ("daily", "weekly", "once", "interval"):
-            return f"不支持的调度类型: {schedule_type}"
+            return self.format_result(data={}, summary=f"不支持的调度类型: {schedule_type}")
         if hour is not None and not (0 <= int(hour) <= 23):
-            return "小时数必须在 0-23 之间。"
+            return self.format_result(data={}, summary="小时数必须在 0-23 之间。")
         if not (0 <= int(minute) <= 59):
-            return "分钟数必须在 0-59 之间。"
+            return self.format_result(data={}, summary="分钟数必须在 0-59 之间。")
         if day_of_week is not None and not (0 <= int(day_of_week) <= 6):
-            return "星期几必须在 0-6 之间（0=周一, 6=周日）。"
+            return self.format_result(data={}, summary="星期几必须在 0-6 之间（0=周一, 6=周日）。")
         if interval_minutes is not None and not (1 <= int(interval_minutes) <= 10080):
-            return "间隔分钟数必须在 1-10080 之间。"
+            return self.format_result(data={}, summary="间隔分钟数必须在 1-10080 之间。")
         # Clamp to int to prevent overflow
         hour = int(hour) if hour is not None else None
         minute = int(minute)
@@ -233,7 +233,7 @@ class CreateScheduledTaskTool(BaseTool):
         if delay_minutes is not None:
             delay_minutes = int(delay_minutes)
             if not (1 <= delay_minutes <= 10080):
-                return "延迟分钟数必须在 1-10080 之间。"
+                return self.format_result(data={}, summary="延迟分钟数必须在 1-10080 之间。")
 
         # Truncate to prevent oversized DB writes
         name = name[:200]
@@ -241,9 +241,9 @@ class CreateScheduledTaskTool(BaseTool):
 
         # Validation
         if schedule_type == "weekly" and day_of_week is None:
-            return "每周任务需要指定星期几（day_of_week: 0=周一 到 6=周日）"
+            return self.format_result(data={}, summary="每周任务需要指定星期几（day_of_week: 0=周一 到 6=周日）")
         if schedule_type == "interval" and not interval_minutes:
-            return "间隔任务需要指定间隔分钟数（interval_minutes）"
+            return self.format_result(data={}, summary="间隔任务需要指定间隔分钟数（interval_minutes）")
 
         # Handle delay_minutes for once-type tasks (e.g. "3分钟后提醒我")
         execute_at = None
@@ -257,7 +257,7 @@ class CreateScheduledTaskTool(BaseTool):
 
         # For non-delay once/daily/weekly, hour is required
         if hour is None and execute_at is None:
-            return "请提供执行时间的小时数（hour），或使用 delay_minutes 指定延迟。"
+            return self.format_result(data={}, summary="请提供执行时间的小时数（hour），或使用 delay_minutes 指定延迟。")
 
         # Check user task limit (max 20 active tasks per user)
         existing = (
@@ -268,7 +268,7 @@ class CreateScheduledTaskTool(BaseTool):
             .execute()
         )
         if existing.count and existing.count >= 20:
-            return "您的活跃定时任务已达上限（20个）。请先删除不需要的任务。"
+            return self.format_result(data={}, summary="您的活跃定时任务已达上限（20个）。请先删除不需要的任务。")
 
         next_exec = _compute_next_execution(
             schedule_type, hour, minute, day_of_week, interval_minutes, execute_at
@@ -291,23 +291,32 @@ class CreateScheduledTaskTool(BaseTool):
 
         result = await client.table("user_scheduled_tasks").insert(task_data).execute()
         if not result.data:
-            return "创建定时任务失败，请稍后重试。"
+            return self.format_result(data={}, summary="创建定时任务失败，请稍后重试。")
 
         # Format schedule description
         schedule_desc = self._format_schedule(
             schedule_type, hour, minute, day_of_week, interval_minutes
         )
 
-        return f"""已创建定时任务！
-
-**任务详情**
-- 名称: {name}
-- 执行计划: {schedule_desc}
-- AI 将执行: {prompt}
-- 下次执行: {next_exec[:16] if next_exec else "待计算"}
-
-系统会按计划自动执行此任务，并通过通知推送结果给您。
-您可以随时说'查看我的定时任务'或'删除定时任务'来管理。"""
+        task_info = {
+            "name": name,
+            "schedule": schedule_desc,
+            "prompt": prompt,
+            "next_execution": next_exec[:16] if next_exec else "待计算",
+            "schedule_type": schedule_type,
+        }
+        return self.format_result(
+            data=task_info,
+            summary=(
+                f"已创建定时任务！\n\n"
+                f"**任务详情**\n"
+                f"- 名称: {name}\n"
+                f"- 执行计划: {schedule_desc}\n"
+                f"- AI 将执行: {prompt}\n"
+                f"- 下次执行: {task_info['next_execution']}\n\n"
+                f"系统会按计划自动执行此任务，并通过通知推送结果给您。"
+            ),
+        )
 
     @staticmethod
     def _format_schedule(
@@ -363,7 +372,7 @@ class ListScheduledTasksTool(BaseTool):
     ) -> str:
         client = _get_client(config)
         if not client:
-            return "数据库连接不可用"
+            return self.format_result(data={}, summary="数据库连接不可用")
 
         include_inactive = args.get("include_inactive", False)
 
@@ -381,7 +390,7 @@ class ListScheduledTasksTool(BaseTool):
         tasks = result.data or []
 
         if not tasks:
-            return "您当前没有定时任务。可以说'每天X点提醒我...'来创建一个。"
+            return self.format_result(data={"tasks": []}, summary="您当前没有定时任务。可以说'每天X点提醒我...'来创建一个。")
 
         lines = ["**您的定时任务列表**\n"]
         for i, task in enumerate(tasks, 1):
@@ -403,7 +412,10 @@ class ListScheduledTasksTool(BaseTool):
                 f"   任务ID: `{task['id'][:8]}...`"
             )
 
-        return "\n".join(lines)
+        return self.format_result(
+            data={"tasks": tasks, "total": len(tasks)},
+            summary="\n".join(lines),
+        )
 
 
 class DeleteScheduledTaskTool(BaseTool):
@@ -453,25 +465,25 @@ class DeleteScheduledTaskTool(BaseTool):
     ) -> str:
         client = _get_client(config)
         if not client:
-            return "数据库连接不可用"
+            return self.format_result(data={}, summary="数据库连接不可用")
 
         task_id = args.get("task_id")
         task_name = args.get("task_name")
         action = args.get("action", "delete")
 
         if not task_id and not task_name:
-            return "请提供任务名称或任务ID。您可以先说'查看我的定时任务'获取列表。"
+            return self.format_result(data={}, summary="请提供任务名称或任务ID。您可以先说'查看我的定时任务'获取列表。")
 
         # Validate action enum
         if action not in ("delete", "disable", "enable"):
-            return f"不支持的操作: {action}，请使用 delete/disable/enable。"
+            return self.format_result(data={}, summary=f"不支持的操作: {action}，请使用 delete/disable/enable。")
 
         # Find the task
         if task_id:
             # Sanitize: strip LIKE wildcards from task_id
             safe_id = task_id.replace("%", "").replace("_", "")[:36]
             if not safe_id:
-                return "任务ID无效。"
+                return self.format_result(data={}, summary="任务ID无效。")
             # Use filter with text cast to avoid UUID ilike operator error (42883)
             result = (
                 await client.table("user_scheduled_tasks")
@@ -487,7 +499,7 @@ class DeleteScheduledTaskTool(BaseTool):
                 task_name.replace("%", "").replace("_", "")[:200] if task_name else ""
             )
             if not safe_name:
-                return "任务名称无效。"
+                return self.format_result(data={}, summary="任务名称无效。")
             result = (
                 await client.table("user_scheduled_tasks")
                 .select("*")
@@ -498,7 +510,7 @@ class DeleteScheduledTaskTool(BaseTool):
             )
 
         if not result.data:
-            return "未找到匹配的定时任务。请确认名称或ID是否正确。"
+            return self.format_result(data={}, summary="未找到匹配的定时任务。请确认名称或ID是否正确。")
 
         task = result.data[0]
 
@@ -510,7 +522,7 @@ class DeleteScheduledTaskTool(BaseTool):
                 .execute()
             )
             if not del_res.data:
-                return f"❌ 删除定时任务「{task['name']}」失败，请稍后重试。"
+                return self.format_result(data={}, summary=f"❌ 删除定时任务「{task['name']}」失败，请稍后重试。")
             # 清理该任务产生的推送消息，防止登录/刷新时重复显示
             try:
                 await (
@@ -522,7 +534,10 @@ class DeleteScheduledTaskTool(BaseTool):
                 )
             except Exception:
                 pass  # 非关键路径，静默失败
-            return f"已删除定时任务「{task['name']}」。"
+            return self.format_result(
+                data={"action": "deleted", "task_name": task['name']},
+                summary=f"已删除定时任务「{task['name']}」。",
+            )
         elif action == "disable":
             dis_res = (
                 await client.table("user_scheduled_tasks")
@@ -531,8 +546,11 @@ class DeleteScheduledTaskTool(BaseTool):
                 .execute()
             )
             if not dis_res.data:
-                return f"❌ 停用定时任务「{task['name']}」失败，请稍后重试。"
-            return f"已停用定时任务「{task['name']}」。可以随时重新启用。"
+                return self.format_result(data={}, summary=f"❌ 停用定时任务「{task['name']}」失败，请稍后重试。")
+            return self.format_result(
+                data={"action": "disabled", "task_name": task['name']},
+                summary=f"已停用定时任务「{task['name']}」。可以随时重新启用。",
+            )
         elif action == "enable":
             next_exec = _compute_next_execution(
                 task["schedule_type"],
@@ -549,7 +567,10 @@ class DeleteScheduledTaskTool(BaseTool):
                 .execute()
             )
             if not en_res.data:
-                return f"❌ 启用定时任务「{task['name']}」失败，请稍后重试。"
-            return f"已启用定时任务「{task['name']}」，下次执行时间: {next_exec[:16] if next_exec else '待计算'}。"
+                return self.format_result(data={}, summary=f"❌ 启用定时任务「{task['name']}」失败，请稍后重试。")
+            return self.format_result(
+                data={"action": "enabled", "task_name": task['name'], "next_execution": next_exec[:16] if next_exec else '待计算'},
+                summary=f"已启用定时任务「{task['name']}」，下次执行时间: {next_exec[:16] if next_exec else '待计算'}。",
+            )
 
-        return "未知操作"
+        return self.format_result(data={}, summary="未知操作")

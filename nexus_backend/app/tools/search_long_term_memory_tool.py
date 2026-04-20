@@ -143,15 +143,19 @@ class SearchLongTermMemoryTool(BaseTool):
                         )
 
             if not results:
-                return (
-                    f"未找到与 '{query}' 相关的记忆记录。你可以尝试更换关键词再次搜索。"
+                return self.format_result(
+                    data={"results": [], "query": query},
+                    summary=f"未找到与 '{query}' 相关的记忆记录。你可以尝试更换关键词再次搜索。",
                 )
 
             logger.info(
                 f"[SearchMemoryTool] Found {len(memories)} personal and {len(org_memories) if org_id else 0} org memories for query '{query}'"
             )
-            return "\n".join(results)
+            return self.format_result(
+                data={"query": query, "personal": memories, "org": org_memories if org_id else []},
+                summary="\n".join(results),
+            )
 
         except Exception as e:
             logger.warning(f"[SearchMemoryTool] Error searching memory: {e}")
-            return safe_tool_error(e, "⚠️ 记忆检索")
+            return self.format_result(data={}, summary=safe_tool_error(e, "⚠️ 记忆检索"))

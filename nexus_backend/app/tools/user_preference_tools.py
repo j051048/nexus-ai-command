@@ -58,11 +58,14 @@ class GetUserPreferencesTool(BaseTool):
                 ),
             }
 
-            return json.dumps(result, ensure_ascii=False, indent=2)
+            return self.format_result(
+                data=result,
+                summary="已获取用户偏好设置",
+            )
 
         except Exception as e:
             logger.error(f"[PreferenceTool] Get failed: {e}")
-            return safe_tool_error(e, "获取偏好设置")
+            return self.format_result(data={}, summary=safe_tool_error(e, "获取偏好设置"))
 
 
 class UpdateUserPreferencesTool(BaseTool):
@@ -154,25 +157,25 @@ class UpdateUserPreferencesTool(BaseTool):
                 updates["muted_types"] = muted
 
             if not updates:
-                return "未指定要更新的设置项。可更新: active_hours_start, active_hours_end, daily_notification_limit, mute_type, unmute_type"
+                return self.format_result(
+                    data={},
+                    summary="未指定要更新的设置项。可更新: active_hours_start, active_hours_end, daily_notification_limit, mute_type, unmute_type",
+                )
 
             result = await user_preference_service.update_settings(user_id, updates)
 
-            return json.dumps(
-                {
-                    "message": "✅ 偏好设置已更新",
-                    "current_settings": {
-                        "active_hours": f"{result['active_hours'][0]}:00 - {result['active_hours'][1]}:00",
-                        "daily_limit": result["daily_limit"],
-                        "muted_types": (
-                            result["muted_types"] if result["muted_types"] else "无"
-                        ),
-                    },
-                },
-                ensure_ascii=False,
-                indent=2,
+            updated_data = {
+                "active_hours": f"{result['active_hours'][0]}:00 - {result['active_hours'][1]}:00",
+                "daily_limit": result["daily_limit"],
+                "muted_types": (
+                    result["muted_types"] if result["muted_types"] else "无"
+                ),
+            }
+            return self.format_result(
+                data=updated_data,
+                summary="✅ 偏好设置已更新",
             )
 
         except Exception as e:
             logger.error(f"[PreferenceTool] Update failed: {e}")
-            return safe_tool_error(e, "更新偏好设置")
+            return self.format_result(data={}, summary=safe_tool_error(e, "更新偏好设置"))

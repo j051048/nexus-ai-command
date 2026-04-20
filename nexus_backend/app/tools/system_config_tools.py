@@ -57,7 +57,7 @@ class ListSystemConfigsTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data={}, summary="❌ 无法获取组织信息，请确保已正确登录。")
 
         config_type = args.get("config_type")
 
@@ -69,7 +69,7 @@ class ListSystemConfigsTool(BaseTool):
             )
 
             if not configs:
-                return "当前暂无配置项。"
+                return self.format_result(data={"configs": []}, summary="当前暂无配置项。")
 
             # 按 config_type 分组
             grouped = {}
@@ -91,11 +91,14 @@ class ListSystemConfigsTool(BaseTool):
                         f"  - {label} (key: {item.get('config_key')}) {icon} {color}"
                     )
 
-            return "\n".join(lines)
+            return self.format_result(
+                data={"configs": grouped, "total": len(configs)},
+                summary="\n".join(lines),
+            )
 
         except Exception as e:
             logger.error(f"查询配置列表失败: {e}")
-            return safe_tool_error(e, "查询配置列表")
+            return self.format_result(data={}, summary=safe_tool_error(e, "查询配置列表"))
 
 
 class UpdateSystemConfigTool(BaseTool):
@@ -167,7 +170,7 @@ class UpdateSystemConfigTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return "❌ 无法获取组织信息，请确保已正确登录。"
+            return self.format_result(data={}, summary="❌ 无法获取组织信息，请确保已正确登录。")
 
         config_type = args.get("config_type")
         config_key = args.get("config_key")
@@ -192,15 +195,25 @@ class UpdateSystemConfigTool(BaseTool):
                 db=client,
             )
 
-            return (
-                f"✅ 配置已保存！\n\n"
-                f"- 类型: {config_type}\n"
-                f"- 键: {config_key}\n"
-                f"- 标签: {label}\n"
-                f"- 颜色: {color or '未设置'}\n"
-                f"- 图标: {icon or '未设置'}"
+            config_data = {
+                "config_type": config_type,
+                "config_key": config_key,
+                "label": label,
+                "color": color or None,
+                "icon": icon or None,
+            }
+            return self.format_result(
+                data=config_data,
+                summary=(
+                    f"✅ 配置已保存！\n\n"
+                    f"- 类型: {config_type}\n"
+                    f"- 键: {config_key}\n"
+                    f"- 标签: {label}\n"
+                    f"- 颜色: {color or '未设置'}\n"
+                    f"- 图标: {icon or '未设置'}"
+                ),
             )
 
         except Exception as e:
             logger.error(f"保存配置失败: {e}")
-            return safe_tool_error(e, "保存配置")
+            return self.format_result(data={}, summary=safe_tool_error(e, "保存配置"))
