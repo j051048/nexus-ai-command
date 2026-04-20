@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\dsar.py
+# hypothesis_version: 6.151.9
+
+[400, 403, 404, 500, 503, 1000, 86400, '/api/dsar', '/delete', '/delete/{request_id}', '/export', '/export/{request_id}', 'Access denied', 'DSAR (GDPR)', 'Data deletion failed', 'Data export failed', '_ts', 'actions', 'completed', 'completed_at', 'created_at', 'delete', 'error', 'errors', 'export', 'failed', 'processing', 'reason', 'request_id', 'result', 'status', 'tables_processed', 'type', 'user_id']

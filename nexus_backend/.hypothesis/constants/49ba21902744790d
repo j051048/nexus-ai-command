@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\tools\batch_operation_tools.py
+# hypothesis_version: 6.151.9
+
+['assigned_count', 'contact', 'contact_person', 'created_by', 'crm_customers', 'crm_leads', 'email', 'error', 'errors', 'failed_count', 'id', 'industry', 'lead_ids', 'name', 'org_id', 'owner_id', 'phone', 'success', 'success_count', 'total', 'updated_count']

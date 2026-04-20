@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\compliance.py
+# hypothesis_version: 6.151.9
+
+[180, 365, 10000, '*', '/api/compliance', '/audit/export', '/retention', 'Compliance', 'Content-Disposition', 'admin', 'audit_log_count', 'audit_logs', 'boss', 'chat_history', 'count', 'csv', 'data_type', 'db', 'description', 'documents', 'dsar_endpoint', 'export_date', 'exported_at', 'gdpr_supported', 'id', 'json', 'logs', 'org_id', 'owner_id', 'period_days', 'policies', 'profile', 'retention_days', 'role', 'role, org_id', 'text/csv', 'token_usage', 'user_id', 'users', '合规检查操作失败']

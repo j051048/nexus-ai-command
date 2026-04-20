@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\soul_document.py
+# hypothesis_version: 6.151.9
+
+[500, 1000, 3000, '/api/soul-document', '/preview', 'AI 名字', 'Soul Document', 'boss', 'compiled', 'founder', 'id', 'organization_id', 'users', '价值观/原则', '小助手', '尚未配置灵魂文档', '性格特征', '是否启用', '未找到所属组织', '灵魂文档已保存', '禁忌/红线', '自由指令', '语言风格', '身份定位']

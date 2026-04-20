@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\trace_logger.py
+# hypothesis_version: 6.151.9
+
+[0.0, 200, 500, 1000, 'LANGFUSE_HOST', 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY', 'agent', 'arguments', 'chat_completion', 'content', 'cost_usd', 'duration_seconds', 'end_conversation', 'error', 'error_message', 'event', 'execution', 'last_message_role', 'num_results', 'output_preview', 'parent_expanded', 'phase', 'planning', 'query', 'query_preview', 'rag_retrieval', 'reranked', 'retrieval', 'role', 'start_conversation', 'status', 'timestamp', 'tool_executed', 'tool_name', 'tool_planned', 'top_score', 'total_tokens', 'trace_id', 'user_id']

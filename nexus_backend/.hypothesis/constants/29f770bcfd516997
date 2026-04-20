@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\tenant_credit_service.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.2, 0.3, 0.4, 0.5, 0.8, 1.0, 100.0, -100, 100, 300, 500, 1000, 2000, 3600, 5000, 10000, 100000, 1000000, '*', 'alert_level', 'alert_type', 'allocated', 'allow', 'api_calls', 'block', 'blocked_until', 'bot', 'burst_limit', 'credit_exhaustion', 'credit_type', 'critical', 'curl', 'daily_api_call_limit', 'daily_token_limit', 'exhausted', 'failed_attempts', 'failure_times', 'last_action', 'last_action_time', 'monthly_token_limit', 'normal', 'org_id', 'p_amount', 'p_credit_type', 'p_org_id', 'p_user_id', 'python-requests', 'recent_requests', 'remaining', 'reserved', 'scanner', 'severity', 'storage_limit_mb', 'storage_mb', 'system.alert', 'tenant_credits', 'tenant_quotas', 'throttle', 'tokens', 'unknown', 'usage_percentage', 'used', 'warning', 'wget']

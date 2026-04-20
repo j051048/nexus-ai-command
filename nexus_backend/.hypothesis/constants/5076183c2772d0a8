@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\onboarding_agent.py
+# hypothesis_version: 6.151.9
+
+['/api/onboarding', '/next', '/plan', '/readiness', 'Onboarding Agent', 'db', 'org_id', '入职引导操作失败', '引导计划已生成']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\oauth_service.py
+# hypothesis_version: 6.151.9
+
+[b'=', 600, 3600, '*', 'Bearer', 'S256', 'access_token', 'allowed_scopes', 'ascii', 'authorization_code', 'client_credentials', 'client_id', 'client_name', 'client_secret', 'client_secret_hash', 'created_at', 'expires_at', 'expires_in', 'grant_types', 'is_active', 'null', 'oauth_clients', 'oauth_tokens', 'org_id', 'redirect_uris', 'refresh_token', 'refresh_token_hash', 'revoked_at', 'scope', 'scopes', 'token_hash', 'token_type', 'user_id']

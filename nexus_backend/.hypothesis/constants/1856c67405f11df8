@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\prompt_compression.py
+# hypothesis_version: 6.151.9
+
+[0.2, 0.3, 120, 300, 500, 600, 1200, 1500, 3000, 4000, 4500, 8000, ' | ', '...', '1', '[对话历史摘要', '```(\\w*)\\n(.*?)```', 'args', 'code', 'content', 'gpt-4o-mini', 'id', 'role', 'tool_call_id', 'tool_calls', 'user']

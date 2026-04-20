@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\workflows.py
+# hypothesis_version: 6.151.9
+
+[200, 1000, '/api/workflows', '/types', '/{workflow_id}', 'No updates provided', 'Workflow created', 'Workflow deleted', 'Workflow name', 'Workflow toggled', 'Workflow updated', 'Workflows', 'applies_to', 'approval_type', 'boss', 'canvas_layout', 'conditions', 'custom', 'db', 'definition', 'deleted', 'description', 'founder', 'name', 'org_id', 'status_code', 'steps', '工作流参数校验失败', '工作流操作失败']

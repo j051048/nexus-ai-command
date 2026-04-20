@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\data_masking.py
+# hypothesis_version: 6.151.9
+
+['***', '/api/agent', '/api/chat', '/api/sse', '/api/super-admin', '/api/ws', '/docs', '/favicon.ico', '/health', '/openapi.json', '/redoc', '@', '^([a-zA-Z]{1,4}[-_])', 'access_token', 'api_key', 'api_key_encrypted', 'application/json', 'content-length', 'content-type', 'email', 'id_card', 'id_number', 'identity_card', 'mobile', 'mobile_number', 'phone', 'phone_number', 'refresh_token', 'secret_key', 'secret_key_encrypted', 'user_email', 'utf-8']

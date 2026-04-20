@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\users.py
+# hypothesis_version: 6.151.9
+
+['*', '/api/users', '/org-members', '/profile', 'Users', 'db', 'id', 'members', 'org_id', 'organization_id', 'status_code', 'user', 'users', '数据库连接不可用', '更新资料失败', '获取用户资料失败', '资料已更新']

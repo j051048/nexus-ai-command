@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\import_service.py
+# hypothesis_version: 6.151.9
+
+['.', '/', 'Nexus@123', '^1\\d{10}$', 'boss', 'company', 'contact_person', 'created_by', 'csv', 'customers', 'data', 'department', 'email', 'employee', 'employees', 'error_count', 'errors', 'field', 'file', 'gbk', 'id', 'incremental', 'insert', 'manager', 'name', 'notes', 'password', 'phone', 'reason', 'role', 'row', 'rows', 'score', 'skip_count', 'source', 'success_count', 'total', 'total_bonus', 'unknown', 'users', 'utf-8', 'xls', 'xlsx', '公司', '其他', '备注', '姓名', '姓名,邮箱,部门,角色,手机号', '姓名不能为空', '客户名称', '客户名称不能为空', '展会', '手机号', '批量导入', '推荐', '来源', '电话', '网络', '联系人', '联系电话', '角色', '邮箱', '邮箱不能为空', '部门', '部门不能为空']

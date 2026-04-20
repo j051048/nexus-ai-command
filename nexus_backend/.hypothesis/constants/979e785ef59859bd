@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\payments.py
+# hypothesis_version: 6.151.9
+
+[100, '/api/payments', '/bank-info', '/callback/{platform}', '/create-order', '/invoice', '/orders', '/orders/{order_id}', 'Payments', 'X-Payment-Token', 'amount', 'bank_info', 'db', 'error', 'invoice_info', 'invoice_request', 'order', 'order_id', 'orders', 'org_id', 'page', 'page_size', 'payment_method', 'plan_id', 'professional', 'status_code', 'total', '回调签名验证失败', '支付参数校验失败', '支付回调未配置签名密钥', '支付操作失败', '未关联组织', '订阅计划 ID', '金额必须大于 0']

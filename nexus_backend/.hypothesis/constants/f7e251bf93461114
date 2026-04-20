@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\token_budget.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.8, 3600, 86400, 2764800, '; ', 'exceeded', 'inf', 'ok', 'sess_cost', 'sess_tok', 'tenant_day', 'tenant_month', 'user_hr', 'warning', '接近预算上限: ']

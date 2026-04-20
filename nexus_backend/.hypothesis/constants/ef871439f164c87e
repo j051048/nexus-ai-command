@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\approval_rule_engine.py
+# hypothesis_version: 6.151.9
+
+[300, '*', '__permanent__', 'action_type', 'approval_session_id', 'approval_type', 'auto_approval_rules', 'condition_field', 'condition_op', 'condition_value', 'contract', 'create_contract', 'create_expense', 'create_leave_request', 'eq', 'escalation', 'expense', 'gt', 'gte', 'is_active', 'leave', 'lt', 'lte', 'name', 'needs_approval', 'once', 'organization_id', 'overtime', 'permanent', 'policy_name', 'purchase', 'reason', 'session', 'submit_expense', 'submit_leave_request', 'travel', 'unnamed_rule']

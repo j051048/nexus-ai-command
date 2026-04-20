@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\system_configs.py
+# hypothesis_version: 6.151.9
+
+['/api/system-configs', '/init-defaults', 'System Configs', 'config', 'configs', 'db', 'deleted', 'message', 'org_id', '未关联组织', '系统配置操作失败', '默认配置已初始化']

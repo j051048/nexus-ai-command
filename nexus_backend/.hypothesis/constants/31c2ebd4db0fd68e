@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\exception_handlers.py
+# hypothesis_version: 6.151.9
+
+[422, 500, ' -> ', 'HTTP_ERROR', 'X-Request-ID', 'X-Trace-ID', 'code', 'detail', 'details', 'error', 'field', 'loc', 'message', 'msg', 'success', 'trace_id', 'type', '系统内部错误，请稍后重试', '输入数据校验失败']

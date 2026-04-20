@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\system.py
+# hypothesis_version: 6.151.9
+
+[200, '*', '/api/system', '/audit-logs', '/dashboard-configs', 'System', 'audit_logs', 'config', 'created_at', 'dashboard_configs', 'db', 'logs', 'org_id', 'organization_id', 'user_id', '保存配置失败', '获取日志失败', '获取配置失败', '配置已保存']

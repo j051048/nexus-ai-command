@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\plan\plan_node.py
+# hypothesis_version: 6.151.9
+
+[1.0, 200, 6000, '(执行工具调用)', ', ', '_active_step_index', '_task_steps', 'agent_code', 'backtrack_depth', 'balanced', 'before_prompt_build', 'best_plan_score', 'candidate_plans', 'complexity', 'config', 'configurable', 'content', 'current_phase', 'default', 'direct_response', 'economy', 'flagship', 'function', 'intent_domains', 'intent_summary', 'iteration', 'messages', 'model', 'name', 'pending_tool_calls', 'plan', 'power', 'rag_context', 'reflection_guidance', 'requires_tools', 'role', 'scene_code', 'score', 'selected_model', 'task_steps', 'thinking_steps', 'total_input_tokens', 'total_output_tokens', 'trace_id', 'trace_logger', 'user', 'user_id', 'wall_clock_start', '未完成']

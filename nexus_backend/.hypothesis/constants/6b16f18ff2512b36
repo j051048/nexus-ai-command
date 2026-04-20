@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\models\schemas.py
+# hypothesis_version: 6.151.9
+
+[0.0, 100, 200, '*', 'amount', 'authorization_code', 'auto_approved', 'auto_rejected', 'before', 'bid', 'call_finished', 'contract', 'created', 'daily_target_hit', 'deal_closed', 'deal_won', 'default', 'description', 'details', 'draft', 'email_sent', 'failed', 'inventory', 'invoice', 'lead_updated', 'manual_bonus', 'name', 'other', 'partial', 'pending', 'product', 'proposal', 'purchase', 'rank_top_3', 'read', 'refresh_token', 'salary', 'success', 'tender', '审批类型代码']

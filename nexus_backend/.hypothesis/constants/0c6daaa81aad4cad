@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\files.py
+# hypothesis_version: 6.151.9
+
+[1.4, 255, 1024, '/api/files', '/parse', '/upload', 'document', 'error', 'files', 'success', '文件上传失败，请稍后重试', '文件解析失败，请稍后重试']

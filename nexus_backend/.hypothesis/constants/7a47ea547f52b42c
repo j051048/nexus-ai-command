@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\backup_service.py
+# hypothesis_version: 6.151.9
+
+['*', 'approval_requests', 'backup_id', 'backup_records', 'backup_schedules', 'backup_type', 'completed', 'contracts', 'created_at', 'created_by', 'customers', 'daily', 'data', 'documents', 'error', 'expires_at', 'failed', 'frequency', 'id', 'is_active', 'manual', 'monthly', 'next_backup_at', 'organization_id', 'pre_restore', 'reason', 'restored', 'restored_at', 'rows', 'rows_to_restore', 'size_bytes', 'skipped', 'status', 'table_row_counts', 'tables', 'tables_included', 'tables_restored', 'total_rows', 'users', 'utf-8', 'warning', 'weekly', '备份计划设置失败', '备份记录不存在', '备份记录写入失败', '数据库连接不可用', '无数据']

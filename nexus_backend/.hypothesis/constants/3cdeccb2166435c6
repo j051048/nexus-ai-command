@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\asset_service.py
+# hypothesis_version: 6.151.9
+
+[100, '*', 'asset_id', 'asset_transfers', 'asset_type', 'asset_types', 'assets', 'created_at', 'current_user_id', 'department_id', 'fields_config', 'from_department_id', 'from_user_id', 'icon', 'id', 'idle', 'idle_count', 'in_use', 'in_use_count', 'maintenance', 'maintenance_count', 'name', 'operator_id', 'organization_id', 'reason', 'return', 'scrap', 'scrapped', 'scrapped_count', 'search', 'status', 'to_department_id', 'to_user_id', 'total_count', 'total_value', 'transfer_type', 'utilization_rate', 'value', '数据库连接不可用', '资产创建失败', '资产更新失败', '资产类型创建失败']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\vmd_tasks.py
+# hypothesis_version: 6.151.9
+
+['*', '-', '/api/vmd/tasks', '/{task_id}', '/{task_id}/cancel', '/{task_id}/pause', '/{task_id}/resume', '/{task_id}/sub-tasks', 'VMD Tasks', 'cancelled', 'completed', 'create_time', 'executed_at', 'id', 'main_task_id', 'org_id', 'paused', 'priority', 'running', 'status', 'sub_tasks', 'task_code', 'tasks', 'tenant_id', 'vmd_main_task', 'vmd_sub_task_audit', '任务不存在', '任务已取消', '任务已恢复', '任务已暂停', '只有已暂停的任务可以恢复', '只有进行中的任务可以暂停', '已完成或已取消的任务无法再次操作', '数据库不可用', '数据库连接未配置']

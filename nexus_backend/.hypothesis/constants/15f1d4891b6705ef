@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\scheduled_tasks.py
+# hypothesis_version: 6.151.9
+
+[200, '*', '/api/scheduled-tasks', '/{task_id}', '/{task_id}/run', 'AI 执行此任务时的提示词', 'Scheduled Tasks', 'chat_messages', 'created_at', 'daily', 'day_of_week', 'eq', 'exact', 'execution_count', 'hour', 'id', 'interval', 'interval_minutes', 'is_active', 'last_executed_at', 'metadata->>task_id', 'minute', 'name', 'next_execution_at', 'notification', 'notify_method', 'once', 'prompt', 'schedule_type', 'status_code', 'task_id', 'update_time', 'user_id', 'user_scheduled_tasks', 'weekly', '任务名称', '任务已触发执行，结果将通过通知推送', '创建失败', '定时任务不存在', '定时任务列表获取成功', '定时任务创建成功', '定时任务已删除', '定时任务操作失败', '定时任务更新成功', '执行时间-分钟 (0-59)', '执行时间-小时 (0-23)', '无需更新', '活跃定时任务已达上限 (20个)', '间隔分钟数, 仅 interval']

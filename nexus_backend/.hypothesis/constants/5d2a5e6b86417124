@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\plan\tool_parser.py
+# hypothesis_version: 6.151.9
+
+['(参数校验失败，需修正)', 'args', 'current_phase', 'id', 'iteration', 'messages', 'name', 'needs_replanning', 'parameters', 'pending_tool_calls', 'plan', 'properties', 'reflection_guidance', 'required', 'requires_tools', 'thinking_steps', 'total_input_tokens', 'total_output_tokens', 'unknown']

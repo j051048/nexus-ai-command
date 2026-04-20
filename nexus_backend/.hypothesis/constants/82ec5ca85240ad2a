@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\inventory.py
+# hypothesis_version: 6.151.9
+
+['/alerts', '/api/inventory', '/in', '/out', '/statistics', 'Inventory', 'alerts', 'category', 'db', 'items', 'location', 'low_stock_only', 'org_id', 'record', 'search', '入库成功', '出库成功', '库存操作失败', '未关联组织']

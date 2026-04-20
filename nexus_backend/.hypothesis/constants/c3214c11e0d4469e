@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\sales_leads.py
+# hypothesis_version: 6.151.9
+
+['*', '/api/sales-leads', '/score-all', '/{lead_id}', '/{lead_id}/score', 'Sales Leads', 'db', 'id', 'initial', 'lead', 'leads', 'org_id', 'organization_id', 'sales_leads', 'stage', 'status_code', 'user_id', '创建线索失败', '批量评分失败', '数据库连接不可用', '更新线索失败', '未关联组织', '线索不存在', '线索创建成功', '线索已更新', '获取线索失败', '评分失败', '评分完成']

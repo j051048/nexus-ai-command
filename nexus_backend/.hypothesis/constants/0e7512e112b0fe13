@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\proactive_scheduler.py
+# hypothesis_version: 6.151.9
+
+[300, 500, 900, '*', '0 15 * * *', '0 3 * * *', '0 9 * * *', '0 9 * * 1', 'boss', 'created_at', 'cron', 'cron_expression', 'default', 'enabled', 'error_message', 'executed_at', 'failed', 'founder', 'id', 'id, org_id, role', 'manager', 'name', 'org_id', 'prompt', 'prompt_template', 'response', 'result_summary', 'role', 'status', 'success', 'sys_cache_warmup', 'sys_daily_briefing', 'task_id', 'user_id', 'users', '合同到期预警', '客户跟进提醒', '每日工作简报']

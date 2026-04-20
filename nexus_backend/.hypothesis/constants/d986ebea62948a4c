@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\super_admin_service.py
+# hypothesis_version: 6.151.9
+
+[100, '*', 'ANTHROPIC_API_KEY', 'CELERY_BROKER_URL', 'OPENAI_API_KEY', '_health_check', 'action', 'active', 'active_organizations', 'ai', 'ai_calls_30d', 'ai_usage_logs', 'anthropic', 'audit_logs', 'cache', 'checked_at', 'created_at', 'database', 'date_from', 'date_to', 'degraded', 'error', 'exact', 'healthy', 'id', 'last_active_at', 'latency_ms', 'limit', 'monthly_active_users', 'name', 'none', 'ok', 'openai', 'org_id', 'organization_id', 'organizations', 'overall', 'page', 'provider', 'queue', 'services', 'status', 'suspended', 'suspended_at', 'suspended_reason', 'total', 'total_ai_calls_30d', 'total_organizations', 'total_pages', 'total_users', 'unconfigured', 'unhealthy', 'updated_at', 'user_count', 'user_id', 'users', '数据库服务不可用']

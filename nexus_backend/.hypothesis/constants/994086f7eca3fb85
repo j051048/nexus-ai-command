@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\notifications.py
+# hypothesis_version: 6.151.9
+
+[100, '/api/notifications', '/mark-all-read', '/mark-read', '/preferences', '/unread-count', 'Notification Center', 'db', 'marked_count', 'status_code', 'unread_count', '免打扰开始时间 (HH:MM)', '免打扰结束时间 (HH:MM)', '无变更', '要标记已读的通知 ID 列表', '通知偏好已更新', '通知列表获取成功', '通知操作失败']

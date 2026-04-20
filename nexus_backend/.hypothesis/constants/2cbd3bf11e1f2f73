@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\goal_tracker.py
+# hypothesis_version: 6.151.9
+
+['*', 'agent_goals', 'completed', 'completed_at', 'created_at', 'deadline', 'default', 'goal_text', 'id', 'in_progress', 'metadata', 'org_id', 'pending', 'progress', 'status', 'updated_at', 'user_id', '当前用户的活跃目标:', '无截止日期']

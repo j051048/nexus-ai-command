@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\qa_pairs.py
+# hypothesis_version: 6.151.9
+
+[100, 200, '*', '/api/qa-pairs', '/categories', '/{qa_id}', 'No updates provided', 'QA Pairs', 'QA问答对操作失败', 'admin', 'answer', 'boss', 'category', 'created_at', 'founder', 'id', 'now()', 'qa_pairs', 'question', 'updated_at', 'user_id']

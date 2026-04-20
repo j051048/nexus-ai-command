@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\assets.py
+# hypothesis_version: 6.151.9
+
+['/api/assets', '/statistics', '/types', '/{asset_id}', '/{asset_id}/transfer', 'Assets', 'asset', 'asset_type', 'asset_types', 'assets', 'current_user_id', 'db', 'department_id', 'org_id', 'search', 'status', 'transfer', '未关联组织', '请提供至少一个要更新的字段', '资产不存在', '资产创建成功', '资产操作失败', '资产更新成功', '资产转移成功']

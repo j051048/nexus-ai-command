@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\prompt_firewall.py
+# hypothesis_version: 6.151.9
+
+[0.15, 5.0, 200, 2000, 8000, 8203, 8207, 8232, 8239, 8288, 8303, 65279, ', ', '...', '<!--[\\s\\S]*?-->', 'CRITICAL', 'DAN\\s+(mode|prompt)', 'HIGH', 'LLM confirmed attack', 'LOW', 'MEDIUM', '```', 'content', 'context_overflow', 'default', 'developer mode', 'dismiss', 'escalate', 'ignore', 'injection', 'injection_code_block', 'injection_heading', 'instructions', 'is_attack', 'jailbreak', 'jailbreak_bypass_cn', 'jailbreak_dan_mode', 'jailbreak_forget_cn', 'jailbreak_ignore_cn', 'jailbreak_mode_cn', 'jailbreak_pretend_cn', 'llm_judge', 'mini', 'overflow_max_length', 'override', 'reason', 'role_act_as', 'role_identity_change', 'role_pretend', 'role_respond_as', 'role_reversal', 'role_reversal_cn', 'role_roleplay', 'role_simulate', 'system prompt', 'utf-8', 'you\\s+are\\s+now\\s+', '假装(你是|成为?|自己是)\\s*', '忽略', '指令', '系统提示', '绕过']

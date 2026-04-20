@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\attendance_service.py
+# hypothesis_version: 6.151.9
+
+[100, '*', 'app', 'attendance_records', 'check_date', 'check_in_time', 'check_out_time', 'clock_in', 'clock_out', 'created_by', 'days', 'department_id', 'device_info', 'early_leave', 'early_leave_count', 'employee_id', 'end_date', 'end_time', 'id', 'late', 'late_count', 'location', 'normal', 'oa_leave_requests', 'on_time', 'on_time_count', 'on_time_rate', 'organization_id', 'pending', 'platform', 'raw_data', 'reason', 'shift_date', 'shift_schedules', 'shift_type_id', 'shift_types', 'start_date', 'start_time', 'status', 'total_records', 'type', 'user_id', '打卡记录创建失败', '排班记录创建失败', '数据库连接不可用', '请假申请创建失败']

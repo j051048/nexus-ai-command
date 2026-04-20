@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\super_admin.py
+# hypothesis_version: 6.151.9
+
+[100, 200, 500, '/api/admin', '/audit-logs', '/organizations', '/stats', '/system-health', 'SuperAdmin', 'action', 'active', 'date_from', 'date_to', 'filter_user_id', 'founder', 'limit', 'org_id', 'organizations', 'page', 'status', 'status_code', 'super_admin', 'suspended', 'total', 'user_id', '组织不存在', '组织不存在或操作失败', '组织已恢复', '组织已暂停', '超级管理员操作失败']

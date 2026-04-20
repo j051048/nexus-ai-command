@@ -5,6 +5,7 @@ import pytest
 from app.services.tenant_credit_service import (
     AlertLevel,
     CreditType,
+    TenantCredit,
     TenantCreditService,
     TenantQuota,
 )
@@ -97,3 +98,52 @@ class TestTenantQuota:
         assert q.rate_limit_per_minute == 60
         assert q.burst_limit == 10
         assert q.storage_limit_mb == 1_000
+
+class TestCreditConcurrency:
+    """P1: Token Concurrency Test"""
+    @pytest.mark.asyncio
+    async def test_concurrent_credit_consumption(self):
+        import asyncio
+        service = TenantCreditService()
+        org_id = "org-concurrent"
+        
+        # Simulate 100 concurrent requests consuming 10 tokens each
+        async def consume():
+            return await service.consume_credit(org_id, CreditType.TOKENS, 10, "user-concurrent")
+        
+        results = await asyncio.gather(*[consume() for _ in range(100)])
+        
+        # Ensure all requests were allowed (default limit is 1M)
+        assert all(ok for ok, msg in results)
+        
+        # Verify the sum is exactly 1000 without data race loss
+        stats = await service.get_usage_stats(org_id)
+        assert stats["tokens"]["used"] == 1000
+
+    @pytest.mark.asyncio
+    async def test_concurrent_blocking_at_limit(self):
+        import asyncio
+        service = TenantCreditService()
+        org_id = "org-race-limit"
+        
+        # For this test, manually override the quota so we can hit the limit
+        service._credit_cache[f"{org_id}:{CreditType.TOKENS.value}"] = TenantCredit(
+            org_id=org_id,
+            credit_type=CreditType.TOKENS,
+            allocated=50,  # Only 50 tokens available
+            used=0,
+        )
+        
+        async def consume():
+            return await service.consume_credit(org_id, CreditType.TOKENS, 10, "user-concurrent")
+        
+        # Send 10 concurrent requests, each asking for 10 tokens
+        results = await asyncio.gather(*[consume() for _ in range(10)])
+        
+        # Exactly 5 should succeed, 5 should fail due to exhaustion
+        success_count = sum(1 for ok, _ in results if ok)
+        assert success_count == 5
+        
+        stats = await service.get_usage_stats(org_id)
+        assert stats["tokens"]["used"] == 50
+

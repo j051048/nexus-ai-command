@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\registry.py
+# hypothesis_version: 6.151.9
+
+['*', 'FEW_SHOT_EXAMPLES', 'GOAL', 'KPI_METRICS', 'PATROL_SCHEDULE', 'SCENE_CODES', 'SENSORS', 'TOOL_WHITELIST', 'agent_code', 'agent_name', 'app.agent.roles.clue', 'app.agent.roles.pr', 'clue_agent', 'compliance_agent', 'content_agent', 'design_agent', 'director_agent', 'function', 'goal', 'is_active', 'kpi_metrics', 'media_agent', 'medium', 'name', 'operation_agent', 'patrol_schedule', 'pr_agent', 'sales_agent', 'scene_codes', 'sensors', 'synergy_agent', 'system_prompt', 'tenant_id', 'tool_whitelist', 'vmd_agent_config', '你是一个市场营销助手。', '市场总监Agent']

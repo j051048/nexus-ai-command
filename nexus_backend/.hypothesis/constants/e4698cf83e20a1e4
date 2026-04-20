@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\contracts.py
+# hypothesis_version: 6.151.9
+
+[200, '/api/contracts', '/expiring', '/stats', '/{contract_id}', 'Contracts', 'admin', 'boss', 'cancelled', 'contract', 'contract_type', 'contracts', 'created_by', 'db', 'deleted', 'event', 'events', 'founder', 'id', 'id,status', 'org_id', 'search', 'stats', 'status', '事件已添加', '合同不存在', '合同创建成功', '合同参数校验失败', '合同已删除', '合同已更新', '合同已被管理员删除（标记为已取消）', '合同操作失败', '数据库不可用', '未关联组织']

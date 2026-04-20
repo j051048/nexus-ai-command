@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\memory\persistence.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.7, 300, 500, '+00:00', 'Z', 'assistant', 'completed_task', 'complexity', 'confidence_score', 'content', 'created_at', 'duration_ms', 'episode', 'graph_entities', 'insight_type', 'llm_task', 'moderate', 'name', 'observation', 'org_memories', 'plan', 'response_length', 'result', 'role', 'semantic_cache', 'session_id', 'task_memory', 'thinking_steps', 'tool_name', 'tool_patterns', 'tools_used', 'total_tokens', 'user', 'user_id', 'user_memories', 'user_observation']

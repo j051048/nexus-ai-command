@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\telemetry.py
+# hypothesis_version: 6.151.9
+
+['OTEL_ENABLED', 'nexus-backend', 'service.name', 'service.version']

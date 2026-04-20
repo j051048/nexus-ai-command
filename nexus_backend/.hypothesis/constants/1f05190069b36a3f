@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\projects.py
+# hypothesis_version: 6.151.9
+
+[0.7, 60.0, 2000, '*', '/', '/api/projects', '/{project_id}', 'No updates provided', 'Project updated', 'Projects', 'admin', 'ai_report', 'api_key', 'archived', 'balanced', 'base_url', 'boss', 'content', 'content_generation', 'created_at', 'db', 'description', 'done', 'done_tasks', 'employee', 'event_type', 'events_count', 'founder', 'id', 'in_progress', 'metadata', 'model', 'name', 'oa_tasks', 'planning', 'progress', 'project_id', 'project_timeline', 'projects', 'report', 'role', 'stage', 'stats', 'status', 'status, title', 'status_code', 'timeout', 'title', 'total_tasks', 'user_id', 'users', '删除项目失败', '周报生成成功', '数据库连接不可用', '时间线事件已添加', '本周无事件记录', '添加时间线事件失败', '项目不存在', '项目已删除', '项目操作失败']

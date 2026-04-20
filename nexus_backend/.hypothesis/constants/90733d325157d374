@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\intent_rules.py
+# hypothesis_version: 6.151.9
+
+['*', '/api/intent-rules', '/validate-regex', '/{rule_id}', 'complex', 'complexity', 'created_at', 'critical', 'db', 'description', 'error', 'id', 'intent-rules', 'intent_rules', 'is_active', 'keyword', 'moderate', 'valid', '关键词不能为空', '意图规则列表', '正则表达式不合法', '正则表达式合法', '没有需要更新的字段', '规则不存在', '规则创建成功', '规则已删除', '规则更新成功']

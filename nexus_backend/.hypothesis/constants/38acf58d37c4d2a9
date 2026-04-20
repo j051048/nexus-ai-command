@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\admin_traces.py
+# hypothesis_version: 6.151.9
+
+[168, 200, 3600, '/api/v1/admin/traces', '/detail/{trace_id}', '/list', '/metrics', '/quality/summary', '/quality/trend', '/replay/{trace_id}', '/stats', '/thread/{thread_id}', 'Admin Traces', 'count', 'days', 'db', 'error', 'metrics', 'org_id', 'query', 'start_time', 'status', 'step_count', 'tags', 'thread_id', 'total', 'total_cost_usd', 'total_duration_ms', 'total_tokens', 'trace', 'trace_id', 'traces', 'trend', 'user_id', '指标名称筛选', '最近N小时', '统计天数', '趋势天数', '追踪日志操作失败']

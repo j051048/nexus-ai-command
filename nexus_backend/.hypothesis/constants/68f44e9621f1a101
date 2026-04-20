@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\etl\embedding_gen.py
+# hypothesis_version: 6.151.9
+
+[0.1, 30.0, 60.0, 100, 200, 500, 600, 1536, 1800, 4000, '\n---\n', '/', '/v1', 'AI_MINI_MODEL', 'Authorization', '\\[.*\\]', '\\n{3,}', 'api.openai.com', 'api_key', 'base_url', 'child', 'choices', 'chunk_type', 'content', 'data', 'default', 'dimensions', 'document_embeddings', 'document_id', 'embedding', 'enriched_content', 'gpt-4o-mini', 'id', 'input', 'max_tokens', 'message', 'messages', 'metadata', 'model', 'organization_id', 'parent', 'parent_chunk_id', 'role', 'source', 'temperature', 'user']

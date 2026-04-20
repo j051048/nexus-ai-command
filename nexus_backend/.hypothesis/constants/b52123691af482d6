@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\report_cache.py
+# hypothesis_version: 6.151.9
+
+[300, 'Report cache HIT: %s', 'args', 'db', 'keys', 'kwargs']

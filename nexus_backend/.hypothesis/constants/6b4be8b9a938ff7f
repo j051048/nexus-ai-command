@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\report_engine.py
+# hypothesis_version: 6.151.9
+
+['/api/report-engine', '/generate', '/generate-sql', '/save', '/saved', '/saved/{report_id}', '/schedules', 'ReportEngine', 'both', 'chart_config', 'daily', 'data', 'error', 'org_id', 'result', 'sql', 'success', 'summary', 'total_rows', '定时报表不存在', '定时报表已创建', '定时报表已删除', '定时报表已执行', '执行失败', '报表不存在', '报表不存在或无权删除', '报表已保存', '报表已删除', '未关联组织']

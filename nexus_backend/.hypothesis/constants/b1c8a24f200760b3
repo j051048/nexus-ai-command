@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\performance.py
+# hypothesis_version: 6.151.9
+
+[1000, '/api/performance', '/calculate', '/quality-trend', 'Performance', 'accuracy', 'agent_quality_scores', 'avg_accuracy', 'avg_completeness', 'avg_quality_score', 'avg_relevance', 'completeness', 'complexity', 'created_at', 'date', 'days', 'pass_rate', 'passed', 'quality_score', 'quality_scores', 'relevance', 'scene_code', 'total', 'total_evaluations', 'trend', '绩效数据操作失败']

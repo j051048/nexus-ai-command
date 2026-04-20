@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\plan\llm_caller.py
+# hypothesis_version: 6.151.9
+
+[1.0, 500, 1000, '?', 'LLM 服务断路器已打开，请稍后重试。', 'ai_message', 'ai_msg', 'completion_tokens', 'config', 'configurable', 'connect', 'connection', 'content', 'current_phase', 'error', 'error_result', 'finish_reason', 'function', 'input_tokens', 'intent_domains', 'intent_summary', 'messages', 'model', 'model_name', 'name', 'output_tokens', 'prompt_tokens', 'role', 'sc_candidates', 'sc_succeeded', 'scene_code', 'thinking_steps', 'timed out', 'timeout', 'token_usage', 'trace_logger', 'unknown', 'user']

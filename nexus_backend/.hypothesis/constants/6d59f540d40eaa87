@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\conversation_memory\consolidation.py
+# hypothesis_version: 6.151.9
+
+[0.6, 0.7, 0.9, 100, 2000, 3000, '...', 'connections', 'content', 'embedding', 'from', 'id', 'importance', 'insight_type', 'insights_created', 'is_consolidated', 'memory_id', 'null', 'observation', 'organization_id', 'pattern', 'processed', 'relation', 'source_indices', 'source_memory_ids', 'strength', 'superseded_by', 'supplements', 'title', 'to', 'user_id', 'value', '用户画像摘要']

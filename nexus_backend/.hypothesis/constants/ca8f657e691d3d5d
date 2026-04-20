@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\ai_metrics.py
+# hypothesis_version: 6.151.9
+
+[0.8, 100, 500, 3600, 'cache_hit_count', 'cache_miss_count', 'detection_layer', 'error', 'model', 'ms', 'nexus-ai-metrics', 'semantic', 'status', 'success', 'tier', 'tool_failure_count', 'tool_name', 'tool_success_count', 'type']

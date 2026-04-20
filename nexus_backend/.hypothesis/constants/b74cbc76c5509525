@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\admin_rag.py
+# hypothesis_version: 6.151.9
+
+['/api/v1/admin/rag', '/evaluate', 'Admin RAG', 'CRM', 'CRM系统怎么录入客户信息？', 'RAG 评估失败', 'admin', 'category', 'eval', 'expected_keywords', 'hr', 'operations', 'policy', 'process', 'query', 'sales', '产品定价策略有哪些？', '价格', '住宿', '入职', '公司的差旅报销标准是什么？', '加班', '合同', '合同审批流程是怎样的？', '员工', '如何申请加班？', '定价', '审批', '客户', '客户拜访需要准备什么材料？', '差旅', '年终奖', '年终奖发放规则是什么？', '库存', '库存查询怎么操作？', '录入', '报销', '拜访', '文件', '新员工入职需要提交什么文件？', '材料', '查询', '流程', '申请', '策略', '线索', '绩效', '薪资', '销售', '销售流程有哪些步骤？']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\webhooks.py
+# hypothesis_version: 6.151.9
+
+['*', '/api/webhooks', '/deliveries', '/subscriptions', 'Webhooks', 'Webhook操作失败', 'db', 'deactivated', 'deliveries', 'description', 'events', 'org_id', 'secret', 'subscription', 'subscriptions', 'url', 'url is required', '未关联组织']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\sanitize.py
+# hypothesis_version: 6.151.9
+
+['--', '/\\*', ';', '\\*/', '^1[3-9]\\d{9}$', 'exec', 'execute', 'sp_', 'xp_']

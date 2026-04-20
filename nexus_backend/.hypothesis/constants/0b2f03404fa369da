@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\business_context.py
+# hypothesis_version: 6.151.9
+
+['*', '/api/context', '/business', 'BusinessContext', 'approval', 'assignee_id', 'boss', 'created_at', 'db', 'default', 'leads', 'metrics', 'my_approvals', 'my_tasks', 'notifications', 'oa_leave_requests', 'oa_tasks', 'org_id', 'organization_id', 'pending', 'pending_approvals', 'performance', 'projects', 'read', 'sales', 'sales_leads', 'sales_metrics', 'sales_targets', 'scene', 'status', 'targets', 'team_members', 'user_id', 'users', '数据库连接不可用', '未关联组织', '获取业务上下文失败']

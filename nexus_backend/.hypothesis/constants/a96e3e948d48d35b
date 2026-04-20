@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\inventory_service.py
+# hypothesis_version: 6.151.9
+
+['*', 'category', 'created_at', 'id', 'id, quantity', 'in', 'inventory', 'item_id', 'location', 'low_stock_count', 'low_stock_only', 'metadata', 'min_stock', 'null', 'operator_id', 'organization_id', 'out', 'quantity', 'reason', 'receiver_id', 'search', 'total_items', 'total_value', 'transaction_type', 'unit_price', '数据库连接不可用']

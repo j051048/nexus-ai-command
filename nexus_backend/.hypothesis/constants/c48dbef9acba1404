@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\work_order_service.py
+# hypothesis_version: 6.151.9
+
+[100, 3600, '(', ')', '*', '+00:00', ',', '.', 'Z', 'assignee_change', 'assignee_id', 'avg_response_hours', 'closed', 'closed_count', 'color', 'comment', 'comment_type', 'content', 'created_at', 'creator_id', 'due_date', 'end_date', 'icon', 'id', 'medium', 'metadata', 'name', 'open', 'open_count', 'order_id', 'order_type', 'organization_id', 'priority', 'processing', 'processing_count', 'resolved', 'resolved_at', 'resolved_count', 'search', 'sla_hours', 'sla_met_rate', 'start_date', 'status', 'status_change', 'to', 'total_count', 'updated_at', 'user_id', 'work_order_comments', 'work_order_types', 'work_orders', '工单创建失败', '工单更新失败', '工单类型创建失败', '数据库连接不可用']

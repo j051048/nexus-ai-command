@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\plugins.py
+# hypothesis_version: 6.151.9
+
+['/api/plugins', '/installed', '/{plugin_id}/actions', '/{plugin_id}/config', '/{plugin_id}/execute', '/{plugin_id}/install', 'Plugins', 'actions', 'db', 'error', 'org_id', 'plugin', 'plugin_id', 'plugins', 'status_code', 'success', 'uninstalled', 'user_id', '执行失败', '插件参数校验失败', '插件安装成功', '插件已卸载', '插件执行成功', '插件操作失败', '未关联组织', '配置已更新']

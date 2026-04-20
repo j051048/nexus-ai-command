@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\vmd_compliance.py
+# hypothesis_version: 6.151.9
+
+['*', '/api/vmd/compliance', '/history', '/rules', 'VMD Compliance', 'compliance_rule', 'created_at', 'org_id', 'tenant_id', 'vmd_reports', '数据库不可用', '获取合规规则失败', '获取审计历史失败']

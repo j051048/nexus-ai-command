@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\llm\models_crud.py
+# hypothesis_version: 6.151.9
+
+[10.0, 200, 1000, '*', '/', '/models', '/models/{model_id}', '/v1', 'Authorization', 'LLM Models CRUD', 'api_base_url', 'api_key', 'api_key_encrypted', 'connectivity', 'disabled', 'enabled', 'error', 'failed', 'id', 'is_active', 'is_deleted', 'latency_ms', 'llm_model_config', 'ok', 'openai', 'org_id', 'provider_type', 'secret_key', 'secret_key_encrypted', 'sort_order', 'status', 'status_code', 'tenant_id', 'v1', '凭据解密失败，请重新输入 API Key', '创建模型失败', '数据库不可用', '无可更新字段', '更新模型失败', '未找到该模型配置', '模型已删除', '模型已添加', '连通性测试通过', '配置已更新']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\trace_context.py
+# hypothesis_version: 6.151.9
+
+['request_id', 'trace_id']

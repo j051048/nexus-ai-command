@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\vmd_clues.py
+# hypothesis_version: 6.151.9
+
+['*', '/api/vmd/clues', '/{clue_id}', 'VMD Clues', 'business_clue', 'clue_code', 'clues', 'create_time', 'id', 'org_id', 'priority', 'status', 'tenant_id', '数据库不可用', '数据库连接未配置', '线索不存在']

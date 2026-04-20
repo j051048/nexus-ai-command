@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\pr.py
+# hypothesis_version: 6.151.9
+
+['brand_monitoring', 'company_stats', 'crisis_pr', 'daily', 'get_customer_detail', 'get_customers', 'knowledge_base', 'kol_engagement_count', 'medium', 'pr_agent', 'review_analysis', 'scan_brand_mentions', 'weekly', '舆情口碑Agent']

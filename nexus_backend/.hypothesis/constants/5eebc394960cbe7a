@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\chat_service.py
+# hypothesis_version: 6.151.9
+
+[0.5, 30.0, 3600, '%Y-%m-%d %H:%M:%S', '@审批管家', '@总裁助理', '@绩效教练', '@销售指挥官', 'AI_MINI_MODEL', 'MAX_CHAT_HISTORY', 'agent', 'ai_assistant', 'all', 'approval_manager', 'boss', 'boss_assistant', 'chat_messages', 'config', 'content', 'default', 'default_fallback', 'employee', 'final_response', 'founder', 'gpt-4o-mini', 'id', 'manager', 'metadata', 'name', 'organization_id', 'performance_coach', 'prompts', 'response', 'role', 'sales_commander', 'session_id', 'user', 'user_id', 'users', '{current_time}', '{{current_time}}']

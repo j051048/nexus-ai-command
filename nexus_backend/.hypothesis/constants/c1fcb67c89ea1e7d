@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\cache.py
+# hypothesis_version: 6.151.9
+
+[100, 300, 6379, 26379, ',', ':', '@', '__class__', 'client', 'db', 'host', 'mymaster', 'nexus', 'port', 'session', 'supabase']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\database.py
+# hypothesis_version: 6.151.9
+
+[10.0, 30.0, 200, 'Authorization', 'Content-Type', 'MiniSupabaseClient', 'SUPABASE_SERVICE_KEY', 'SUPABASE_URI', 'SUPABASE_URL', 'agent_traces', 'ai_settings', 'apikey', 'application/json', 'approval_requests', 'assets', 'business_clue', 'certificates', 'chat_messages', 'chat_sessions', 'clue_follow_up', 'competitors', 'contracts', 'departments', 'document_embeddings', 'documents', 'entity_aliases', 'installed_plugins', 'inventory', 'notifications', 'oa_leave_requests', 'oa_meeting_bookings', 'oa_meeting_rooms', 'oa_tasks', 'oa_work_handovers', 'org_memories', 'organization_id', 'p_org_id', 'projects', 'sales_leads', 'sales_metrics', 'scoped_clients', 'semantic_cache', 'users', 'vmd_agent_config', 'vmd_compliance', 'vmd_compliance_issue', 'vmd_main_task', 'vmd_reports', 'vmd_sub_task', 'work_orders']

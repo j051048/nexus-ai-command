@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\org_structure.py
+# hypothesis_version: 6.151.9
+
+['/api/org-structure', '/departments', '/employees', '/positions', '/statistics', 'db', 'department', 'department_id', 'departments', 'employee', 'employees', 'org_id', 'position', 'positions', 'search', 'status', '员工不存在', '员工创建成功', '员工更新成功', '未关联组织', '组织架构操作失败', '职位创建成功', '请提供至少一个要更新的字段', '部门创建成功', '部门已删除', '部门更新成功']

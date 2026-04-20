@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\tools\file_manager.py
+# hypothesis_version: 6.151.9
+
+[10000, '%Y%m%d_%H%M%S', '*', '.doc', '.docx', '.pdf', '.xls', '.xlsx', 'content', 'content-type', 'contract', 'document', 'documents', 'error', 'file_id', 'file_type', 'file_uploads', 'file_url', 'filename', 'id', 'length', 'org_id', 'other', 'storage', 'storage_path', 'success', 'tender', '不支持的文件格式', '存储服务不可用', '文件不存在']

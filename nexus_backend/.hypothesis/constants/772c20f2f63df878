@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\synergy.py
+# hypothesis_version: 6.151.9
+
+['company_stats', 'daily', 'get_customers', 'get_sales_pipeline', 'gtm_on_schedule_rate', 'knowledge_base', 'medium', 'performance_report', 'product_launch', 'production_planning', 'project_list', 'rd_marketing_sync', 'synergy_agent', 'task_assignment', 'voc_action_rate', 'voc_digest', 'weekly', 'weekly_report', '研产销协同Agent']

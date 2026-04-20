@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\dsar_service.py
+# hypothesis_version: 6.151.9
+
+[10000, '*', '[GDPR_DELETED]', 'action', 'actions', 'anonymized', 'approval_requests', 'audit_logs', 'avatar_url', 'completed', 'contact_email', 'contact_name', 'contact_phone', 'content', 'conversations', 'count', 'created_at', 'deleted', 'deleted_at', 'details', 'display_name', 'documents', 'dsar_delete', 'dsar_export', 'email', 'error', 'errors', 'exported_at', 'failed', 'fields_cleared', 'id', 'name', 'note', 'notes', 'phone', 'pii_anonymized', 'reason', 'records', 'records_affected', 'request_id', 'sales_leads', 'skipped', 'status', 'tables', 'tables_exported', 'tables_processed', 'title', 'user_id', 'users']

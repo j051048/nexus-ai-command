@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\tools\data_analysis_assistant.py
+# hypothesis_version: 6.151.9
+
+[100, 'SQL不安全，拒绝执行', '```', '```sql', 'alter', 'analysis', 'balanced', 'create', 'data', 'delete', 'drop', 'error', 'execute_safe_query', 'insert', 'insight', 'query_sql', 'select', 'sql', 'success', 'total_rows', 'truncate', 'update', '未找到相关数据']

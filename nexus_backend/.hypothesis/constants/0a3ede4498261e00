@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\im_platform\contact_sync_service.py
+# hypothesis_version: 6.151.9
+
+['0', 'Unknown', 'agent_id', 'app_id', 'app_key', 'app_secret', 'config', 'corp_id', 'corp_secret', 'created', 'departments', 'departments_synced', 'dingtalk', 'errors', 'external_id', 'external_parent_id', 'feishu', 'id', 'id, user_id', 'im_platform_config', 'im_user_mappings', 'is_active', 'mobile', 'name', 'organization_id', 'parentid', 'phone', 'platform', 'platform_user_id', 'platform_username', 'source', 'total', 'updated', 'user_id', 'userid', 'users', 'users_created', 'users_synced', 'users_updated', 'wecom']

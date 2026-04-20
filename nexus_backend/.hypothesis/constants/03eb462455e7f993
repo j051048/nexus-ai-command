@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\oauth.py
+# hypothesis_version: 6.151.9
+
+['/api/oauth', '/authorize', '/clients', '/revoke', '/token', 'OAuth', 'OAuth授权操作失败', 'authorization_code', 'code', 'db', 'org_id', 'read', 'redirect_uri', 'refresh_token', 'revoked', '未关联组织']

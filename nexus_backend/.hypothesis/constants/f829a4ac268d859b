@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\system_config_service.py
+# hypothesis_version: 6.151.9
+
+[600, '#10B981', '#3B82F6', '#8B5CF6', '#9CA3AF', '#EF4444', '#F59E0B', '*', 'alert-circle', 'asset_status', 'check-circle', 'color', 'complaint', 'config_key', 'config_type', 'config_value', 'consultation', 'help-circle', 'high', 'icon', 'idle', 'in_use', 'inbox', 'is_active', 'label', 'low', 'maintenance', 'medium', 'organization_id', 'package', 'priority', 'repair', 'request', 'scrapped', 'sort_order', 'system_configs', 'trash', 'urgent', 'work_order_type', 'wrench', '中', '低', '使用中', '咨询', '客户投诉', '已报废', '数据库连接不可用', '物资申请', '紧急', '维修中', '设备报修', '配置保存失败', '闲置', '高']

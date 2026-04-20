@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\auth.py
+# hypothesis_version: 6.151.9
+
+[400, 401, 600, 'Bearer ', 'ENV', 'ES256', 'HS256', 'JWT_SECRET', 'RS256', 'SUPABASE_JWT_SECRET', 'SUPABASE_URL', 'alg', 'api_key_auth', 'authenticated', 'development', 'exp', 'id', 'org_id', 'prod', 'production', 'require', 'state', 'sub', 'test', 'test:', 'user_id', 'verify_aud', 'verify_exp', 'verify_iat', 'verify_signature']

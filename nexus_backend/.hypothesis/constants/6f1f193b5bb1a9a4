@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\conversation_memory\episodic.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.1, 0.5, 1.0, 500, 1000, ', ', 'complexity', 'confidence_score', 'created_at', 'default', 'duration_ms', 'embedding', 'match_limit', 'match_org_id', 'match_user_id', 'moderate', 'organization_id', 'outcome', 'query_embedding', 'session_id', 'similarity', 'strategy', 'thinking_steps', 'tools_used', 'total_tokens', 'user_id', 'user_intent', '无']

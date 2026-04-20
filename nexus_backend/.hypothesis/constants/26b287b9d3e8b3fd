@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\im_platform\wecom_client.py
+# hypothesis_version: 6.151.9
+
+[100, 7200, 86399, '%Y-%m-%d', '0', 'GET', 'OpenId', 'POST', 'UserId', 'access_token', 'agentid', 'avatar', 'checkin_time', 'checkin_type', 'checkindata', 'code', 'content', 'corpid', 'corpsecret', 'department', 'department_id', 'email', 'endtime', 'errcode', 'exception_type', 'expires_in', 'gender', 'id', 'location_title', 'mobile', 'msgtype', 'name', 'notes', 'opencheckindatatype', 'openid', 'order', 'parentid', 'position', 'raw', 'response_code', 'starttime', 'status', 'template_card', 'text', 'touser', 'user_ticket', 'userid', 'useridlist', 'userids', 'userlist', 'wecom']

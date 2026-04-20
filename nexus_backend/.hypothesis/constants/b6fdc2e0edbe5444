@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\sales.py
+# hypothesis_version: 6.151.9
+
+[100, 200, '*', '/api/sales', '/leaderboard', '/metrics', '/metrics/range', '/targets', '/targets/{target_id}', '/team-performance', 'Sales', 'created_by', 'date', 'db', 'deleted', 'id', 'leaderboard', 'members', 'metric', 'metrics', 'org_id', 'organization_id', 'sales_metrics', 'sales_targets', 'score', 'target', 'targets', 'user_id', 'user_id,date', 'users', '保存指标失败', '创建目标失败', '删除目标失败', '可选用户ID过滤', '开始日期 YYYY-MM-DD', '按范围查询指标失败', '数据库连接不可用', '未关联组织', '结束日期 YYYY-MM-DD', '获取团队业绩失败', '获取指标失败', '获取排行榜失败', '获取目标失败']

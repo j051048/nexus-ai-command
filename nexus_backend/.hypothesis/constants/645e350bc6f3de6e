@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\work_orders.py
+# hypothesis_version: 6.151.9
+
+['/api/work-orders', '/statistics', '/types', '/{order_id}', 'Work Orders', 'assignee_id', 'comments', 'db', 'end_date', 'medium', 'order_type', 'org_id', 'priority', 'resolved', 'resolved_at', 'search', 'start_date', 'status', 'work_order', 'work_order_types', 'work_orders', '工单不存在', '工单创建成功', '工单操作失败', '工单更新成功', '未关联组织']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\tools\registry.py
+# hypothesis_version: 6.151.9
+
+['.', '__init__', '__path__', 'all', 'app.tools', 'base_tool', 'general', 'registry', '无法导入包 %s，跳过自动发现', '自动发现: 导入 %s 失败，已跳过']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\memories.py
+# hypothesis_version: 6.151.9
+
+[100, 200, '/api/memories', '/business-rules', '/entity-profile', '/org-policies', '/{memory_id}', 'admin_manual', 'aliases', 'boss', 'business_rule', 'db', 'deleted', 'deleted_count', 'destination_entity', 'entity', 'entity_aliases', 'founder', 'id', 'org_id', 'organization_id', 'policy', 'role', 'saved_count', 'source', 'source_entity', 'status_code', 'strength', 'super_admin', 'triple_count', 'triples', 'users', '业务规则不存在', '业务规则已删除', '业务规则获取成功', '仅管理员可管理组织行为准则', '准则已删除', '准则条目不存在', '实体画像查询失败', '未关联组织', '未关联组织，无法设置业务规则', '未关联组织，无法设置行为准则', '组织行为准则获取成功', '记忆列表获取成功', '记忆已删除', '记忆操作失败', '记忆条目不存在']

@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\operation.py
+# hypothesis_version: 6.151.9
+
+['add_follow_up', 'community_operation', 'company_stats', 'customer_journey', 'customer_ltv', 'daily', 'get_customer_detail', 'get_customers', 'get_follow_ups', 'get_sales_pipeline', 'knowledge_base', 'medium', 'membership', 'nps_score', 'operation_agent', 'private_domain', 'retention', 'weekly', '私域运营Agent']

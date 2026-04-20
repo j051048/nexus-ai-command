@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\im_oauth.py
+# hypothesis_version: 6.151.9
+
+['/api/im-auth', '/{platform}/callback', 'IM OAuth', 'IM授权操作失败', 'db', 'dingtalk', 'email', 'feishu', 'id', 'im_user_mappings', 'is_new_mapping', 'login_url', 'mobile', 'name', 'nexus', 'nexus_user_id', 'organization_id', 'phone', 'platform', 'platform_user_id', 'platform_username', 'role', 'user', 'user_id', 'userid', 'users', 'wecom']

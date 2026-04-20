@@ -1,0 +1,4 @@
+# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\csrf_middleware.py
+# hypothesis_version: 6.151.9
+
+[403, 3600, '.', '/', '/api/im-callbacks/', '/api/im-oauth/', '/api/test-ai', '/api/webhooks/', '/docs', '/favicon.ico', '/health', '/openapi.json', '/redoc', 'Bearer ', 'CSRF_SECRET', 'DELETE', 'PATCH', 'POST', 'PUT', 'access_token', 'authorization', 'code', 'error', 'message', 'refresh_token', 'sb-', 'session', 'success', 'x-api-key', 'x-csrf-token', 'x-requested-with']
