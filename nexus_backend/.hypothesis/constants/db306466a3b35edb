@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\media.py
-# hypothesis_version: 6.151.9
-
-['ad_placement', 'avg_cpa', 'budget_allocation', 'budget_query', 'company_stats', 'daily', 'data_attribution', 'get_customers', 'get_sales_pipeline', 'knowledge_base', 'media_agent', 'media_planning', 'medium', 'overall_roas', 'performance_report', 'roi_analysis', 'sensor_sales_anomaly', 'weekly', '媒介投放Agent']

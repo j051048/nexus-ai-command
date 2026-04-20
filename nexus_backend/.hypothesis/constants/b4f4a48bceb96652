@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\conversation_memory\storage.py
-# hypothesis_version: 6.151.9
-
-[0.05, 0.1, 0.5, 0.92, 1.0, 500, 5000, '+00:00', '1', 'ADD', 'DELETE', 'LOCOMO_INGEST_MODE', 'PGRST204', 'UPDATE', 'Z', 'access_count', 'category', 'confidence', 'count', 'created_at', 'embedding', 'enriched_value', 'episodic', 'exact', 'explicit_memory', 'fact', 'fact_type', 'first_seen_at', 'id', 'importance', 'key', 'last_accessed_at', 'match_limit', 'match_user_id', 'metadata', 'null', 'organization_id', 'organization_members', 'pattern_key', 'personal_info', 'policy', 'preference', 'private', 'query_embedding', 'recurrence_count', 'semantic_tags', 'similarity', 'superseded_by', 'system', 'updated_at', 'user_explicit', 'user_id', 'valid_from', 'valid_until', 'value', 'version', 'visibility', '保存记忆失败', '数据库连接不可用']

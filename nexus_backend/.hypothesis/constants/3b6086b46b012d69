@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\agent_replay_service.py
-# hypothesis_version: 6.151.9
-
-[100, 200, '*', 'Only in session A', 'Only in session B', 'agent_traces', 'completed', 'delta_duration_ms', 'delta_tokens', 'duration_a_ms', 'duration_b_ms', 'duration_ms', 'error', 'index', 'input_data', 'input_snapshot', 'node_a', 'node_b', 'node_name', 'node_type', 'nodes_executed', 'note', 'org_id', 'output_data', 'output_snapshot', 'query', 'same_node', 'session_a', 'session_b', 'session_id', 'start_time', 'status', 'step_count', 'step_diffs', 'steps', 'steps_count', 'steps_json', 'summary', 'thread_id', 'thread_id_a', 'thread_id_b', 'timeline', 'timestamp', 'token_usage', 'tokens_a', 'tokens_b', 'tokens_used', 'tool_calls', 'total', 'total_duration_ms', 'total_messages', 'total_tokens', 'trace_id', 'unknown']

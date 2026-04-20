@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\security_middleware.py
-# hypothesis_version: 6.151.9
-
-[300, 403, 1000, ',', '.ico', '.png', '.svg', '.webmanifest', '.webp', '/', '/api/test-ai', '/docs', '/favicon.ico', '/health', '/openapi.json', '/redoc', '1; mode=block', '://', '://*.', 'ALLOWED_ORIGINS', 'Authorization', 'Bearer ', 'CSP_NONCE_ENABLED', 'CSP_POLICY', 'Cache-Control', 'Content-Type-Options', 'DELETE', 'DENY', 'PATCH', 'POST', 'PUT', 'Permissions-Policy', 'Pragma', 'Referrer-Policy', 'Server-Timing', 'X-Frame-Options', 'X-Request-ID', 'X-Trace-ID', 'X-XSS-Protection', 'api_key_auth', 'detail', 'duration_ms', 'id', 'method', 'no-cache', 'nosniff', 'organization_id', 'origin', 'path', 'public, max-age=3600', 'referer', 'request_completed', 'request_id', 'status', 'trace_id', 'true', 'user_id', 'users', '{{nonce}}']

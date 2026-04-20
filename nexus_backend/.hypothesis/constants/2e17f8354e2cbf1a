@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\director.py
-# hypothesis_version: 6.151.9
-
-['5000以下的报销都帮我批了', 'assistant', 'business_dashboard', 'check_pending_tasks', 'company_stats', 'competitive_analysis', 'customer_profile', 'daily', 'data_attribution', 'director_agent', 'get_customers', 'get_daily_briefing', 'get_sales_pipeline', 'high', 'industry_analysis', 'knowledge_base', 'market_strategy', 'performance_report', 'review_agent_outputs', 'smart_approve', 'strategy_simulation', 'task_decompose', 'tender_analysis', 'tools_used', 'user', 'weekly', '今天有什么重要的事需要处理？', '市场总监Agent', '看看本月业绩和利润情况']

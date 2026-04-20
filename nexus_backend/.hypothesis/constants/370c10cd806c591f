@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\rate_limiter.py
-# hypothesis_version: 6.151.9
-
-[60.0, 120, 429, 3600, 10000, 50000, ',', '/', '/api/auth', '/api/auth/login', '/api/auth/register', '/api/chat', '/api/chat/send', '/api/export', '/docs', '/favicon.ico', '/health', '/metrics', '/openapi.json', '/redoc', '/ws/chat', '/ws/push', '1', '100', '200', 'RATE_LIMIT_EXCEEDED', 'RATE_LIMIT_PER_IP', 'RATE_LIMIT_PER_USER', 'REDIS_URL', 'Retry-After', 'TRUSTED_PROXY_COUNT', 'X-Forwarded-For', 'X-RateLimit-Limit', 'X-RateLimit-Reset', 'auth', 'chat', 'code', 'ep', 'error', 'export', 'limit', 'message', 'org_id', 'production', 'remaining', 'reset', 'retry_after', 'rl', 'rl:ip', 'rl:tenant:hr', 'rl:tenant:min', 'rl:user', 'state', 'success', 'sw', 'unknown', 'upload', 'user_id', '您的请求过于频繁，请稍后再试', '该接口请求过于频繁，请稍后再试', '请求过于频繁，请稍后再试']

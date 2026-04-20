@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\conversation_memory\org_memory.py
-# hypothesis_version: 6.151.9
-
-['"', '## 相关组织记忆', '## 组织行为准则（必须遵守）', '%', "'", '(', ')', '*', '204', '[', '\\%', '\\_', ']', '_', 'category', 'code', 'contributed_by', 'embedding', 'id', 'key', 'metadata', 'org_memories', 'organization', 'organization_id', 'p_limit', 'p_org_id', 'p_query_embedding', 'policy', 'scope', 'updated_at', 'value', '{', '}']

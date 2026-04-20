@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\finance.py
-# hypothesis_version: 6.151.9
-
-['*', '/api/finance', '/budgets', '/budgets/{budget_id}', '/invoices', 'Finance', 'budget', 'budgets', 'created_by', 'db', 'finance_budgets', 'finance_invoices', 'id', 'invoice', 'org_id', 'organization_id', '创建发票失败', '创建预算失败', '发票创建成功', '数据库连接不可用', '更新预算失败', '未关联组织', '获取预算失败', '预算创建成功', '预算已更新']

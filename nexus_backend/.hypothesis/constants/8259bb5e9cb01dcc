@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\symbolic_guard.py
-# hypothesis_version: 6.151.9
-
-['admin', 'amount', 'approve_request', 'boss', 'create_expense', 'daily_budget', 'delete_employee', 'director', 'escalation', 'expense_small_limit', 'field', 'force_close_deal', 'hr_manager', 'manager', 'max', 'needs_approval', 'policy_name', 'purchase_auto_limit', 'reason', 'reason_tpl', 'reject_request', 'role_restriction', 'submit_expense', 'travel_daily_limit', 'update_salary']

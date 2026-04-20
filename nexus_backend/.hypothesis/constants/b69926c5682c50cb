@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\certificate_service.py
-# hypothesis_version: 6.151.9
-
-['*', 'attachment_url', 'cert_type', 'certificates', 'expire_date', 'holder_id', 'holder_type', 'id', 'organization_id', 'status', 'valid', '数据库连接不可用', '证照创建失败', '证照续期失败']

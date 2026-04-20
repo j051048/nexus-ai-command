@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\expense_service.py
-# hypothesis_version: 6.151.9
-
-[100, '%Y%m%d%H%M%S', '*', 'amount', 'approve', 'approved', 'approved_count', 'budgets', 'by_type', 'claim_id', 'claim_no', 'count', 'created_at', 'department_id', 'employee_id', 'end_date', 'expense_claims', 'expense_items', 'expense_type', 'id', 'organization_id', 'other', 'pending', 'pending_count', 'period', 'rejected', 'rejected_count', 'remaining', 'review_comment', 'reviewed_at', 'start_date', 'status', 'total', 'total_amount', 'total_count', 'used', 'used_amount', 'utilization_rate', '报销单创建失败', '报销单审批失败', '数据库连接不可用']

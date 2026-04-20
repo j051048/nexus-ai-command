@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\training.py
-# hypothesis_version: 6.151.9
-
-['/api/training', '/courses', '/courses/{course_id}', '/progress', '/quiz/submit', 'Training', 'answers', 'completed', 'course', 'course_id', 'courses', 'db', 'module_id', 'progress', 'quiz_result', 'score', '培训参数校验失败', '培训操作失败', '课程不存在', '进度已更新']

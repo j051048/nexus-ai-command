@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\crm_service.py
-# hypothesis_version: 6.151.9
-
-[0.0, 100, '#22c55e', '#3b82f6', '#94a3b8', '#ef4444', '#f59e0b', '*', '+00:00', 'Z', 'activity_type', 'assigned_to', 'calendar', 'call', 'churned', 'color', 'company', 'content', 'conversion_rate', 'count', 'created_at', 'customer', 'customer_activities', 'customer_contacts', 'customer_id', 'customers', 'deal_update', 'email', 'estimated_value', 'file-text', 'icon', 'id', 'industry', 'is_primary', 'lead', 'limit', 'mail', 'meeting', 'metadata', 'name', 'new_this_month', 'note', 'opportunity', 'order', 'organization_id', 'phone', 'prospect', 'source', 'stage', 'stage_distribution', 'tags', 'title', 'total_customers', 'total_value', 'trending-up', 'updated_at', 'user_id', '交易更新', '会议', '商机', '备注', '客户名称不能为空', '意向', '成交', '没有可更新的字段', '流失', '电话', '线索', '联系人姓名不能为空', '邮件']

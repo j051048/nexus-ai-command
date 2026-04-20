@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\notification_preferences.py
-# hypothesis_version: 6.151.9
-
-[100, '/feedback', 'clicked', 'dismissed', 'ignored', 'muted', 'recorded', 'status_code', '偏好已更新', '反馈已记录', '无变更', '通知偏好操作失败']

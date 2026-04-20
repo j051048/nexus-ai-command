@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\logging_config.py
-# hypothesis_version: 6.151.9
-
-['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f', 'ACCESS_DENIED', 'AUTH_FAILURE', 'AUTH_SUCCESS', 'DEBUG', 'ENV', 'INFO', 'LOG_LEVEL', 'RATE_LIMITED', 'SECURITY_CONFIG', 'SUSPICIOUS_ACTIVITY', 'Z', '[API_KEY]', '[EMAIL]', '[JWT]', '[PHONE]', '[SB_KEY]', 'activity', 'app', 'app.security', 'asyncio', 'development', 'event', 'exception', 'function', 'gotrue', 'h2', 'hpack', 'httpcore', 'httpx', 'ip', 'jwt', 'level', 'line', 'logger', 'message', 'module', 'openai', 'org_id', 'postgrest', 'prod', 'production', 'realtime', 'request_id', 'resource', 'sbp_[A-Za-z0-9]{20,}', 'sk-[A-Za-z0-9]{20,}', 'supabase', 'timestamp', 'trace_id', 'urllib3', 'user_id', 'uvicorn.access']

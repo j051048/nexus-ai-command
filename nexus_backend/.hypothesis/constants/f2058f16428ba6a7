@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\memory\prepare.py
-# hypothesis_version: 6.151.9
-
-[0.8, 100, 700, 4000, 6000, '\n\n---\n\n', '\n[用户画像结束]', '\n[组织记忆结束]', 'HyDE搜索', '[用户画像上下文]\n', '[用户画像结束]', '[组织共享记忆上下文]\n', 'agent_name', 'agent_tasks', 'args', 'assistant', 'blocked', 'cached_response', 'complexity', 'content', 'conversation_id', 'created_at', 'default', 'department', 'destination_entity', 'done', 'employee', 'id', 'in_progress', 'knowledge', 'knowledge_base', 'messages', 'name', 'pending', 'rag_context', 'rag_sources', 'relationship', 'role', 'sort_order', 'source', 'source_entity', 'start', 'status', 'system', 'tool_calls', 'tool_correction', 'tool_name', 'use_hyde', 'use_multi_query', 'user', 'user_id', 'users', 'valid_from', 'valid_to', '…(已截断)', '❓', '⬜', '上次', '之前', '他们', '原始查询', '她', '它', '未找到', '检索到', '知识库', '至今', '这个', '那个', '🔄', '🚫']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\startup\__init__.py
-# hypothesis_version: 6.151.9
-
-['lifespan', 'register_middleware', 'register_routers']

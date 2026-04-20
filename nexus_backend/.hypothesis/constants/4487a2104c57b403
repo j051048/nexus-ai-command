@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\saved_prompts.py
-# hypothesis_version: 6.151.9
-
-[100, 2000, '*', '/{prompt_id}', 'Saved Prompts', 'created_at', 'icon', 'id', 'prompt', 'sort_order', 'title', 'user_id', 'user_saved_prompts', 'zap', '快捷指令不存在或无权限', '快捷指令已保存', '快捷指令已删除']

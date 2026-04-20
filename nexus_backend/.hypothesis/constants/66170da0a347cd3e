@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\plan\response_recovery.py
-# hypothesis_version: 6.151.9
-
-[100, 300, 500, 'completed_tool_calls', 'content_filter', 'finish_reason', 'result', 'status', 'tool_name', 'unknown', '以下是工具执行结果：\n']

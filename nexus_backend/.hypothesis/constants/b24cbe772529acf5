@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\competitor_service.py
-# hypothesis_version: 6.151.9
-
-['*', 'brand_names', 'category', 'comparison_notes', 'competitor', 'competitor_detail', 'competitor_documents', 'competitor_features', 'competitor_id', 'competitor_products', 'competitor_score', 'competitors', 'counter_strategy', 'created_at', 'created_by', 'critical', 'description', 'dimension', 'doc_type', 'document_id', 'documents', 'features', 'general', 'high', 'id', 'industry', 'is_active', 'logo_url', 'low', 'medium', 'metadata', 'model', 'name', 'organization_id', 'our_advantage', 'our_score', 'price_range', 'products', 'sort_order', 'specs', 'strength_summary', 'tag', 'threat_level', 'updated_at', 'weakness_summary', 'website', '产品名称不能为空', '对比维度不能为空', '没有可更新的字段', '竞品名称不能为空']

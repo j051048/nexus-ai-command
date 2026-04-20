@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\plan\tool_binding.py
-# hypothesis_version: 6.151.9
-
-[0.2, 'SIMPLE查询仅绑定轻量工具', 'auto', 'bind_all_tools', 'bind_no_tools', 'bind_simple_only', 'blocked', 'completed_tool_calls', 'function', 'intent_domains', 'name', 'no tool call', 'parallel_tool_calls', 'reflection_guidance', 'required', 'scene_code', 'simple_only', 'status', 'tool_choice', '无工具调用', '未使用工具', '未调用工具']

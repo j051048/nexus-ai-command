@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\prompts_registry.py
-# hypothesis_version: 6.151.9
-
-['admin', 'approval_intent', 'approval_manager', 'boss', 'boss_assistant', 'default_fallback', 'department_head', 'employee', 'etl_metadata', 'expense_analysis', 'hr_manager', 'manager', 'owner', 'performance_coach', 'prompts', 'sales_commander', 'super_admin', 'system_prompts.yaml', 'tender_analysis', 'tool_prompts.yaml', 'utf-8']

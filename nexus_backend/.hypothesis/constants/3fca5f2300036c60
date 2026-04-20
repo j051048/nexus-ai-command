@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\chat_upload.py
-# hypothesis_version: 6.151.9
-
-[1024, '/api/chat', '/upload-image', 'Chat', 'attachment_id', 'base64_data', 'chat_attachments', 'filename', 'id', 'image', 'image/gif', 'image/jpeg', 'image/png', 'image/webp', 'mime_type', 'size_bytes', 'url', 'user_id', 'utf-8', '图片上传成功']

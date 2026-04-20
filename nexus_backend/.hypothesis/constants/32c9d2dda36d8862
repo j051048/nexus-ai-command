@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\tools\base_tool.py
-# hypothesis_version: 6.151.9
-
-[50000, '1.0.0', 'actions', 'all', 'amount', 'batch', 'bulk', 'bulk_record_count', 'data', 'escalation', 'external', 'general', 'high_value', 'high_value_amount', 'ids', 'inline', 'irreversible', 'items', 'summary', 'total', 'value', '⚠️ 操作需要确认:', '请确认后再执行。']

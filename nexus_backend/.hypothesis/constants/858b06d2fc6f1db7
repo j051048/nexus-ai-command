@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\memory\token_window.py
-# hypothesis_version: 6.151.9
-
-[0.8, 1.2, 100, 500, 1536, 16385, 128000, ' | ', 'MAX_CHAT_HISTORY', 'api_key', 'base_url', 'content', 'embedding', 'embedding_quantized', 'gpt-3.5-turbo', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini', 'model', 'role', 'system', 'user', '助手', '历史摘要(截断): ', '用户']

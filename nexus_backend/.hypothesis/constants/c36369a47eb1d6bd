@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\dependencies.py
-# hypothesis_version: 6.151.9
-
-[401, 'admin', 'boss', 'db', 'employee', 'founder', 'id', 'org_id', 'required_roles', 'role', 'user_role', 'users', '租户上下文未建立，请重新登录']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\billing.py
-# hypothesis_version: 6.151.9
-
-['*', '/api/billing', '/cancel', '/checkout', '/plans', '/portal-session', '/subscribe', '/subscription', '/trial', '/usage', '/webhook', 'Billing', 'allocated', 'cancel_url', 'cancelled', 'credit_type', 'daily_token_limit', 'daily_tokens', 'daily_tokens_used', 'days', 'db', 'monthly_token_limit', 'monthly_tokens', 'monthly_tokens_used', 'org_id', 'plan', 'plan is required', 'plan_id', 'plan_id is required', 'plans', 'return_url', 'status_code', 'storage_limit_mb', 'storage_used_mb', 'stripe-signature', 'subscription', 'success_url', 'tenant_credits', 'tenant_quotas', 'used', '创建支付会话失败', '创建管理门户失败', '支付网关不可用', '数据库连接不可用', '未关联组织', '获取用量失败', '账单操作失败']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\model_pricing.py
-# hypothesis_version: 6.151.9
-
-[0.0, 0.02, 0.075, 0.13, 0.15, 0.25, 0.3, 0.5, 0.6, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 5.0, 10.0, 15.0, 30.0, 60.0, 75.0, 1000000, 'claude-3', 'claude-3-haiku', 'claude-3-opus', 'claude-3-sonnet', 'deepseek', 'gemini-2.5-pro', 'gemini-3-pro-preview', 'gemini-flash', 'gemini-pro', 'gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini']

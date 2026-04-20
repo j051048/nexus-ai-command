@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\middlewares.py
-# hypothesis_version: 6.151.9
-
-[0.9, 120, 200, 100000, ', ', 'BUDGET_EXCEEDED', 'TOKEN_LIMIT_EXCEEDED', '_injected_memories', '_last_audit_count', '_matched_skill', '_memory_injected', '_memory_updated', '_tenant_org_id', '_tenant_user_id', '_token_warning', 'args', 'auto_turn', 'completed_tool_calls', 'complexity', 'config', 'default', 'error', 'error_type', 'final_response', 'human', 'intent', 'intent_summary', 'key', 'max_total_tokens', 'messages', 'org_id', 'param_keys', 'session_id', 'status', 'success', 'tool_name', 'total_input_tokens', 'total_output_tokens', 'type', 'unknown', 'unknown_error', 'user_id', 'value']

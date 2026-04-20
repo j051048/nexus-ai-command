@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\safety_guards.py
-# hypothesis_version: 6.151.9
-
-[1.0, 5.0, 10.0, 20.0, 30.0, 'AgentState', 'approval_action', 'approve', 'attendance_update', 'bulk_operation', 'completed_tool_calls', 'complexity', 'data_deletion', 'delete', 'expense_claim', 'fetch', 'financial_mutation', 'get', 'hr_sensitive', 'leave', 'leave_request', 'list', 'payment', 'query', 'reimburse', 'reject', 'remove', 'search', 'send_notification', 'status', 'success', 'task_update', 'tool_name', 'transfer', 'wall_clock_start', '付款', '删除', '审批', '报销', '搜索', '查询', '请假', '转账', '（每次操作都需确认）', '（确认后本次会话内同类操作自动通过）']

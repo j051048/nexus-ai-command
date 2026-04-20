@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\tools\chart_generation_tool.py
-# hypothesis_version: 6.151.9
-
-[100, '50%', 'axis', 'bar', 'bottom', 'calculable', 'category', 'center', 'content', 'data', 'error', 'format', 'funnel', 'heatmap', 'html', 'item', 'json', 'labels', 'left', 'legend', 'line', 'max', 'min', 'name', 'option', 'pie', 'points', 'radius', 'scatter', 'series', 'stages', 'success', 'text', 'title', 'tooltip', 'top', 'trigger', 'type', 'value', 'values', 'visualMap', 'x', 'xAxis', 'y', 'yAxis']

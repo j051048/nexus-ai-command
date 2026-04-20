@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\__init__.py
-# hypothesis_version: 6.151.9
-
-['ROLE_REGISTRY', 'get_all_roles', 'get_role_config']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\llm\_shared.py
-# hypothesis_version: 6.151.9
-
-[0.0, 0.7, 2.0, 100, 200, 500, 1000, 4096, 8192, 30000, 300000, '****', 'API基础URL (空则使用系统默认)', 'API密钥(不提供则保留原值)', 'Agent编码', 'Secret Key (部分供应商需要)', 'api_key_encrypted', 'chat', 'enabled', 'priority', 'secret_key_encrypted', '上下文窗口大小', '主模型ID', '优先级', '供应商模型ID', '供应商类型', '场景编码', '备用模型ID', '数据库不可用', '是否支持工具调用', '是否支持流式输出', '最大Token数', '最大重试次数', '模型名称', '模型编码', '每日最大Token数', '每日最大花费(USD)', '每日最大请求数', '每月最大Token数', '每月最大花费(USD)', '状态: enabled/disabled', '目标ID(用户ID/组织ID/模型ID)', '规则名称', '负载均衡策略', '超时时间(ms)', '输入价格(每百万Token)', '输出价格(每百万Token)', '适配器编码', '配额类型: user/org/model', '默认温度']

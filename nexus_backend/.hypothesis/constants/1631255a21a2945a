@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\permissions.py
-# hypothesis_version: 6.151.9
-
-['/all', '/api/permissions', '/me', '/roles/{role}', 'Permissions', 'boss', 'count', 'db', 'denied', 'employee', 'evaluated_conditions', 'founder', 'granted', 'guest', 'manager', 'permission', 'permissions', 'reason', 'role', 'role_hierarchy', 'rules', 'status_code', 'summary', 'total', 'user_id', '权限操作失败']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\push_notification_service.py
-# hypothesis_version: 6.151.9
-
-['*', '/logo192.png', '404', '410', 'Database unavailable', 'VAPID_PRIVATE_KEY', 'VAPID_PUBLIC_KEY', 'auth', 'badge', 'body', 'data', 'endpoint', 'error', 'icon', 'id', 'keys', 'organization_id', 'p256dh', 'push_subscriptions', 'sub', 'success', 'title', 'user_agent', 'user_id', 'user_id,endpoint']

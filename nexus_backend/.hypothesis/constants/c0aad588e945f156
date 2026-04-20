@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\loop_detector.py
-# hypothesis_version: 6.151.9
-
-[3600, 'AgentState', '_tool_call_history', 'get_company_stats', 'query_attendance', 'query_expense_status', 'query_leave_status', '|']

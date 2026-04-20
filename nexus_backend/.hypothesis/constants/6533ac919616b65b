@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\agent_metrics.py
-# hypothesis_version: 6.151.9
-
-[0.0, 'avg_response_time', 'error_count', 'total_cost', 'total_requests', 'total_tokens']

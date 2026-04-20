@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\certificates.py
-# hypothesis_version: 6.151.9
-
-['/api/certificates', '/expiring', '/{cert_id}/renew', 'Certificates', 'cert_type', 'certificate', 'certificates', 'db', 'holder_type', 'org_id', 'status', '未关联组织', '证书操作失败', '证照创建成功', '证照续期成功']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\startup\middleware.py
-# hypothesis_version: 6.151.9
-
-['Authorization', 'Content-Type', 'DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'X-API-Key', 'X-CSRF-Token', 'X-Idempotency-Key', 'X-Request-ID', 'X-Requested-With', 'X-Trace-ID']

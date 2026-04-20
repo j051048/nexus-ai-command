@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\node_respond.py
-# hypothesis_version: 6.151.9
-
-[200, 2000, '**\\1**', ', ', '[BONUS HIDDEN]', '[COST HIDDEN]', '[MARGIN HIDDEN]', '[SALARY HIDDEN]', '[利润信息已隐藏]', '[合同金额已隐藏]', '[奖金信息已隐藏]', '[成本信息已隐藏]', '[社保信息已隐藏]', '[薪资信息已隐藏]', '```gen-ui', 'boss', 'complexity', 'config', 'conversation_id', 'current_phase', 'employee', 'error', 'error_recovery_level', 'final_response', 'founder', 'guest', 'high', 'human', 'intent_summary', 'iteration', 'loop', 'manager', 'medium', 'messages', 'name', 'org_id', 'pending_tool_calls', 'permission', 'recovery_level', 'requires_tools', 'thinking_steps', 'timeout', 'tool', 'type', 'unknown', 'user_id', '、', '你好，有什么可以帮您？', '循环', '抱歉，系统处理出现异常，请重试。', '未知错误', '权限', '简单问答直出（跳过工具规划）']

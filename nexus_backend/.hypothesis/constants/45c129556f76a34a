@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\sales.py
-# hypothesis_version: 6.151.9
-
-['add_follow_up', 'assistant', 'avg_deal_cycle_days', 'battlecard', 'company_stats', 'competitor_analysis', 'daily', 'get_contracts', 'get_customer_detail', 'get_customers', 'get_follow_ups', 'get_sales_pipeline', 'high', 'knowledge_base', 'performance_report', 'pipeline_velocity', 'pricing_strategy', 'proposal', 'query_knowledge_base', 'sales_agent', 'sales_enablement', 'sensor_sales_anomaly', 'strategy_simulation', 'tender_analysis', 'tools_used', 'user', 'weekly', 'win_loss_analysis', 'win_rate', '下周要拜访深圳光伏科技，帮我准备一下', '华东水厂项目有什么进展？', '帮我对比一下我们和竞品B的光谱仪参数', '销售赋能Agent']

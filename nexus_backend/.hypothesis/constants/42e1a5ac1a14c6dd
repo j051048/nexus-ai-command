@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\api_key_service.py
-# hypothesis_version: 6.151.9
-
-[200, 365, 400, 500, '*', '+00:00', 'API Key 不存在', 'API Key 创建失败', 'Z', 'admin', 'api_key_id', 'api_keys', 'api_usage_logs', 'avg_response_time_ms', 'count', 'created_at', 'created_by', 'endpoint', 'endpoint_breakdown', 'error', 'error_calls', 'errors', 'expires_at', 'from', 'id', 'is_active', 'key', 'key_hash', 'key_id', 'key_info', 'key_prefix', 'last_used_at', 'method', 'name', 'organization_id', 'period_calls', 'response_time_ms', 'scopes', 'sk-', 'status_code', 'success_calls', 'to', 'unknown', 'usage_count', 'utf-8', 'warning', '数据库连接不可用']

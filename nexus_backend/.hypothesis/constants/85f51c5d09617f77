@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\token_service.py
-# hypothesis_version: 6.151.9
-
-[0.0, 1.5, 50.0, 500.0, 1000, 10000, 100000, 200000, 1000000, 10000000, '%Y-%m-%d', 'MAX_COST_PER_DAY_USD', 'MAX_REQUESTS_PER_DAY', 'MAX_TOKENS_PER_DAY', 'by_department', 'by_model', 'by_project', 'cl100k_base', 'content', 'cost', 'cost_limit_usd', 'cost_usd', 'date', 'day', 'department_id', 'estimated_cost_usd', 'get_cost_report', 'gpt-4o', 'id', 'org_id', 'organization_id', 'p_cost', 'p_date', 'p_days', 'p_department_id', 'p_org_id', 'p_project_id', 'p_tokens', 'p_user_id', 'period_days', 'project_id', 'request_count', 'requests', 'requests_limit', 'role', 'text', 'tokens', 'tokens_limit', 'tokens_remaining', 'tokens_used', 'total_cost_usd', 'total_tokens', 'type', 'unassigned', 'user_id', 'user_token_usage', 'users', '一', '鿿']

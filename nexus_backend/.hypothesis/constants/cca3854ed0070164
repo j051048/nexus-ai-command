@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\agent_proactive.py
-# hypothesis_version: 6.151.9
-
-['/api/agent/proactive', '/goals', '/tasks', '/tasks/{task_id}', 'agent-proactive', 'cron', 'deadline', 'enabled', 'goal_id', 'goal_text', 'metadata', 'name', 'prompt', 'task_id', 'user_id', '停止定时任务失败', '创建定时任务失败', '创建目标失败', '完成目标失败', '定时任务创建成功', '定时任务已停止', '更新目标进度失败', '目标创建成功', '目标已完成', '目标进度已更新', '获取目标列表失败']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\robot.py
-# hypothesis_version: 6.151.9
-
-[403, '/api/robot', '/api/wecom', '/callback', '/command', '/devices', '/status/{device_id}', 'Event', 'Execution priority', 'FromUserName', 'MsgType', 'Robot/RPA', 'ToUserName', 'WeChat Work', 'application/xml', 'click', 'custom', 'event', 'high', 'invalid signature', 'low', 'move', 'normal', 'offline', 'queued', 'run_script', 'screenshot', 'subscribe', 'text', 'text/plain', 'type', 'urgent', 'utf-8', 'verification failed', '回声字符串', '微信签名', '时间戳', '随机数']

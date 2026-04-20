@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\conversation_memory\cleanup.py
-# hypothesis_version: 6.151.9
-
-[-1.0, 0.0, 0.001, 0.01, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.7, 0.75, 0.8, 0.9, 0.95, 1.0, 2.0, 7.0, 30.0, 200, 500, '+00:00', '204', 'BOOST', 'PROMOTE', 'Z', 'access_count', 'archived', 'boosted', 'business_rule', 'candidates', 'category', 'code', 'created_at', 'decayed', 'deleted', 'explicit_memory', 'fact', 'first_seen_at', 'id', 'importance', 'key', 'last_accessed_at', 'last_reinforced_at', 'null', 'occurrences', 'policy', 'preference', 'promoted', 'recurrence_count', 'scanned', 'similarity', 'strength', 'superseded_by', 'system_promote', 'triples', 'updated_at', 'usage_pattern', 'user_id', 'valid_to', 'value']

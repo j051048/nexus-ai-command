@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\contract_service.py
-# hypothesis_version: 6.151.9
-
-['*', 'CNY', 'active', 'amended', 'amount', 'approved', 'by_status', 'by_type', 'contract_events', 'contract_id', 'contract_number', 'contract_type', 'contracts', 'created', 'created_at', 'created_by', 'currency', 'customer_id', 'description', 'document_url', 'draft', 'end_date', 'event_type', 'expired', 'expiring_soon', 'id', 'metadata', 'nda', 'organization_id', 'other', 'pending_review', 'purchase', 'renewed', 'sales', 'search', 'service', 'signed', 'signed_at', 'signed_by', 'start_date', 'status', 'submitted', 'tags', 'terminated', 'title', 'total', 'total_amount', 'updated_at', 'user_id', '保密协议', '修订', '其他', '创建合同', '审核中', '审核通过', '已签署', '已终止', '已续约', '已过期', '提交审核', '服务合同', '生效中', '终止', '续约', '草稿', '采购合同', '销售合同']

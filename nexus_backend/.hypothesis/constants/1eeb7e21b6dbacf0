@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\startup\routers.py
-# hypothesis_version: 6.151.9
-
-['admin_rag', 'admin_traces', 'agent_replay', 'onboarding_agent', 'router', 'vmd_clues', 'vmd_compliance', 'vmd_dashboard', 'vmd_tasks']

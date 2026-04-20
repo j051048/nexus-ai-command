@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\enterprise_event_handlers.py
-# hypothesis_version: 6.151.9
-
-['asset_id', 'asset_transfers', 'asset_type', 'assets', 'auto_generated', 'boss', 'cert_name', 'content', 'creator_id', 'current_quantity', 'current_user_id', 'department_id', 'departments', 'description', 'employee_id', 'employee_name', 'exact', 'expire_date', 'founder', 'from_user_id', 'high', 'holder_id', 'id', 'id, name, asset_code', 'idle', 'in_use', 'info', 'item_name', 'manager_id', 'metadata', 'min_stock', 'notifications', 'onboarding', 'open', 'operator_id', 'order_type', 'org_id', 'organization_id', 'priority', 'reason', 'return', 'role', 'status', 'title', 'transfer_type', 'type', 'user_id', 'users', 'warning', 'work_orders', '新员工加入您的部门', '资产库存不足预警']

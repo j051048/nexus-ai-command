@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\node_synthesize.py
-# hypothesis_version: 6.151.9
-
-[0.1, 1.0, 800, 1200, '; ', '\\d+(?:\\.\\d+)?', 'completed_tool_calls', 'complexity', 'config', 'content', 'critic_feedback', 'critic_passed', 'current_phase', 'economy', 'final_response', 'is_hallucination', 'iteration', 'messages', 'needs_replanning', 'reflection', 'reflection_guidance', 'result', 'role', 'status', 'success', 'synthesize_node', 'thinking_steps', 'tool_name', 'user', '工具执行完成，但无法生成摘要。', '快速合成工具结果', '（含质量自评）', '（轻量模式）']

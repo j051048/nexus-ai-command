@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\audio.py
-# hypothesis_version: 6.151.9
-
-[100, 1024, '*', '-ab', '-ac', '-acodec', '-ar', '-i', '-vn', '-y', '.', '.m4a', '.mp3', '.ogg', '.wav', '.webm', '/', '/api/audio', '/chat/completions', '/transcribe', '/v1', '1', '16000', '401', '404', '429', '500', '503', '64k', ';', 'AI API Key 无效，请检查设置', 'AI_BASE_URL', 'Audio', 'OPENAI_API_KEY', 'ai_settings', 'api_key', 'audio/m4a', 'audio/mp3', 'audio/mp4', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/x-m4a', 'auth', 'base_url', 'count_token_failed', 'does not exist', 'empty', 'ffmpeg', 'gpt-4o-transcribe', 'libmp3lame', 'not found', 'org_id', 'organization_id', 'rate', 'rb', 'text', 'user_id', 'video/webm', 'zh', '无可用渠道', '未识别到语音内容', '语音识别服务暂时繁忙，请稍后再试', '语音识别服务繁忙，请等几秒后再试', '负载', '音频文件太小，可能未录到声音']

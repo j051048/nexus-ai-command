@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\cache_service.py
-# hypothesis_version: 6.151.9
-
-[0.0, 0.95, 0.99, 300, 600, 1000, 3600, 5000, 7200, 8000, '*', 'InMemoryCache', 'REDIS_URL', 'active_entries', 'cache_hit', 'context_hash', 'expired_entries', 'max_entries', 'original_query', 'redis_cache', 'similarity', 'similarity_threshold', 'total_entries', 'utf-8']

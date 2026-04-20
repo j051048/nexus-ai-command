@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\import_data.py
-# hypothesis_version: 6.151.9
-
-[1024, '.', '.csv', '.xls', '.xlsx', '/api/import', '/customers', '/employees', '/preview', 'Content-Disposition', 'Import', 'insert', 'text/csv', 'unknown.csv', '导入失败', '导入数据参数校验失败', '数据库连接不可用', '文件大小超过限制（最大 10MB）', '获取模板失败', '预览失败']

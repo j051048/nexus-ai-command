@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\reports.py
-# hypothesis_version: 6.151.9
-
-['/api/reports', '/approvals', '/overview', '/performance', '/sales', '/usage', 'Reports', 'custom', 'day', 'db', 'end', 'get_approval_report', 'get_overview_stats', 'get_sales_report', 'get_usage_report', 'invalidated', 'month', 'org_id', 'overview', 'preset', 'report_type', 'start', '报表操作失败', '未关联组织', '聚合维度: day/week/month', '自定义开始日期 (ISO)', '自定义结束日期 (ISO)']

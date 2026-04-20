@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\payment_gateway.py
-# hypothesis_version: 6.151.9
-
-['*', 'cancel_at_period_end', 'client_reference_id', 'created_at', 'current_period_end', 'current_period_start', 'data', 'enterprise', 'event_type', 'free', 'handled', 'id', 'increment', 'invoice.paid', 'items', 'metadata', 'name', 'object', 'past_due', 'payment_status', 'plan_id', 'price', 'professional', 'quantity', 'session_id', 'starter', 'status', 'stripe_customer_id', 'subscription', 'subscription_id', 'tenant_id', 'tenant_subscriptions', 'tenants', 'tier', 'timestamp', 'type', 'updated_at', 'url']

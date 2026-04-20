@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\im_callbacks.py
-# hypothesis_version: 6.151.9
-
-['/api/im-callback', '/{platform}/approval', 'EventKey', 'FEISHU_ENCRYPT_KEY', 'FromUserName', 'IM Callbacks', 'IM回调处理失败', 'ResponseCode', 'WECOM_CALLBACK_TOKEN', 'X-Lark-Request-Nonce', 'X-Lark-Signature', '_', 'action', 'approval_id', 'approve', 'approved', 'challenge', 'db', 'dingtalk', 'event', 'feishu', 'im_callback', 'im_user_mappings', 'msg_signature', 'open_id', 'platform', 'platform_user_id', 'processed', 'rejected', 'response_code', 'sign', 'staffId', 'status', 'timestamp', 'token', 'userId', 'user_id', 'utf-8', 'value', 'wecom']

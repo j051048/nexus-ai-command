@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\stripe_webhooks.py
-# hypothesis_version: 6.151.9
-
-[200, 400, 500, 503, '/api/webhooks', '/stripe', 'Webhooks', 'application/json', 'error']

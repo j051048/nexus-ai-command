@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\plan\prompt_builder.py
-# hypothesis_version: 6.151.9
-
-['\n---\n', ', ', '_active_step_index', '_task_steps', 'acceptance_criteria', 'agent_tasks', 'balanced', 'blocked', 'category', 'content', 'context_summary', 'context_window', 'conversation_id', 'created_at', 'default', 'director_agent', 'done', 'filled_slots', 'function', 'golden_example', 'importance', 'in_progress', 'intent_domains', 'intent_summary', 'messages', 'missing_slots', 'model_tier', 'name', 'null', 'pending', 'reflection_guidance', 'scene_code', 'slot_context', 'sort_order', 'status', 'superseded_by', 'user_id', 'value', '✅', '❓', '⬜', '【历史优秀对话参考】\n', '无', '🔄', '🚫']

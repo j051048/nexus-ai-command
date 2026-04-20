@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\backups.py
-# hypothesis_version: 6.151.9
-
-['/api/backups', '/create', '/schedule', '/{backup_id}/preview', '/{backup_id}/restore', 'Backups', 'admin', 'boss', 'daily', 'db', 'error', 'founder', 'org_id', 'status_code', '备份创建成功', '备份操作失败', '备份计划已设置', '数据库连接不可用', '数据恢复完成', '需要组织上下文']

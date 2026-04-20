@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\hr.py
-# hypothesis_version: 6.151.9
-
-[100, 200, 500, 1000, 2000, '*', '/api/hr', '/attendance', '/candidates', '/employees', '/performance', '/positions', '/salary', 'HR', 'candidates', 'comments', 'created_by', 'db', 'department', 'email', 'hire_date', 'hr_attendance', 'hr_candidates', 'hr_employees', 'hr_job_positions', 'hr_salary_records', 'id', 'name', 'notes', 'org_id', 'organization_id', 'phone', 'position', 'positions', 'records', 'review_period', 'reviewer', 'reviews', 'salary', 'score', 'status', 'status_code', 'updated_at', 'updated_by', 'user_id', '候选人不存在或无权限修改', '候选人状态', '候选人状态更新成功', '入职日期', '创建员工失败', '员工不存在或无权限修改', '员工信息更新成功', '员工创建成功', '员工姓名', '备注', '手机号', '数据库连接不可用', '更新候选人状态失败', '更新员工信息失败', '更新绩效评估失败', '未关联组织', '状态', '绩效分数', '绩效评估不存在或无权限修改', '绩效评估更新成功', '考核人', '考核周期', '职位', '获取候选人信息失败', '获取绩效数据失败', '获取考勤数据失败', '获取职位信息失败', '获取薪资数据失败', '薪资', '评语', '邮箱', '部门']

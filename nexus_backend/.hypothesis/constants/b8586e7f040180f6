@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\im_settings.py
-# hypothesis_version: 6.151.9
-
-[200, '/api/im-settings', '/{platform}', '/{platform}/test', 'IM Settings', 'IM设置操作失败', 'app_id', 'app_key', 'app_secret', 'config', 'config is required', 'configs', 'connected', 'corp_id', 'corp_secret', 'date', 'db', 'departments_found', 'dingtalk', 'error', 'failed', 'feishu', 'im_platform_config', 'is_active', 'message', 'org_id', 'organization_id', 'platform', 'status', 'sync_result', 'token_obtained', 'wecom']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\vmd_dashboard.py
-# hypothesis_version: 6.151.9
-
-[0.5, 4.0, 7.2, 150.0, 100, '/api/vmd/dashboard', '/model-usage', '/roi', '/stats', 'VMD Dashboard', '_all', 'active_agents', 'actual_monthly_usd', 'ai_cost_cny', 'automation_rate', 'budget_daily_usd', 'budget_monthly_usd', 'budget_utilization', 'business_clue', 'call_count', 'clues_count', 'completed', 'completed_tasks', 'compliance_issues', 'compliance_rule', 'cost', 'cost_saved_cny', 'created_at', 'done', 'exact', 'hours_saved', 'id', 'is_active', 'labor_cost_saved_cny', 'llm_call_log', 'llm_usage_stats', 'manual_hours_saved', 'model_code', 'net_savings_cny', 'org_id', 'other', 'roi_percentage', 'scene', 'scene_code', 'scene_savings', 'status', 'tasks', 'tasks_count', 'tenant_id', 'total_calls', 'total_cost', 'total_input_tokens', 'total_output_tokens', 'unknown', 'usage', 'vmd_agent_config', 'vmd_main_task']

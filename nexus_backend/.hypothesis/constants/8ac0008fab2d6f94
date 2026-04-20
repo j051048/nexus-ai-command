@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\websocket_manager.py
-# hypothesis_version: 6.151.9
-
-[200, 1013, 4003, '1000', '30', '5', 'Heartbeat timeout', 'Server at capacity', 'WS_MAX_GLOBAL', 'WS_MAX_PER_USER', '[DONE]', 'chain_complete', 'choices', 'content', 'data', 'data: ', 'done', 'error', 'message', 'ping', 'status', 'thinking', 'thinking_step', 'ts', 'type']

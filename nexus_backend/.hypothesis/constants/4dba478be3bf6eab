@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\approval_flows.py
-# hypothesis_version: 6.151.9
-
-['/api/approval-flows', 'Approval Flows', 'approval_flow', 'approval_flows', 'db', 'org_id', '审批流程创建成功', '审批流程操作失败', '未关联组织']

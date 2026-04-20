@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\ws.py
-# hypothesis_version: 6.151.9
-
-[600, 1008, 1024, 4001, 4002, '/chat', '/push', '/status', '/ws', 'ES256', 'HS256', 'Invalid JSON', 'JWT access token', 'JWT_SECRET', 'No messages provided', 'Policy violation', 'RS256', 'SUPABASE_JWT_SECRET', 'SUPABASE_URL', 'TOKEN_EXPIRED', 'Token expired', 'WebSocket', 'active_connections', 'active_users', 'agent_name', 'alg', 'authenticated', 'code', 'config', 'content', 'employee', 'error', 'exp', 'global', 'id', 'limits', 'message', 'messages', 'org_id', 'per_user', 'ping', 'pong', 'require', 'role', 'role, org_id', 'scene_code', 'session_id', 'sub', 'system_prompt', 'token', 'type', 'user', 'users', 'verify_exp', 'vmd_agent_code', '登录已过期，请重新登录']

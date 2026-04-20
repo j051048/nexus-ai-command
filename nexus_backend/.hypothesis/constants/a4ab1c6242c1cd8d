@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\mcp.py
-# hypothesis_version: 6.151.9
-
-[10.0, -32603, -32602, -32601, 100, 404, 1000, '...', '/api/mcp', '/messages', '/sse', '/tools', '1.0.0', '2.0', '2024-11-05', ': keepalive\n\n', 'Cache-Control', 'Connection', 'MCP Server', 'X-Accel-Buffering', '_meta', 'arguments', 'before', 'capabilities', 'code', 'content', 'description', 'duration_ms', 'error', 'id', 'initialize', 'inputSchema', 'isError', 'jsonrpc', 'keep-alive', 'listChanged', 'mcp', 'mcp-sse', 'message', 'method', 'name', 'nexus-ai-command', 'no', 'no-cache', 'object', 'ok', 'org_id', 'parameters', 'params', 'ping', 'properties', 'protocolVersion', 'required', 'result', 'serverInfo', 'source', 'text', 'tools', 'tools/call', 'tools/list', 'type', 'version']

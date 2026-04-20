@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\data_transfer.py
-# hypothesis_version: 6.151.9
-
-[1024, '.csv', '/api/data', '/export/types', '/import/validate', '/templates', 'CSV 字符串内容', 'Content-Disposition', 'Data Transfer', 'approvals', 'attendance', 'csv', 'date_from', 'date_to', 'db', 'from', 'gbk', 'org_id', 'sales', 'status_code', 'to', 'utf-8', 'xlsx', '仅支持 CSV 格式文件', '导入失败', '导入类型', '导出失败', '导出格式: csv 或 xlsx', '开始日期 (YYYY-MM-DD)', '数据传输参数校验失败', '数据传输操作失败', '文件大小超过限制（最大 10MB）', '结束日期 (YYYY-MM-DD)', '自定义列映射 (原列名 -> 标准列名)', '过滤条件', '需要组织上下文']

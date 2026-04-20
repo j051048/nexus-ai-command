@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\incentive.py
-# hypothesis_version: 6.151.9
-
-['/api/incentive', '/trigger', 'Incentive', '激励方案操作失败']

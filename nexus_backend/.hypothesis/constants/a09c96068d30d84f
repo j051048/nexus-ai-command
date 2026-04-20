@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\kingdee.py
-# hypothesis_version: 6.151.9
-
-['/api/kingdee', '/inventory/{item_id}', '/sync/salary', 'Kingdee Mock', 'SERVICE_UNAVAILABLE', 'code', 'error', 'message', 'success']

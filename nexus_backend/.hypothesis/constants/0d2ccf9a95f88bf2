@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\api_docs.py
-# hypothesis_version: 6.151.9
-
-['/api/docs', '/changelog', '/examples', '/openapi-enhanced', '/stats', '/tags', 'API Docs', 'API文档操作失败', 'changelog', 'current_version', 'description', 'info', 'stats', 'tags', 'total', 'version', 'x-api-changelog', 'x-endpoint-stats', 'x-swagger-ui-config']

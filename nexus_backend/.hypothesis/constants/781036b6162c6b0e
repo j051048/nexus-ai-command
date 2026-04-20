@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\api_key_middleware.py
-# hypothesis_version: 6.151.9
-
-[1000, '/api/', '/api/admin', '/api/api-keys', 'Authorization', 'Bearer sk-', 'X-API-Key', 'created_by', 'key_id', 'organization_id', 'sk-']

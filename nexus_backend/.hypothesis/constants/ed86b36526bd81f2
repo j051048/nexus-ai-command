@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\plan\self_consistency.py
-# hypothesis_version: 6.151.9
-
-[0.7, 30.0, ',', 'AgentConfig', '__no_tools__', 'api_key', 'args', 'base_url', 'completion_tokens', 'content', 'model', 'name', 'prompt_tokens', 'response_metadata', 'score', 'sig', 'token_usage', 'tool_calls', '|']

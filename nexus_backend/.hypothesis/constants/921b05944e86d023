@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\query_transformer.py
-# hypothesis_version: 6.151.9
-
-[0.2, 0.3, 0.5, 5.0, 100, 150, 200, 300, '\n对话上下文:\n', 'AI_BASE_URL', 'AgentConfig', '\\[[\\d\\s,\\.]+\\]', 'api_key', 'assistant', 'base_url', 'content', 'default', 'model', 'org_id', 'role', 'user']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\idempotency_middleware.py
-# hypothesis_version: 6.151.9
-
-[128, 200, 300, 400, 86400, '/api/chat', '/api/mcp/', '/api/v1/approval', '/api/v1/contracts', '/api/v1/crm', '/api/v1/vmd/', 'DELETE', 'Idempotency hit: %s', 'PATCH', 'POST', 'PUT', 'X-Idempotency-Key', 'application/json', 'body', 'code', 'content-length', 'error', 'media_type', 'message', 'replace', 'status_code', 'success', 'text/event-stream', 'true', 'utf-8']

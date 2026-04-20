@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\services\rule_engine.py
-# hypothesis_version: 6.151.9
-
-[0.0, 1000, 'Travel expense high', 'ai_quality_score', 'auto_approved', 'call_finished', 'daily_updates_count', 'deal_won', 'expense', 'lead_updated', 'purchase', 'travel', 'value']

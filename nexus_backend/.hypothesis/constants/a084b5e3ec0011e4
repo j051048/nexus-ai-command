@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\roles\clue.py
-# hypothesis_version: 6.151.9
-
-['add_follow_up', 'cac_optimization', 'cac_trend', 'channel_attribution', 'channel_roi', 'clue_agent', 'create_customer', 'daily', 'data_attribution', 'get_customer_detail', 'get_customers', 'get_follow_ups', 'get_sales_pipeline', 'knowledge_base', 'lead_generation', 'lead_response_time', 'lead_scoring', 'medium', 'mql_to_sql_rate', 'new_leads_count', 'sensor_sales_anomaly', 'tender_analysis', 'weekly', '线索获客Agent']

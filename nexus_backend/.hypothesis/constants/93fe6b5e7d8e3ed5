@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\node_slot_verify.py
-# hypothesis_version: 6.151.9
-
-['ask_user', 'boolean', 'checkbox', 'compact_context', 'completed_tool_calls', 'context', 'current_phase', 'default', 'default_value', 'description', 'enum', 'fields', 'filled_slots', 'final_response', 'integer', 'label', 'missing_keys', 'missing_slots', 'name', 'number', 'options', 'parameters', 'pending_tool_calls', 'properties', 'question', 'required', 'select', 'slot_context', 'slot_round', 'string', 'text', 'thinking_steps', 'tool_call_id', 'tool_name', 'tool_schema', 'type']

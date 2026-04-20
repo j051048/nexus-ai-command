@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\state.py
-# hypothesis_version: 6.151.9
-
-[0.0, 0.1, 0.3, 0.5, 0.7, 0.85, 1.0, 1.5, 2.0, 120, 180, 300, 600, 1000000, '0.0-2.0', 'AI_DEFAULT_MODEL', 'AI_STRONG_MODEL', 'AgentConfig', 'AgentState', 'Must be > 0', 'Seconds, must be > 0', '_schema_version', '_task_steps', 'backtrack_depth', 'balanced', 'best_plan_score', 'candidate_plans', 'circuit_break_reason', 'completed_tool_calls', 'complex', 'config', 'cost_multiplier', 'critical', 'critiquing', 'default', 'delegation_results', 'done', 'economy', 'employee', 'error', 'executing', 'flagship', 'frozen', 'gpt-4o', 'gpt-4o-mini', 'model', 'moderate', 'pending', 'planning', 'power', 'reflecting', 'responding', 'routing', 'simple', 'slot_context', 'slot_round', 'supports_tools', 'temperature', 'tier', 'timeout', 'user_role', 'wbs_structure']

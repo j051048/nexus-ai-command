@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\agent\node_parallel_context.py
-# hypothesis_version: 6.151.9
-
-['config', 'content', 'human', 'iteration', 'messages', 'rag_context', 'rag_sources', 'role', 'thinking_steps', 'type', 'user']

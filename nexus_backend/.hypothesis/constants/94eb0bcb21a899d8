@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\attendance.py
-# hypothesis_version: 6.151.9
-
-['/api/attendance', '/clock', '/leave', '/records', '/shifts', '/statistics', 'Attendance', 'clock', 'db', 'leave', 'org_id', 'records', 'shift', 'shifts', '打卡成功', '排班创建成功', '未关联组织', '考勤操作失败', '请假申请已提交']

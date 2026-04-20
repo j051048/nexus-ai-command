@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\routers\workflow_templates.py
-# hypothesis_version: 6.151.9
-
-[200, '/share/{workflow_id}', '/{template_id}', 'Workflow Templates', 'boss', 'categories', 'db', 'founder', 'org_id', 'status_code', 'templates', '工作流已从模板创建', '工作流已分享为模板', '工作流模板操作失败', '模板不存在', '模板列表获取成功', '自定义工作流名称', '需要组织上下文']

@@ -1,4 +1,0 @@
-# file: C:\Users\Fei\Desktop\AI应用\nexus-ai-command\nexus_backend\app\core\metrics.py
-# hypothesis_version: 6.151.9
-
-[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 2.5, 5000, ',', '/\\d+(?=/|$)', '/{id}', 'Total HTTP requests', 'complexity', 'http_requests_total', 'llm_requests_total', 'method', 'model', 'path', 'status', 'utf-8', '{', '{id}', '|', '}']
