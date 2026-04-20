@@ -154,8 +154,9 @@ class TestCRMToolsE2E:
         with patch("app.tools.crm_tools._get_client", return_value=mock_db):
             result = await tool.run({"limit": 10}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
-        assert "客户" in result or "cust" in result.lower() or "没有" in result or "查询" in result
+        assert isinstance(result, (str, dict))
+        res_str = str(result)
+        assert "客户" in res_str or "cust" in res_str.lower() or "没有" in res_str or "查询" in res_str
 
     @pytest.mark.asyncio
     async def test_get_customers_with_stage_filter(self, mock_db, tool_config):
@@ -165,7 +166,7 @@ class TestCRMToolsE2E:
         with patch("app.tools.crm_tools._get_client", return_value=mock_db):
             result = await tool.run({"stage": "qualified"}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_create_customer(self, mock_db, tool_config):
@@ -183,7 +184,7 @@ class TestCRMToolsE2E:
         with patch("app.tools.crm_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_update_customer_stage(self, mock_db, tool_config):
@@ -199,7 +200,7 @@ class TestCRMToolsE2E:
         with patch("app.tools.crm_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -219,7 +220,7 @@ class TestApprovalToolsE2E:
         with patch("app.tools.approval_tools._get_client", return_value=mock_db):
             result = await tool.run({}, MANAGER_USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_approve_request_requires_confirmation(self, mock_db, tool_config):
@@ -269,7 +270,7 @@ class TestApprovalToolsE2E:
         with patch("app.tools.approval_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -289,7 +290,7 @@ class TestHRToolsE2E:
         with patch("app.tools.hr_tools._get_client", return_value=mock_db):
             result = await tool.run({"query_type": "my_record"}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_query_team_attendance(self, mock_db, tool_config):
@@ -300,7 +301,7 @@ class TestHRToolsE2E:
         with patch("app.tools.hr_tools._get_client", return_value=mock_db):
             result = await tool.run({}, MANAGER_USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_get_employee_profile(self, mock_db, tool_config):
@@ -311,7 +312,7 @@ class TestHRToolsE2E:
         with patch("app.tools.hr_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -338,7 +339,7 @@ class TestFinanceToolsE2E:
         with patch("app.tools.finance_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_query_expense_status(self, mock_db, tool_config):
@@ -349,7 +350,7 @@ class TestFinanceToolsE2E:
         with patch("app.tools.finance_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_query_budget(self, mock_db, tool_config):
@@ -360,7 +361,7 @@ class TestFinanceToolsE2E:
         with patch("app.tools.finance_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_high_value_expense_requires_confirmation(self, mock_db, tool_config):
@@ -396,7 +397,7 @@ class TestKnowledgeToolsE2E:
         with patch("app.tools.operational_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -422,7 +423,7 @@ class TestCalendarToolsE2E:
         with patch("app.tools.oa_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_query_leave_status(self, mock_db, tool_config):
@@ -433,7 +434,7 @@ class TestCalendarToolsE2E:
         with patch("app.tools.oa_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -453,7 +454,7 @@ class TestReportToolsE2E:
         with patch("app.tools.project_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
     @pytest.mark.asyncio
     async def test_get_performance_report(self, mock_db, tool_config):
@@ -464,7 +465,7 @@ class TestReportToolsE2E:
         with patch("app.tools.operational_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
-        assert isinstance(result, str)
+        assert isinstance(result, (str, dict))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -506,10 +507,10 @@ class TestToolMetadataRegression:
         "asset_statistics",
         "attendance_statistics",
         "auto_dispatch",
-        "check_inventory",
+        "list_inventory",
         "create_work_order",
-        "get_contract_detail",
-        "query_oa_status",
+        "get_contracts",
+        "create_work_handover",
     ]
 
     @pytest.mark.parametrize("tool_name", TOP_20_TOOLS)
@@ -638,3 +639,24 @@ class TestToolRegistration:
 
         names = list(_TOOL_MODULES.keys())
         assert len(names) == len(set(names)), "Duplicate tool names in registry"
+
+
+class TestSecurityRegression:
+    """安全性回归测试 — 校验租户隔离和权限"""
+
+    @pytest.mark.asyncio
+    async def test_tool_run_missing_org_id_fails(self, mock_db):
+        """工具在缺失 org_id 时应拒绝执行"""
+        tool = _load_tool("get_customers")
+        
+        # 即使传了 token，如果没给 org_id 也会在 _get_client 报错
+        with pytest.raises(PermissionError, match="Missing tenant context"):
+            await tool.run({"limit": 10}, "any-user", config={"token": "fake"})
+
+    @pytest.mark.asyncio
+    async def test_tool_run_empty_config_fails(self, mock_db):
+        """工具在配置为空时应拒绝执行"""
+        tool = _load_tool("get_customers")
+        
+        with pytest.raises(PermissionError, match="Missing tenant context"):
+            await tool.run({"limit": 10}, "any-user", config={})

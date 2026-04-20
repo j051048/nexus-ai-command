@@ -289,7 +289,10 @@ def on(event_type: str):
     """
 
     def decorator(func):
-        event_bus.subscribe(event_type, func)
+        if hasattr(event_bus, "subscribe_sync"):
+            event_bus.subscribe_sync(event_type, func)
+        else:
+            event_bus.subscribe(event_type, func)
         return func
 
     return decorator

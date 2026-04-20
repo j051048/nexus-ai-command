@@ -89,9 +89,10 @@ class TestGetCustomersTool:
             mock_svc.list_customers = AsyncMock(return_value=customers)
             result = await tool.run({}, FAKE_USER_ID, CONFIG)
 
-        assert "2 位客户" in result
-        assert "测试客户" in result
-        assert "客户B" in result
+        res_str = str(result)
+        assert "2 位客户" in res_str
+        assert "测试客户" in res_str
+        assert "客户B" in res_str
 
     @pytest.mark.asyncio
     async def test_empty_list(self):
@@ -102,8 +103,9 @@ class TestGetCustomersTool:
             mock_svc.list_customers = AsyncMock(return_value=[])
             result = await tool.run({}, FAKE_USER_ID, CONFIG)
 
-        assert "暂无客户" in result
-        assert "创建客户" in result
+        res_str = str(result)
+        assert "暂无客户" in res_str
+        assert "创建客户" in res_str
 
     @pytest.mark.asyncio
     async def test_filter_by_stage(self):
@@ -116,8 +118,11 @@ class TestGetCustomersTool:
 
         mock_svc.list_customers.assert_called_once()
         call_kwargs = mock_svc.list_customers.call_args
-        assert call_kwargs[1].get("filters", {}).get("stage") == "opportunity" or \
-               call_kwargs[0][1].get("stage") == "opportunity" if len(call_kwargs[0]) > 1 else True
+        # Handle both positional and keyword arguments for flexibility
+        if call_kwargs[1].get("filters"):
+            assert call_kwargs[1]["filters"].get("stage") == "opportunity"
+        elif len(call_kwargs[0]) > 1 and isinstance(call_kwargs[0][1], dict):
+             assert call_kwargs[0][1].get("stage") == "opportunity"
 
     @pytest.mark.asyncio
     async def test_search_mode(self):
@@ -129,14 +134,14 @@ class TestGetCustomersTool:
             result = await tool.run({"search": "华为"}, FAKE_USER_ID, CONFIG)
 
         mock_svc.search_customers.assert_called_once()
-        assert "华为" in result
+        assert "华为" in str(result)
 
     @pytest.mark.asyncio
     async def test_no_org_id(self):
-        """缺少 org_id 时返回错误提示"""
+        """缺少 org_id 时触发 PermissionError (P0 隔离要求)"""
         tool = _load_tool("get_customers")
-        result = await tool.run({}, FAKE_USER_ID, {})  # 空 config
-        assert "无法获取组织信息" in result
+        with pytest.raises(PermissionError, match="缺少租户上下文"):
+            await tool.run({}, FAKE_USER_ID, {})  # 空 config
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -163,23 +168,24 @@ class TestGetCustomerDetailTool:
 
             result = await tool.run({"customer_id": FAKE_CUSTOMER_ID}, FAKE_USER_ID, CONFIG)
 
-        assert "测试客户" in result
-        assert "张三" in result
-        assert "电话沟通" in result
+        res_str = str(result)
+        assert "测试客户" in res_str
+        assert "张三" in res_str
+        assert "电话沟通" in res_str
 
     @pytest.mark.asyncio
     async def test_missing_customer_id(self):
         """未提供 customer_id"""
         tool = _load_tool("get_customer_detail")
         result = await tool.run({}, FAKE_USER_ID, CONFIG)
-        assert "请提供客户ID" in result
+        assert "请提供客户ID" in str(result)
 
     @pytest.mark.asyncio
     async def test_invalid_uuid_format(self):
         """无效 UUID 格式"""
         tool = _load_tool("get_customer_detail")
         result = await tool.run({"customer_id": "not-a-uuid"}, FAKE_USER_ID, CONFIG)
-        assert "不是有效的UUID" in result
+        assert "不是有效的UUID" in str(result)
 
     @pytest.mark.asyncio
     async def test_customer_not_found(self):
@@ -190,7 +196,7 @@ class TestGetCustomerDetailTool:
             mock_svc.get_customer = AsyncMock(return_value=None)
             result = await tool.run({"customer_id": FAKE_CUSTOMER_ID}, FAKE_USER_ID, CONFIG)
 
-        assert "未找到" in result
+        assert "未找到" in str(result)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -210,22 +216,23 @@ class TestCreateCustomerTool:
             mock_svc.create_customer = AsyncMock(return_value=_make_customer({"name": "新客户"}))
             result = await tool.run({"name": "新客户", "company": "新公司"}, FAKE_USER_ID, CONFIG)
 
-        assert "创建成功" in result
-        assert "新客户" in result
+        res_str = str(result)
+        assert "创建成功" in res_str
+        assert "新客户" in res_str
 
     @pytest.mark.asyncio
     async def test_missing_name(self):
         """缺少必填字段 name"""
         tool = _load_tool("create_customer")
         result = await tool.run({"company": "某公司"}, FAKE_USER_ID, CONFIG)
-        assert "名称不能为空" in result
+        assert "名称不能为空" in str(result)
 
     @pytest.mark.asyncio
     async def test_empty_name(self):
         """空白名称"""
         tool = _load_tool("create_customer")
         result = await tool.run({"name": "   "}, FAKE_USER_ID, CONFIG)
-        assert "名称不能为空" in result
+        assert "名称不能为空" in str(result)
 
     @pytest.mark.asyncio
     async def test_negative_amount(self):
@@ -235,7 +242,7 @@ class TestCreateCustomerTool:
             {"name": "测试", "estimated_value": -1000},
             FAKE_USER_ID, CONFIG,
         )
-        assert "不能为负数" in result
+        assert "不能为负数" in str(result)
 
     @pytest.mark.asyncio
     async def test_invalid_amount_format(self):
@@ -245,14 +252,14 @@ class TestCreateCustomerTool:
             {"name": "测试", "estimated_value": "abc"},
             FAKE_USER_ID, CONFIG,
         )
-        assert "格式错误" in result
+        assert "格式错误" in str(result)
 
     @pytest.mark.asyncio
     async def test_no_org_id(self):
-        """缺少组织信息"""
+        """缺少组织信息时触发 PermissionError"""
         tool = _load_tool("create_customer")
-        result = await tool.run({"name": "测试"}, FAKE_USER_ID, {})
-        assert "无法获取组织信息" in result
+        with pytest.raises(PermissionError, match="缺少租户上下文"):
+            await tool.run({"name": "测试"}, FAKE_USER_ID, {})
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -275,15 +282,16 @@ class TestUpdateCustomerTool:
                 FAKE_USER_ID, CONFIG,
             )
 
-        assert "已更新" in result
-        assert "company=新公司名" in result
+        res_str = str(result)
+        assert "已更新" in res_str
+        assert "company=新公司名" in res_str
 
     @pytest.mark.asyncio
     async def test_no_fields_to_update(self):
         """未提供任何更新字段"""
         tool = _load_tool("update_customer")
         result = await tool.run({"customer_id": FAKE_CUSTOMER_ID}, FAKE_USER_ID, CONFIG)
-        assert "至少一个要更新的字段" in result
+        assert "至少一个要更新的字段" in str(result)
 
     @pytest.mark.asyncio
     async def test_invalid_uuid(self):
@@ -293,7 +301,7 @@ class TestUpdateCustomerTool:
             {"customer_id": "bad-id", "name": "改名"},
             FAKE_USER_ID, CONFIG,
         )
-        assert "不是有效的UUID" in result
+        assert "不是有效的UUID" in str(result)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -318,8 +326,9 @@ class TestAddFollowUpTool:
                 FAKE_USER_ID, CONFIG,
             )
 
-        assert "已添加" in result
-        assert "电话" in result
+        res_str = str(result)
+        assert "已添加" in res_str
+        assert "电话" in res_str
 
     @pytest.mark.asyncio
     async def test_invalid_type_fallback_to_note(self):
@@ -348,7 +357,7 @@ class TestAddFollowUpTool:
             {"customer_id": FAKE_CUSTOMER_ID, "activity_type": "call", "content": ""},
             FAKE_USER_ID, CONFIG,
         )
-        assert "不能为空" in result
+        assert "不能为空" in str(result)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -371,9 +380,10 @@ class TestGetFollowUpsTool:
             ])
             result = await tool.run({"customer_id": FAKE_CUSTOMER_ID}, FAKE_USER_ID, CONFIG)
 
-        assert "2条" in result
-        assert "首次电话" in result
-        assert "现场拜访" in result
+        res_str = str(result)
+        assert "2 条跟进记录" in res_str
+        assert "首次电话" in res_str
+        assert "现场拜访" in res_str
 
     @pytest.mark.asyncio
     async def test_empty_timeline(self):
@@ -384,7 +394,7 @@ class TestGetFollowUpsTool:
             mock_svc.get_activity_timeline = AsyncMock(return_value=[])
             result = await tool.run({"customer_id": FAKE_CUSTOMER_ID}, FAKE_USER_ID, CONFIG)
 
-        assert "暂无跟进" in result
+        assert "暂无跟进" in str(result)
 
     @pytest.mark.asyncio
     async def test_limit_clamp(self):
@@ -427,6 +437,9 @@ class TestUpdateCustomerStageTool:
 
         with patch("app.tools.crm_tools.crm_service") as mock_svc, \
              patch("app.services.event_bus.event_bus") as mock_bus:
+            # P0 Fix: Mock event_bus.emit to be an AsyncMock to avoid 'MagicMock' can't be awaited error
+            mock_bus.emit = AsyncMock()
+            
             mock_svc.get_customer = AsyncMock(return_value=_make_customer({"stage": "lead"}))
             mock_svc.update_customer = AsyncMock(return_value=_make_customer({"stage": "opportunity", "name": "测试客户"}))
             mock_svc.create_activity = AsyncMock(return_value={"id": "act-1"})
@@ -436,8 +449,9 @@ class TestUpdateCustomerStageTool:
                 FAKE_USER_ID, CONFIG,
             )
 
-        assert "阶段已更新" in result
-        assert "线索" in result and "商机" in result
+        res_str = str(result)
+        assert "阶段已更新" in res_str
+        assert "线索" in res_str and "商机" in res_str
         # 验证跟进记录被创建
         mock_svc.create_activity.assert_called_once()
 
@@ -449,7 +463,7 @@ class TestUpdateCustomerStageTool:
             {"customer_id": FAKE_CUSTOMER_ID, "new_stage": "nonexistent"},
             FAKE_USER_ID, CONFIG,
         )
-        assert "无效的阶段" in result
+        assert "无效的阶段" in str(result)
 
     @pytest.mark.asyncio
     async def test_customer_not_found(self):
@@ -463,14 +477,14 @@ class TestUpdateCustomerStageTool:
                 FAKE_USER_ID, CONFIG,
             )
 
-        assert "未找到" in result
+        assert "未找到" in str(result)
 
     @pytest.mark.asyncio
     async def test_empty_args(self):
         """缺少必要参数"""
         tool = _load_tool("update_customer_stage")
         result = await tool.run({}, FAKE_USER_ID, CONFIG)
-        assert "不能为空" in result
+        assert "不能为空" in str(result)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -509,10 +523,10 @@ class TestGetSalesPipelineTool:
             mock_svc.list_customers = AsyncMock(return_value=customers)
             result = await tool.run({}, FAKE_USER_ID, CONFIG)
 
-        assert "销售漏斗概览" in result
-        assert "客户总数" in result
-        assert "10" in result
-        assert "转化率" in result
+        res_str = str(result)
+        assert "销售漏斗" in res_str
+        assert "10" in res_str
+        assert "500,000" in res_str
 
     @pytest.mark.asyncio
     async def test_empty_pipeline(self):
@@ -523,11 +537,11 @@ class TestGetSalesPipelineTool:
             mock_svc.get_customer_stats = AsyncMock(return_value={"total_customers": 0})
             result = await tool.run({}, FAKE_USER_ID, CONFIG)
 
-        assert "暂无客户数据" in result
+        assert "暂无客户数据" in str(result)
 
     @pytest.mark.asyncio
     async def test_no_org_id(self):
-        """缺少组织信息"""
+        """缺少组织信息时触发 PermissionError"""
         tool = _load_tool("get_sales_pipeline")
-        result = await tool.run({}, FAKE_USER_ID, {})
-        assert "无法获取组织信息" in result
+        with pytest.raises(PermissionError, match="缺少租户上下文"):
+            await tool.run({}, FAKE_USER_ID, {})

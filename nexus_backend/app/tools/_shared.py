@@ -32,25 +32,29 @@ def _get_client(config: dict = None):
     if not supabase:
         raise RuntimeError("Database not configured")
 
-    token = config.get("token") if config else None
+    # Ensure config exists
+    config = config or {}
+    token = config.get("token")
+    org_id = config.get("org_id")
+
+    # P0 Security: Refuse to operate without tenant context (org_id is mandatory)
+    if not org_id:
+        _logger.warning(
+            "[_get_client] Missing org_id in config — refusing to return "
+            "service_role client. All tool calls must provide org_id."
+        )
+        raise PermissionError(
+            "缺少租户上下文 (Missing tenant context: org_id is required). "
+            "工具调用必须携带组织 ID。"
+        )
+
     if token:
+        # P1: even with token, we log the org_id for audit trail
+        _logger.debug(f"[_get_client] Using token-scoped client for org {org_id}")
         return supabase.get_scoped_client(token)
 
     # Fallback: use OrgFilteredClient for application-level tenant isolation
-    # This covers cases where token is unavailable (e.g., Celery tasks, proactive agent)
-    org_id = config.get("org_id") if config else None
-    if org_id:
-        return supabase.get_org_filtered_client(org_id)
-
-    # P0 Security: Refuse to operate without tenant context
-    _logger.warning(
-        "[_get_client] No token or org_id in config — refusing to return "
-        "service_role client. Caller must provide tenant context."
-    )
-    raise PermissionError(
-        "缺少租户上下文 (Missing tenant context: no token or org_id in config). "
-        "工具调用必须携带用户 token 或组织 ID。"
-    )
+    return supabase.get_org_filtered_client(org_id)
 
 
 def _validate_uuid(value: str, field_name: str = "ID") -> str | None:

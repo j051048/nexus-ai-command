@@ -81,7 +81,7 @@ async def list_intent_rules(
         return api_success(data=result.data or [], message="意图规则列表")
     except Exception as e:
         logger.error(f"List intent rules error: {e}")
-        return api_error(ErrorCode.INTERNAL_ERROR, str(e))
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("")
@@ -105,7 +105,7 @@ async def create_intent_rule(
             .execute()
         )
         if existing.data:
-            return api_error(ErrorCode.CONFLICT, f"关键词「{body.keyword}」已存在")
+            return api_error(ErrorCode.RESOURCE_CONFLICT, f"关键词「{body.keyword}」已存在")
 
         result = (
             await db.table("intent_rules")
@@ -126,7 +126,7 @@ async def create_intent_rule(
         return api_success(data=result.data[0] if result.data else None, message="规则创建成功")
     except Exception as e:
         logger.error(f"Create intent rule error: {e}")
-        return api_error(ErrorCode.INTERNAL_ERROR, str(e))
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/{rule_id}")
@@ -160,7 +160,7 @@ async def update_intent_rule(
         return api_success(data=result.data[0], message="规则更新成功")
     except Exception as e:
         logger.error(f"Update intent rule error: {e}")
-        return api_error(ErrorCode.INTERNAL_ERROR, str(e))
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.delete("/{rule_id}")
@@ -186,7 +186,7 @@ async def delete_intent_rule(
         return api_success(data=None, message="规则已删除")
     except Exception as e:
         logger.error(f"Delete intent rule error: {e}")
-        return api_error(ErrorCode.INTERNAL_ERROR, str(e))
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/validate-regex")

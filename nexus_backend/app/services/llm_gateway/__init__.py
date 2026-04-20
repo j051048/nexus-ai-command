@@ -63,3 +63,19 @@ class LLMGatewayService(ModelResolutionMixin, ChatDispatchMixin, CallLoggingMixi
 
 # Module-level singleton
 llm_gateway = LLMGatewayService()
+
+
+def get_llm(org_id: str = None, model: str = None, **kwargs):
+    """
+    Temporary helper to provide a LangChain-compatible LLM instance
+    for routers (like ai_assistant.py) that expect .ainvoke().
+    """
+    from langchain_openai import ChatOpenAI
+    from app.core.config import settings
+
+    return ChatOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.AI_BASE_URL,
+        model=model or "gpt-4o-mini",
+        **kwargs
+    )
