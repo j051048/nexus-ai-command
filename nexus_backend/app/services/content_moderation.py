@@ -475,11 +475,13 @@ class ContentModerator:
 仅回复JSON，无其他内容。"""
 
             gateway = llm_gateway
-            org_id = "system"  # 安全检测为系统级调用
             response = await gateway.chat(
-                messages=[{"role": "user", "content": prompt}],
-                org_id=org_id,
                 scene_code="moderation",
+                agent_code="content_detector",
+                user_id="system",
+                org_id="system",
+                system_prompt="你是一个安全检测助手，仅输出JSON格式结果。",
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=100,
                 temperature=0,
             )

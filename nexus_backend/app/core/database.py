@@ -86,6 +86,31 @@ try:
         def get_org_filtered_client(self, org_id: str):
             return OrgFilteredClient(self, org_id)
 
+    class _OrgScopedRequestBuilder:
+        """Proxy that injects .eq("organization_id", org_id) after .select()/.update()/.delete()."""
+
+        def __init__(self, builder, org_id: str):
+            self._builder = builder
+            self._org_id = org_id
+
+        def select(self, *args, **kwargs):
+            return self._builder.select(*args, **kwargs).eq("organization_id", self._org_id)
+
+        def insert(self, *args, **kwargs):
+            return self._builder.insert(*args, **kwargs)
+
+        def upsert(self, *args, **kwargs):
+            return self._builder.upsert(*args, **kwargs)
+
+        def update(self, *args, **kwargs):
+            return self._builder.update(*args, **kwargs).eq("organization_id", self._org_id)
+
+        def delete(self, *args, **kwargs):
+            return self._builder.delete(*args, **kwargs).eq("organization_id", self._org_id)
+
+        def __getattr__(self, name):
+            return getattr(self._builder, name)
+
     class OrgFilteredClient:
         _ORG_TABLES = {
             "users",
@@ -138,7 +163,7 @@ try:
         def table(self, name: str):
             builder = self._inner.table(name)
             if name in self._ORG_TABLES:
-                builder = builder.eq("organization_id", self._org_id)
+                return _OrgScopedRequestBuilder(builder, self._org_id)
             return builder
 
         def rpc(self, name: str, params: dict):

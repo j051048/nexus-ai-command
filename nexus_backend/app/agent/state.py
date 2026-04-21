@@ -89,6 +89,10 @@ class ToolCallRecord:
     tool_version: str | None = None  # #17: tool version for audit
     confirmation_type: str = ""  # P0-6: "irreversible" | "high_value" | "bulk" | ""
 
+    def get(self, key: str, default=None):
+        """Dict-compatible access for code that treats records as dicts."""
+        return getattr(self, key, default)
+
 
 # ─── Pydantic Models for Complex State Fields ────────────────────────────────
 # These provide type-safe access to dict-based structures in AgentState,
