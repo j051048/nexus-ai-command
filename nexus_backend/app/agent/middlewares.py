@@ -33,10 +33,14 @@ async def tenant_context_middleware(state: AgentState) -> dict[str, Any]:
 
     # 注入租户上下文（如果尚未注入）
     if not state.get("_tenant_context_injected"):
-        logger.debug(f"[Middleware] Injecting tenant context: org_id={config.org_id}")
+        org_id = config.org_id
+        if not org_id:
+            logger.warning("[Middleware] org_id is None, skipping tenant context injection")
+            return {"_tenant_context_injected": True}
+        logger.debug(f"[Middleware] Injecting tenant context: org_id={org_id}")
         return {
             "_tenant_context_injected": True,
-            "_tenant_org_id": config.org_id,
+            "_tenant_org_id": org_id,
             "_tenant_user_id": config.user_id,
         }
 

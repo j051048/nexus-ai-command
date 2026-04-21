@@ -921,8 +921,10 @@ class AgentGraph:
             )
             cost = tokens * 0.00001  # Simplified cost calculation
 
+            _cfg = result.get("config")
+            _uid = getattr(_cfg, "user_id", None) or "unknown"
             record_agent_execution(
-                user_id=result.get("config", {}).get("user_id", "unknown"),
+                user_id=_uid,
                 complexity=str(result.get("complexity", "unknown")),
                 model=result.get("selected_model", "unknown"),
                 tokens=tokens,
@@ -934,8 +936,10 @@ class AgentGraph:
             return result
         except Exception:
             duration = time.time() - start_time
+            _cfg = initial_state.get("config")
+            _uid = getattr(_cfg, "user_id", None) or "unknown"
             record_agent_execution(
-                user_id=initial_state.get("config", {}).get("user_id", "unknown"),
+                user_id=_uid,
                 complexity="unknown",
                 model="unknown",
                 tokens=0,

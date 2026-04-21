@@ -698,6 +698,9 @@ def _sync_tool_domains():
         )
 
 
+_tool_filter_cache: dict[str, list] = {}
+
+
 def _get_tool_schemas(
     user_role: str | None = None,
     intent_summary: str | None = None,
@@ -710,7 +713,14 @@ def _get_tool_schemas(
       1) User role (RBAC) — exclude tools above user's permission level
       2) Scene policy — allow/deny overrides per business scene
       3) Intent domain — Router LLM domains preferred, fallback to keyword matching
+
+    Results are cached per unique parameter combination within the process.
+    Call _tool_filter_cache.clear() if tool registry changes at runtime.
     """
+    cache_key = f"{user_role}|{intent_summary}|{scene_code}|{','.join(sorted(intent_domains)) if intent_domains else ''}"
+    if cache_key in _tool_filter_cache:
+        return _tool_filter_cache[cache_key]
+
     global _tool_schemas_cache, _tool_schemas_count
     _sync_tool_domains()
     if _tool_schemas_cache is None:
@@ -850,6 +860,12 @@ def _get_tool_schemas(
             s for s in filtered if s["function"]["name"] not in _ALWAYS_INCLUDE_TOOLS
         ]
         filtered = (always + rest)[:MAX_TOOLS]
+
+    _tool_filter_cache[cache_key] = filtered
+    # Evict oldest entries if cache grows too large
+    if len(_tool_filter_cache) > 64:
+        _oldest = next(iter(_tool_filter_cache))
+        _tool_filter_cache.pop(_oldest, None)
 
     return filtered
 

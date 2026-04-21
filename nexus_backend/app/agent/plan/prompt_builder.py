@@ -194,7 +194,7 @@ def _inject_role_few_shot(lc_msgs, agent_config):
     try:
         from app.agent.roles.registry import get_role_config_sync
 
-        _agent_code = agent_config.agent_code or "director_agent"
+        _agent_code = getattr(agent_config, "agent_code", None) or "director_agent"
         _role = get_role_config_sync(_agent_code)
         if _role.few_shot_examples:
             _examples = []
