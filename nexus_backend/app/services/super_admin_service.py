@@ -128,13 +128,13 @@ class SuperAdminService:
             # 获取近30天 AI 调用量
             thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
             usage_result = await (
-                client.table("api_usage_logs")
-                .select("id", count="exact")
-                .eq("organization_id", org_id)
-                .gte("created_at", thirty_days_ago)
+                client.table("user_token_usage")
+                .select("request_count")
+                .eq("org_id", org_id)
+                .gte("usage_date", thirty_days_ago[:10])
                 .execute()
             )
-            ai_calls_30d = len(usage_result.data) if usage_result.data else 0
+            ai_calls_30d = sum(r.get("request_count", 0) for r in (usage_result.data or []))
 
             # 获取订阅信息
             subscription = None
@@ -289,12 +289,12 @@ class SuperAdminService:
 
             # 总 AI 调用量（30天）
             ai_result = await (
-                client.table("api_usage_logs")
-                .select("id", count="exact")
-                .gte("created_at", thirty_days_ago)
+                client.table("user_token_usage")
+                .select("request_count")
+                .gte("usage_date", thirty_days_ago[:10])
                 .execute()
             )
-            total_ai_calls = len(ai_result.data) if ai_result.data else 0
+            total_ai_calls = sum(r.get("request_count", 0) for r in (ai_result.data or []))
 
             # 活跃组织数
             active_orgs_result = await (
