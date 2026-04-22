@@ -30,6 +30,25 @@ class SuspendRequest(BaseModel):
     reason: str
 
 
+class ChangePlanRequest(BaseModel):
+    plan: str
+    reason: str = ""
+
+
+class UpdateQuotasRequest(BaseModel):
+    monthly_token_limit: int | None = None
+    monthly_api_call_limit: int | None = None
+    storage_limit_mb: int | None = None
+    reason: str = ""
+
+
+class ManageTrialRequest(BaseModel):
+    action: str = "start"
+    days: int = 14
+    plan: str = "professional"
+    reason: str = ""
+
+
 # ============== Endpoints ==============
 
 
@@ -173,4 +192,77 @@ async def list_audit_logs(
         return api_success(data=logs)
     except Exception as e:
         logger.error(f"获取审计日志失败: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
+
+
+@router.post("/organizations/{org_id}/change-plan")
+async def admin_change_plan(
+    org_id: str,
+    body: ChangePlanRequest,
+    user_id: str = Depends(require_super_admin),
+):
+    """超级管理员手动变更组织订阅计划"""
+    try:
+        result = await super_admin_service.admin_change_plan(
+            org_id=org_id, plan=body.plan, reason=body.reason, admin_user_id=user_id
+        )
+        return api_success(data=result, message="订阅计划已变更")
+    except ValueError as e:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error(f"变更订阅计划失败: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
+
+
+@router.post("/organizations/{org_id}/update-quotas")
+async def admin_update_quotas(
+    org_id: str,
+    body: UpdateQuotasRequest,
+    user_id: str = Depends(require_super_admin),
+):
+    """超级管理员手动调整组织配额"""
+    try:
+        quotas = {
+            k: v
+            for k, v in body.model_dump(exclude={"reason"}).items()
+            if v is not None
+        }
+        result = await super_admin_service.admin_update_quotas(
+            org_id=org_id, quotas=quotas, reason=body.reason, admin_user_id=user_id
+        )
+        return api_success(data=result, message="配额已更新")
+    except ValueError as e:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error(f"更新配额失败: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
+
+
+@router.post("/organizations/{org_id}/manage-trial")
+async def admin_manage_trial(
+    org_id: str,
+    body: ManageTrialRequest,
+    user_id: str = Depends(require_super_admin),
+):
+    """超级管理员手动管理组织试用期"""
+    try:
+        result = await super_admin_service.admin_manage_trial(
+            org_id=org_id,
+            action=body.action,
+            days=body.days,
+            plan=body.plan,
+            reason=body.reason,
+            admin_user_id=user_id,
+        )
+        return api_success(data=result, message="试用期已更新")
+    except ValueError as e:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error(f"管理试用期失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")

@@ -7,9 +7,12 @@
 
 import logging
 import os
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+VALID_PLANS = {"free", "starter", "professional", "enterprise"}
 
 
 class SuperAdminService:
@@ -123,8 +126,6 @@ class SuperAdminService:
             user_count = len(users_result.data) if users_result.data else 0
 
             # 获取近30天 AI 调用量
-            from datetime import timedelta
-
             thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
             usage_result = await (
                 client.table("ai_usage_logs")
@@ -135,10 +136,42 @@ class SuperAdminService:
             )
             ai_calls_30d = len(usage_result.data) if usage_result.data else 0
 
+            # 获取订阅信息
+            subscription = None
+            try:
+                sub_result = await (
+                    client.table("subscriptions")
+                    .select("*")
+                    .eq("org_id", org_id)
+                    .limit(1)
+                    .execute()
+                )
+                if sub_result.data:
+                    subscription = sub_result.data[0]
+            except Exception:
+                pass
+
+            # 获取配额信息
+            quotas = None
+            try:
+                quota_result = await (
+                    client.table("tenant_quotas")
+                    .select("*")
+                    .eq("org_id", org_id)
+                    .limit(1)
+                    .execute()
+                )
+                if quota_result.data:
+                    quotas = quota_result.data[0]
+            except Exception:
+                pass
+
             return {
                 **org_data,
                 "user_count": user_count,
                 "ai_calls_30d": ai_calls_30d,
+                "subscription": subscription,
+                "quotas": quotas,
             }
 
         except Exception as e:
@@ -420,6 +453,179 @@ class SuperAdminService:
 
         except Exception as e:
             logger.error(f"获取全局审计日志失败: {e}")
+            raise
+
+
+    async def _write_audit_log(
+        self, client, action: str, admin_user_id: str, org_id: str, details: dict
+    ):
+        try:
+            await (
+                client.table("audit_logs")
+                .insert(
+                    {
+                        "id": str(uuid.uuid4()),
+                        "action": action,
+                        "user_id": admin_user_id,
+                        "organization_id": org_id,
+                        "details": details,
+                        "created_at": datetime.now(UTC).isoformat(),
+                    }
+                )
+                .execute()
+            )
+        except Exception as e:
+            logger.warning(f"写入审计日志失败: {e}")
+
+    async def admin_change_plan(
+        self, org_id: str, plan: str, reason: str, admin_user_id: str
+    ) -> dict:
+        if plan not in VALID_PLANS:
+            raise ValueError(f"无效的计划: {plan}，可选: {', '.join(VALID_PLANS)}")
+
+        client = self._get_global_client()
+
+        try:
+            await (
+                client.table("organizations")
+                .update({"tier": plan, "plan": plan})
+                .eq("id", org_id)
+                .execute()
+            )
+
+            await (
+                client.table("subscriptions")
+                .upsert({"org_id": org_id, "plan": plan, "status": "active"})
+                .execute()
+            )
+
+            await self._write_audit_log(
+                client,
+                "admin_change_plan",
+                admin_user_id,
+                org_id,
+                {"new_plan": plan, "reason": reason},
+            )
+
+            logger.info(f"管理员 {admin_user_id} 将组织 {org_id} 计划变更为 {plan}")
+            return {"org_id": org_id, "plan": plan, "status": "active"}
+
+        except Exception as e:
+            logger.error(f"变更订阅计划失败: {e}")
+            raise
+
+    async def admin_update_quotas(
+        self, org_id: str, quotas: dict, reason: str, admin_user_id: str
+    ) -> dict:
+        if not quotas:
+            raise ValueError("至少需要提供一个配额字段")
+
+        client = self._get_global_client()
+
+        try:
+            update_data = {"org_id": org_id, **quotas}
+            await (
+                client.table("tenant_quotas")
+                .upsert(update_data)
+                .execute()
+            )
+
+            await self._write_audit_log(
+                client,
+                "admin_update_quotas",
+                admin_user_id,
+                org_id,
+                {"quotas": quotas, "reason": reason},
+            )
+
+            logger.info(f"管理员 {admin_user_id} 更新组织 {org_id} 配额: {quotas}")
+            return {"org_id": org_id, "quotas": quotas}
+
+        except Exception as e:
+            logger.error(f"更新配额失败: {e}")
+            raise
+
+    async def admin_manage_trial(
+        self,
+        org_id: str,
+        action: str,
+        days: int,
+        plan: str,
+        reason: str,
+        admin_user_id: str,
+    ) -> dict:
+        if action not in ("start", "extend"):
+            raise ValueError("action 必须为 start 或 extend")
+        if plan not in VALID_PLANS or plan == "free":
+            raise ValueError(f"试用计划不能为 free，可选: starter, professional, enterprise")
+        if days < 1 or days > 365:
+            raise ValueError("试用天数必须在 1-365 之间")
+
+        client = self._get_global_client()
+
+        try:
+            now = datetime.now(UTC)
+
+            if action == "start":
+                period_end = (now + timedelta(days=days)).isoformat()
+            else:
+                sub_result = await (
+                    client.table("subscriptions")
+                    .select("current_period_end")
+                    .eq("org_id", org_id)
+                    .limit(1)
+                    .execute()
+                )
+                base = now
+                if sub_result.data and sub_result.data[0].get("current_period_end"):
+                    existing_end = datetime.fromisoformat(
+                        sub_result.data[0]["current_period_end"]
+                    )
+                    if existing_end > now:
+                        base = existing_end
+                period_end = (base + timedelta(days=days)).isoformat()
+
+            await (
+                client.table("subscriptions")
+                .upsert(
+                    {
+                        "org_id": org_id,
+                        "plan": plan,
+                        "status": "trialing",
+                        "current_period_end": period_end,
+                    }
+                )
+                .execute()
+            )
+
+            await (
+                client.table("organizations")
+                .update({"tier": plan, "plan": plan})
+                .eq("id", org_id)
+                .execute()
+            )
+
+            await self._write_audit_log(
+                client,
+                "admin_manage_trial",
+                admin_user_id,
+                org_id,
+                {"action": action, "plan": plan, "days": days, "period_end": period_end, "reason": reason},
+            )
+
+            logger.info(
+                f"管理员 {admin_user_id} 为组织 {org_id} {action}试用: plan={plan}, days={days}"
+            )
+            return {
+                "org_id": org_id,
+                "action": action,
+                "plan": plan,
+                "trial_days": days,
+                "period_end": period_end,
+            }
+
+        except Exception as e:
+            logger.error(f"管理试用期失败: {e}")
             raise
 
 

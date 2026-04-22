@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import {
@@ -43,6 +44,9 @@ import {
   Cpu,
   ScrollText,
   RefreshCw,
+  CreditCard,
+  Settings2,
+  Clock,
 } from 'lucide-react';
 
 // ============== Types ==============
@@ -56,6 +60,16 @@ interface Organization {
   created_at: string;
   user_count?: number;
   ai_calls_30d?: number;
+  subscription?: {
+    plan: string;
+    status: string;
+    current_period_end?: string;
+  } | null;
+  quotas?: {
+    monthly_token_limit?: number;
+    monthly_api_call_limit?: number;
+    storage_limit_mb?: number;
+  } | null;
 }
 
 interface PlatformStats {
@@ -115,6 +129,19 @@ function SuperAdminDashboard() {
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [showOrgDetail, setShowOrgDetail] = useState(false);
   const [suspendReason, setSuspendReason] = useState('');
+
+  // 管理操作状态
+  const [newPlan, setNewPlan] = useState('');
+  const [planChangeReason, setPlanChangeReason] = useState('');
+  const [quotaTokenLimit, setQuotaTokenLimit] = useState('');
+  const [quotaApiLimit, setQuotaApiLimit] = useState('');
+  const [quotaStorageLimit, setQuotaStorageLimit] = useState('');
+  const [quotaReason, setQuotaReason] = useState('');
+  const [trialAction, setTrialAction] = useState('start');
+  const [trialPlan, setTrialPlan] = useState('professional');
+  const [trialDays, setTrialDays] = useState('14');
+  const [trialReason, setTrialReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   // ---------- 数据加载 ----------
 
@@ -209,6 +236,75 @@ function SuperAdminDashboard() {
       loadOrganizations();
     } catch {
       toast.error('恢复操作失败');
+    }
+  };
+
+  const handleChangePlan = async (orgId: string) => {
+    if (!newPlan) { toast.error('请选择计划'); return; }
+    setActionLoading(true);
+    try {
+      await fetchAPI(`/organizations/${orgId}/change-plan`, {
+        method: 'POST',
+        body: JSON.stringify({ plan: newPlan, reason: planChangeReason }),
+      });
+      toast.success(`计划已变更为 ${newPlan}`);
+      setNewPlan('');
+      setPlanChangeReason('');
+      handleViewOrg({ id: orgId } as Organization);
+      loadOrganizations();
+    } catch {
+      toast.error('变更计划失败');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateQuotas = async (orgId: string) => {
+    const quotas: Record<string, number> = {};
+    if (quotaTokenLimit) quotas.monthly_token_limit = Number(quotaTokenLimit);
+    if (quotaApiLimit) quotas.monthly_api_call_limit = Number(quotaApiLimit);
+    if (quotaStorageLimit) quotas.storage_limit_mb = Number(quotaStorageLimit);
+    if (Object.keys(quotas).length === 0) { toast.error('请至少填写一个配额'); return; }
+    setActionLoading(true);
+    try {
+      await fetchAPI(`/organizations/${orgId}/update-quotas`, {
+        method: 'POST',
+        body: JSON.stringify({ ...quotas, reason: quotaReason }),
+      });
+      toast.success('配额已更新');
+      setQuotaTokenLimit('');
+      setQuotaApiLimit('');
+      setQuotaStorageLimit('');
+      setQuotaReason('');
+      handleViewOrg({ id: orgId } as Organization);
+    } catch {
+      toast.error('更新配额失败');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleManageTrial = async (orgId: string) => {
+    setActionLoading(true);
+    try {
+      await fetchAPI(`/organizations/${orgId}/manage-trial`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: trialAction,
+          plan: trialPlan,
+          days: Number(trialDays) || 14,
+          reason: trialReason,
+        }),
+      });
+      toast.success(trialAction === 'start' ? '试用已开启' : '试用已延长');
+      setTrialDays('14');
+      setTrialReason('');
+      handleViewOrg({ id: orgId } as Organization);
+      loadOrganizations();
+    } catch {
+      toast.error('试用期操作失败');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -471,7 +567,7 @@ function SuperAdminDashboard() {
 
       {/* ========== 组织详情弹窗 ========== */}
       <Dialog open={showOrgDetail} onOpenChange={setShowOrgDetail}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>组织详情</DialogTitle>
             <DialogDescription>查看和管理组织信息</DialogDescription>
@@ -538,6 +634,120 @@ function SuperAdminDashboard() {
                   </Button>
                 </div>
               )}
+
+              {/* ---- 变更订阅计划 ---- */}
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1">
+                  <CreditCard className="w-4 h-4" /> 变更订阅计划
+                </p>
+                {selectedOrg.subscription && (
+                  <p className="text-xs text-muted-foreground">
+                    当前: {selectedOrg.subscription.plan} ({selectedOrg.subscription.status})
+                    {selectedOrg.subscription.current_period_end && (
+                      <> · 到期: {new Date(selectedOrg.subscription.current_period_end).toLocaleDateString('zh-CN')}</>
+                    )}
+                  </p>
+                )}
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label className="text-xs">目标计划</Label>
+                    <Select value={newPlan} onValueChange={setNewPlan}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="选择计划" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free">Free</SelectItem>
+                        <SelectItem value="starter">Starter ($29/月)</SelectItem>
+                        <SelectItem value="professional">Professional ($99/月)</SelectItem>
+                        <SelectItem value="enterprise">Enterprise ($299/月)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs">原因 (可选)</Label>
+                    <Input className="h-8" placeholder="变更原因" value={planChangeReason} onChange={(e) => setPlanChangeReason(e.target.value)} />
+                  </div>
+                  <Button size="sm" className="h-8" disabled={!newPlan || actionLoading} onClick={() => handleChangePlan(selectedOrg.id)}>
+                    确认变更
+                  </Button>
+                </div>
+              </div>
+
+              {/* ---- 调整配额 ---- */}
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1">
+                  <Settings2 className="w-4 h-4" /> 调整配额
+                </p>
+                {selectedOrg.quotas && (
+                  <p className="text-xs text-muted-foreground">
+                    当前: Token {selectedOrg.quotas.monthly_token_limit?.toLocaleString() ?? '-'}
+                    · API {selectedOrg.quotas.monthly_api_call_limit?.toLocaleString() ?? '-'}
+                    · 存储 {selectedOrg.quotas.storage_limit_mb ?? '-'} MB
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">月Token限额</Label>
+                    <Input className="h-8" type="number" placeholder="如 500000" value={quotaTokenLimit} onChange={(e) => setQuotaTokenLimit(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">月API调用限额</Label>
+                    <Input className="h-8" type="number" placeholder="如 5000" value={quotaApiLimit} onChange={(e) => setQuotaApiLimit(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">存储限额(MB)</Label>
+                    <Input className="h-8" type="number" placeholder="如 1000" value={quotaStorageLimit} onChange={(e) => setQuotaStorageLimit(e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Input className="h-8 flex-1" placeholder="调整原因 (可选)" value={quotaReason} onChange={(e) => setQuotaReason(e.target.value)} />
+                  <Button size="sm" className="h-8" disabled={actionLoading} onClick={() => handleUpdateQuotas(selectedOrg.id)}>
+                    确认调整
+                  </Button>
+                </div>
+              </div>
+
+              {/* ---- 管理试用期 ---- */}
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1">
+                  <Clock className="w-4 h-4" /> 管理试用期
+                </p>
+                <div className="flex gap-2 items-end">
+                  <div>
+                    <Label className="text-xs">操作</Label>
+                    <Select value={trialAction} onValueChange={setTrialAction}>
+                      <SelectTrigger className="h-8 w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="start">开启</SelectItem>
+                        <SelectItem value="extend">延长</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">计划</Label>
+                    <Select value={trialPlan} onValueChange={setTrialPlan}>
+                      <SelectTrigger className="h-8 w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="starter">Starter</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="enterprise">Enterprise</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">天数</Label>
+                    <Input className="h-8 w-20" type="number" value={trialDays} onChange={(e) => setTrialDays(e.target.value)} />
+                  </div>
+                  <Button size="sm" className="h-8" disabled={actionLoading} onClick={() => handleManageTrial(selectedOrg.id)}>
+                    确认
+                  </Button>
+                </div>
+                <Input className="h-8" placeholder="原因 (可选)" value={trialReason} onChange={(e) => setTrialReason(e.target.value)} />
+              </div>
             </div>
           )}
 
