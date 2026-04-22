@@ -128,7 +128,7 @@ class SuperAdminService:
             # 获取近30天 AI 调用量
             thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
             usage_result = await (
-                client.table("ai_usage_logs")
+                client.table("api_usage_logs")
                 .select("id", count="exact")
                 .eq("organization_id", org_id)
                 .gte("created_at", thirty_days_ago)
@@ -289,7 +289,7 @@ class SuperAdminService:
 
             # 总 AI 调用量（30天）
             ai_result = await (
-                client.table("ai_usage_logs")
+                client.table("api_usage_logs")
                 .select("id", count="exact")
                 .gte("created_at", thirty_days_ago)
                 .execute()
