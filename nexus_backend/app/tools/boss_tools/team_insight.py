@@ -75,7 +75,7 @@ class TeamInsightTool(BaseTool):
                 # Filter team to same department
                 team_query = (
                     client.table("users")
-                    .select("id, name, role, department, position, status, score")
+                    .select("id, name, role, department, job_title, score")
                     .eq("department", user_dept)
                 )
                 if org_id:
@@ -83,7 +83,7 @@ class TeamInsightTool(BaseTool):
                 team_res = await team_query.execute()
             else:
                 team_query = client.table("users").select(
-                    "id, name, role, department, position, status, score"
+                    "id, name, role, department, job_title, score"
                 )
                 if org_id:
                     team_query = team_query.eq("organization_id", org_id)
@@ -91,7 +91,7 @@ class TeamInsightTool(BaseTool):
         else:
             # Boss/founder sees all within their organization
             team_query = client.table("users").select(
-                "id, name, role, department, position, status, score"
+                "id, name, role, department, job_title, score"
             )
             if org_id:
                 team_query = team_query.eq("organization_id", org_id)

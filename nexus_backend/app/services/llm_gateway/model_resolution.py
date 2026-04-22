@@ -6,6 +6,7 @@ integration, and context window auto-upgrade logic.
 """
 
 import logging
+import re
 import time
 
 from app.core.database import supabase
@@ -16,6 +17,14 @@ from app.services.llm_circuit_breaker import circuit_breaker_manager
 from app.services.token_service import token_counter
 
 logger = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _is_valid_uuid(val: str | None) -> bool:
+    return bool(val and _UUID_RE.match(val))
 
 
 class ModelResolutionMixin:
@@ -60,7 +69,7 @@ class ModelResolutionMixin:
             rows = []
 
             # 1. Try org-specific config
-            if org_id and org_id != "default":
+            if _is_valid_uuid(org_id):
                 res = (
                     await supabase.table("llm_model_config")
                     .select("*")
@@ -159,8 +168,8 @@ class ModelResolutionMixin:
 
         try:
             # Try tenant-specific first, then fall back to global (NULL tenant_id)
-            # Skip org_id if it's "default" (not a valid UUID)
-            tenant_ids = [org_id, None] if org_id and org_id != "default" else [None]
+            # Skip org_id if it's not a valid UUID
+            tenant_ids = [org_id, None] if _is_valid_uuid(org_id) else [None]
             for tid in tenant_ids:
                 rows = []
 

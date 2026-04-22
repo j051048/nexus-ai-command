@@ -538,7 +538,7 @@ class InvoiceOCRTool(BaseTool):
             ]
 
             # 获取 org_id 用于计费追踪
-            org_id = config.get("org_id", "system") if config else "system"
+            org_id = config.get("org_id") if config else None
 
             response = await llm_gateway.chat(
                 scene_code="invoice_ocr",

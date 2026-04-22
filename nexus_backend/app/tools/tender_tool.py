@@ -46,7 +46,7 @@ class TenderAnalysisTool(BaseTool):
         try:
             from app.services.llm_gateway import llm_gateway
 
-            org_id = config.get("org_id", "system") if config else "system"
+            org_id = config.get("org_id") if config else None
 
             response = await llm_gateway.chat(
                 scene_code="tender_analysis",

@@ -479,7 +479,7 @@ class ContentModerator:
                 scene_code="moderation",
                 agent_code="content_detector",
                 user_id="system",
-                org_id="system",
+                org_id=None,
                 system_prompt="你是一个安全检测助手，仅输出JSON格式结果。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=100,
