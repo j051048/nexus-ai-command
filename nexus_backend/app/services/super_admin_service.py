@@ -131,7 +131,7 @@ class SuperAdminService:
                 client.table("user_token_usage")
                 .select("request_count")
                 .eq("org_id", org_id)
-                .gte("usage_date", thirty_days_ago[:10])
+                .gte("date", thirty_days_ago[:10])
                 .execute()
             )
             ai_calls_30d = sum(r.get("request_count", 0) for r in (usage_result.data or []))
@@ -291,7 +291,7 @@ class SuperAdminService:
             ai_result = await (
                 client.table("user_token_usage")
                 .select("request_count")
-                .gte("usage_date", thirty_days_ago[:10])
+                .gte("date", thirty_days_ago[:10])
                 .execute()
             )
             total_ai_calls = sum(r.get("request_count", 0) for r in (ai_result.data or []))
