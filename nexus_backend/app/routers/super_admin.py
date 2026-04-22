@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["SuperAdmin"])
 
 # super_admin 角色依赖
-require_super_admin = require_role(["super_admin", "founder"])
+require_super_admin = require_role(["super_admin", "founder", "boss"])
 
 
 # ============== Request Models ==============
