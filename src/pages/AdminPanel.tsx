@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -21,6 +30,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import {
@@ -36,6 +53,12 @@ import {
   Loader2,
   UserCheck,
   AlertTriangle,
+  CreditCard,
+  Settings2,
+  Clock,
+  Eye,
+  Pause,
+  Play,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { httpClient } from '@/lib/httpClient';
@@ -58,6 +81,27 @@ interface OrgItem {
   created_at: string;
 }
 
+interface OrgDetail {
+  id: string;
+  name: string;
+  status: string;
+  plan: string;
+  tier: string;
+  created_at: string;
+  user_count?: number;
+  ai_calls_30d?: number;
+  subscription?: {
+    plan: string;
+    status: string;
+    current_period_end?: string;
+  } | null;
+  quotas?: {
+    monthly_token_limit?: number;
+    monthly_api_call_limit?: number;
+    storage_limit_mb?: number;
+  } | null;
+}
+
 // ============== Helpers ==============
 
 function errMsg(e: unknown): string {
@@ -77,6 +121,22 @@ function AdminPanel() {
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<OrgItem | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // 组织详情弹窗状态
+  const [selectedOrg, setSelectedOrg] = useState<OrgDetail | null>(null);
+  const [showOrgDetail, setShowOrgDetail] = useState(false);
+  const [newPlan, setNewPlan] = useState('');
+  const [planChangeReason, setPlanChangeReason] = useState('');
+  const [quotaTokenLimit, setQuotaTokenLimit] = useState('');
+  const [quotaApiLimit, setQuotaApiLimit] = useState('');
+  const [quotaStorageLimit, setQuotaStorageLimit] = useState('');
+  const [quotaReason, setQuotaReason] = useState('');
+  const [trialAction, setTrialAction] = useState('start');
+  const [trialPlan, setTrialPlan] = useState('professional');
+  const [trialDays, setTrialDays] = useState('14');
+  const [trialReason, setTrialReason] = useState('');
+  const [suspendReason, setSuspendReason] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // ---------- Load Data ----------
 
@@ -147,6 +207,115 @@ function AdminPanel() {
       loadOrganizations();
     } catch (e) {
       toast.error(`删除失败: ${errMsg(e)}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleViewOrg = async (orgId: string) => {
+    try {
+      setDetailLoading(true);
+      setShowOrgDetail(true);
+      const { data: result } = await httpClient.get(`/api/admin/organizations/${orgId}`);
+      setSelectedOrg(result.data as OrgDetail);
+      setNewPlan('');
+      setPlanChangeReason('');
+      setQuotaTokenLimit('');
+      setQuotaApiLimit('');
+      setQuotaStorageLimit('');
+      setQuotaReason('');
+      setSuspendReason('');
+      setTrialDays('14');
+      setTrialReason('');
+    } catch (e) {
+      toast.error(`加载详情失败: ${errMsg(e)}`);
+      setShowOrgDetail(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleChangePlan = async () => {
+    if (!selectedOrg || !newPlan) return;
+    try {
+      setActionLoading('plan');
+      await httpClient.post(`/api/admin/organizations/${selectedOrg.id}/change-plan`, {
+        plan: newPlan, reason: planChangeReason,
+      });
+      toast.success(`计划已变更为 ${newPlan}`);
+      handleViewOrg(selectedOrg.id);
+      loadOrganizations();
+    } catch (e) {
+      toast.error(`变更失败: ${errMsg(e)}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateQuotas = async () => {
+    if (!selectedOrg) return;
+    const body: Record<string, unknown> = { reason: quotaReason };
+    if (quotaTokenLimit) body.monthly_token_limit = Number(quotaTokenLimit);
+    if (quotaApiLimit) body.monthly_api_call_limit = Number(quotaApiLimit);
+    if (quotaStorageLimit) body.storage_limit_mb = Number(quotaStorageLimit);
+    if (!quotaTokenLimit && !quotaApiLimit && !quotaStorageLimit) {
+      toast.error('请至少填写一个配额'); return;
+    }
+    try {
+      setActionLoading('quota');
+      await httpClient.post(`/api/admin/organizations/${selectedOrg.id}/update-quotas`, body);
+      toast.success('配额已更新');
+      handleViewOrg(selectedOrg.id);
+    } catch (e) {
+      toast.error(`更新失败: ${errMsg(e)}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleManageTrial = async () => {
+    if (!selectedOrg) return;
+    try {
+      setActionLoading('trial');
+      await httpClient.post(`/api/admin/organizations/${selectedOrg.id}/manage-trial`, {
+        action: trialAction, plan: trialPlan, days: Number(trialDays) || 14, reason: trialReason,
+      });
+      toast.success(trialAction === 'start' ? '试用已开启' : '试用已延长');
+      handleViewOrg(selectedOrg.id);
+      loadOrganizations();
+    } catch (e) {
+      toast.error(`操作失败: ${errMsg(e)}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSuspend = async () => {
+    if (!selectedOrg || !suspendReason.trim()) return;
+    try {
+      setActionLoading('suspend');
+      await httpClient.post(`/api/admin/organizations/${selectedOrg.id}/suspend`, { reason: suspendReason });
+      toast.success('组织已暂停');
+      setSuspendReason('');
+      handleViewOrg(selectedOrg.id);
+      loadOrganizations();
+    } catch (e) {
+      toast.error(`暂停失败: ${errMsg(e)}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUnsuspend = async () => {
+    if (!selectedOrg) return;
+    try {
+      setActionLoading('unsuspend');
+      await httpClient.post(`/api/admin/organizations/${selectedOrg.id}/unsuspend`);
+      toast.success('组织已恢复');
+      handleViewOrg(selectedOrg.id);
+      loadOrganizations();
+    } catch (e) {
+      toast.error(`恢复失败: ${errMsg(e)}`);
     } finally {
       setActionLoading(null);
     }
@@ -375,18 +544,26 @@ function AdminPanel() {
                             {new Date(org.created_at).toLocaleDateString('zh-CN')}
                           </TableCell>
                           <TableCell className="text-right">
-                            {org.slug === 'default-org' ? (
-                              <Badge variant="outline" className="text-xs">受保护</Badge>
-                            ) : (
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => setDeleteTarget(org)}
+                                onClick={() => handleViewOrg(org.org_id)}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Eye className="w-4 h-4 mr-1" />
+                                管理
                               </Button>
-                            )}
+                              {org.slug !== 'default-org' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteTarget(org)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -398,6 +575,191 @@ function AdminPanel() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* ======= Organization Detail / Management Dialog ======= */}
+      <Dialog open={showOrgDetail} onOpenChange={setShowOrgDetail}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>企业管理</DialogTitle>
+            <DialogDescription>查看和管理企业信息、订阅、配额</DialogDescription>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : selectedOrg && (
+            <div className="space-y-4">
+              {/* 基本信息 */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">名称</p>
+                  <p className="font-medium">{selectedOrg.name}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">状态</p>
+                  <Badge className={selectedOrg.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                    {selectedOrg.status === 'active' ? '活跃' : '已暂停'}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">用户数</p>
+                  <p className="font-medium">{selectedOrg.user_count ?? '-'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">AI 调用 (30天)</p>
+                  <p className="font-medium">{selectedOrg.ai_calls_30d ?? '-'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">当前计划</p>
+                  <Badge variant="outline">{selectedOrg.subscription?.plan || selectedOrg.plan || 'free'}</Badge>
+                  {selectedOrg.subscription?.status === 'trialing' && (
+                    <Badge className="ml-1 bg-blue-100 text-blue-800">试用中</Badge>
+                  )}
+                </div>
+                <div>
+                  <p className="text-muted-foreground">创建时间</p>
+                  <p className="text-xs">{new Date(selectedOrg.created_at).toLocaleString('zh-CN')}</p>
+                </div>
+              </div>
+
+              {/* 暂停/恢复 */}
+              {selectedOrg.status === 'active' && (
+                <div className="space-y-2 border-t pt-3">
+                  <p className="text-sm font-medium text-destructive flex items-center gap-1">
+                    <Pause className="w-4 h-4" /> 暂停组织
+                  </p>
+                  <div className="flex gap-2">
+                    <Input className="h-8 flex-1" placeholder="暂停原因..." value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} />
+                    <Button variant="destructive" size="sm" className="h-8" disabled={!suspendReason.trim() || actionLoading === 'suspend'} onClick={handleSuspend}>
+                      确认暂停
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {selectedOrg.status === 'suspended' && (
+                <div className="border-t pt-3">
+                  <Button size="sm" disabled={actionLoading === 'unsuspend'} onClick={handleUnsuspend}>
+                    <Play className="w-4 h-4 mr-1" /> 恢复组织
+                  </Button>
+                </div>
+              )}
+
+              {/* 变更订阅计划 */}
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1">
+                  <CreditCard className="w-4 h-4" /> 变更订阅计划
+                </p>
+                {selectedOrg.subscription && (
+                  <p className="text-xs text-muted-foreground">
+                    当前: {selectedOrg.subscription.plan} ({selectedOrg.subscription.status})
+                    {selectedOrg.subscription.current_period_end && (
+                      <> · 到期: {new Date(selectedOrg.subscription.current_period_end).toLocaleDateString('zh-CN')}</>
+                    )}
+                  </p>
+                )}
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label className="text-xs">目标计划</Label>
+                    <Select value={newPlan} onValueChange={setNewPlan}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="选择计划" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free">Free</SelectItem>
+                        <SelectItem value="starter">Starter ($29/月)</SelectItem>
+                        <SelectItem value="professional">Professional ($99/月)</SelectItem>
+                        <SelectItem value="enterprise">Enterprise ($299/月)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs">原因 (可选)</Label>
+                    <Input className="h-8" placeholder="变更原因" value={planChangeReason} onChange={(e) => setPlanChangeReason(e.target.value)} />
+                  </div>
+                  <Button size="sm" className="h-8" disabled={!newPlan || actionLoading === 'plan'} onClick={handleChangePlan}>
+                    确认变更
+                  </Button>
+                </div>
+              </div>
+
+              {/* 调整配额 */}
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1">
+                  <Settings2 className="w-4 h-4" /> 调整配额
+                </p>
+                {selectedOrg.quotas && (
+                  <p className="text-xs text-muted-foreground">
+                    当前: Token {selectedOrg.quotas.monthly_token_limit?.toLocaleString() ?? '-'}
+                    · API {selectedOrg.quotas.monthly_api_call_limit?.toLocaleString() ?? '-'}
+                    · 存储 {selectedOrg.quotas.storage_limit_mb ?? '-'} MB
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">月Token限额</Label>
+                    <Input className="h-8" type="number" placeholder="如 500000" value={quotaTokenLimit} onChange={(e) => setQuotaTokenLimit(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">月API调用限额</Label>
+                    <Input className="h-8" type="number" placeholder="如 5000" value={quotaApiLimit} onChange={(e) => setQuotaApiLimit(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">存储限额(MB)</Label>
+                    <Input className="h-8" type="number" placeholder="如 1000" value={quotaStorageLimit} onChange={(e) => setQuotaStorageLimit(e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Input className="h-8 flex-1" placeholder="调整原因 (可选)" value={quotaReason} onChange={(e) => setQuotaReason(e.target.value)} />
+                  <Button size="sm" className="h-8" disabled={actionLoading === 'quota'} onClick={handleUpdateQuotas}>
+                    确认调整
+                  </Button>
+                </div>
+              </div>
+
+              {/* 管理试用期 */}
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1">
+                  <Clock className="w-4 h-4" /> 管理试用期
+                </p>
+                <div className="flex gap-2 items-end">
+                  <div>
+                    <Label className="text-xs">操作</Label>
+                    <Select value={trialAction} onValueChange={setTrialAction}>
+                      <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="start">开启</SelectItem>
+                        <SelectItem value="extend">延长</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">计划</Label>
+                    <Select value={trialPlan} onValueChange={setTrialPlan}>
+                      <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="starter">Starter</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="enterprise">Enterprise</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">天数</Label>
+                    <Input className="h-8 w-20" type="number" value={trialDays} onChange={(e) => setTrialDays(e.target.value)} />
+                  </div>
+                  <Button size="sm" className="h-8" disabled={actionLoading === 'trial'} onClick={handleManageTrial}>
+                    确认
+                  </Button>
+                </div>
+                <Input className="h-8" placeholder="原因 (可选)" value={trialReason} onChange={(e) => setTrialReason(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOrgDetail(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ======= Delete Confirmation ======= */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
