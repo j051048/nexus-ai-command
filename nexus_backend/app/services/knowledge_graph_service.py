@@ -20,6 +20,14 @@ from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _valid_uuid(val: str | None) -> bool:
+    return bool(val and _UUID_RE.match(val))
+
 
 # ─── P2-2: Entity Extraction ────────────────────────────────────────────────
 
@@ -103,7 +111,7 @@ async def extract_entities_from_conversation(
     Uses rule-based extraction (fast, no LLM cost) for common patterns.
     Returns list of extracted relations ready for DB upsert.
     """
-    if not org_id:
+    if not org_id or not _valid_uuid(org_id):
         return []
 
     relations = []
@@ -328,7 +336,7 @@ async def query_entity_context(
 
     Returns a formatted string to inject into the agent's context.
     """
-    if not supabase or not org_id:
+    if not supabase or not org_id or not _valid_uuid(org_id):
         return ""
 
     try:

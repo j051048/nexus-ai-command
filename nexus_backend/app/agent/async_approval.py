@@ -28,7 +28,7 @@ class AsyncApprovalSystem:
         args: dict,
         user_id: str,
         thread_id: str,
-        org_id: str = "default",
+        org_id: str | None = None,
     ) -> str:
         """发起审批请求（非阻塞）"""
         try:

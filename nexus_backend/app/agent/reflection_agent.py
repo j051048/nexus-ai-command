@@ -94,7 +94,7 @@ class ReflectionAgent:
                     tool_calls=tool_calls,
                     complexity=complexity,
                     user_id=user_id,
-                    org_id=org_id or "default",
+                    org_id=org_id,
                     db=db,
                 )
             except Exception as e:
@@ -119,7 +119,7 @@ class ReflectionAgent:
                     user_id=user_id,
                     user_message=user_message,
                     assistant_response=assistant_response,
-                    org_id=org_id or "default",
+                    org_id=org_id,
                 )
             except Exception as e:
                 result.errors.append(f"preference_learning: {e}")
@@ -186,7 +186,7 @@ class ReflectionAgent:
                             "complexity": complexity,
                         },
                         user_id=user_id,
-                        org_id=org_id or "default",
+                        org_id=org_id,
                     )
             except Exception as e:
                 logger.debug(f"[Reflection] Failed to record failure pattern: {e}")
@@ -217,7 +217,7 @@ class ReflectionAgent:
                     tool_name=tool_chain_str,
                     solution=f"用户意图: {user_message[:100]}, 工具链: {tool_chain_str}",
                     context={"complexity": complexity, "tool_count": len(tool_calls)},
-                    org_id=org_id or "default",
+                    org_id=org_id,
                 )
             except Exception as e:
                 logger.debug("[ReflectionAgent] Learning system record failed: %s", e)

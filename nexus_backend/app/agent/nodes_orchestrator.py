@@ -69,7 +69,7 @@ async def _create_orchestrator_llm(
     try:
         from app.services.llm_helpers import resolve_model_config
 
-        org_id = config.org_id or "default"
+        org_id = config.org_id
         resolved = await resolve_model_config(org_id, "", agent_code)
     except Exception:
         logger.debug("LLM gateway unavailable in orchestrator, using fallback")

@@ -303,9 +303,12 @@ async def ai_roi_dashboard(
     try:
         # Get user's org_id
         user_res = await client.table("users").select("org_id").eq("id", user_id).single().execute()
-        org_id = (user_res.data or {}).get("org_id", "default")
+        org_id = (user_res.data or {}).get("org_id")
     except Exception:
-        org_id = "default"
+        org_id = None
+
+    if not org_id:
+        return api_success({"days": [], "summary": {}})
 
     # Fetch daily ROI data
     try:

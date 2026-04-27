@@ -12,7 +12,7 @@ async def generate_embedding(
     try:
         from app.services.vector_service import vector_service
 
-        return await vector_service.embed_text(text, org_id or "default")
+        return await vector_service.embed_text(text, org_id)
     except Exception as e:
         logger.debug(f"Embedding generation skipped: {e}")
         return None

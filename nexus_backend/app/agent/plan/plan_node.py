@@ -105,7 +105,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         try:
             from app.services.llm_helpers import resolve_model_config
 
-            org_id = agent_config.org_id or "default"
+            org_id = agent_config.org_id
             scene_code = state.get("scene_code", "")
             agent_code = state.get("agent_code", "")
             resolved = await resolve_model_config(

@@ -158,7 +158,7 @@ async def generate_embeddings(
     try:
         from app.services.llm_helpers import resolve_embedding_config
 
-        emb_config = await resolve_embedding_config(organization_id or "default")
+        emb_config = await resolve_embedding_config(organization_id)
         if emb_config.get("model"):
             embedding_model = emb_config["model"]
         if emb_config.get("api_key"):

@@ -24,7 +24,7 @@ class LearningSystem:
         error_pattern: str,
         context: dict,
         user_id: str,
-        org_id: str = "default",
+        org_id: str | None = None,
     ):
         """记录失败案例"""
         try:
@@ -61,7 +61,7 @@ class LearningSystem:
             logger.error(f"Failed to record failure: {e}")
 
     async def record_success(
-        self, tool_name: str, solution: str, context: dict, org_id: str = "default"
+        self, tool_name: str, solution: str, context: dict, org_id: str | None = None
     ):
         """记录成功解决方案"""
         try:
@@ -78,7 +78,7 @@ class LearningSystem:
             logger.error(f"Failed to record success: {e}")
 
     async def get_learned_patterns(
-        self, tool_name: str, org_id: str = "default"
+        self, tool_name: str, org_id: str | None = None
     ) -> list[dict]:
         """获取历史经验"""
         try:
@@ -97,7 +97,7 @@ class LearningSystem:
             return []
 
     async def get_success_patterns(
-        self, tool_name: str, org_id: str = "default"
+        self, tool_name: str, org_id: str | None = None
     ) -> list[dict]:
         """获取成功案例"""
         try:

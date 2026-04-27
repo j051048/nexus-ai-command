@@ -42,7 +42,7 @@ class QueryTransformer:
             from app.services.llm_gateway import get_gateway
 
             gateway = get_gateway()
-            org_id = getattr(self.config, "org_id", None) or "default"
+            org_id = getattr(self.config, "org_id", None)
             response = await gateway.chat(
                 messages=[{"role": "user", "content": prompt}],
                 org_id=org_id,
@@ -182,7 +182,7 @@ async def llm_rerank(
         from app.services.llm_gateway import get_gateway
 
         gateway = get_gateway()
-        org_id = getattr(config, "org_id", None) or "default"
+        org_id = getattr(config, "org_id", None)
 
         doc_list = "\n".join(
             f"[{i}] {doc.get('content', '')[:200]}" for i, doc in enumerate(docs)

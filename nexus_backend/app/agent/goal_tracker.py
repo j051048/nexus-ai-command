@@ -36,7 +36,7 @@ class GoalTracker:
             .insert(
                 {
                     "user_id": goal_data["user_id"],
-                    "org_id": goal_data.get("org_id", "default"),
+                    "org_id": goal_data.get("org_id"),
                     "goal_text": goal_data["goal_text"],
                     "deadline": goal_data.get("deadline"),
                     "status": "pending",
@@ -50,7 +50,7 @@ class GoalTracker:
         return result.data[0]["id"]
 
     async def get_active_goals(
-        self, user_id: str, org_id: str = "default"
+        self, user_id: str, org_id: str | None = None
     ) -> list[dict]:
         """获取用户的活跃目标"""
         result = (
@@ -96,7 +96,7 @@ class GoalTracker:
         return result.data
 
     async def get_goal_context_for_agent(
-        self, user_id: str, org_id: str = "default"
+        self, user_id: str, org_id: str | None = None
     ) -> str:
         """为 Agent 生成目标上下文"""
         goals = await self.get_active_goals(user_id, org_id)

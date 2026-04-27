@@ -306,7 +306,7 @@ async def prepare_initial_state(
             from app.agent.preference_learner import preference_learner
 
             pref_snapshot = await preference_learner.build_profile_snapshot(
-                user_id=config.user_id, org_id=config.org_id or "default"
+                user_id=config.user_id, org_id=config.org_id
             )
             if pref_snapshot:
                 if user_profile_ctx:

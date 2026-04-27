@@ -188,7 +188,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
     try:
         from app.services.llm_helpers import resolve_model_config
 
-        org_id = config.org_id or "default"
+        org_id = config.org_id
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")
         resolved = await resolve_model_config(org_id, scene_code, agent_code)
@@ -284,7 +284,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
             from app.core.database import supabase as admin
 
             if admin:
-                org_id = config.org_id or "default"
+                org_id = config.org_id
                 user_id = config.user_id or ""
                 date_part = datetime.now(UTC).strftime("%Y%m%d")
                 task_code = f"VMD-{date_part}-{uuid.uuid4().hex[:6].upper()}"

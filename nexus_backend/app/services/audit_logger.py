@@ -5,6 +5,7 @@ Provides comprehensive audit trail for all critical operations.
 
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -16,6 +17,14 @@ from fastapi import Request
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _valid_uuid(val: str | None) -> bool:
+    return bool(val and _UUID_RE.match(val))
 
 
 class AuditAction(Enum):
@@ -84,7 +93,7 @@ class AuditEntry:
         return {
             "action": self.action,
             "actor_user_id": self.actor_user_id,
-            "org_id": self.org_id,
+            "org_id": self.org_id if _valid_uuid(self.org_id) else None,
             "target_id": self.target_id,
             "target_table": self.target_table,
             "details_json": self.details,

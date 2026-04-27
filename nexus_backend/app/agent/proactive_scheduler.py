@@ -48,7 +48,7 @@ class ProactiveScheduler:
                     "cron_expression": task_config["cron"],
                     "prompt_template": task_config["prompt"],
                     "user_id": task_config["user_id"],
-                    "org_id": task_config.get("org_id") or "default",
+                    "org_id": task_config.get("org_id"),
                     "enabled": task_config.get("enabled", True),
                     "created_at": datetime.utcnow().isoformat(),
                 }
@@ -101,7 +101,7 @@ class ProactiveScheduler:
             chat_service = ChatService()
             result = await chat_service.send_message(
                 user_id=config["user_id"],
-                org_id=config.get("org_id") or "default",
+                org_id=config.get("org_id"),
                 message=config["prompt"],
                 session_id=f"scheduled_{task_id}",
             )
@@ -272,7 +272,9 @@ class ProactiveScheduler:
             # 按 org_id 去重，每个组织只推送给第一个 boss/founder
             seen_orgs: set[str] = set()
             for user in result.data:
-                org_id = user.get("org_id") or "default"
+                org_id = user.get("org_id")
+                if not org_id:
+                    continue
                 if org_id in seen_orgs:
                     continue
                 seen_orgs.add(org_id)

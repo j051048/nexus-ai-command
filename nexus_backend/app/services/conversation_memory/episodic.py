@@ -1,6 +1,7 @@
 """P1-6: Episodic Memory Service - saves and retrieves complete interaction episodes."""
 
 import logging
+import re
 from typing import Any
 
 from app.core.database import supabase
@@ -8,6 +9,14 @@ from app.core.database import supabase
 from .embedding import generate_embedding
 
 logger = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _valid_uuid(val: str | None) -> bool:
+    return bool(val and _UUID_RE.match(val))
 
 
 class EpisodicMemoryService:
@@ -30,6 +39,9 @@ class EpisodicMemoryService:
         db: Any = None,
     ) -> dict | None:
         """Save a complete interaction episode with embedding for later recall."""
+        # Sanitize non-UUID org_id (e.g. "default") to None
+        if org_id and not _valid_uuid(org_id):
+            org_id = None
         client = db or supabase
         if not client or not user_intent:
             return None
@@ -78,6 +90,9 @@ class EpisodicMemoryService:
         db: Any = None,
     ) -> list[dict]:
         """Search for similar past episodes using embedding similarity."""
+        # Sanitize non-UUID org_id (e.g. "default") to None
+        if org_id and not _valid_uuid(org_id):
+            org_id = None
         client = db or supabase
         if not client or not query:
             return []

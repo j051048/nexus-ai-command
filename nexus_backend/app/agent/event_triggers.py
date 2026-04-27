@@ -30,7 +30,7 @@ class EventTrigger:
         condition: Callable[[dict], bool],
         prompt_template: str,
         user_id: str,
-        org_id: str = "default",
+        org_id: str | None = None,
     ):
         """
         注册触发器
@@ -121,7 +121,6 @@ def register_default_triggers():
         condition=lambda r: r.get("status") == "active",
         prompt_template="合同 {name} 将在 7 天后到期，请提醒相关人员续签",
         user_id="system",
-        org_id="default",
     )
 
     # 销售里程碑
@@ -131,5 +130,4 @@ def register_default_triggers():
         condition=lambda r: r.get("total_amount", 0) >= 100000,
         prompt_template="恭喜！本月销售额已达到 {total_amount} 元，请生成庆祝通知",
         user_id="system",
-        org_id="default",
     )

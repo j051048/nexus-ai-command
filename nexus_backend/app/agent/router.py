@@ -969,7 +969,7 @@ async def _llm_classify_intent(
         try:
             from app.services.llm_helpers import resolve_model_config
 
-            org_id = getattr(config, "org_id", None) or "default"
+            org_id = getattr(config, "org_id", None)
             resolved = await resolve_model_config(org_id)
         except Exception:
             logger.debug(
@@ -1051,7 +1051,7 @@ async def route_node(state: AgentState) -> dict:
             from app.agent.goal_tracker import goal_tracker
 
             goal_context = await goal_tracker.get_goal_context_for_agent(
-                config.user_id, getattr(config, "org_id", "default")
+                config.user_id, getattr(config, "org_id", None)
             )
             if goal_context:
                 from langchain_core.messages import SystemMessage

@@ -17,6 +17,14 @@ from app.services.turboquant import TurboQuant
 
 logger = logging.getLogger(__name__)
 
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _valid_uuid(val: str | None) -> bool:
+    return bool(val and _UUID_RE.match(val))
+
 # P1: Embedding Model Versioning — Track model changes to detect stale embeddings
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_MODEL_VERSION = "2026-03"
@@ -116,7 +124,7 @@ class VectorService:
 
     @classmethod
     async def _get_embedding_config(
-        cls, org_id: str = "default"
+        cls, org_id: str | None = None
     ) -> tuple[str, str, str]:
         """Resolve embedding model directly via settings (Bypass DB lookups for performance)."""
         return (
@@ -286,6 +294,10 @@ class VectorService:
         - In development mode, a warning is logged but search proceeds
         - This prevents cross-tenant data leakage
         """
+        # Sanitize non-UUID org_id to None
+        if org_id and not _valid_uuid(org_id):
+            org_id = None
+
         query = sanitize_search_query(query)
         if not query:
             return "请提供有效的搜索关键词。"
@@ -320,7 +332,7 @@ class VectorService:
         embedding_model = EMBEDDING_MODEL
         try:
             gw_api_key, gw_base_url, gw_model = await self._get_embedding_config(
-                org_id or "default"
+                org_id
             )
             if gw_model:
                 embedding_model = gw_model
@@ -590,7 +602,7 @@ class VectorService:
         )
 
     async def embed_text(
-        self, text: str, org_id: str = "default"
+        self, text: str, org_id: str | None = None
     ) -> list[float] | None:
         """Generate an embedding vector for a single text string.
 
@@ -691,7 +703,7 @@ class VectorService:
     async def embed_texts_batch(
         self,
         texts: list[str],
-        org_id: str = "default",
+        org_id: str | None = None,
         batch_size: int = 50,
         timeout: float = 30.0,
     ) -> list[list[float] | None]:
@@ -887,7 +899,7 @@ class VectorService:
         embedding_model = EMBEDDING_MODEL
         try:
             gw_api_key, _gw_base_url, gw_model = await self._get_embedding_config(
-                org_id or "default"
+                org_id
             )
             if gw_model:
                 embedding_model = gw_model

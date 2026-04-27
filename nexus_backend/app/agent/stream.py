@@ -260,7 +260,7 @@ async def _run_agent_stream_impl(
         async def _resolve_one(tier: str):
             try:
                 return tier, await resolve_model_config(
-                    org_id=org_id or "default",
+                    org_id=org_id,
                     scene_code=scene_code or "",
                     complexity_tier=tier,
                 )

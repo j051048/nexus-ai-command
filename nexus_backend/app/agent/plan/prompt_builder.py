@@ -118,7 +118,7 @@ async def _inject_error_learning(lc_msgs, agent_config, state, complexity, inten
                 if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
             ]
 
-        _org_id = agent_config.org_id or "default"
+        _org_id = agent_config.org_id
         _tool_names_list = (
             [t["function"]["name"] for t in tool_schemas] if tool_schemas else []
         )

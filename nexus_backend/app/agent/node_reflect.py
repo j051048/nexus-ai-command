@@ -344,7 +344,7 @@ async def reflect_node(state: AgentState) -> dict:
         try:
             from app.services.llm_helpers import resolve_model_config
 
-            org_id = config.org_id or "default"
+            org_id = config.org_id
             scene_code = state.get("scene_code", "")
             agent_code = state.get("agent_code", "")
             resolved = await resolve_model_config(
@@ -954,7 +954,7 @@ async def critic_node(state: AgentState) -> dict:
             try:
                 from app.services.llm_helpers import resolve_model_config
 
-                org_id = config.org_id or "default"
+                org_id = config.org_id
                 scene_code = state.get("scene_code", "")
                 agent_code = state.get("agent_code", "")
                 resolved_critic = await resolve_model_config(
@@ -1089,7 +1089,7 @@ async def _persist_critic_score(
     org_id = config.org_id
 
     row = {
-        "tenant_id": org_id if org_id and org_id != "default" else None,
+        "tenant_id": org_id or None,
         "user_id": config.user_id or None,
         "session_id": config.session_id or None,
         "trace_id": get_trace_id() or None,

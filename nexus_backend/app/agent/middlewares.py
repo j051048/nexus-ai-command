@@ -94,7 +94,7 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
                 matched = await skill_library.match_skill(
                     user_message=user_message,
                     user_id=config.user_id,
-                    org_id=config.org_id or "default",
+                    org_id=config.org_id,
                     db=db_client,
                 )
                 if matched:
@@ -311,7 +311,7 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                             tool_chain=tc_dicts,
                             complexity=complexity_str,
                             user_id=config.user_id,
-                            org_id=config.org_id or "default",
+                            org_id=config.org_id,
                             db=db_client,
                         )
                     )
@@ -354,7 +354,7 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                                 tool_name=tc_name,
                                 solution=f"called {tc_name} with keys {param_keys}",
                                 context=ctx,
-                                org_id=config.org_id or "default",
+                                org_id=config.org_id,
                             )
                         )
                     elif tc_status == "error":
@@ -378,7 +378,7 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                                 error_pattern=str(tc_error)[:200],
                                 context=ctx,
                                 user_id=config.user_id,
-                                org_id=config.org_id or "default",
+                                org_id=config.org_id,
                             )
                         )
                 logger.debug("[Middleware] Learning system recording scheduled")

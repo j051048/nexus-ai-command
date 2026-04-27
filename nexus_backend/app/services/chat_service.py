@@ -193,7 +193,7 @@ class ChatService:
     @staticmethod
     async def send_message(
         user_id: str,
-        org_id: str = "default",
+        org_id: str | None = None,
         message: str = "",
         session_id: str = "default",
     ) -> dict:

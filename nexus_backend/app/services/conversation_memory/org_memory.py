@@ -1,6 +1,7 @@
 """Organization-level memory operations."""
 
 import logging
+import re
 from typing import Any
 
 from app.core.database import supabase
@@ -8,6 +9,14 @@ from app.core.database import supabase
 from .embedding import generate_embedding
 
 logger = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _valid_uuid(val: str | None) -> bool:
+    return bool(val and _UUID_RE.match(val))
 
 
 async def save_org_memory(
@@ -26,7 +35,7 @@ async def save_org_memory(
     scoped clients do not set. Application-layer org_id filtering
     ensures tenant isolation.
     """
-    if not supabase:
+    if not supabase or not _valid_uuid(org_id):
         return None
     try:
         record: dict = {
@@ -60,7 +69,7 @@ async def get_org_memories(
     db: Any = None,
 ) -> list[dict]:
     """Get organization-level memories. Uses admin client to bypass RLS."""
-    if not supabase:
+    if not supabase or not _valid_uuid(org_id):
         return []
     try:
         query = (
@@ -86,7 +95,7 @@ async def search_org_memories(
     db: Any = None,
 ) -> list[dict]:
     """Search organization memories (vector-first, keyword fallback)."""
-    if not supabase:
+    if not supabase or not _valid_uuid(org_id):
         return []
 
     results: list[dict] = []

@@ -286,7 +286,7 @@ def cleanup_stale_embeddings():
             orgs_res = await supabase.table("organizations").select("id").execute()
             org_ids = [o["id"] for o in (orgs_res.data or [])]
         except Exception:
-            org_ids = ["default"]
+            org_ids = []
 
         total_stale = 0
         total_expired = 0
@@ -630,9 +630,9 @@ def decompose_vmd_task(task_id: str):
             ]
 
         # 3. Create vmd_sub_task records (批量插入替代逐条 INSERT)
-        tenant_id = task.get("tenant_id", "default")
+        tenant_id = task.get("tenant_id")
         # P0-1: Use org-scoped client for write operations
-        org_client = supabase.get_org_filtered_client(tenant_id) if tenant_id != "default" else supabase
+        org_client = supabase.get_org_filtered_client(tenant_id) if tenant_id else supabase
         records = []
         for idx, st in enumerate(sub_tasks_data):
             records.append(
@@ -1192,7 +1192,7 @@ def aggregate_ai_roi_daily():
                     if r.get("tenant_id")
                 })
             except Exception:
-                org_ids = ["default"]
+                org_ids = []
 
         if not org_ids:
             return "no tenants with activity"

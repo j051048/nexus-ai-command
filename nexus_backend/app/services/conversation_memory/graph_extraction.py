@@ -9,6 +9,7 @@ for lightweight knowledge graph functionality.
 """
 
 import logging
+import re
 from typing import Any
 
 from app.core.database import supabase
@@ -21,6 +22,14 @@ from app.services.conversation_memory.ontology import (
 )
 
 logger = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _valid_uuid(val: str | None) -> bool:
+    return bool(val and _UUID_RE.match(val))
 
 
 # ── Function Calling tool definitions for entity extraction ──
@@ -606,6 +615,9 @@ async def search_kg_hybrid(
     When include_historical=True, includes expired triples annotated with _historical=True.
     Falls back to simple ILIKE query if the RPC is not yet deployed.
     """
+    # Sanitize non-UUID org_id (e.g. "default") to None
+    if org_id and not _valid_uuid(org_id):
+        return []
     client = db or supabase
     if not client or not query:
         return []

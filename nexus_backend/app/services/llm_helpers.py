@@ -179,7 +179,7 @@ def _build_tier_fallback(tier: str, scene_code: str = "") -> dict | None:
 
 
 async def resolve_model_config(
-    org_id: str = "default",
+    org_id: str | None = None,
     scene_code: str = "",
     agent_code: str = "",
     complexity_tier: str | None = None,
@@ -258,7 +258,7 @@ async def resolve_model_config(
     }
 
 
-async def resolve_embedding_config(org_id: str = "default") -> dict:
+async def resolve_embedding_config(org_id: str | None = None) -> dict:
     """
     Resolve embedding model configuration via the LLM Gateway.
 

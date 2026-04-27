@@ -50,7 +50,7 @@ class UserProfileManager:
         self._snapshot_cache: dict[str, str] = {}  # user_id -> frozen prompt block
 
     async def build_profile_snapshot(
-        self, user_id: str, org_id: str = "default"
+        self, user_id: str, org_id: str | None = None
     ) -> str:
         """构建用户画像快照，用于注入 system prompt。
 
@@ -110,13 +110,13 @@ class UserProfileManager:
             logger.error(f"[UserProfile] Failed to build snapshot: {e}")
             return ""
 
-    def invalidate_cache(self, user_id: str, org_id: str = "default"):
+    def invalidate_cache(self, user_id: str, org_id: str | None = None):
         """清除缓存（下次 session 开始时重新加载）"""
         cache_key = f"{user_id}:{org_id}"
         self._snapshot_cache.pop(cache_key, None)
 
     async def learn_from_feedback(
-        self, user_id: str, feedback_type: str, content: Any, org_id: str = "default"
+        self, user_id: str, feedback_type: str, content: Any, org_id: str | None = None
     ):
         """从用户反馈学习（支持 dict/str 等任意 JSON 可序列化值）"""
         try:
@@ -136,7 +136,7 @@ class UserProfileManager:
             logger.error(f"[UserProfile] Failed to learn preference: {e}")
 
     async def learn_from_conversation(
-        self, user_id: str, messages: list[dict], org_id: str = "default"
+        self, user_id: str, messages: list[dict], org_id: str | None = None
     ):
         """从对话历史中自动提取用户偏好。
 
@@ -193,7 +193,7 @@ class UserProfileManager:
         except Exception as e:
             logger.error(f"[UserProfile] Failed to learn from conversation: {e}")
 
-    async def get_preferences(self, user_id: str, org_id: str = "default") -> dict:
+    async def get_preferences(self, user_id: str, org_id: str | None = None) -> dict:
         """获取用户偏好（保留原有接口）"""
         try:
             result = (
@@ -216,7 +216,7 @@ class UserProfileManager:
         user_id: str,
         user_message: str,
         assistant_response: str,
-        org_id: str = "default",
+        org_id: str | None = None,
     ) -> None:
         """从对话中自动提取用户偏好（后台异步执行，不阻塞响应）。
 

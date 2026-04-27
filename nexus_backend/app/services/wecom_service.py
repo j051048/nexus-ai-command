@@ -123,7 +123,7 @@ class WeComService:
             chat_service = ChatService()
             result = await chat_service.send_message(
                 user_id=f"wecom_{from_user}",
-                org_id="default",
+                org_id=None,
                 message=user_content,
                 session_id=f"wecom_{from_user}",
             )

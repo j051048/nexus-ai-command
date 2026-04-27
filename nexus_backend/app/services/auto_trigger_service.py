@@ -695,7 +695,9 @@ class AutoTriggerService:
             # Group by organization
             org_map: dict[str, list] = {}
             for item in pending:
-                org_id = item.get("organization_id") or "default"
+                org_id = item.get("organization_id")
+                if not org_id:
+                    continue
                 org_map.setdefault(org_id, []).append(item)
 
             # Find boss/manager users per org to notify

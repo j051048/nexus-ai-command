@@ -7,6 +7,7 @@ Prevents garbage duplicate nodes like "Apple Inc." vs "苹果公司" by:
 """
 
 import logging
+import re
 from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Any
@@ -14,6 +15,14 @@ from typing import Any
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _valid_uuid(val: str | None) -> bool:
+    return bool(val and _UUID_RE.match(val))
 
 # Embedding pre-filter threshold (lowered to let composite scoring decide)
 EMBEDDING_PREFILTER_THRESHOLD = 0.65
@@ -39,6 +48,9 @@ async def resolve_entity(
     Returns:
         Canonical entity name (may be the original if no alias found)
     """
+    # Sanitize non-UUID org_id (e.g. "default") to None
+    if org_id and not _valid_uuid(org_id):
+        org_id = None
     client = db or supabase
     if not client or not entity_name:
         return entity_name

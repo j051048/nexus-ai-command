@@ -413,7 +413,7 @@ class PromptFirewall:
 
             from app.services.llm_gateway import get_llm
 
-            llm = get_llm(org_id="default", model_tier="mini")
+            llm = get_llm(org_id=None, model_tier="mini")
             rules_triggered = ", ".join(v.rule_name for v in violations[:5])
 
             prompt = (

@@ -198,7 +198,7 @@ class SemanticRouter:
             # Batch embed: ~84 texts in 2 API calls (batch_size=50) with timeout
             results = await asyncio.wait_for(
                 vector_service.embed_texts_batch(
-                    all_texts, org_id=org_id or "default", batch_size=50, timeout=15.0
+                    all_texts, org_id=org_id, batch_size=50, timeout=15.0
                 ),
                 timeout=20.0,
             )
@@ -241,7 +241,7 @@ class SemanticRouter:
         try:
             from app.services.vector_service import vector_service
 
-            query_emb = await vector_service.embed_text(query, org_id or "default")
+            query_emb = await vector_service.embed_text(query, org_id)
             if not query_emb:
                 return None, 0.0, []
 

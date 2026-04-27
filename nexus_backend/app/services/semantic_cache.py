@@ -600,7 +600,7 @@ class SemanticCacheService:
         "项目进度汇总",
     ]
 
-    async def warmup_common_queries(self, org_id: str = "default"):
+    async def warmup_common_queries(self, org_id: str | None = None):
         """Pre-warm embedding cache for common high-frequency queries.
 
         This only pre-computes and stores embeddings so that the first real
@@ -623,7 +623,7 @@ class SemanticCacheService:
                 logger.debug(f"[SemanticCache] Warmup skip '{query}': {e}")
         logger.info(f"[SemanticCache] Warmed {warmed}/{len(self._COMMON_QUERY_TEMPLATES)} common queries for org={org_id[:8]}...")
 
-    async def auto_warmup_from_history(self, org_id: str = "default", min_hits: int = 3):
+    async def auto_warmup_from_history(self, org_id: str | None = None, min_hits: int = 3):
         """Auto-warm cache from historically popular queries.
 
         Queries with hit_count >= min_hits are considered popular and worth pre-warming.
