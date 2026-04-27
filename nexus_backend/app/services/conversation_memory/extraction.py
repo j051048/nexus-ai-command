@@ -256,14 +256,15 @@ async def _update_behavior_preferences(
         if merged == current:
             return  # No change
 
-        # Ensure we always provide organization_id to match the UNIQUE(user_id, organization_id) constraint
-        # Use the system default UUID if org_id is missing, as defined in migration 20260211
-        effective_org_id = org_id or "00000000-0000-0000-0000-000000000000"
+        # org_id is required for the FK constraint on ai_settings.organization_id
+        if not org_id:
+            logger.debug("[BehaviorPref] Skipping update: no valid org_id")
+            return
 
         # Upsert (composite unique: user_id + organization_id)
         upsert_data = {
             "user_id": user_id,
-            "organization_id": effective_org_id,
+            "organization_id": org_id,
             "model": "",  # 必填字段，空字符串表示使用默认
             "base_url": "",  # 必填字段，空字符串表示使用默认
             "behavior_preferences": merged,
@@ -273,7 +274,7 @@ async def _update_behavior_preferences(
             upsert_data, on_conflict="user_id,organization_id"
         ).execute()
         logger.info(
-            f"[BehaviorPref] Updated behavior preferences for {user_id} (Org: {effective_org_id}): {detected}"
+            f"[BehaviorPref] Updated behavior preferences for {user_id} (Org: {org_id}): {detected}"
         )
     except Exception as e:
         logger.error(f"[BehaviorPref] Failed to update preferences: {e}")

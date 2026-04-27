@@ -80,7 +80,7 @@ async def save_memory(
         except Exception:
             pass
     if not org_id:
-        org_id = "00000000-0000-0000-0000-000000000000"
+        raise RuntimeError(f"Cannot save memory: no valid org_id for user {user_id}")
 
     # P0 LoCoMo Fix: Normalize temporal context before storage
     from .temporal_normalizer import normalize_temporal_context

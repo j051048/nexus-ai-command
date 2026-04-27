@@ -101,7 +101,7 @@ async def run_proactive_agent(
         ],
         "current_phase": AgentPhase.ROUTING,
         "iteration": 0,
-        "complexity": QueryComplexity.MODERATE,
+        "complexity": QueryComplexity.COMPLEX,
         "selected_model": agent_config.model,
         "intent_summary": "",
         "plan": "",

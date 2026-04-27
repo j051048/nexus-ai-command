@@ -487,6 +487,9 @@ class ContentModerator:
             )
 
             raw_content = response.content.strip()
+            if not raw_content:
+                logger.debug("LLM detection returned empty response, skipping")
+                return True, None
             # Strip markdown code fences that LLMs sometimes wrap around JSON
             if "```json" in raw_content:
                 raw_content = raw_content.split("```json")[1].split("```")[0].strip()
@@ -506,8 +509,10 @@ class ContentModerator:
             return result_tuple
         except Exception as e:
             logger.warning(f"LLM detection failed: {e}")
-            # Fail-closed: block when detection service is unavailable
-            return False, "安全检测服务暂时不可用，请稍后重试"
+            # Fail-open: regex rules already provide the first line of defense;
+            # LLM detection is an enhancement layer — its failure should not
+            # block legitimate traffic.
+            return True, None
 
     async def scan_output_pipeline(
         self, content: str, context: dict = None

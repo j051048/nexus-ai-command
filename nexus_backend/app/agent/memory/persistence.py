@@ -115,6 +115,7 @@ async def persist_result(
                 user_id=user_id,
                 messages=messages_for_extraction,
                 db=client,
+                org_id=org_id,
                 is_subtask=_has_subtask,
             )
             if extracted:
