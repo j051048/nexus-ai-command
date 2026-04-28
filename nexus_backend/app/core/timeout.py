@@ -15,8 +15,8 @@ T = TypeVar("T")
 # P1: 延迟 SLO — 按复杂度分级超时 (秒)
 COMPLEXITY_TIMEOUT: dict[str, int] = {
     "SIMPLE": 15,
-    "MODERATE": 30,
-    "COMPLEX": 60,
+    "MODERATE": 45,
+    "COMPLEX": 90,
     "MULTI_AGENT": 120,
 }
 

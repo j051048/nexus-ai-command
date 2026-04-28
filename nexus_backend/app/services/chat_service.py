@@ -237,6 +237,8 @@ class ChatService:
         # Without this, background invocations (proactive scheduler, scheduled
         # tasks) fail with KeyError: 'config' and metrics lose user_id/org_id.
         initial_state["config"] = agent_config
+        if not initial_state.get("complexity"):
+            initial_state["complexity"] = "COMPLEX"
 
         graph = get_agent_graph()
         thread_id = f"{org_id}::{session_id}"

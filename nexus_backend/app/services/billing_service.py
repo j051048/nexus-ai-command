@@ -199,7 +199,10 @@ class BillingService:
                     self._subscriptions[org_id] = (sub, _time.time())
                     return sub
             except Exception as e:
-                logger.error(f"Subscription lookup failed: {e}")
+                # maybe_single() returns 204 when no row exists — not a real error
+                err_str = str(e)
+                if "204" not in err_str:
+                    logger.error(f"Subscription lookup failed: {e}")
 
         # Default to free plan
         sub = Subscription(org_id=org_id, plan=BillingPlan.FREE)

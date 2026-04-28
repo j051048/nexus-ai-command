@@ -612,7 +612,6 @@ class SemanticCacheService:
             try:
                 embedding = await self._get_embedding(query)
                 if embedding:
-                    # Store embedding in Redis for fast lookup
                     cache_key = self._make_cache_key(query, org_id)
                     if self.redis:
                         await self.redis.set(
@@ -621,13 +620,17 @@ class SemanticCacheService:
                     warmed += 1
             except Exception as e:
                 logger.debug(f"[SemanticCache] Warmup skip '{query}': {e}")
-        logger.info(f"[SemanticCache] Warmed {warmed}/{len(self._COMMON_QUERY_TEMPLATES)} common queries for org={org_id[:8]}...")
+        org_label = (org_id[:8] + "...") if org_id else "global"
+        logger.info(f"[SemanticCache] Warmed {warmed}/{len(self._COMMON_QUERY_TEMPLATES)} common queries for org={org_label}")
 
     async def auto_warmup_from_history(self, org_id: str | None = None, min_hits: int = 3):
         """Auto-warm cache from historically popular queries.
 
         Queries with hit_count >= min_hits are considered popular and worth pre-warming.
         """
+        if not org_id:
+            return
+
         try:
             result = await supabase.table("semantic_cache").select(
                 "query_text"
