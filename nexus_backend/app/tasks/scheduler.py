@@ -5,7 +5,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from functools import wraps
 
-from app.core.celery_app import celery_app
+from app.core.celery_app import NexusTask, celery_app
 from app.services.crawler_service import crawler_service
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ def _with_redis_lock(task_name: str, lock_ttl: int = 300):
     return decorator
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("crawl_arxiv_leads", lock_ttl=600)
 def crawl_arxiv_leads():
     """
@@ -69,9 +69,9 @@ def crawl_arxiv_leads():
     return f"Crawled and processed {len(papers)} papers."
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask, bind=True, max_retries=2, default_retry_delay=60)
 @_with_redis_lock("push_daily_briefing", lock_ttl=600)
-def push_daily_briefing():
+def push_daily_briefing(self):
     """
     3.1 每日晨报推送
     每天早8点推送给所有 manager/founder 角色用户
@@ -125,7 +125,7 @@ def push_daily_briefing():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("mine_sales_leads", lock_ttl=600)
 def mine_sales_leads():
     """
@@ -186,7 +186,7 @@ def mine_sales_leads():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("monitor_competitors", lock_ttl=600)
 def monitor_competitors():
     """
@@ -262,7 +262,7 @@ def monitor_competitors():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("cleanup_stale_embeddings", lock_ttl=600)
 def cleanup_stale_embeddings():
     """
@@ -347,7 +347,7 @@ def cleanup_stale_embeddings():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("aggregate_ai_quality_metrics", lock_ttl=600)
 def aggregate_ai_quality_metrics():
     """每日聚合AI质量指标"""
@@ -380,7 +380,7 @@ def aggregate_ai_quality_metrics():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("monitor_tenants", lock_ttl=240)
 def monitor_tenants():
     """
@@ -403,7 +403,7 @@ def monitor_tenants():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("check_approval_timeouts", lock_ttl=240)
 def check_approval_timeouts():
     """
@@ -420,7 +420,7 @@ def check_approval_timeouts():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("sync_im_platforms", lock_ttl=600)
 def sync_im_platforms():
     """
@@ -467,7 +467,7 @@ def sync_im_platforms():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("check_contract_expiry", lock_ttl=600)
 def check_contract_expiry():
     """
@@ -540,7 +540,7 @@ def check_contract_expiry():
 # See scheduled_task_runner.py for the single authoritative executor.
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 def decompose_vmd_task(task_id: str):
     """
     VMD Task Auto-Decomposition (#32)
@@ -694,7 +694,7 @@ def decompose_vmd_task(task_id: str):
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("push_smart_recommendations", lock_ttl=600)
 def push_smart_recommendations():
     """Push smart recommendations to online users via WebSocket every 2 hours."""
@@ -775,7 +775,7 @@ def push_smart_recommendations():
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("purge_superseded_memories", lock_ttl=600)
 def purge_superseded_memories():
     """
@@ -812,7 +812,7 @@ def purge_superseded_memories():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("cleanup_stale_memories", lock_ttl=600)
 def cleanup_stale_memories():
     """
@@ -839,7 +839,7 @@ def cleanup_stale_memories():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("consolidate_memories", lock_ttl=600)
 def consolidate_memories():
     """
@@ -891,7 +891,7 @@ def consolidate_memories():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("reevaluate_memory_importance", lock_ttl=600)
 def reevaluate_memory_importance():
     """
@@ -915,7 +915,7 @@ def reevaluate_memory_importance():
     return _run_async(_run())
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("decay_kg_strength", lock_ttl=600)
 def decay_kg_strength():
     """
@@ -952,7 +952,7 @@ def decay_kg_strength():
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("measure_action_outcomes", lock_ttl=600)
 def measure_action_outcomes():
     """
@@ -1080,7 +1080,7 @@ def measure_action_outcomes():
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("score_all_leads", lock_ttl=600)
 def score_all_leads_task():
     """每小时重算所有组织的线索评分。"""
@@ -1149,7 +1149,7 @@ _TOOL_CATEGORY_MAP = {
 }
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("aggregate_ai_roi_daily", lock_ttl=600)
 def aggregate_ai_roi_daily():
     """每日聚合 AI ROI 指标 → ai_roi_daily 表。"""

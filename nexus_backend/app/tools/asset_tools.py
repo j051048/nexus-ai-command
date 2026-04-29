@@ -358,6 +358,8 @@ class CreateAssetTool(BaseTool):
         except Exception as e:
             logger.error("compensate create_asset failed: %s", e)
             return None
+
+class UpdateAssetTool(BaseTool):
     """更新资产"""
 
     name = "update_asset"

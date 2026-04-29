@@ -34,19 +34,16 @@ from app.tools import get_tool
 
 logger = logging.getLogger(__name__)
 
-# Maximum sub-tasks to execute in one orchestration pass
-_MAX_SUB_TASKS = 8
-# Maximum concurrent LLM calls per layer (rate-limit guard)
-_MAX_CONCURRENCY = 4
-# P0-1: Maximum tool-calling rounds per sub-task
-_MAX_SUB_TASK_TOOL_ROUNDS = 3
-# P1-4: Failure rate threshold to trigger dynamic replanning
-_REPLAN_FAILURE_THRESHOLD = 0.3
+from app.core.config import settings
+
+_MAX_SUB_TASKS = settings.ORCHESTRATOR_MAX_SUB_TASKS
+_MAX_CONCURRENCY = settings.ORCHESTRATOR_MAX_CONCURRENCY
+_MAX_SUB_TASK_TOOL_ROUNDS = settings.ORCHESTRATOR_MAX_TOOL_ROUNDS
+_REPLAN_FAILURE_THRESHOLD = settings.ORCHESTRATOR_REPLAN_FAILURE_THRESHOLD
 # Known long-running tools — imported from canonical definition
 from app.agent.node_helpers import LONG_RUNNING_TOOLS as _LONG_RUNNING_TOOLS
 
-# Total token budget for the entire orchestration pass
-_ORCHESTRATION_TOKEN_BUDGET = 30000
+_ORCHESTRATION_TOKEN_BUDGET = settings.ORCHESTRATOR_TOKEN_BUDGET
 
 
 # ─── P2-9: Unified LLM factory for orchestrator ─────────────────────────────

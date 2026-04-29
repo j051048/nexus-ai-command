@@ -21,12 +21,13 @@ from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
-# 时间窗口配置
-_LEVEL2_START_DAYS = 30  # Level 2 压缩起点
-_LEVEL3_START_DAYS = 90  # Level 3 过期起点
-_BATCH_SIZE = 50  # 每批处理的记忆数
-_HIGH_IMPORTANCE_SKIP = 0.7  # 高于此分数的记忆跳过压缩
-_FORGET_THRESHOLD = 0.08  # 低于此分数的记忆可被标记过期
+from app.core.config import settings
+
+_LEVEL2_START_DAYS = settings.MEMORY_LEVEL2_START_DAYS
+_LEVEL3_START_DAYS = settings.MEMORY_LEVEL3_START_DAYS
+_BATCH_SIZE = settings.MEMORY_BATCH_SIZE
+_HIGH_IMPORTANCE_SKIP = settings.MEMORY_HIGH_IMPORTANCE_SKIP
+_FORGET_THRESHOLD = settings.MEMORY_FORGET_THRESHOLD
 
 
 async def run_lifecycle_maintenance(

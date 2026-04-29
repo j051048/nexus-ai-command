@@ -137,17 +137,16 @@ class TestCreateAssetTool:
     async def test_create_asset_success(self):
         tool = _load_tool("create_asset")
         asset_id = str(uuid.uuid4())
-        updated = {
-            "id": asset_id, "name": "Dell显示器",
-            "status": "idle",
+        new_asset = {
+            "id": asset_id, "name": "Dell显示器", "asset_code": "DISP-001", "asset_type": "hardware"
         }
         with (
             patch("app.tools.asset_tools._get_client", return_value=_mock_client()),
             patch("app.tools.asset_tools.asset_service") as svc,
         ):
-            svc.update_asset = AsyncMock(return_value=updated)
+            svc.create_asset = AsyncMock(return_value=new_asset)
             result = await tool.run(
-                {"asset_id": asset_id, "name": "Dell显示器", "status": "idle"},
+                {"asset_code": "DISP-001", "name": "Dell显示器", "asset_type": "hardware", "status": "idle"},
                 FAKE_USER_ID, CONFIG,
             )
         result_str = str(result)
@@ -162,6 +161,85 @@ class TestCreateAssetTool:
                 FAKE_USER_ID, CONFIG,
             )
         assert "❌" in str(result) or "不能为空" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_create_asset_error(self):
+        tool = _load_tool("create_asset")
+        with (
+            patch("app.tools.asset_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.asset_tools.asset_service") as svc,
+        ):
+            svc.create_asset = AsyncMock(side_effect=Exception("DB down"))
+            result = await tool.run(
+                {"asset_code": "AS003", "name": "Test", "asset_type": "car"},
+                FAKE_USER_ID, CONFIG,
+            )
+        assert "失败" in str(result) or "error" in str(result).lower() or "❌" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_compensate_success(self):
+        tool = _load_tool("create_asset")
+        with patch("app.tools.asset_tools._get_client", return_value=_mock_client()) as client:
+            client.return_value.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute = AsyncMock(return_value=MagicMock(data=[1]))
+            result = await tool.compensate({"asset_code": "AS003"}, FAKE_USER_ID, CONFIG)
+        assert "已回滚" in str(result)
+
+class TestUpdateAssetTool:
+    """更新资产"""
+
+    @pytest.mark.asyncio
+    async def test_update_asset_success(self):
+        tool = _load_tool("update_asset")
+        asset_id = str(uuid.uuid4())
+        updated = {
+            "id": asset_id, "name": "Dell显示器",
+            "status": "idle",
+        }
+        with (
+            patch("app.tools.asset_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.asset_tools.asset_service") as svc,
+        ):
+            svc.update_asset = AsyncMock(return_value=updated)
+            result = await tool.run(
+                {"asset_id": asset_id, "status": "idle"},
+                FAKE_USER_ID, CONFIG,
+            )
+        result_str = str(result)
+        assert "Dell显示器" in result_str or "✅" in result_str or "成功" in result_str or "更新" in result_str
+
+    @pytest.mark.asyncio
+    async def test_update_asset_missing_fields(self):
+        tool = _load_tool("update_asset")
+        with patch("app.tools.asset_tools._get_client", return_value=_mock_client()):
+            result = await tool.run(
+                {"asset_id": str(uuid.uuid4())},
+                FAKE_USER_ID, CONFIG,
+            )
+        assert "❌" in str(result) or "至少" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_update_asset_invalid_uuid(self):
+        tool = _load_tool("update_asset")
+        with patch("app.tools.asset_tools._get_client", return_value=_mock_client()):
+            result = await tool.run(
+                {"asset_id": "bad-uuid", "status": "idle"},
+                FAKE_USER_ID, CONFIG,
+            )
+        assert "❌" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_update_asset_error(self):
+        tool = _load_tool("update_asset")
+        with (
+            patch("app.tools.asset_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.asset_tools.asset_service") as svc,
+        ):
+            svc.update_asset = AsyncMock(side_effect=Exception("DB down"))
+            result = await tool.run(
+                {"asset_id": str(uuid.uuid4()), "status": "idle"},
+                FAKE_USER_ID, CONFIG,
+            )
+        assert "失败" in str(result) or "error" in str(result).lower() or "❌" in str(result)
 
 
 class TestTransferAssetTool:
@@ -194,6 +272,54 @@ class TestTransferAssetTool:
             )
         assert "❌" in str(result)
 
+    @pytest.mark.asyncio
+    async def test_transfer_missing_user_id(self):
+        tool = _load_tool("transfer_asset")
+        with patch("app.tools.asset_tools._get_client", return_value=_mock_client()):
+            result = await tool.run(
+                {"asset_id": str(uuid.uuid4()), "transfer_type": "allocate"},
+                FAKE_USER_ID, CONFIG,
+            )
+        assert "❌" in str(result) or "需要指定" in str(result)
+        
+    @pytest.mark.asyncio
+    async def test_transfer_no_org(self):
+        tool = _load_tool("transfer_asset")
+        with patch("app.tools.asset_tools._get_client", return_value=_mock_client()):
+            result = await tool.run(
+                {"asset_id": str(uuid.uuid4()), "transfer_type": "allocate", "to_user_id": str(uuid.uuid4())},
+                FAKE_USER_ID, {},
+            )
+        assert "❌" in str(result) or "组织" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_transfer_asset_not_found(self):
+        tool = _load_tool("transfer_asset")
+        with (
+            patch("app.tools.asset_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.asset_tools.asset_service") as svc,
+        ):
+            svc.get_asset_detail = AsyncMock(return_value=None)
+            result = await tool.run(
+                {"asset_id": str(uuid.uuid4()), "transfer_type": "allocate", "to_user_id": str(uuid.uuid4())},
+                FAKE_USER_ID, CONFIG,
+            )
+        assert "❌" in str(result) or "未找到" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_transfer_error(self):
+        tool = _load_tool("transfer_asset")
+        with (
+            patch("app.tools.asset_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.asset_tools.asset_service") as svc,
+        ):
+            svc.get_asset_detail = AsyncMock(return_value={"id": str(uuid.uuid4()), "current_user_id": None})
+            svc.transfer_asset = AsyncMock(side_effect=Exception("DB Error"))
+            result = await tool.run(
+                {"asset_id": str(uuid.uuid4()), "transfer_type": "allocate", "to_user_id": str(uuid.uuid4())},
+                FAKE_USER_ID, CONFIG,
+            )
+        assert "失败" in str(result) or "error" in str(result).lower() or "❌" in str(result)
 
 class TestAssetStatisticsTool:
     """资产统计"""
@@ -214,3 +340,38 @@ class TestAssetStatisticsTool:
             result = await tool.run({}, FAKE_USER_ID, CONFIG)
         result_str = str(result)
         assert "50" in result_str or "资产" in result_str
+
+    @pytest.mark.asyncio
+    async def test_statistics_error(self):
+        tool = _load_tool("asset_statistics")
+        with (
+            patch("app.tools.asset_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.asset_tools.asset_service") as svc,
+        ):
+            svc.get_asset_statistics = AsyncMock(side_effect=Exception("DB Error"))
+            result = await tool.run({}, FAKE_USER_ID, CONFIG)
+        assert "失败" in str(result) or "error" in str(result).lower()
+
+class TestAssetToolsCoverageExtra:
+    @pytest.mark.asyncio
+    async def test_list_assets_invalid_dept(self):
+        tool = _load_tool("list_assets")
+        with patch("app.tools.asset_tools._get_client", return_value=_mock_client()):
+            res = await tool.run({"department_id": "invalid"}, FAKE_USER_ID, CONFIG)
+        assert "❌" in str(res)
+
+    @pytest.mark.asyncio
+    async def test_list_assets_error(self):
+        tool = _load_tool("list_assets")
+        with patch("app.tools.asset_tools._get_client"), patch("app.tools.asset_tools.asset_service") as svc:
+            svc.list_assets = AsyncMock(side_effect=Exception("DB Error"))
+            res = await tool.run({"search": "test", "status": "idle", "asset_type": "vehicle"}, FAKE_USER_ID, CONFIG)
+        assert "error" in str(res).lower() or "失败" in str(res)
+
+    @pytest.mark.asyncio
+    async def test_get_asset_detail_error(self):
+        tool = _load_tool("get_asset_detail")
+        with patch("app.tools.asset_tools._get_client"), patch("app.tools.asset_tools.asset_service") as svc:
+            svc.get_asset_detail = AsyncMock(side_effect=Exception("DB Error"))
+            res = await tool.run({"asset_id": str(uuid.uuid4())}, FAKE_USER_ID, CONFIG)
+        assert "error" in str(res).lower() or "失败" in str(res)

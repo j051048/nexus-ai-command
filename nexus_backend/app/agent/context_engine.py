@@ -41,11 +41,11 @@ class ContextProvider(ABC):
 class ContextEngine:
     """上下文引擎 -- 按优先级和 token 预算组装上下文。"""
 
-    # Default budget-to-context-window ratio: use ~30% of the model's context
-    # window for system context, leaving 70% for conversation + output.
-    _BUDGET_RATIO = 0.30
-    _MIN_BUDGET = 2000
-    _MAX_BUDGET = 16000
+    from app.core.config import settings as _settings
+
+    _BUDGET_RATIO = _settings.CONTEXT_BUDGET_RATIO
+    _MIN_BUDGET = _settings.CONTEXT_MIN_BUDGET
+    _MAX_BUDGET = _settings.CONTEXT_MAX_BUDGET
 
     def __init__(self, total_budget: int = 4000):
         self._providers: list[ContextProvider] = []

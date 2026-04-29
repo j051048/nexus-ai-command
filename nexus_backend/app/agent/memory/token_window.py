@@ -20,7 +20,7 @@ SHORT_TERM_WINDOW = getattr(settings, "MAX_CHAT_HISTORY", 10)
 
 # Absolute turn limit — safety net before any LLM-based compaction.
 # Prevents runaway token costs on very long sessions.
-HARD_TURN_LIMIT = 40
+HARD_TURN_LIMIT = settings.TOKEN_HARD_TURN_LIMIT
 
 # Quick token estimation: chars/4 + 20% safety margin (OpenClaw-inspired)
 # Used as fast pre-check before expensive precise token counting
@@ -34,7 +34,7 @@ _MODEL_CONTEXT_WINDOWS = {
     "gpt-4-turbo": 128000,
     "gpt-3.5-turbo": 16385,
 }
-_DEFAULT_CONTEXT_WINDOW = 128000
+_DEFAULT_CONTEXT_WINDOW = settings.TOKEN_DEFAULT_CONTEXT_WINDOW
 
 
 # ── Phase 2: TurboQuant Memory Compression ────────────────────────────────────

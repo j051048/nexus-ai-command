@@ -290,3 +290,56 @@ class TestRequestLeaveTool:
                 FAKE_USER_ID, CONFIG,
             )
         assert "失败" in str(result) or "error" in str(result).lower() or "❌" in str(result)
+
+class TestListShiftSchedulesTool:
+    """查询排班记录"""
+
+    @pytest.mark.asyncio
+    async def test_list_shift_schedules_success(self):
+        tool = _load_tool("list_shift_schedules")
+        schedules = [
+            {"shift_date": "2026-05-01", "employee": {"name": "张三"}, "shift_type": {"name": "早班"}}
+        ]
+        with (
+            patch("app.tools.attendance_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.attendance_tools.attendance_service") as svc,
+        ):
+            svc.list_shift_schedules = AsyncMock(return_value=schedules)
+            result = await tool.run({}, FAKE_USER_ID, CONFIG)
+        assert "张三" in str(result) or "早班" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_list_shift_schedules_empty(self):
+        tool = _load_tool("list_shift_schedules")
+        with (
+            patch("app.tools.attendance_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.attendance_tools.attendance_service") as svc,
+        ):
+            svc.list_shift_schedules = AsyncMock(return_value=[])
+            result = await tool.run({}, FAKE_USER_ID, CONFIG)
+        assert "暂无" in str(result) or "0条" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_list_shift_schedules_invalid_uuid(self):
+        tool = _load_tool("list_shift_schedules")
+        with patch("app.tools.attendance_tools._get_client", return_value=_mock_client()):
+            result = await tool.run({"department_id": "invalid"}, FAKE_USER_ID, CONFIG)
+        assert "❌" in str(result) or "参数错误" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_list_shift_schedules_no_org(self):
+        tool = _load_tool("list_shift_schedules")
+        with patch("app.tools.attendance_tools._get_client", return_value=_mock_client()):
+            result = await tool.run({}, FAKE_USER_ID, {})
+        assert "无法获取" in str(result) or "组织" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_list_shift_schedules_error(self):
+        tool = _load_tool("list_shift_schedules")
+        with (
+            patch("app.tools.attendance_tools._get_client", return_value=_mock_client()),
+            patch("app.tools.attendance_tools.attendance_service") as svc,
+        ):
+            svc.list_shift_schedules = AsyncMock(side_effect=Exception("DB Error"))
+            result = await tool.run({}, FAKE_USER_ID, CONFIG)
+        assert "失败" in str(result) or "error" in str(result).lower()

@@ -303,6 +303,48 @@ class Settings(BaseSettings):
         description="Similarity threshold for semantic cache hits (lowered from 0.95 to improve hit rate)",
     )
 
+    # --- Externalized runtime-tunable constants ---
+    # Orchestrator
+    ORCHESTRATOR_MAX_SUB_TASKS: int = Field(default=8)
+    ORCHESTRATOR_MAX_CONCURRENCY: int = Field(default=4)
+    ORCHESTRATOR_MAX_TOOL_ROUNDS: int = Field(default=3)
+    ORCHESTRATOR_REPLAN_FAILURE_THRESHOLD: float = Field(default=0.3)
+    ORCHESTRATOR_TOKEN_BUDGET: int = Field(default=30000)
+    # Tool selection
+    TOOL_MAX_TOOLS: int = Field(default=20)
+    TOOL_EMBEDDING_TOP_K: int = Field(default=12)
+    TOOL_EMBEDDING_MIN_SCORE: float = Field(default=0.20)
+    TOOL_EMBEDDING_GATE: int = Field(default=15)
+    # Loop detection
+    LOOP_WINDOW_SIZE: int = Field(default=30)
+    LOOP_GENERIC_REPEAT_THRESHOLD: int = Field(default=3)
+    LOOP_POLL_NO_PROGRESS_THRESHOLD: int = Field(default=5)
+    LOOP_GLOBAL_CIRCUIT_BREAKER: int = Field(default=15)
+    # Prompt compression
+    PROMPT_MAX_TURNS_BEFORE_COMPRESS: int = Field(default=6)
+    PROMPT_MAX_TOKENS_BEFORE_COMPRESS: int = Field(default=4500)
+    PROMPT_KEEP_RECENT_TURNS: int = Field(default=3)
+    PROMPT_TAIL_TOKEN_BUDGET: int = Field(default=8000)
+    # Memory lifecycle
+    MEMORY_LEVEL2_START_DAYS: int = Field(default=30)
+    MEMORY_LEVEL3_START_DAYS: int = Field(default=90)
+    MEMORY_BATCH_SIZE: int = Field(default=50)
+    MEMORY_HIGH_IMPORTANCE_SKIP: float = Field(default=0.7)
+    MEMORY_FORGET_THRESHOLD: float = Field(default=0.08)
+    # Context engine
+    CONTEXT_BUDGET_RATIO: float = Field(default=0.30)
+    CONTEXT_MIN_BUDGET: int = Field(default=2000)
+    CONTEXT_MAX_BUDGET: int = Field(default=16000)
+    # Token window
+    TOKEN_HARD_TURN_LIMIT: int = Field(default=40)
+    TOKEN_DEFAULT_CONTEXT_WINDOW: int = Field(default=128000)
+    # AI metrics
+    METRICS_WINDOW_SIZE: int = Field(default=100)
+    METRICS_CONSECUTIVE_FAIL_THRESHOLD: int = Field(default=3)
+    METRICS_AGENT_ALERT_WINDOW_S: int = Field(default=3600)
+    METRICS_AGENT_ALERT_THRESHOLD: float = Field(default=0.80)
+    METRICS_AGENT_ALERT_MIN_SAMPLES: int = Field(default=10)
+
     # SLO Definitions (Item 16)
     SLO_AI_RESPONSE_P95_MS: int = Field(
         default=5000, description="SLO: AI response P95 latency in ms"

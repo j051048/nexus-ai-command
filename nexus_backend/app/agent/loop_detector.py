@@ -23,13 +23,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # ─── Configuration Constants ─────────────────────────────────────────────────
+from app.core.config import settings
 
-# Sliding window size for tool call history analysis
-LOOP_WINDOW_SIZE = 30
-# Thresholds for different detection strategies
-GENERIC_REPEAT_THRESHOLD = 3  # Same tool+args N times → force reflect
-POLL_NO_PROGRESS_THRESHOLD = 5  # Polling tools with no progress → block
-GLOBAL_CIRCUIT_BREAKER = 15  # Absolute safety net: any single tool N times → block
+LOOP_WINDOW_SIZE = settings.LOOP_WINDOW_SIZE
+GENERIC_REPEAT_THRESHOLD = settings.LOOP_GENERIC_REPEAT_THRESHOLD
+POLL_NO_PROGRESS_THRESHOLD = settings.LOOP_POLL_NO_PROGRESS_THRESHOLD
+GLOBAL_CIRCUIT_BREAKER = settings.LOOP_GLOBAL_CIRCUIT_BREAKER
 
 # Tools known to cause polling loops (status checks, process waits)
 POLL_TOOLS: set[str] = {

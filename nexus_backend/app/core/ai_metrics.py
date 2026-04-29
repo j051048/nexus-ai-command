@@ -181,8 +181,11 @@ def record_agent_e2e(tier: str, duration_ms: float, success: bool) -> None:
 from collections import deque as _deque
 
 _tool_call_window: dict[str, _deque] = {}
-_WINDOW_SIZE = 100
-_CONSECUTIVE_FAIL_THRESHOLD = 3
+
+from app.core.config import settings as _settings
+
+_WINDOW_SIZE = _settings.METRICS_WINDOW_SIZE
+_CONSECUTIVE_FAIL_THRESHOLD = _settings.METRICS_CONSECUTIVE_FAIL_THRESHOLD
 
 
 def check_tool_alert(tool_name: str, success: bool) -> bool:
@@ -216,10 +219,10 @@ def check_tool_alert(tool_name: str, success: bool) -> bool:
 
 import time as _time
 
-_agent_outcomes: _deque = _deque(maxlen=500)  # (timestamp, success: bool)
-_AGENT_ALERT_WINDOW_S = 3600  # 1 hour
-_AGENT_ALERT_THRESHOLD = 0.80  # alert if success rate < 80%
-_AGENT_ALERT_MIN_SAMPLES = 10  # need at least 10 samples to trigger
+_agent_outcomes: _deque = _deque(maxlen=500)
+_AGENT_ALERT_WINDOW_S = _settings.METRICS_AGENT_ALERT_WINDOW_S
+_AGENT_ALERT_THRESHOLD = _settings.METRICS_AGENT_ALERT_THRESHOLD
+_AGENT_ALERT_MIN_SAMPLES = _settings.METRICS_AGENT_ALERT_MIN_SAMPLES
 
 
 def check_agent_success_rate(success: bool) -> bool:

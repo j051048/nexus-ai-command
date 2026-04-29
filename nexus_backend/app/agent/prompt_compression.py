@@ -32,15 +32,12 @@ from langchain_core.messages import (
 
 logger = logging.getLogger(__name__)
 
-# Default thresholds for triggering compression
-DEFAULT_MAX_TURNS_BEFORE_COMPRESS = 6
-DEFAULT_MAX_TOKENS_BEFORE_COMPRESS = 4500
-DEFAULT_KEEP_RECENT_TURNS = 3
+from app.core.config import settings
 
-# Token-budget tail protection: protect recent messages up to this token budget.
-# When set, overrides keep_recent as the primary tail boundary.
-# 8000 tokens ≈ last ~4-6 turns of typical conversation.
-DEFAULT_TAIL_TOKEN_BUDGET = 8000
+DEFAULT_MAX_TURNS_BEFORE_COMPRESS = settings.PROMPT_MAX_TURNS_BEFORE_COMPRESS
+DEFAULT_MAX_TOKENS_BEFORE_COMPRESS = settings.PROMPT_MAX_TOKENS_BEFORE_COMPRESS
+DEFAULT_KEEP_RECENT_TURNS = settings.PROMPT_KEEP_RECENT_TURNS
+DEFAULT_TAIL_TOKEN_BUDGET = settings.PROMPT_TAIL_TOKEN_BUDGET
 
 # Summary token budget scaling
 _MIN_SUMMARY_TOKENS = 600  # Floor: never go below this for summary output

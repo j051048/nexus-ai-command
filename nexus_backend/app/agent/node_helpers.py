@@ -849,7 +849,8 @@ def _get_tool_schemas(
             )
 
     # Safety cap: if filtering still leaves too many tools, keep only the most relevant
-    MAX_TOOLS = 20
+    from app.core.config import settings
+    MAX_TOOLS = settings.TOOL_MAX_TOOLS
     if len(filtered) > MAX_TOOLS:
         logger.info(
             f"[ToolFilter] Capping {len(filtered)} tools to {MAX_TOOLS} (always-include + domain-sorted)"

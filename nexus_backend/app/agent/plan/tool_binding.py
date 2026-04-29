@@ -76,15 +76,16 @@ async def bind_tools_to_llm(
         # retrieval to keep only the most relevant tools.
         _embedding_pruned = False
         _pre_embed_count = len(schemas)
-        if len(schemas) > 15 and user_query:
+        from app.core.config import settings as _cfg
+        if len(schemas) > _cfg.TOOL_EMBEDDING_GATE and user_query:
             try:
                 from app.agent.tool_embedding_index import tool_embedding_index
 
                 candidate_names = {s["function"]["name"] for s in schemas}
                 ranked = await tool_embedding_index.retrieve(
                     query=user_query,
-                    top_k=12,
-                    min_score=0.20,
+                    top_k=_cfg.TOOL_EMBEDDING_TOP_K,
+                    min_score=_cfg.TOOL_EMBEDDING_MIN_SCORE,
                     candidate_names=candidate_names,
                 )
                 if ranked:

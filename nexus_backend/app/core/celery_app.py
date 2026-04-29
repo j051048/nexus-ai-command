@@ -33,6 +33,31 @@ celery_app.conf.update(
     task_time_limit=600,        # 10 min hard kill
 )
 
+
+# ── NexusTask: base class with DLQ on_failure ────────────────────────────────
+class NexusTask(celery_app.Task):
+    """Base task class that writes to DLQ on final failure."""
+
+    abstract = True
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        try:
+            from app.tasks.dlq import write_dead_letter
+
+            write_dead_letter(
+                task_name=self.name,
+                task_id=task_id,
+                args=args,
+                kwargs=kwargs,
+                exception=str(exc),
+                traceback=str(einfo) if einfo else "",
+                retries=self.request.retries if self.request else 0,
+                max_retries=self.max_retries or 0,
+            )
+        except Exception as dlq_err:
+            logger.error("[NexusTask] DLQ write failed: %s", dlq_err)
+        super().on_failure(exc, task_id, args, kwargs, einfo)
+
 # ── Distributed Beat Lock ────────────────────────────────────────────────────
 # Use Redis-based distributed lock so only one Beat instance runs across
 # multiple deployments. Falls back to default scheduler if Redis unavailable.
