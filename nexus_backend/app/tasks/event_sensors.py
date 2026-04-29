@@ -16,7 +16,7 @@ Five sensors:
 import logging
 from datetime import UTC, datetime, timedelta
 
-from app.core.celery_app import celery_app
+from app.core.celery_app import NexusTask, celery_app
 from app.tasks.scheduler import _run_async, _with_redis_lock
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ async def _record_action(
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("sensor_sales_anomaly", lock_ttl=600)
 def sensor_sales_anomaly():
     """Detect sudden drops in key sales metrics (revenue, leads, conversions).
@@ -283,7 +283,7 @@ async def _run_sales_anomaly_for_org(org_id: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("sensor_followup_timeout", lock_ttl=600)
 def sensor_followup_timeout():
     """Detect opportunity-stage customers with no follow-up in 7+ days.
@@ -396,7 +396,7 @@ async def _run_followup_timeout_for_org(org_id: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("sensor_contract_expiry_ladder", lock_ttl=600)
 def sensor_contract_expiry_ladder():
     """Enhanced contract expiry with 15/7/3 day ladder warnings.
@@ -517,7 +517,7 @@ async def _run_contract_expiry_for_org(org_id: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("sensor_approval_backlog", lock_ttl=600)
 def sensor_approval_backlog():
     """Detect approval backlogs: >3 pending items AND oldest pending >4 hours.
@@ -631,7 +631,7 @@ async def _run_approval_backlog_for_org(org_id: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task
+@celery_app.task(base=NexusTask)
 @_with_redis_lock("sensor_target_progress", lock_ttl=600)
 def sensor_target_progress():
     """Detect users falling behind on monthly targets.

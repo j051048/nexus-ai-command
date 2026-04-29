@@ -223,6 +223,43 @@ jobs:
           flags: backend
           fail_ci_if_error: false
 
+  # ============== Backend Integration Tests (RLS) ==============
+  backend-integration:
+    name: Backend Integration Tests (RLS)
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      vars.TEST_SUPABASE_URL != ''
+    defaults:
+      run:
+        working-directory: ./nexus_backend
+    env:
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_SERVICE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_KEY }}
+      TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "nexus_backend/requirements-dev.txt"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run RLS integration tests
+        run: pytest tests/integration/test_rls.py -v -m integration
+
+      - name: Integration test summary
+        if: always()
+        run: echo "## RLS Integration Tests" >> $GITHUB_STEP_SUMMARY
+
   # ============== Security Scanning ==============
   security-scan:
     name: Security Scan

@@ -16,6 +16,12 @@ CREATE TABLE IF NOT EXISTS celery_dead_letters (
     replayed_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_dlq_status ON celery_dead_letters(status);
-CREATE INDEX idx_dlq_task_name ON celery_dead_letters(task_name);
-CREATE INDEX idx_dlq_created ON celery_dead_letters(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dlq_status ON celery_dead_letters(status);
+CREATE INDEX IF NOT EXISTS idx_dlq_task_name ON celery_dead_letters(task_name);
+CREATE INDEX IF NOT EXISTS idx_dlq_created ON celery_dead_letters(created_at DESC);
+
+-- RLS: service_role has full access
+ALTER TABLE celery_dead_letters ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "service_role_full_access" ON celery_dead_letters
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
