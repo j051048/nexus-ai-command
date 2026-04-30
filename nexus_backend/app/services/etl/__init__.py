@@ -280,6 +280,7 @@ class ETLService:
         organization_id: str = None,
     ) -> dict:
         """Main ETL pipeline: parse -> extract metadata -> generate embeddings."""
+        logger.info(f"[ETL] Pipeline start: doc={doc_id} file={filename} size={len(content)}")
         await self._update_progress(doc_id, 10, "parsing")
 
         raw_url = (
@@ -321,6 +322,7 @@ class ETLService:
             success, details = await self.extract_metadata_via_ai(
                 text, filename, active_key, active_url
             )
+            logger.info(f"[ETL] AI analysis done: doc={doc_id} success={success} doc_type={details.get('doc_type', '?')}")
             await self._update_progress(doc_id, 70, "embedding")
 
             if success:
@@ -366,6 +368,7 @@ class ETLService:
                         await self._update_progress(
                             doc_id, 100, "completed", status="ready"
                         )
+                        logger.info(f"[ETL] Pipeline complete: doc={doc_id} file={filename}")
                         return {
                             "filename": filename,
                             "status": "success",
@@ -415,7 +418,7 @@ class ETLService:
                 }
 
         except Exception as e:
-            logger.error(f"ETL Panic: {str(e)}")
+            logger.error(f"ETL Panic: doc={doc_id} file={filename} error={str(e)}")
             if doc_id:
                 await self._update_progress(doc_id, 0, "failed", status="error")
             return {
@@ -508,16 +511,19 @@ class ETLService:
             payload["model"] = model_name
             try:
                 logger.info(f"Attempting AI Analysis with model: {model_name}...")
-                async with httpx.AsyncClient(timeout=90.0) as client:
+                async with httpx.AsyncClient(timeout=180.0) as client:
                     response = await client.post(
                         f"{base_url}/chat/completions", headers=headers, json=payload
                     )
                     if response.status_code != 200:
                         logger.warning(
-                            f"Model {model_name} failed: {response.status_code} - {response.text}"
+                            f"Model {model_name} failed: {response.status_code} - {response.text[:300]}"
                         )
                         return False, None
                     return True, response.json()
+            except httpx.TimeoutException:
+                logger.warning(f"Model {model_name} timed out (180s) for file: {filename}")
+                return False, None
             except Exception as e:
                 logger.warning(f"Model {model_name} processing error: {str(e)}")
                 return False, None

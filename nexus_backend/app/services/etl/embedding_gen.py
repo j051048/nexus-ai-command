@@ -7,6 +7,7 @@ Contains semantic chunking, chunk enrichment, and batch embedding generation log
 import json
 import logging
 import re
+import time
 
 import httpx
 
@@ -155,6 +156,7 @@ async def generate_embeddings(
     """
     batch_size = 50
     all_success = True
+    t0 = time.monotonic()
 
     # Resolve embedding model dynamically via gateway
     embedding_model = default_embedding_model
@@ -174,6 +176,11 @@ async def generate_embeddings(
                 active_base_url = f"{active_base_url}/v1"
     except Exception:
         logger.error("[ETL] Embedding config resolution failed, using defaults")
+
+    logger.info(
+        "[ETL] Embedding start: doc=%s file=%s model=%s text_len=%d",
+        doc_id, filename, embedding_model, len(text),
+    )
 
     async with httpx.AsyncClient(timeout=60.0) as shared_client:
 
@@ -255,6 +262,11 @@ async def generate_embeddings(
         parent_chunks = list(semantic_chunk(text, size=parent_chunk_size, overlap=200))
         parent_ids = []
 
+        logger.info(
+            "[ETL] doc=%s: %d parent chunks, starting embedding...",
+            doc_id, len(parent_chunks),
+        )
+
         for batch_start in range(0, len(parent_chunks), batch_size):
             batch = parent_chunks[batch_start : batch_start + batch_size]
             result = await _process_batch(batch, chunk_type="parent")
@@ -267,23 +279,34 @@ async def generate_embeddings(
                     parent_ids.append((None, pt))
 
         # Generate child chunks with per-record parent references + P2 enrichment
+        # Skip enrichment if document is large (>20 parent chunks) to avoid timeout
+        skip_enrichment = len(parent_chunks) > 20
+        if skip_enrichment:
+            logger.info(
+                "[ETL] doc=%s: large document (%d parents), skipping enrichment",
+                doc_id, len(parent_chunks),
+            )
+
         current_batch_text = []
-        for parent_id, parent_text in parent_ids:
+        for pi, (parent_id, parent_text) in enumerate(parent_ids):
             child_chunks = list(
                 semantic_chunk(parent_text, size=chunk_size, overlap=chunk_overlap)
             )
 
             # P2: Enrich child chunks with parent context before embedding
-            try:
-                enriched_chunks = await _enrich_chunks(
-                    child_chunks,
-                    parent_text,
-                    active_api_key,
-                    active_base_url,
-                    shared_client,
-                )
-            except Exception:
+            if skip_enrichment:
                 enriched_chunks = child_chunks
+            else:
+                try:
+                    enriched_chunks = await _enrich_chunks(
+                        child_chunks,
+                        parent_text,
+                        active_api_key,
+                        active_base_url,
+                        shared_client,
+                    )
+                except Exception:
+                    enriched_chunks = child_chunks
 
             for i, chunk in enumerate(child_chunks):
                 enriched = enriched_chunks[i] if i < len(enriched_chunks) else chunk
@@ -313,4 +336,9 @@ async def generate_embeddings(
             ):
                 all_success = False
 
+    elapsed = time.monotonic() - t0
+    logger.info(
+        "[ETL] Embedding done: doc=%s success=%s elapsed=%.1fs",
+        doc_id, all_success, elapsed,
+    )
     return all_success
