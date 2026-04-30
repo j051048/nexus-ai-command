@@ -110,10 +110,15 @@ async def _enrich_chunks(
             )
             if resp.status_code == 200:
                 content = resp.json()["choices"][0]["message"]["content"]
-                # Extract JSON array from response
-                json_match = re.search(r"\[.*\]", content, re.DOTALL)
-                if json_match:
-                    results = json.loads(json_match.group())
+                # Extract JSON array — find outermost [ ] pair
+                first_bracket = content.find("[")
+                last_bracket = content.rfind("]")
+                if first_bracket != -1 and last_bracket > first_bracket:
+                    try:
+                        results = json.loads(content[first_bracket : last_bracket + 1])
+                    except json.JSONDecodeError:
+                        logger.debug("[ETL] Chunk enrichment JSON parse failed, skipping batch")
+                        continue
                     for j, (orig_idx, _) in enumerate(batch):
                         if (
                             j < len(results)
