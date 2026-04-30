@@ -3,6 +3,7 @@ import { lazyWithRetry } from '@/lib/lazyPreload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
+import { StreamingMarkdown } from './StreamingMarkdown';
 import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SyntaxProps {
@@ -145,12 +146,121 @@ export const MessageBubble = React.memo(function MessageBubble({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const isUser = message.role === 'user';
+  const isStreamingNow = !!(isTyping && isLatest);
 
   // Memoize bare GenUI extraction to avoid re-parsing JSON on every render
   const bareGenUI = useMemo(
     () => (!isUser && message.content) ? tryExtractBareGenUI(message.content) : null,
     [isUser, message.content]
   );
+
+  // Memoize markdown components to avoid re-creating on every render
+  const markdownComponents = useMemo(() => ({
+    code({ node, inline, className, children, ...props }: React.ClassAttributes<HTMLElement> & React.HTMLAttributes<HTMLElement> & { inline?: boolean, node?: unknown }) {
+      const match = /language-(\w+[-]?\w*)/.exec(className || '');
+      const lang = match?.[1]?.toLowerCase() || '';
+      const raw = String(children).trim();
+      const isGenUITag = ['gen-ui', 'gen', 'genui', 'gen_ui'].includes(lang);
+      const isGenUIContent = !inline && !isGenUITag && raw.startsWith('{') &&
+        /^\s*\{\s*"component"\s*:/.test(raw);
+      if (isGenUITag || isGenUIContent) {
+        try {
+          const config = JSON.parse(raw);
+          if (config.component && typeof config.component === 'string') {
+            return <GenUIContainer componentName={config.component} props={config.props || {}} onSendMessage={onSendMessage} thinkingSteps={message.thinkingSteps} />;
+          }
+          const inferred = inferGenUIComponent(config);
+          if (inferred && inferred.confidence >= 0.6) {
+            return <GenUIContainer componentName={inferred.component} props={config} onSendMessage={onSendMessage} thinkingSteps={message.thinkingSteps} />;
+          }
+          if (config.title && Array.isArray(config.content)) {
+            return (
+              <div className="my-4 w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <div className="bg-muted/50 px-4 py-3 border-b border-border flex items-center gap-2">
+                  <div className="h-5 w-1 bg-primary rounded-full"></div>
+                  <h3 className="font-medium text-sm">{config.title}</h3>
+                </div>
+                <div className="p-4 space-y-2 text-sm text-muted-foreground leading-relaxed">
+                  {config.content.map((item: unknown, i: number) => (
+                    <div key={i}>{String(item)}</div>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+          if (isGenUITag) {
+            console.warn("GenUI Missing Component or Prop structure:", raw);
+            return (
+              <div className="my-4 w-full rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-700 dark:text-amber-400">
+                组件数据格式异常，无法渲染卡片，正在以文本形式展示...
+                <pre className="mt-2 text-xs overflow-auto opacity-70 bg-black/5 dark:bg-white/5 p-2 rounded">{raw}</pre>
+              </div>
+            );
+          }
+        } catch {
+          if (isStreamingNow) {
+            return (
+              <div className="my-4 w-full rounded-xl border border-border bg-card p-6 space-y-3 animate-pulse">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded bg-primary/20" />
+                  <div className="h-4 w-24 rounded bg-muted" />
+                </div>
+                <div className="h-32 w-full rounded bg-muted/50" />
+              </div>
+            );
+          }
+          if (isGenUITag) {
+            console.error("GenUI Parse Error:", raw);
+            return (
+              <div className="my-4 w-full rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-700 dark:text-amber-400">
+                组件加载失败，正在尝试解析...
+              </div>
+            );
+          }
+        }
+      }
+      return !inline && match ? (
+        <div className="relative rounded-md overflow-hidden my-2">
+          <div className="flex items-center justify-between px-3 py-1 bg-zinc-900 border-b border-zinc-700">
+            <span className="text-xs text-zinc-400">{match[1]}</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(String(children)).catch(() => {});
+                toast.success("代码已复制");
+              }}
+              className="text-xs text-zinc-400 hover:text-white"
+            >
+              <Copy className="w-3 h-3" />
+            </button>
+          </div>
+          <LazyCodeBlock language={match[1]} {...props}>
+            {String(children).replace(/\n$/, '')}
+          </LazyCodeBlock>
+        </div>
+      ) : (
+        <code className={cn("bg-muted/50 px-1 py-0.5 rounded font-mono text-sm", className)} {...props}>
+          {children}
+        </code>
+      );
+    },
+    a: ({ node, ...props }: any) => (
+      <a target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-4 hover:decoration-solid" {...props} />
+    ),
+    table: ({ node, ...props }: any) => (
+      <div className="overflow-x-auto my-4 border rounded-md">
+        <table className="w-full text-sm text-left" {...props} />
+      </div>
+    ),
+    th: ({ node, ...props }: any) => (
+      <th className="border-b bg-muted/50 px-4 py-2 font-medium" {...props} />
+    ),
+    td: ({ node, ...props }: any) => (
+      <td className="border-b px-4 py-2" {...props} />
+    ),
+    blockquote: ({ node, ...props }: any) => (
+      <blockquote className="border-l-4 border-primary/30 pl-4 py-1 my-2 italic bg-muted/20 rounded-r" {...props} />
+    ),
+  }), [onSendMessage, message.thinkingSteps, isStreamingNow]);
 
   const handleCopy = () => {
     onCopy(message.content);
@@ -316,135 +426,11 @@ export const MessageBubble = React.memo(function MessageBubble({
               return null;
             })() ||
             <div className={cn("prose prose-sm max-w-none dark:prose-invert break-words", isUser && "text-primary-foreground prose-headings:text-primary-foreground prose-a:text-primary-foreground prose-strong:text-primary-foreground prose-code:text-primary-foreground/90")}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeSanitize]}
-                components={{
-                  code({ node, inline, className, children, ...props }: React.ClassAttributes<HTMLElement> & React.HTMLAttributes<HTMLElement> & { inline?: boolean, node?: unknown }) {
-                    const match = /language-(\w+[-]?\w*)/.exec(className || '');
-                    const lang = match?.[1]?.toLowerCase() || '';
-                    const raw = String(children).trim();
-
-                    // P0: Generative UI Support — multi-layer detection
-                    // Layer 1: Match explicit GenUI language tags (gen-ui, gen, genui, gen_ui)
-                    const isGenUITag = ['gen-ui', 'gen', 'genui', 'gen_ui'].includes(lang);
-                    // Layer 2: Detect GenUI JSON structure in any code block
-                    // Matches {"component":"...", "props": ...} pattern even with json/no tag
-                    const isGenUIContent = !inline && !isGenUITag && raw.startsWith('{') &&
-                      /^\s*\{\s*"component"\s*:/.test(raw);
-
-                    if (isGenUITag || isGenUIContent) {
-                      try {
-                        const config = JSON.parse(raw);
-                        if (config.component && typeof config.component === 'string') {
-                          return <GenUIContainer componentName={config.component} props={config.props || {}} onSendMessage={onSendMessage} thinkingSteps={message.thinkingSteps} />;
-                        }
-
-                        // Layer 3: Auto-detect component from props structure when "component" field is missing
-                        // LLMs sometimes output just the props JSON without the wrapper
-                        const inferred = inferGenUIComponent(config);
-                        if (inferred && inferred.confidence >= 0.6) {
-                          return <GenUIContainer componentName={inferred.component} props={config} onSendMessage={onSendMessage} thinkingSteps={message.thinkingSteps} />;
-                        }
-                        
-                        // Fallback for LLMs generating generic JSON without "component"
-                        if (config.title && Array.isArray(config.content)) {
-                           return (
-                             <div className="my-4 w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                               <div className="bg-muted/50 px-4 py-3 border-b border-border flex items-center gap-2">
-                                 <div className="h-5 w-1 bg-primary rounded-full"></div>
-                                 <h3 className="font-medium text-sm">{config.title}</h3>
-                               </div>
-                               <div className="p-4 space-y-2 text-sm text-muted-foreground leading-relaxed">
-                                 {config.content.map((item: unknown, i: number) => (
-                                   <div key={i}>{String(item)}</div>
-                                 ))}
-                               </div>
-                             </div>
-                           );
-                        }
-                        
-                        // If it is explicitly tagged gen-ui but invalid format, show error instead of raw json
-                        if (isGenUITag) {
-                          console.warn("GenUI Missing Component or Prop structure:", raw);
-                          return (
-                            <div className="my-4 w-full rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-700 dark:text-amber-400">
-                              组件数据格式异常，无法渲染卡片，正在以文本形式展示...
-                              <pre className="mt-2 text-xs overflow-auto opacity-70 bg-black/5 dark:bg-white/5 p-2 rounded">{raw}</pre>
-                            </div>
-                          );
-                        }
-                      } catch {
-                        // During streaming, JSON may be incomplete — show skeleton instead of error
-                        if (isTyping) {
-                          return (
-                            <div className="my-4 w-full rounded-xl border border-border bg-card p-6 space-y-3 animate-pulse">
-                              <div className="flex items-center gap-2">
-                                <div className="h-4 w-4 rounded bg-primary/20" />
-                                <div className="h-4 w-24 rounded bg-muted" />
-                              </div>
-                              <div className="h-32 w-full rounded bg-muted/50" />
-                            </div>
-                          );
-                        }
-                        // If tag was explicitly GenUI but JSON is invalid, show friendly error
-                        if (isGenUITag) {
-                          console.error("GenUI Parse Error:", raw);
-                          return (
-                            <div className="my-4 w-full rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-700 dark:text-amber-400">
-                              组件加载失败，正在尝试解析...
-                            </div>
-                          );
-                        }
-                        // For content-detected blocks, fall through to normal code rendering
-                      }
-                    }
-
-                    return !inline && match ? (
-                      <div className="relative rounded-md overflow-hidden my-2">
-                         <div className="flex items-center justify-between px-3 py-1 bg-zinc-900 border-b border-zinc-700">
-                            <span className="text-xs text-zinc-400">{match[1]}</span>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(String(children)).catch(() => {});
-                                toast.success("代码已复制");
-                              }}
-                              className="text-xs text-zinc-400 hover:text-white"
-                            >
-                                <Copy className="w-3 h-3" />
-                            </button>
-                         </div>
-                        <LazyCodeBlock language={match[1]} {...props}>
-                          {String(children).replace(/\n$/, '')}
-                        </LazyCodeBlock>
-                      </div>
-                    ) : (
-                      <code className={cn("bg-muted/50 px-1 py-0.5 rounded font-mono text-sm", className)} {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  a: ({ node, ...props }) => (
-                     <a target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-4 hover:decoration-solid" {...props} />
-                  ),
-                  table: ({ node, ...props }) => (
-                     <div className="overflow-x-auto my-4 border rounded-md">
-                        <table className="w-full text-sm text-left" {...props} />
-                     </div>
-                  ),
-                  th: ({ node, ...props }) => (
-                     <th className="border-b bg-muted/50 px-4 py-2 font-medium" {...props} />
-                  ),
-                  td: ({ node, ...props }) => (
-                     <td className="border-b px-4 py-2" {...props} />
-                  ),
-                  blockquote: ({ node, ...props }) => (
-                    <blockquote className="border-l-4 border-primary/30 pl-4 py-1 my-2 italic bg-muted/20 rounded-r" {...props} />
-                  )
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
+              <StreamingMarkdown
+                content={message.content}
+                isStreaming={isStreamingNow}
+                components={markdownComponents}
+              />
             </div>
           )}
         </div>

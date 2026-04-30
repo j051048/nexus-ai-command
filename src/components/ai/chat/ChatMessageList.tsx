@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Zap,
   MessageCircle,
+  Sparkles,
 } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { AIMessage } from '@/types/nexus';
@@ -214,13 +215,11 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                 </p>
               )}
               {pendingQuestion.options && pendingQuestion.options.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-2">
                   {pendingQuestion.options.map((option, idx) => (
-                    <Button
+                    <button
                       key={idx}
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-3 text-xs border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                      className="inline-flex items-center gap-1.5 h-8 px-4 text-xs font-medium rounded-full border border-blue-200 dark:border-blue-700 bg-white dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm hover:bg-blue-50 dark:hover:bg-blue-900/50 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md active:scale-[0.97] transition-all duration-150 cursor-pointer"
                       onClick={() => {
                         answerQuestion(option, messages, (content, assistantMsgId) => {
                           setMessages((prev) => {
@@ -238,8 +237,9 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                         });
                       }}
                     >
+                      <Sparkles className="w-3 h-3 text-blue-400 dark:text-blue-500" />
                       {option}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               )}
