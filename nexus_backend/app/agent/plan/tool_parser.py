@@ -63,9 +63,7 @@ def parse_tool_calls(
                             and hasattr(split_tool, "parameters")
                             and split_tool.parameters
                         ):
-                            required = set(
-                                split_tool.parameters.get("required", [])
-                            )
+                            required = set(split_tool.parameters.get("required", []))
                             all_props = set(
                                 split_tool.parameters.get("properties", {}).keys()
                             )
@@ -105,9 +103,7 @@ def parse_tool_calls(
 
                 jsonschema.validate(instance=tc_args, schema=tool_obj.parameters)
             except Exception as ve:
-                error_msg = _format_validation_error(
-                    tc_name, ve, tool_obj.parameters
-                )
+                error_msg = _format_validation_error(tc_name, ve, tool_obj.parameters)
                 validation_errors.append(error_msg)
                 logger.warning(
                     f"[PlanNode] Pre-exec validation failed for {tc_name}: {ve}"

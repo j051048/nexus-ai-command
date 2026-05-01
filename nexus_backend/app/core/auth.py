@@ -215,6 +215,7 @@ async def get_current_org_id(request: Request) -> str:
     org_id = getattr(request.state, "org_id", None)
     if not org_id:
         raise HTTPException(
-            status_code=400, detail="缺少租户上下文 (Missing tenant context — ensure user is authenticated)"
+            status_code=400,
+            detail="缺少租户上下文 (Missing tenant context — ensure user is authenticated)",
         )
     return org_id

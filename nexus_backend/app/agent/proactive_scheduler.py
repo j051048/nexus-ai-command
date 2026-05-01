@@ -204,7 +204,9 @@ class ProactiveScheduler:
                 self.running_tasks[tid] = asyncio.create_task(
                     self._run_system_push_loop(task_def)
                 )
-                logger.info(f"Started system push task: {task_def['name']} ({task_def['cron']})")
+                logger.info(
+                    f"Started system push task: {task_def['name']} ({task_def['cron']})"
+                )
 
         # 缓存预热任务（每日凌晨 3:00）
         warmup_id = "sys_cache_warmup"
@@ -225,6 +227,7 @@ class ProactiveScheduler:
                     await asyncio.sleep(wait_seconds)
 
                 from app.services.semantic_cache import semantic_cache_service
+
                 await semantic_cache_service.warmup_common_queries()
                 await semantic_cache_service.auto_warmup_from_history()
                 logger.info("[CacheWarmup] Daily warmup completed")
@@ -291,7 +294,9 @@ class ProactiveScheduler:
                         f"System push '{task_def['name']}' sent to user {user['id'][:8]}... (org: {org_id[:8]}...)"
                     )
                 except Exception as e:
-                    logger.warning(f"System push to user {user['id'][:8]}... failed: {e}")
+                    logger.warning(
+                        f"System push to user {user['id'][:8]}... failed: {e}"
+                    )
 
         except Exception as e:
             logger.error(f"System push execution error: {e}")

@@ -75,7 +75,13 @@ class ListApprovalFlowsTool(BaseTool):
                 return self.format_result(
                     data=[],
                     summary="当前暂无审批流模板",
-                    actions=[{"label": "创建审批流", "tool": "create_approval_flow", "args": {}}],
+                    actions=[
+                        {
+                            "label": "创建审批流",
+                            "tool": "create_approval_flow",
+                            "args": {},
+                        }
+                    ],
                 )
 
             trigger_labels = {
@@ -92,18 +98,22 @@ class ListApprovalFlowsTool(BaseTool):
                 )
                 steps_count = len(flow.get("steps", []))
                 is_active = "启用" if flow.get("is_active") else "停用"
-                flow_list.append({
-                    "name": flow.get("name", "未知"),
-                    "trigger_type": ttype,
-                    "steps_count": steps_count,
-                    "status": is_active,
-                    "id": flow["id"],
-                })
+                flow_list.append(
+                    {
+                        "name": flow.get("name", "未知"),
+                        "trigger_type": ttype,
+                        "steps_count": steps_count,
+                        "status": is_active,
+                        "id": flow["id"],
+                    }
+                )
 
             return self.format_result(
                 data={"total": len(flows), "flows": flow_list},
                 summary=f"共找到 {len(flows)} 个审批流模板",
-                actions=[{"label": "创建审批流", "tool": "create_approval_flow", "args": {}}],
+                actions=[
+                    {"label": "创建审批流", "tool": "create_approval_flow", "args": {}}
+                ],
             )
 
         except Exception as e:
@@ -203,7 +213,13 @@ class CreateApprovalFlowTool(BaseTool):
                     "steps_count": len(steps),
                 },
                 summary=f"审批流「{name}」创建成功，含 {len(steps)} 个审批步骤",
-                actions=[{"label": "查看审批流列表", "tool": "list_approval_flows", "args": {}}],
+                actions=[
+                    {
+                        "label": "查看审批流列表",
+                        "tool": "list_approval_flows",
+                        "args": {},
+                    }
+                ],
             )
 
         except Exception as e:

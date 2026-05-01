@@ -163,7 +163,9 @@ async def score_all(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         result = await score_all_leads(db, org_id)
-        return api_success(data=result, message=f"已评分 {result.get('scored', 0)} 条线索")
+        return api_success(
+            data=result, message=f"已评分 {result.get('scored', 0)} 条线索"
+        )
     except Exception as e:
         logger.error(f"Failed to score all leads: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "批量评分失败")

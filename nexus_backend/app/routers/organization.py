@@ -495,7 +495,7 @@ async def admin_list_pending_bosses(
     )
     # 前端期望 user_id + organization_name 字段
     rows = []
-    for u in (result.data or []):
+    for u in result.data or []:
         org_name = ""
         if u.get("organization_id"):
             try:
@@ -509,13 +509,15 @@ async def admin_list_pending_bosses(
                 org_name = (org_res.data or {}).get("name", "")
             except Exception:
                 pass
-        rows.append({
-            "user_id": u["id"],
-            "name": u.get("name", ""),
-            "email": u.get("email", ""),
-            "created_at": u.get("created_at", ""),
-            "organization_name": org_name,
-        })
+        rows.append(
+            {
+                "user_id": u["id"],
+                "name": u.get("name", ""),
+                "email": u.get("email", ""),
+                "created_at": u.get("created_at", ""),
+                "organization_name": org_name,
+            }
+        )
     return api_success(data=rows)
 
 
@@ -527,10 +529,14 @@ async def admin_list_organizations(
     """列出所有组织"""
     from app.core.database import supabase
 
-    result = await supabase.table("organizations").select("id, name, slug, created_at").execute()
+    result = (
+        await supabase.table("organizations")
+        .select("id, name, slug, created_at")
+        .execute()
+    )
     # 前端期望 org_id + member_count 字段
     rows = []
-    for org in (result.data or []):
+    for org in result.data or []:
         try:
             cnt_res = (
                 await supabase.table("users")
@@ -541,13 +547,15 @@ async def admin_list_organizations(
             member_count = cnt_res.count or 0
         except Exception:
             member_count = 0
-        rows.append({
-            "org_id": org["id"],
-            "name": org.get("name", ""),
-            "slug": org.get("slug", ""),
-            "member_count": member_count,
-            "created_at": org.get("created_at", ""),
-        })
+        rows.append(
+            {
+                "org_id": org["id"],
+                "name": org.get("name", ""),
+                "slug": org.get("slug", ""),
+                "member_count": member_count,
+                "created_at": org.get("created_at", ""),
+            }
+        )
     return api_success(data=rows)
 
 
@@ -575,9 +583,9 @@ async def admin_reject_boss(
     """拒绝Boss申请"""
     from app.core.database import supabase
 
-    await supabase.table("users").update({"approval_status": "rejected", "role": "employee"}).eq(
-        "id", target_user_id
-    ).execute()
+    await supabase.table("users").update(
+        {"approval_status": "rejected", "role": "employee"}
+    ).eq("id", target_user_id).execute()
     return api_success({}, message="已拒绝")
 
 

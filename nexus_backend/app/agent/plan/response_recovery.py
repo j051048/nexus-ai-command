@@ -112,9 +112,7 @@ async def _recover_short_response(
                     "[PlanNode] Short response recovery succeeded via fallback LLM"
                 )
             else:
-                logger.warning(
-                    "[PlanNode] Fallback LLM also returned short response"
-                )
+                logger.warning("[PlanNode] Fallback LLM also returned short response")
             return ai_msg, content, tool_calls_raw
         else:
             logger.info(
@@ -134,12 +132,8 @@ async def _recover_empty_response(
     # Build a concise summary of tool results for the retry
     tool_summaries = []
     for tc in completed_tools[-5:]:
-        t_name = (
-            tc.tool_name if hasattr(tc, "tool_name") else tc.get("tool_name", "")
-        )
-        t_result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[
-            :300
-        ]
+        t_name = tc.tool_name if hasattr(tc, "tool_name") else tc.get("tool_name", "")
+        t_result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[:300]
         t_status = tc.status if hasattr(tc, "status") else tc.get("status", "")
         tool_summaries.append(f"- {t_name} ({t_status}): {t_result}")
     synthesis_msg = SystemMessage(

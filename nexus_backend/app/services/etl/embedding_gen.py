@@ -118,7 +118,9 @@ async def _enrich_chunks(
                     try:
                         results = json.loads(content[first_bracket : last_bracket + 1])
                     except json.JSONDecodeError:
-                        logger.debug("[ETL] Chunk enrichment JSON parse failed, skipping batch")
+                        logger.debug(
+                            "[ETL] Chunk enrichment JSON parse failed, skipping batch"
+                        )
                         continue
                     for j, (orig_idx, _) in enumerate(batch):
                         if (
@@ -179,7 +181,10 @@ async def generate_embeddings(
 
     logger.info(
         "[ETL] Embedding start: doc=%s file=%s model=%s text_len=%d",
-        doc_id, filename, embedding_model, len(text),
+        doc_id,
+        filename,
+        embedding_model,
+        len(text),
     )
 
     async with httpx.AsyncClient(timeout=60.0) as shared_client:
@@ -264,7 +269,8 @@ async def generate_embeddings(
 
         logger.info(
             "[ETL] doc=%s: %d parent chunks, starting embedding...",
-            doc_id, len(parent_chunks),
+            doc_id,
+            len(parent_chunks),
         )
 
         for batch_start in range(0, len(parent_chunks), batch_size):
@@ -284,7 +290,8 @@ async def generate_embeddings(
         if skip_enrichment:
             logger.info(
                 "[ETL] doc=%s: large document (%d parents), skipping enrichment",
-                doc_id, len(parent_chunks),
+                doc_id,
+                len(parent_chunks),
             )
 
         current_batch_text = []
@@ -339,6 +346,8 @@ async def generate_embeddings(
     elapsed = time.monotonic() - t0
     logger.info(
         "[ETL] Embedding done: doc=%s success=%s elapsed=%.1fs",
-        doc_id, all_success, elapsed,
+        doc_id,
+        all_success,
+        elapsed,
     )
     return all_success

@@ -24,6 +24,7 @@ _UUID_RE = re.compile(
 def _valid_uuid(val: str | None) -> bool:
     return bool(val and _UUID_RE.match(val))
 
+
 # Embedding pre-filter threshold (lowered to let composite scoring decide)
 EMBEDDING_PREFILTER_THRESHOLD = 0.65
 # Composite score threshold for auto-merge

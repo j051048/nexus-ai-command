@@ -752,9 +752,7 @@ async def search_memories(
         # at rank 15 (score=1/(30+16)≈0.022) is dropped, but appearing in 2+ lists
         # or at high rank (score≥0.03) is kept.
         _MIN_RRF_SCORE = 0.025
-        sorted_ids = [
-            mid for mid in sorted_ids if rrf_scores[mid] >= _MIN_RRF_SCORE
-        ]
+        sorted_ids = [mid for mid in sorted_ids if rrf_scores[mid] >= _MIN_RRF_SCORE]
         memories = [id_to_mem[mid] for mid in sorted_ids]
 
     except TimeoutError:

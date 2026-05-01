@@ -169,20 +169,41 @@ _logger = _logging.getLogger(__name__)
 
 # P1: Known GenUI component names for validation
 _KNOWN_GENUI_COMPONENTS = {
-    "DataCard", "MetricCard", "MetricComparison", "ComparisonTable",
-    "BarChart", "LineChart", "PieChart", "FunnelChart", "HeatMap",
-    "RadarChart", "ScatterChart", "GaugeChart", "TreeMap",
-    "Timeline", "ProgressTracker", "KanbanBoard", "GanttChart",
-    "ApprovalCard", "ApprovalList", "TodoList", "CalendarView",
-    "EmailDraft", "NotificationCard", "UserProfileCard",
-    "Table", "DataTable", "StatusCard", "RankingList",
-    "AreaChart", "WaterfallChart", "SankeyDiagram",
+    "DataCard",
+    "MetricCard",
+    "MetricComparison",
+    "ComparisonTable",
+    "BarChart",
+    "LineChart",
+    "PieChart",
+    "FunnelChart",
+    "HeatMap",
+    "RadarChart",
+    "ScatterChart",
+    "GaugeChart",
+    "TreeMap",
+    "Timeline",
+    "ProgressTracker",
+    "KanbanBoard",
+    "GanttChart",
+    "ApprovalCard",
+    "ApprovalList",
+    "TodoList",
+    "CalendarView",
+    "EmailDraft",
+    "NotificationCard",
+    "UserProfileCard",
+    "Table",
+    "DataTable",
+    "StatusCard",
+    "RankingList",
+    "AreaChart",
+    "WaterfallChart",
+    "SankeyDiagram",
 }
 
 # Regex to extract gen-ui code blocks from LLM output
-_GENUI_BLOCK_RE = _re.compile(
-    r"```gen-ui\s*\n(.*?)```", _re.DOTALL
-)
+_GENUI_BLOCK_RE = _re.compile(r"```gen-ui\s*\n(.*?)```", _re.DOTALL)
 
 
 def validate_genui_blocks(text: str) -> str:
@@ -196,6 +217,7 @@ def validate_genui_blocks(text: str) -> str:
 
     Returns the text with invalid gen-ui blocks replaced.
     """
+
     def _validate_block(match: _re.Match) -> str:
         raw = match.group(1).strip()
         try:

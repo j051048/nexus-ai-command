@@ -386,9 +386,10 @@ def get_capabilities_for_role(role: str) -> str:
     caps = caps.replace(_LEADER_SECTION, "")
     # Keep basic HR items (self-service) but strip team management line
     caps = caps.replace(
-        "- 团队管理：管理者可以说\"团队考勤情况\"、\"某员工表现怎么样\"\n", ""
+        '- 团队管理：管理者可以说"团队考勤情况"、"某员工表现怎么样"\n', ""
     )
     return caps
+
 
 SYSTEM_PROMPTS = {
     "sales_commander": f"""你是【销售指挥官】，公司销售体系的AI参谋。像一位身经百战的销售总监那样思考和表达。

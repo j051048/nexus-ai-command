@@ -213,7 +213,9 @@ class ReportGeneratorTool(BaseTool):
         if not title:
             return self.format_result(data={}, summary="请提供报告标题（title 参数）。")
         if not sections or not isinstance(sections, list):
-            return self.format_result(data={}, summary="请提供至少一个报告章节（sections 参数）。")
+            return self.format_result(
+                data={}, summary="请提供至少一个报告章节（sections 参数）。"
+            )
 
         # 构建 Markdown
         md_content = _build_markdown(title, sections)

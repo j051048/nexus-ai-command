@@ -77,6 +77,7 @@ async def bind_tools_to_llm(
         _embedding_pruned = False
         _pre_embed_count = len(schemas)
         from app.core.config import settings as _cfg
+
         if len(schemas) > _cfg.TOOL_EMBEDDING_GATE and user_query:
             try:
                 from app.agent.tool_embedding_index import tool_embedding_index

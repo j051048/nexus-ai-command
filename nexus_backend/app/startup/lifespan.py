@@ -80,7 +80,9 @@ async def lifespan(app: FastAPI):
         logger.critical("[SECURITY] _get_client({}) did NOT raise — service_role leak!")
         raise SystemExit(1)
     except PermissionError:
-        logger.info("Tenant isolation guard verified (_get_client rejects empty config)")
+        logger.info(
+            "Tenant isolation guard verified (_get_client rejects empty config)"
+        )
     except RuntimeError:
         # Database not configured — acceptable in test/CI
         logger.info("Tenant isolation guard: DB not configured (acceptable in CI)")

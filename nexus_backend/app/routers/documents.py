@@ -829,8 +829,7 @@ async def trigger_re_embed(
                     .execute()
                 )
                 doc_org_map = {
-                    d["id"]: d.get("organization_id")
-                    for d in (docs_res.data or [])
+                    d["id"]: d.get("organization_id") for d in (docs_res.data or [])
                 }
             except Exception as e:
                 logger.error(f"Batch doc fetch failed: {e}")

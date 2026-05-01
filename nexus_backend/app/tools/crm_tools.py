@@ -73,7 +73,9 @@ class GetCustomersTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         search = args.get("search")
         if search:
@@ -99,7 +101,11 @@ class GetCustomersTool(BaseTool):
             data=customers,
             summary=f"共找到 {len(customers)} 位客户",
             actions=[
-                {"label": "查看详情", "tool": "get_customer_detail", "args": {"customer_id": customers[0]["id"]}},
+                {
+                    "label": "查看详情",
+                    "tool": "get_customer_detail",
+                    "args": {"customer_id": customers[0]["id"]},
+                },
                 {"label": "查看销售漏斗", "tool": "get_sales_pipeline", "args": {}},
                 {"label": "创建客户", "tool": "create_customer", "args": {}},
             ],
@@ -144,7 +150,9 @@ class GetCustomerDetailTool(BaseTool):
 
         customer = await crm_service.get_customer(customer_id, db=client)
         if not customer:
-            return self.format_result(data=None, summary=f"未找到ID为 {customer_id} 的客户")
+            return self.format_result(
+                data=None, summary=f"未找到ID为 {customer_id} 的客户"
+            )
 
         contacts = await crm_service.list_contacts(customer_id, db=client)
         activities = await crm_service.get_activity_timeline(
@@ -161,8 +169,16 @@ class GetCustomerDetailTool(BaseTool):
             data=detail,
             summary=f"客户 {customer.get('name', '未知')} 的详细信息",
             actions=[
-                {"label": "查看跟进记录", "tool": "get_follow_ups", "args": {"customer_id": customer_id}},
-                {"label": "更新客户", "tool": "update_customer", "args": {"customer_id": customer_id}},
+                {
+                    "label": "查看跟进记录",
+                    "tool": "get_follow_ups",
+                    "args": {"customer_id": customer_id},
+                },
+                {
+                    "label": "更新客户",
+                    "tool": "update_customer",
+                    "args": {"customer_id": customer_id},
+                },
             ],
         )
 
@@ -219,7 +235,9 @@ class CreateCustomerTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         name = args.get("name", "").strip()
         if not name:
@@ -231,7 +249,9 @@ class CreateCustomerTool(BaseTool):
             try:
                 estimated_value = float(estimated_value)
             except (TypeError, ValueError):
-                return self.format_result(data=None, summary="预估金额格式错误，请提供有效的数字")
+                return self.format_result(
+                    data=None, summary="预估金额格式错误，请提供有效的数字"
+                )
             if estimated_value < 0:
                 return self.format_result(data=None, summary="预估金额不能为负数")
 
@@ -252,9 +272,21 @@ class CreateCustomerTool(BaseTool):
             data=customer,
             summary=f"客户 {customer.get('name')} 创建成功",
             actions=[
-                {"label": "查看详情", "tool": "get_customer_detail", "args": {"customer_id": customer["id"]}},
-                {"label": "更新客户", "tool": "update_customer", "args": {"customer_id": customer["id"]}},
-                {"label": "添加跟进", "tool": "add_follow_up", "args": {"customer_id": customer["id"]}},
+                {
+                    "label": "查看详情",
+                    "tool": "get_customer_detail",
+                    "args": {"customer_id": customer["id"]},
+                },
+                {
+                    "label": "更新客户",
+                    "tool": "update_customer",
+                    "args": {"customer_id": customer["id"]},
+                },
+                {
+                    "label": "添加跟进",
+                    "tool": "add_follow_up",
+                    "args": {"customer_id": customer["id"]},
+                },
             ],
         )
 
@@ -357,15 +389,25 @@ class UpdateCustomerTool(BaseTool):
             return safe_tool_error(e, "更新客户")
 
         if not customer:
-            return self.format_result(data=None, summary=f"未找到ID为 {customer_id} 的客户")
+            return self.format_result(
+                data=None, summary=f"未找到ID为 {customer_id} 的客户"
+            )
 
         updated_fields = ", ".join(f"{k}={v}" for k, v in data.items())
         return self.format_result(
             data=customer,
             summary=f"客户 {customer.get('name', '')} 已更新: {updated_fields}",
             actions=[
-                {"label": "查看详情", "tool": "get_customer_detail", "args": {"customer_id": customer_id}},
-                {"label": "推进阶段", "tool": "update_customer_stage", "args": {"customer_id": customer_id}},
+                {
+                    "label": "查看详情",
+                    "tool": "get_customer_detail",
+                    "args": {"customer_id": customer_id},
+                },
+                {
+                    "label": "推进阶段",
+                    "tool": "update_customer_stage",
+                    "args": {"customer_id": customer_id},
+                },
             ],
         )
 
@@ -442,7 +484,9 @@ class AddFollowUpTool(BaseTool):
             return safe_tool_error(e, "添加跟进记录")
 
         if not activity:
-            return self.format_result(data=None, summary="添加跟进记录失败，请确认客户ID是否正确")
+            return self.format_result(
+                data=None, summary="添加跟进记录失败，请确认客户ID是否正确"
+            )
 
         type_labels = {
             "call": "电话",
@@ -455,9 +499,21 @@ class AddFollowUpTool(BaseTool):
             data=activity,
             summary=f"跟进记录已添加: [{type_labels.get(activity_type, activity_type)}] {content[:80]}",
             actions=[
-                {"label": "查看跟进记录", "tool": "get_follow_ups", "args": {"customer_id": customer_id}},
-                {"label": "查看客户详情", "tool": "get_customer_detail", "args": {"customer_id": customer_id}},
-                {"label": "推进阶段", "tool": "update_customer_stage", "args": {"customer_id": customer_id}},
+                {
+                    "label": "查看跟进记录",
+                    "tool": "get_follow_ups",
+                    "args": {"customer_id": customer_id},
+                },
+                {
+                    "label": "查看客户详情",
+                    "tool": "get_customer_detail",
+                    "args": {"customer_id": customer_id},
+                },
+                {
+                    "label": "推进阶段",
+                    "tool": "update_customer_stage",
+                    "args": {"customer_id": customer_id},
+                },
             ],
         )
 
@@ -522,15 +578,29 @@ class GetFollowUpsTool(BaseTool):
             return self.format_result(
                 data=[],
                 summary="暂无跟进记录",
-                actions=[{"label": "添加跟进", "tool": "add_follow_up", "args": {"customer_id": customer_id}}],
+                actions=[
+                    {
+                        "label": "添加跟进",
+                        "tool": "add_follow_up",
+                        "args": {"customer_id": customer_id},
+                    }
+                ],
             )
 
         return self.format_result(
             data=activities,
             summary=f"共 {len(activities)} 条跟进记录",
             actions=[
-                {"label": "添加跟进", "tool": "add_follow_up", "args": {"customer_id": customer_id}},
-                {"label": "查看客户详情", "tool": "get_customer_detail", "args": {"customer_id": customer_id}},
+                {
+                    "label": "添加跟进",
+                    "tool": "add_follow_up",
+                    "args": {"customer_id": customer_id},
+                },
+                {
+                    "label": "查看客户详情",
+                    "tool": "get_customer_detail",
+                    "args": {"customer_id": customer_id},
+                },
             ],
         )
 
@@ -587,11 +657,16 @@ class UpdateCustomerStageTool(BaseTool):
             return self.format_result(data=None, summary=err)
 
         if new_stage not in CUSTOMER_STAGES:
-            return self.format_result(data=None, summary=f"无效的阶段: {new_stage}，可选: {', '.join(CUSTOMER_STAGES)}")
+            return self.format_result(
+                data=None,
+                summary=f"无效的阶段: {new_stage}，可选: {', '.join(CUSTOMER_STAGES)}",
+            )
 
         old_customer = await crm_service.get_customer(customer_id, db=client)
         if not old_customer:
-            return self.format_result(data=None, summary=f"未找到ID为 {customer_id} 的客户")
+            return self.format_result(
+                data=None, summary=f"未找到ID为 {customer_id} 的客户"
+            )
 
         old_stage = old_customer.get("stage", "unknown")
 
@@ -641,7 +716,11 @@ class UpdateCustomerStageTool(BaseTool):
             data={"customer": customer, "old_stage": old_stage, "new_stage": new_stage},
             summary=f"客户 {customer.get('name', '')} 阶段已更新: {stage_labels.get(old_stage, old_stage)} → {stage_labels.get(new_stage, new_stage)}",
             actions=[
-                {"label": "查看详情", "tool": "get_customer_detail", "args": {"customer_id": customer_id}},
+                {
+                    "label": "查看详情",
+                    "tool": "get_customer_detail",
+                    "args": {"customer_id": customer_id},
+                },
                 {"label": "查看销售漏斗", "tool": "get_sales_pipeline", "args": {}},
             ],
         )
@@ -670,7 +749,9 @@ class GetSalesPipelineTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         stats = await crm_service.get_customer_stats(org_id, db=client)
         if not stats or stats.get("total_customers", 0) == 0:
@@ -702,8 +783,17 @@ class GetSalesPipelineTool(BaseTool):
             "conversion_rate": stats.get("conversion_rate", 0),
             "total_estimated_value": float(stats.get("total_estimated_value", 0)),
             "stages": {
-                stage_key: {"count": stage_dist.get(stage_key, 0), "value": stage_values.get(stage_key, 0)}
-                for stage_key in ("lead", "prospect", "opportunity", "customer", "churned")
+                stage_key: {
+                    "count": stage_dist.get(stage_key, 0),
+                    "value": stage_values.get(stage_key, 0),
+                }
+                for stage_key in (
+                    "lead",
+                    "prospect",
+                    "opportunity",
+                    "customer",
+                    "churned",
+                )
             },
         }
 
@@ -740,7 +830,9 @@ class GetPipelineKanbanTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         kanban_list = await crm_service.get_pipeline_kanban(org_id, db=client)
         if not kanban_list:

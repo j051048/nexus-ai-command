@@ -246,8 +246,6 @@ class ContentModerator:
         """Replaced by gateway-based detection in check_input_with_llm."""
         return None
 
-
-
     def _compile_patterns(self):
         """Pre-compile regex patterns for performance"""
         for vtype, (pattern, _, _) in self.PATTERNS.items():

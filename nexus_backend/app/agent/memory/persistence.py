@@ -44,6 +44,7 @@ async def persist_result(
     # Save to DB (fire-and-forget)
     try:
         import sys
+
         _memory_pkg = sys.modules[__package__]
         ChatService = _memory_pkg.ChatService
 

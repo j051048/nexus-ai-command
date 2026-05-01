@@ -184,7 +184,9 @@ class WeComService:
             是否发送成功
         """
         if not WECOM_CORP_ID or not WECOM_SECRET:
-            logger.warning("WeChat Work notification skipped: WECOM_CORP_ID or WECOM_SECRET not configured")
+            logger.warning(
+                "WeChat Work notification skipped: WECOM_CORP_ID or WECOM_SECRET not configured"
+            )
             return False
 
         try:

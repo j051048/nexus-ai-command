@@ -193,7 +193,9 @@ class EmployeeProfileTool(BaseTool):
         emp_res = await query.execute()
 
         if not emp_res.data:
-            return self.format_result(data=None, summary=f"未找到名为「{employee_name}」的员工")
+            return self.format_result(
+                data=None, summary=f"未找到名为「{employee_name}」的员工"
+            )
 
         emp = emp_res.data[0]
         emp_id = emp.get("id", "")
@@ -291,7 +293,13 @@ class EmployeeProfileTool(BaseTool):
         return self.format_result(
             data=profile_data,
             summary=f"{emp.get('name', employee_name)}员工画像: 绩效{score}分, 排名第{rank}名",
-            actions=[{"label": "查看团队绩效", "tool": "create_performance_review", "args": {"action": "view_team"}}],
+            actions=[
+                {
+                    "label": "查看团队绩效",
+                    "tool": "create_performance_review",
+                    "args": {"action": "view_team"},
+                }
+            ],
         )
 
 

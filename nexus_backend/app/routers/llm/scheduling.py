@@ -67,11 +67,7 @@ async def create_schedule_rule(
         insert_data = body.model_dump(exclude_none=True)
         insert_data["tenant_id"] = str(org_id)
 
-        result = (
-            await db.table("llm_schedule_rule")
-            .insert(insert_data)
-            .execute()
-        )
+        result = await db.table("llm_schedule_rule").insert(insert_data).execute()
         return api_success(data=result.data[0] if result.data else {})
     except Exception as e:
         logger.error(f"Failed to create schedule rule: {e}")

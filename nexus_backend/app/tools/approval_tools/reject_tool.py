@@ -68,7 +68,10 @@ class RejectTool(BaseTool):
         try:
             uuid.UUID(req_id)
         except (ValueError, TypeError, AttributeError):
-            return self.format_result(data=None, summary=f"request_id '{req_id}' 不是有效的UUID格式，请检查审批单ID")
+            return self.format_result(
+                data=None,
+                summary=f"request_id '{req_id}' 不是有效的UUID格式，请检查审批单ID",
+            )
 
         client = _pkg._get_client(config)
 
@@ -100,7 +103,10 @@ class RejectTool(BaseTool):
                 request_res.data
                 and float(request_res.data.get("amount", 0)) > manager_approval_limit
             ):
-                return self.format_result(data=None, summary=f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批")
+                return self.format_result(
+                    data=None,
+                    summary=f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批",
+                )
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -112,14 +118,19 @@ class RejectTool(BaseTool):
         )
 
         if not fetch_result.data:
-            return self.format_result(data=None, summary=f"找不到审批单 {req_id}，请检查ID是否正确")
+            return self.format_result(
+                data=None, summary=f"找不到审批单 {req_id}，请检查ID是否正确"
+            )
 
         request_data = fetch_result.data
 
         # P0 Security: Check if already processed (idempotency)
         if request_data.get("status") != "pending":
             current_status = request_data.get("status")
-            return self.format_result(data=None, summary=f"该审批单已被处理，当前状态为: {current_status}，无法重复操作")
+            return self.format_result(
+                data=None,
+                summary=f"该审批单已被处理，当前状态为: {current_status}，无法重复操作",
+            )
 
         submitter = request_data.get("users", {})
         submitter_name = (
@@ -131,7 +142,17 @@ class RejectTool(BaseTool):
             return self.format_result(
                 data=request_data,
                 summary=f"驳回预览 - {submitter_name} 的 {request_data.get('type')} 申请 ¥{request_data.get('amount', 0):,.2f}，驳回原因: {reason}",
-                actions=[{"label": "确认驳回", "tool": "reject_request", "args": {"request_id": req_id, "reason": reason, "confirm": True}}],
+                actions=[
+                    {
+                        "label": "确认驳回",
+                        "tool": "reject_request",
+                        "args": {
+                            "request_id": req_id,
+                            "reason": reason,
+                            "confirm": True,
+                        },
+                    }
+                ],
             )
 
         # Step 2: Execute with idempotency check
@@ -179,8 +200,16 @@ class RejectTool(BaseTool):
                     data={"request_id": req_id, "status": "rejected", "reason": reason},
                     summary=f"已驳回审批单 {req_id[:8]}...，驳回原因：{reason}",
                     actions=[
-                        {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
-                        {"label": "批准申请", "tool": "approve_request", "args": {"request_id": req_id}},
+                        {
+                            "label": "查看待审批",
+                            "tool": "get_pending_approvals",
+                            "args": {},
+                        },
+                        {
+                            "label": "批准申请",
+                            "tool": "approve_request",
+                            "args": {"request_id": req_id},
+                        },
                     ],
                 )
 
@@ -232,8 +261,16 @@ class RejectTool(BaseTool):
                 data={"request_id": req_id, "status": "rejected", "reason": reason},
                 summary=f"已驳回审批单 {req_id[:8]}...，驳回原因：{reason}",
                 actions=[
-                    {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
-                    {"label": "批准申请", "tool": "approve_request", "args": {"request_id": req_id}},
+                    {
+                        "label": "查看待审批",
+                        "tool": "get_pending_approvals",
+                        "args": {},
+                    },
+                    {
+                        "label": "批准申请",
+                        "tool": "approve_request",
+                        "args": {"request_id": req_id},
+                    },
                 ],
             )
 

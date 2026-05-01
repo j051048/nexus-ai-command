@@ -451,7 +451,10 @@ class ProcessAssetLifecycleTool(BaseTool):
 
                 result = await client.table("assets").insert(assets_data).execute()
                 count = len(result.data) if result.data else 0
-                return self.format_result(data={"count": count}, summary=f"批量入库完成: 成功创建 {count} 项资产")
+                return self.format_result(
+                    data={"count": count},
+                    summary=f"批量入库完成: 成功创建 {count} 项资产",
+                )
 
             elif action == "batch_allocate":
                 asset_ids = args.get("asset_ids", [])
@@ -486,7 +489,9 @@ class ProcessAssetLifecycleTool(BaseTool):
                         .execute()
                     )
                     count += 1
-                return self.format_result(data={"count": count}, summary=f"批量分配完成: {count} 项资产已分配")
+                return self.format_result(
+                    data={"count": count}, summary=f"批量分配完成: {count} 项资产已分配"
+                )
 
             elif action == "batch_scrap":
                 asset_ids = args.get("asset_ids", [])
@@ -536,7 +541,9 @@ class ProcessAssetLifecycleTool(BaseTool):
                             user_id=user_id,
                         )
                     count += 1
-                return self.format_result(data={"count": count}, summary=f"批量报废完成: {count} 项资产已报废")
+                return self.format_result(
+                    data={"count": count}, summary=f"批量报废完成: {count} 项资产已报废"
+                )
 
             else:
                 return f"❌ 不支持的操作类型: {action}"

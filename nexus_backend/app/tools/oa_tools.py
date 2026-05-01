@@ -168,7 +168,11 @@ class LeaveRequestTool(BaseTool):
         # 查找交接人 (scoped client, RLS enforced)
         handover_id = None
         if handover_to:
-            query = client.table("users").select("id, name").ilike("name", f"%{handover_to}%")
+            query = (
+                client.table("users")
+                .select("id, name")
+                .ilike("name", f"%{handover_to}%")
+            )
             if org_id:
                 query = query.eq("organization_id", org_id)
             handover_res = await query.limit(1).execute()
@@ -721,7 +725,9 @@ class TaskAssignmentTool(BaseTool):
 
         org_id = config.get("org_id") if config else None
         # 查找负责人 (scoped client, RLS enforced)
-        query = client.table("users").select("id, name").ilike("name", f"%{assignee_name}%")
+        query = (
+            client.table("users").select("id, name").ilike("name", f"%{assignee_name}%")
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         assignee_res = await query.limit(1).execute()
@@ -866,7 +872,11 @@ class WorkHandoverTool(BaseTool):
 
         org_id = config.get("org_id") if config else None
         # 查找交接人 (scoped client, RLS enforced)
-        query = client.table("users").select("id, name").ilike("name", f"%{handover_to_name}%")
+        query = (
+            client.table("users")
+            .select("id, name")
+            .ilike("name", f"%{handover_to_name}%")
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         handover_res = await query.limit(1).execute()
@@ -1003,7 +1013,9 @@ class OnboardingChecklistTool(BaseTool):
 
             items = _json.loads(clean)
             if not isinstance(items, list):
-                return self.format_result(data={}, summary=f"AI 生成的入职清单:\n\n{checklist_text}")
+                return self.format_result(
+                    data={}, summary=f"AI 生成的入职清单:\n\n{checklist_text}"
+                )
 
             # 获取组织ID
             org_id = config.get("org_id") if config else None
@@ -1045,7 +1057,9 @@ class OnboardingChecklistTool(BaseTool):
 📌 所有任务已创建到任务管理系统中。"""
 
         except _json.JSONDecodeError:
-            return self.format_result(data={}, summary=f"AI 生成的入职清单:\n\n{checklist_text}")
+            return self.format_result(
+                data={}, summary=f"AI 生成的入职清单:\n\n{checklist_text}"
+            )
         except Exception as e:
             return safe_tool_error(e, "入职清单生成")
 

@@ -46,11 +46,7 @@ async def _get_all_org_ids() -> list[str]:
     if not supabase:
         return []
     try:
-        result = (
-            await supabase.table("organizations")
-            .select("id")
-            .execute()
-        )
+        result = await supabase.table("organizations").select("id").execute()
         return [r["id"] for r in (result.data or []) if r.get("id")]
     except Exception as e:
         logger.error("Failed to fetch organization list: %s", e)
@@ -347,9 +343,7 @@ async def _run_followup_timeout_for_org(org_id: str) -> int:
         try:
             days_since = (
                 datetime.now(UTC)
-                - datetime.fromisoformat(
-                    customer["updated_at"].replace("Z", "+00:00")
-                )
+                - datetime.fromisoformat(customer["updated_at"].replace("Z", "+00:00"))
             ).days
 
             suggestion = ""
@@ -385,7 +379,9 @@ async def _run_followup_timeout_for_org(org_id: str) -> int:
         except Exception as e:
             logger.error(
                 "Follow-up reminder failed for customer %s in org %s: %s",
-                customer.get("id"), org_id, e,
+                customer.get("id"),
+                org_id,
+                e,
             )
 
     return notified
@@ -439,9 +435,21 @@ async def _run_contract_expiry_for_org(org_id: str) -> int:
     thresholds = await _get_thresholds(org_id)
     ladder_days = thresholds["contract_expiry_ladder"]
     ladders = [
-        {"days": ladder_days[0], "label": "🔴 紧急", "priority": NotificationPriority.URGENT},
-        {"days": ladder_days[1], "label": "🟡 重要", "priority": NotificationPriority.HIGH},
-        {"days": ladder_days[2], "label": "🟢 提醒", "priority": NotificationPriority.NORMAL},
+        {
+            "days": ladder_days[0],
+            "label": "🔴 紧急",
+            "priority": NotificationPriority.URGENT,
+        },
+        {
+            "days": ladder_days[1],
+            "label": "🟡 重要",
+            "priority": NotificationPriority.HIGH,
+        },
+        {
+            "days": ladder_days[2],
+            "label": "🟢 提醒",
+            "priority": NotificationPriority.NORMAL,
+        },
     ]
 
     notified = 0
@@ -458,7 +466,9 @@ async def _run_contract_expiry_for_org(org_id: str) -> int:
         except Exception as e:
             logger.error(
                 "contract expiry query failed for %d-day ladder in org %s: %s",
-                ladder["days"], org_id, e,
+                ladder["days"],
+                org_id,
+                e,
             )
             continue
 
@@ -484,7 +494,9 @@ async def _run_contract_expiry_for_org(org_id: str) -> int:
                         )
                         suggestion = f"\n\n💡 续签建议: {suggestion[:200]}"
                     except Exception as e:
-                        logger.error("contract renewal suggestion generation failed: %s", e)
+                        logger.error(
+                            "contract renewal suggestion generation failed: %s", e
+                        )
 
                 await send_notification(
                     title=f"{ladder['label']} 合同到期: {contract.get('title', '未命名')}",
@@ -507,7 +519,9 @@ async def _run_contract_expiry_for_org(org_id: str) -> int:
                 )
                 notified += 1
             except Exception as e:
-                logger.error("Contract expiry notification failed in org %s: %s", org_id, e)
+                logger.error(
+                    "Contract expiry notification failed in org %s: %s", org_id, e
+                )
 
     return notified
 
@@ -563,7 +577,9 @@ async def _run_approval_backlog_for_org(org_id: str) -> int:
     try:
         result = (
             await db.table("approval_requests")
-            .select("id, type, amount, description, submitted_by, created_at, assigned_to")
+            .select(
+                "id, type, amount, description, submitted_by, created_at, assigned_to"
+            )
             .eq("status", "pending")
             .order("created_at", desc=False)
             .execute()
@@ -592,20 +608,28 @@ async def _run_approval_backlog_for_org(org_id: str) -> int:
             continue
 
         low_amount = [
-            i for i in items
-            if float(i.get("amount", 0) or 0) < thresholds["approval_backlog_amount_threshold"]
+            i
+            for i in items
+            if float(i.get("amount", 0) or 0)
+            < thresholds["approval_backlog_amount_threshold"]
         ]
         high_amount = [
-            i for i in items
-            if float(i.get("amount", 0) or 0) >= thresholds["approval_backlog_amount_threshold"]
+            i
+            for i in items
+            if float(i.get("amount", 0) or 0)
+            >= thresholds["approval_backlog_amount_threshold"]
         ]
 
         summary_parts = [f"您有 {len(items)} 条待审批事项积压"]
         if low_amount:
-            summary_parts.append(f"其中 {len(low_amount)} 条金额<¥1000，建议批量快速处理")
+            summary_parts.append(
+                f"其中 {len(low_amount)} 条金额<¥1000，建议批量快速处理"
+            )
         if high_amount:
             total_high = sum(float(i.get("amount", 0) or 0) for i in high_amount)
-            summary_parts.append(f"{len(high_amount)} 条高金额（合计 ¥{total_high:,.0f}）需要重点审核")
+            summary_parts.append(
+                f"{len(high_amount)} 条高金额（合计 ¥{total_high:,.0f}）需要重点审核"
+            )
 
         try:
             await send_notification(
@@ -621,7 +645,12 @@ async def _run_approval_backlog_for_org(org_id: str) -> int:
             )
             notified += 1
         except Exception as e:
-            logger.error("Approval backlog notification failed for %s in org %s: %s", approver_id, org_id, e)
+            logger.error(
+                "Approval backlog notification failed for %s in org %s: %s",
+                approver_id,
+                org_id,
+                e,
+            )
 
     return notified
 
@@ -738,6 +767,11 @@ async def _run_target_progress_for_org(org_id: str) -> int:
             )
             notified += 1
         except Exception as e:
-            logger.error("Target progress alert failed for user %s in org %s: %s", user_id, org_id, e)
+            logger.error(
+                "Target progress alert failed for user %s in org %s: %s",
+                user_id,
+                org_id,
+                e,
+            )
 
     return notified

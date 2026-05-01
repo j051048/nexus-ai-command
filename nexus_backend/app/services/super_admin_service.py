@@ -134,7 +134,9 @@ class SuperAdminService:
                 .gte("date", thirty_days_ago[:10])
                 .execute()
             )
-            ai_calls_30d = sum(r.get("request_count", 0) for r in (usage_result.data or []))
+            ai_calls_30d = sum(
+                r.get("request_count", 0) for r in (usage_result.data or [])
+            )
 
             # 获取订阅信息
             subscription = None
@@ -294,7 +296,9 @@ class SuperAdminService:
                 .gte("date", thirty_days_ago[:10])
                 .execute()
             )
-            total_ai_calls = sum(r.get("request_count", 0) for r in (ai_result.data or []))
+            total_ai_calls = sum(
+                r.get("request_count", 0) for r in (ai_result.data or [])
+            )
 
             # 活跃组织数
             active_orgs_result = await (
@@ -455,7 +459,6 @@ class SuperAdminService:
             logger.error(f"获取全局审计日志失败: {e}")
             raise
 
-
     async def _write_audit_log(
         self, client, action: str, admin_user_id: str, org_id: str, details: dict
     ):
@@ -524,11 +527,7 @@ class SuperAdminService:
 
         try:
             update_data = {"org_id": org_id, **quotas}
-            await (
-                client.table("tenant_quotas")
-                .upsert(update_data)
-                .execute()
-            )
+            await client.table("tenant_quotas").upsert(update_data).execute()
 
             await self._write_audit_log(
                 client,
@@ -557,7 +556,9 @@ class SuperAdminService:
         if action not in ("start", "extend"):
             raise ValueError("action 必须为 start 或 extend")
         if plan not in VALID_PLANS or plan == "free":
-            raise ValueError("试用计划不能为 free，可选: starter, professional, enterprise")
+            raise ValueError(
+                "试用计划不能为 free，可选: starter, professional, enterprise"
+            )
         if days < 1 or days > 365:
             raise ValueError("试用天数必须在 1-365 之间")
 
@@ -610,7 +611,13 @@ class SuperAdminService:
                 "admin_manage_trial",
                 admin_user_id,
                 org_id,
-                {"action": action, "plan": plan, "days": days, "period_end": period_end, "reason": reason},
+                {
+                    "action": action,
+                    "plan": plan,
+                    "days": days,
+                    "period_end": period_end,
+                    "reason": reason,
+                },
             )
 
             logger.info(

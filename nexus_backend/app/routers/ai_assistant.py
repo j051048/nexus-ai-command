@@ -61,6 +61,7 @@ async def parse_voice(
 
 # ── 批量审批建议（异步后台任务版） ─────────────────────────────────
 
+
 async def _run_batch_approval_analysis(
     task_id: str,
     requests_data: list[dict],
@@ -87,14 +88,17 @@ async def _run_batch_approval_analysis(
         )
 
         if response.finish_reason == "error":
-            _store_task_result(task_id, {
-                "status": "error",
-                "result": {
-                    "approve_count": 0,
-                    "reject_count": len(requests_data),
-                    "reason": "AI分析失败，建议人工逐条审批",
+            _store_task_result(
+                task_id,
+                {
+                    "status": "error",
+                    "result": {
+                        "approve_count": 0,
+                        "reject_count": len(requests_data),
+                        "reason": "AI分析失败，建议人工逐条审批",
+                    },
                 },
-            })
+            )
             return
 
         result_text = response.content
@@ -114,24 +118,30 @@ async def _run_batch_approval_analysis(
 
     except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
         logger.warning(f"LLM output parse failed for batch-approval: {e}")
-        _store_task_result(task_id, {
-            "status": "completed",
-            "result": {
-                "approve_count": 0,
-                "reject_count": len(requests_data),
-                "reason": "AI分析结果解析失败，建议人工逐条审批",
+        _store_task_result(
+            task_id,
+            {
+                "status": "completed",
+                "result": {
+                    "approve_count": 0,
+                    "reject_count": len(requests_data),
+                    "reason": "AI分析结果解析失败，建议人工逐条审批",
+                },
             },
-        })
+        )
     except Exception as e:
         logger.error(f"Batch approval background task failed: {e}")
-        _store_task_result(task_id, {
-            "status": "error",
-            "result": {
-                "approve_count": 0,
-                "reject_count": len(requests_data),
-                "reason": f"AI分析出错: {str(e)[:100]}",
+        _store_task_result(
+            task_id,
+            {
+                "status": "error",
+                "result": {
+                    "approve_count": 0,
+                    "reject_count": len(requests_data),
+                    "reason": f"AI分析出错: {str(e)[:100]}",
+                },
             },
-        })
+        )
 
 
 @router.post("/batch-approval-suggestions")
@@ -150,14 +160,17 @@ async def batch_approval_suggestions(
 
     # P0 Security: 使用 scoped DB client（RLS 隔离）
     requests_result = (
-        await db.table("approval_requests")
-        .select("*")
-        .in_("id", request_ids)
-        .execute()
+        await db.table("approval_requests").select("*").in_("id", request_ids).execute()
     )
 
     if not requests_result.data:
-        return api_success(data={"approve_count": 0, "reject_count": 0, "reason": "未找到匹配的审批申请"})
+        return api_success(
+            data={
+                "approve_count": 0,
+                "reject_count": 0,
+                "reason": "未找到匹配的审批申请",
+            }
+        )
 
     org_id = getattr(request.state, "org_id", None)
     if not org_id:
@@ -178,6 +191,7 @@ async def batch_approval_suggestions(
 
 # ── 客户记忆摘要（异步后台任务版） ─────────────────────────────────
 
+
 async def _run_customer_memory_analysis(
     task_id: str,
     customer_name: str,
@@ -190,7 +204,10 @@ async def _run_customer_memory_analysis(
         from app.services.llm_gateway import llm_gateway
 
         memory_texts = "\n".join(
-            [f"- [{m.get('category', 'general')}] {m['content']}" for m in memories[:15]]
+            [
+                f"- [{m.get('category', 'general')}] {m['content']}"
+                for m in memories[:15]
+            ]
         )
 
         prompt = f"""根据以下关于客户「{customer_name}」的对话记忆，生成简洁的客户洞察摘要。
@@ -255,10 +272,17 @@ async def _run_customer_memory_analysis(
 
     except Exception as e:
         logger.error(f"Customer memory background task failed: {e}")
-        _store_task_result(task_id, {
-            "status": "error",
-            "result": {"has_insights": False, "summary": "获取洞察时出错", "key_points": []},
-        })
+        _store_task_result(
+            task_id,
+            {
+                "status": "error",
+                "result": {
+                    "has_insights": False,
+                    "summary": "获取洞察时出错",
+                    "key_points": [],
+                },
+            },
+        )
 
 
 @router.get("/customer-memory-summary/{customer_name}")
@@ -286,7 +310,9 @@ async def get_customer_memory_summary(
             raise api_error(ErrorCode.AUTH_ROLE_REQUIRED, "租户上下文缺失，请重新登录")
 
         # 按内容关键字搜索（转义 LIKE 通配符防止模式注入）
-        safe_name = customer_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        safe_name = (
+            customer_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
         result = (
             await db.table("conversation_memories")
             .select("content, category, created_at")
@@ -332,6 +358,7 @@ async def get_customer_memory_summary(
 
 
 # ── 通用任务结果轮询接口 ────────────────────────────────────────────
+
 
 @router.get("/task-result/{task_id}")
 async def get_task_result(

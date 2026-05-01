@@ -94,7 +94,9 @@ try:
             self._org_id = org_id
 
         def select(self, *args, **kwargs):
-            return self._builder.select(*args, **kwargs).eq("organization_id", self._org_id)
+            return self._builder.select(*args, **kwargs).eq(
+                "organization_id", self._org_id
+            )
 
         def insert(self, *args, **kwargs):
             return self._builder.insert(*args, **kwargs)
@@ -103,10 +105,14 @@ try:
             return self._builder.upsert(*args, **kwargs)
 
         def update(self, *args, **kwargs):
-            return self._builder.update(*args, **kwargs).eq("organization_id", self._org_id)
+            return self._builder.update(*args, **kwargs).eq(
+                "organization_id", self._org_id
+            )
 
         def delete(self, *args, **kwargs):
-            return self._builder.delete(*args, **kwargs).eq("organization_id", self._org_id)
+            return self._builder.delete(*args, **kwargs).eq(
+                "organization_id", self._org_id
+            )
 
         def __getattr__(self, name):
             return getattr(self._builder, name)

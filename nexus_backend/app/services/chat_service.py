@@ -209,7 +209,9 @@ class ChatService:
 
         agent_name = "default"
         system_prompt = await ChatService.get_system_prompt(
-            agent_name, user_id=user_id, org_id=org_id,
+            agent_name,
+            user_id=user_id,
+            org_id=org_id,
         )
         user_role = await ChatService._get_cached_user_role(user_id)
 
@@ -230,7 +232,9 @@ class ChatService:
 
         raw_messages = [{"role": "user", "content": message}]
         initial_state = await prepare_initial_state(
-            raw_messages, system_prompt, agent_config,
+            raw_messages,
+            system_prompt,
+            agent_config,
         )
         # P1 Fix: prepare_initial_state does not return 'config'; graph nodes
         # (node_respond/node_reflect/router/...) rely on state["config"].

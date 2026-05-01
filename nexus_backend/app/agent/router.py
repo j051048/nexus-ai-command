@@ -651,7 +651,11 @@ def detect_multi_intent(query: str) -> tuple[bool, list[str]]:
         # Verify at least 2 parts have non-overlapping domains
         for i in range(len(domains_per_part)):
             for j in range(i + 1, len(domains_per_part)):
-                if domains_per_part[i] and domains_per_part[j] and not domains_per_part[i].intersection(domains_per_part[j]):
+                if (
+                    domains_per_part[i]
+                    and domains_per_part[j]
+                    and not domains_per_part[i].intersection(domains_per_part[j])
+                ):
                     return True, parts
 
     return False, [query]

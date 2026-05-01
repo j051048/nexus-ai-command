@@ -40,28 +40,48 @@ ROLE_HIERARCHY: dict[str, int] = {
 # This is the ONLY place to define per-role tool blocks.
 ROLE_DENY_LIST: dict[str, list[str]] = {
     "viewer": [
-        "create_*", "update_*", "delete_*", "remove_*",
-        "insert_*", "upsert_*", "send_*", "approve_*", "reject_*",
-        "assign_*", "transfer_*",
+        "create_*",
+        "update_*",
+        "delete_*",
+        "remove_*",
+        "insert_*",
+        "upsert_*",
+        "send_*",
+        "approve_*",
+        "reject_*",
+        "assign_*",
+        "transfer_*",
     ],
     "employee": [
-        "delete_customer", "delete_contract", "delete_user",
-        "approve_payment", "change_salary",
+        "delete_customer",
+        "delete_contract",
+        "delete_user",
+        "approve_payment",
+        "change_salary",
     ],
     "sales": [
-        "delete_customer", "delete_contract", "delete_user",
-        "approve_payment", "change_salary",
+        "delete_customer",
+        "delete_contract",
+        "delete_user",
+        "approve_payment",
+        "change_salary",
     ],
     "sales_rep": [
-        "delete_customer", "delete_contract", "delete_user",
-        "approve_payment", "change_salary",
+        "delete_customer",
+        "delete_contract",
+        "delete_user",
+        "approve_payment",
+        "change_salary",
     ],
     "finance": [
-        "delete_invoice", "delete_payment", "delete_user",
+        "delete_invoice",
+        "delete_payment",
+        "delete_user",
         "change_salary",
     ],
     "manager": [
-        "delete_user", "change_salary",
+        "delete_user",
+        "change_salary",
     ],
     # admin / boss / founder: no deny-list
 }
@@ -89,8 +109,11 @@ def check_tool_access(
         user_level = ROLE_HIERARCHY.get(user_role, 1)
         if user_level < req_level:
             role_label = {
-                "boss": "领导", "manager": "管理者", "admin": "管理员",
-                "finance": "财务", "founder": "创始人",
+                "boss": "领导",
+                "manager": "管理者",
+                "admin": "管理员",
+                "finance": "财务",
+                "founder": "创始人",
             }.get(tool_required_role, tool_required_role)
             return (
                 False,

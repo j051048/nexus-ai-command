@@ -112,23 +112,25 @@ async def replay_dead_letters(
             if isinstance(kwargs, str):
                 kwargs = json.loads(kwargs)
 
-            result = celery_app.send_task(
-                row["task_name"], args=args, kwargs=kwargs
-            )
+            result = celery_app.send_task(row["task_name"], args=args, kwargs=kwargs)
             await (
                 client.table("celery_dead_letters")
-                .update({
-                    "status": "replayed",
-                    "replayed_at": datetime.now(UTC).isoformat(),
-                })
+                .update(
+                    {
+                        "status": "replayed",
+                        "replayed_at": datetime.now(UTC).isoformat(),
+                    }
+                )
                 .eq("id", row["id"])
                 .execute()
             )
-            replayed.append({
-                "dlq_id": row["id"],
-                "task_name": row["task_name"],
-                "new_task_id": result.id,
-            })
+            replayed.append(
+                {
+                    "dlq_id": row["id"],
+                    "task_name": row["task_name"],
+                    "new_task_id": result.id,
+                }
+            )
             logger.info("[DLQ] Replayed: %s → %s", row["task_name"], result.id)
         except Exception as e:
             logger.error("[DLQ] Replay failed for %s: %s", row["id"], e)

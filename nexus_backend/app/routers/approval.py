@@ -53,7 +53,9 @@ class ResubmitRequest(BaseModel):
 
     description: str | None = Field(None, description="修改后的描述（可选）")
     amount: float | None = Field(None, ge=0, description="修改后的金额（可选）")
-    form_data: dict[str, Any] | None = Field(None, description="修改后的表单数据（可选）")
+    form_data: dict[str, Any] | None = Field(
+        None, description="修改后的表单数据（可选）"
+    )
 
 
 class SmartSubmitRequest(BaseModel):
@@ -1103,7 +1105,9 @@ async def recall_approval(
             pass  # 事件发送失败不影响主流程
 
         logger.info(f"Approval {request_id} recalled by {user_id}")
-        return api_success(data={"id": request_id, "status": "recalled"}, message="已撤回")
+        return api_success(
+            data={"id": request_id, "status": "recalled"}, message="已撤回"
+        )
 
     except HTTPException:
         raise

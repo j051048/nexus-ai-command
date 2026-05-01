@@ -127,7 +127,12 @@ APPROVAL_TEMPLATES: dict[str, dict] = {
         "chain": "expense",
         "label": "费用报销",
         "icon": "receipt",
-        "defaults": {"category": "travel", "amount": 0, "description": "", "receipts": []},
+        "defaults": {
+            "category": "travel",
+            "amount": 0,
+            "description": "",
+            "receipts": [],
+        },
     },
     "purchase": {
         "type": "purchase",
@@ -141,7 +146,13 @@ APPROVAL_TEMPLATES: dict[str, dict] = {
         "chain": "business_trip",
         "label": "出差申请",
         "icon": "plane",
-        "defaults": {"destination": "", "start_date": "", "end_date": "", "budget": 0, "purpose": ""},
+        "defaults": {
+            "destination": "",
+            "start_date": "",
+            "end_date": "",
+            "budget": 0,
+            "purpose": "",
+        },
     },
     "vehicle": {
         "type": "vehicle",

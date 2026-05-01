@@ -57,7 +57,9 @@ class ListSystemConfigsTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data={}, summary="❌ 无法获取组织信息，请确保已正确登录。")
+            return self.format_result(
+                data={}, summary="❌ 无法获取组织信息，请确保已正确登录。"
+            )
 
         config_type = args.get("config_type")
 
@@ -69,7 +71,9 @@ class ListSystemConfigsTool(BaseTool):
             )
 
             if not configs:
-                return self.format_result(data={"configs": []}, summary="当前暂无配置项。")
+                return self.format_result(
+                    data={"configs": []}, summary="当前暂无配置项。"
+                )
 
             # 按 config_type 分组
             grouped = {}
@@ -98,7 +102,9 @@ class ListSystemConfigsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询配置列表失败: {e}")
-            return self.format_result(data={}, summary=safe_tool_error(e, "查询配置列表"))
+            return self.format_result(
+                data={}, summary=safe_tool_error(e, "查询配置列表")
+            )
 
 
 class UpdateSystemConfigTool(BaseTool):
@@ -170,7 +176,9 @@ class UpdateSystemConfigTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data={}, summary="❌ 无法获取组织信息，请确保已正确登录。")
+            return self.format_result(
+                data={}, summary="❌ 无法获取组织信息，请确保已正确登录。"
+            )
 
         config_type = args.get("config_type")
         config_key = args.get("config_key")

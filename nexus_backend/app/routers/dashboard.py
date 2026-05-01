@@ -302,7 +302,13 @@ async def ai_roi_dashboard(
 
     try:
         # Get user's org_id
-        user_res = await client.table("users").select("org_id").eq("id", user_id).single().execute()
+        user_res = (
+            await client.table("users")
+            .select("org_id")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
         org_id = (user_res.data or {}).get("org_id")
     except Exception:
         org_id = None
@@ -340,8 +346,15 @@ async def ai_roi_dashboard(
         "avg_response_time_ms": 0,
     }
     by_category = {
-        "approval": 0, "crm": 0, "report": 0, "attendance": 0,
-        "finance": 0, "leave": 0, "schedule": 0, "knowledge": 0, "other": 0,
+        "approval": 0,
+        "crm": 0,
+        "report": 0,
+        "attendance": 0,
+        "finance": 0,
+        "leave": 0,
+        "schedule": 0,
+        "knowledge": 0,
+        "other": 0,
     }
 
     if rows:
@@ -354,8 +367,12 @@ async def ai_roi_dashboard(
             summary["total_llm_calls"] += int(r.get("total_llm_calls") or 0)
             summary["total_tool_calls"] += int(r.get("tool_calls_total") or 0)
             summary["total_tool_success"] += int(r.get("tool_calls_success") or 0)
-            summary["total_minutes_saved"] += float(r.get("estimated_minutes_saved") or 0)
-            summary["total_labor_saved"] += float(r.get("estimated_labor_cost_saved") or 0)
+            summary["total_minutes_saved"] += float(
+                r.get("estimated_minutes_saved") or 0
+            )
+            summary["total_labor_saved"] += float(
+                r.get("estimated_labor_cost_saved") or 0
+            )
             summary["total_positive_feedback"] += int(r.get("positive_feedback") or 0)
             summary["total_negative_feedback"] += int(r.get("negative_feedback") or 0)
             total_rt += int(r.get("avg_response_time_ms") or 0)

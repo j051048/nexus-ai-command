@@ -87,7 +87,9 @@ class WebSearchTool(BaseTool):
 
         api_key = settings.BRAVE_SEARCH_API_KEY
         if not api_key:
-            return self.format_result(data={}, summary="❌ 未配置 Brave Search API Key，无法执行联网搜索。")
+            return self.format_result(
+                data={}, summary="❌ 未配置 Brave Search API Key，无法执行联网搜索。"
+            )
 
         # Check cache
         import time
@@ -127,7 +129,10 @@ class WebSearchTool(BaseTool):
             logger.error(
                 f"Brave Search API error: {e.response.status_code} {e.response.text[:200]}"
             )
-            return self.format_result(data={}, summary=f"❌ 搜索服务异常（HTTP {e.response.status_code}），请稍后重试。")
+            return self.format_result(
+                data={},
+                summary=f"❌ 搜索服务异常（HTTP {e.response.status_code}），请稍后重试。",
+            )
         except Exception as e:
             logger.error(f"Web search failed: {e}")
             return self.format_result(data={}, summary=safe_tool_error(e, "搜索"))
@@ -135,26 +140,32 @@ class WebSearchTool(BaseTool):
         # Parse results
         web_results = data.get("web", {}).get("results", [])
         if not web_results:
-            return self.format_result(data={"results": []}, summary=f'🔍 搜索 "{query}" 未找到相关结果。')
+            return self.format_result(
+                data={"results": []}, summary=f'🔍 搜索 "{query}" 未找到相关结果。'
+            )
 
         # 结构化搜索数据
         structured_results = []
         for item in web_results:
-            structured_results.append({
-                "title": item.get("title", "无标题"),
-                "url": item.get("url", ""),
-                "description": item.get("description", "无摘要"),
-                "age": item.get("age", ""),
-            })
+            structured_results.append(
+                {
+                    "title": item.get("title", "无标题"),
+                    "url": item.get("url", ""),
+                    "description": item.get("description", "无摘要"),
+                    "age": item.get("age", ""),
+                }
+            )
 
         news_items = []
         news_results = data.get("news", {}).get("results", [])
         for item in news_results[:3]:
-            news_items.append({
-                "title": item.get("title", ""),
-                "url": item.get("url", ""),
-                "age": item.get("age", ""),
-            })
+            news_items.append(
+                {
+                    "title": item.get("title", ""),
+                    "url": item.get("url", ""),
+                    "age": item.get("age", ""),
+                }
+            )
 
         result_data = {
             "query": query,

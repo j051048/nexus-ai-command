@@ -54,17 +54,20 @@ async def websocket_chat(
     # P1: Schedule token expiry check — auto-disconnect when JWT expires
     _token_expiry_task = None
     if token_exp:
+
         async def _check_token_expiry():
             remaining = token_exp - time.time()
             if remaining > 0:
                 await asyncio.sleep(remaining)
             logger.info(f"[WS/Chat] Token expired for user {user_id}, disconnecting")
             try:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "登录已过期，请重新登录",
-                    "code": "TOKEN_EXPIRED",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "登录已过期，请重新登录",
+                        "code": "TOKEN_EXPIRED",
+                    }
+                )
                 await websocket.close(code=4002, reason="Token expired")
             except Exception:
                 pass  # Connection may already be closed
@@ -78,10 +81,12 @@ async def websocket_chat(
 
             # P1-11: Reject oversized messages
             if len(raw) > WS_MAX_MESSAGE_SIZE:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": f"消息过大（{len(raw)} 字节），上限 {WS_MAX_MESSAGE_SIZE} 字节",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": f"消息过大（{len(raw)} 字节），上限 {WS_MAX_MESSAGE_SIZE} 字节",
+                    }
+                )
                 continue
 
             try:
@@ -124,16 +129,23 @@ async def websocket_chat(
                         user_content, user_id=user_id
                     )
                     if not fw_result.is_safe:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"⚠️ 安全拦截: 检测到风险等级 {fw_result.risk_level.value} 的异常输入",
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": f"⚠️ 安全拦截: 检测到风险等级 {fw_result.risk_level.value} 的异常输入",
+                            }
+                        )
                         continue
                     # Use sanitized input
-                    if fw_result.sanitized_input and fw_result.sanitized_input != user_content:
+                    if (
+                        fw_result.sanitized_input
+                        and fw_result.sanitized_input != user_content
+                    ):
                         last_user_msg["content"] = fw_result.sanitized_input
                 except Exception as e:
-                    logger.warning(f"[WS/Chat] Firewall check failed (non-blocking): {e}")
+                    logger.warning(
+                        f"[WS/Chat] Firewall check failed (non-blocking): {e}"
+                    )
 
                 # Layer 2: Content Moderation
                 try:
@@ -141,13 +153,17 @@ async def websocket_chat(
 
                     is_safe, warning = check_user_input(user_content)
                     if not is_safe:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"⚠️ 安全拦截: {warning}",
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": f"⚠️ 安全拦截: {warning}",
+                            }
+                        )
                         continue
                 except Exception as e:
-                    logger.warning(f"[WS/Chat] Moderation check failed (non-blocking): {e}")
+                    logger.warning(
+                        f"[WS/Chat] Moderation check failed (non-blocking): {e}"
+                    )
 
             # Get user info for the stream
             user_role, org_id = await _get_user_context(user_id)

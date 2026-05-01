@@ -102,7 +102,11 @@ PLAN_CATALOG: dict[BillingPlan, PlanDetails] = {
         500,
         100,
         ["basic_chat", "3_documents"],
-        {"conversations": "约 20 次 AI 对话/月", "reports": "约 3 份报告/月", "storage": "100 MB 存储"},
+        {
+            "conversations": "约 20 次 AI 对话/月",
+            "reports": "约 3 份报告/月",
+            "storage": "100 MB 存储",
+        },
     ),
     BillingPlan.STARTER: PlanDetails(
         BillingPlan.STARTER,
@@ -112,7 +116,11 @@ PLAN_CATALOG: dict[BillingPlan, PlanDetails] = {
         5_000,
         1_000,
         ["basic_chat", "documents", "tools", "email_support"],
-        {"conversations": "约 200 次 AI 对话/月", "reports": "约 50 份报告/月", "storage": "1 GB 存储"},
+        {
+            "conversations": "约 200 次 AI 对话/月",
+            "reports": "约 50 份报告/月",
+            "storage": "1 GB 存储",
+        },
     ),
     BillingPlan.PROFESSIONAL: PlanDetails(
         BillingPlan.PROFESSIONAL,
@@ -122,7 +130,11 @@ PLAN_CATALOG: dict[BillingPlan, PlanDetails] = {
         20_000,
         5_000,
         ["all_features", "priority_support", "api_access", "custom_tools"],
-        {"conversations": "约 800 次 AI 对话/月", "reports": "约 200 份报告/月", "storage": "5 GB 存储"},
+        {
+            "conversations": "约 800 次 AI 对话/月",
+            "reports": "约 200 份报告/月",
+            "storage": "5 GB 存储",
+        },
     ),
     BillingPlan.ENTERPRISE: PlanDetails(
         BillingPlan.ENTERPRISE,
@@ -132,7 +144,11 @@ PLAN_CATALOG: dict[BillingPlan, PlanDetails] = {
         100_000,
         50_000,
         ["all_features", "sla", "custom_integrations", "dedicated_support", "sso"],
-        {"conversations": "约 4000 次 AI 对话/月", "reports": "不限报告", "storage": "50 GB 存储"},
+        {
+            "conversations": "约 4000 次 AI 对话/月",
+            "reports": "不限报告",
+            "storage": "50 GB 存储",
+        },
     ),
 }
 

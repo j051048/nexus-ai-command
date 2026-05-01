@@ -87,9 +87,7 @@ def push_daily_briefing(self):
             return "skipped: no db"
 
         # P0 Security: 按组织遍历，使用 OrgFilteredClient 防止跨租户数据泄露
-        orgs_res = (
-            await supabase.table("organizations").select("id").execute()
-        )
+        orgs_res = await supabase.table("organizations").select("id").execute()
         org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         tool = DailyBriefingTool()
@@ -108,7 +106,9 @@ def push_daily_briefing(self):
 
                 for u in users:
                     try:
-                        briefing = await tool.run({}, u["id"], config={"org_id": org_id})
+                        briefing = await tool.run(
+                            {}, u["id"], config={"org_id": org_id}
+                        )
                         await send_notification(
                             title="每日晨报",
                             content=briefing[:500],
@@ -144,9 +144,7 @@ def mine_sales_leads():
         seven_days_ago = (datetime.now() - timedelta(days=7)).isoformat()
 
         # P0 Security: 按组织遍历，防止跨租户数据泄露
-        orgs_res = (
-            await supabase.table("organizations").select("id").execute()
-        )
+        orgs_res = await supabase.table("organizations").select("id").execute()
         org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         processed = 0
@@ -177,7 +175,9 @@ def mine_sales_leads():
                             )
                         processed += 1
                     except Exception as e:
-                        logger.error(f"Lead mining failed for {lead.get('id', '?')}: {e}")
+                        logger.error(
+                            f"Lead mining failed for {lead.get('id', '?')}: {e}"
+                        )
             except Exception as e:
                 logger.error(f"Lead mining failed for org {org_id}: {e}")
 
@@ -203,9 +203,7 @@ def monitor_competitors():
             return "skipped: no db"
 
         # P0 Security: 按组织遍历，防止跨租户数据泄露
-        orgs_res = (
-            await supabase.table("organizations").select("id").execute()
-        )
+        orgs_res = await supabase.table("organizations").select("id").execute()
         org_ids = [o["id"] for o in (orgs_res.data or [])]
         total_notified = 0
 
@@ -246,7 +244,9 @@ def monitor_competitors():
                 )
 
                 # 仅通知该组织的相关用户
-                user_ids = list(set(a.get("user_id") for a in analyses if a.get("user_id")))
+                user_ids = list(
+                    set(a.get("user_id") for a in analyses if a.get("user_id"))
+                )
                 for uid in user_ids[:10]:
                     await send_notification(
                         title="竞品动态周报",
@@ -489,9 +489,7 @@ def check_contract_expiry():
         today = datetime.now().strftime("%Y-%m-%d")
 
         # P0 Security: 按组织遍历，防止跨租户数据泄露
-        orgs_res = (
-            await supabase.table("organizations").select("id").execute()
-        )
+        orgs_res = await supabase.table("organizations").select("id").execute()
         org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         notified = 0
@@ -632,7 +630,9 @@ def decompose_vmd_task(task_id: str):
         # 3. Create vmd_sub_task records (批量插入替代逐条 INSERT)
         tenant_id = task.get("tenant_id")
         # P0-1: Use org-scoped client for write operations
-        org_client = supabase.get_org_filtered_client(tenant_id) if tenant_id else supabase
+        org_client = (
+            supabase.get_org_filtered_client(tenant_id) if tenant_id else supabase
+        )
         records = []
         for idx, st in enumerate(sub_tasks_data):
             records.append(
@@ -1113,38 +1113,65 @@ def score_all_leads_task():
 
 # Tool name → ROI category mapping
 _TOOL_CATEGORY_MAP = {
-    "approve_request": "approval", "reject_request": "approval",
-    "get_pending_approvals": "approval", "smart_approve": "approval",
-    "submit_approval_on_behalf": "approval", "list_approval_flows": "approval",
-    "create_approval_flow": "approval", "approve_expense": "approval",
+    "approve_request": "approval",
+    "reject_request": "approval",
+    "get_pending_approvals": "approval",
+    "smart_approve": "approval",
+    "submit_approval_on_behalf": "approval",
+    "list_approval_flows": "approval",
+    "create_approval_flow": "approval",
+    "approve_expense": "approval",
     "get_employee_approval_history": "approval",
-    "get_customers": "crm", "get_customer_detail": "crm",
-    "create_customer": "crm", "update_customer": "crm",
-    "add_follow_up": "crm", "get_follow_ups": "crm",
-    "update_customer_stage": "crm", "get_sales_pipeline": "crm",
-    "get_contracts": "crm", "create_contract": "crm",
-    "get_expiring_contracts": "crm", "analyze_contract": "crm",
+    "get_customers": "crm",
+    "get_customer_detail": "crm",
+    "create_customer": "crm",
+    "update_customer": "crm",
+    "add_follow_up": "crm",
+    "get_follow_ups": "crm",
+    "update_customer_stage": "crm",
+    "get_sales_pipeline": "crm",
+    "get_contracts": "crm",
+    "create_contract": "crm",
+    "get_expiring_contracts": "crm",
+    "analyze_contract": "crm",
     "generate_customer_profile": "crm",
-    "get_performance_report": "report", "smart_report": "report",
-    "get_company_stats": "report", "get_business_dashboard": "report",
-    "get_team_insight": "report", "anomaly_detection": "report",
-    "analyze_data_attribution": "report", "strategy_simulation": "report",
+    "get_performance_report": "report",
+    "smart_report": "report",
+    "get_company_stats": "report",
+    "get_business_dashboard": "report",
+    "get_team_insight": "report",
+    "anomaly_detection": "report",
+    "analyze_data_attribution": "report",
+    "strategy_simulation": "report",
     "generate_weekly_report": "report",
-    "clock_in_out": "attendance", "get_attendance_record": "attendance",
-    "attendance_statistics": "attendance", "query_attendance": "attendance",
-    "query_team_attendance": "attendance", "create_shift_schedule": "attendance",
+    "clock_in_out": "attendance",
+    "get_attendance_record": "attendance",
+    "attendance_statistics": "attendance",
+    "query_attendance": "attendance",
+    "query_team_attendance": "attendance",
+    "create_shift_schedule": "attendance",
     "list_shift_schedules": "attendance",
-    "create_expense_claim": "finance", "query_expense_status": "finance",
-    "query_budget": "finance", "query_salary": "finance",
-    "recognize_invoice": "finance", "submit_expense": "finance",
-    "list_expenses": "finance", "check_budget": "finance",
-    "create_leave_request": "leave", "query_leave_status": "leave",
+    "create_expense_claim": "finance",
+    "query_expense_status": "finance",
+    "query_budget": "finance",
+    "query_salary": "finance",
+    "recognize_invoice": "finance",
+    "submit_expense": "finance",
+    "list_expenses": "finance",
+    "check_budget": "finance",
+    "create_leave_request": "leave",
+    "query_leave_status": "leave",
     "request_leave": "leave",
-    "create_scheduled_task": "schedule", "list_scheduled_tasks": "schedule",
-    "delete_scheduled_task": "schedule", "get_daily_briefing": "schedule",
-    "book_meeting": "schedule", "create_task": "schedule",
-    "update_task": "schedule", "list_tasks": "schedule",
-    "query_knowledge_base": "knowledge", "batch_analyze_documents": "knowledge",
+    "create_scheduled_task": "schedule",
+    "list_scheduled_tasks": "schedule",
+    "delete_scheduled_task": "schedule",
+    "get_daily_briefing": "schedule",
+    "book_meeting": "schedule",
+    "create_task": "schedule",
+    "update_task": "schedule",
+    "list_tasks": "schedule",
+    "query_knowledge_base": "knowledge",
+    "batch_analyze_documents": "knowledge",
     "load_knowledge": "knowledge",
 }
 
@@ -1174,10 +1201,9 @@ def aggregate_ai_roi_daily():
                 .lt("created_at", yesterday + "T23:59:59.999")
                 .execute()
             )
-            org_ids = list({
-                r["org_id"] for r in (tenant_res.data or [])
-                if r.get("org_id")
-            })
+            org_ids = list(
+                {r["org_id"] for r in (tenant_res.data or []) if r.get("org_id")}
+            )
         except Exception:
             # Fallback: try tenant_usage_records
             try:
@@ -1187,10 +1213,13 @@ def aggregate_ai_roi_daily():
                     .gte("recorded_at", yesterday)
                     .execute()
                 )
-                org_ids = list({
-                    r["tenant_id"] for r in (tenant_res.data or [])
-                    if r.get("tenant_id")
-                })
+                org_ids = list(
+                    {
+                        r["tenant_id"]
+                        for r in (tenant_res.data or [])
+                        if r.get("tenant_id")
+                    }
+                )
             except Exception:
                 org_ids = []
 
@@ -1205,7 +1234,7 @@ def aggregate_ai_roi_daily():
                 .select("action_category, baseline_minutes, hourly_labor_cost")
                 .execute()
             )
-            for row in (bl_res.data or []):
+            for row in bl_res.data or []:
                 baselines[row["action_category"]] = {
                     "minutes": float(row["baseline_minutes"]),
                     "hourly_cost": float(row["hourly_labor_cost"]),
@@ -1228,7 +1257,9 @@ def aggregate_ai_roi_daily():
             except Exception as e:
                 logger.error("[ROI] Failed for tenant %s: %s", org_id, e)
 
-        return f"Aggregated ROI for {total_upserted}/{len(org_ids)} tenants on {yesterday}"
+        return (
+            f"Aggregated ROI for {total_upserted}/{len(org_ids)} tenants on {yesterday}"
+        )
 
     return _run_async(_run())
 
@@ -1245,9 +1276,15 @@ async def _aggregate_one_tenant(
         "total_llm_calls": 0,
         "tool_calls_total": 0,
         "tool_calls_success": 0,
-        "cat_approval": 0, "cat_crm": 0, "cat_report": 0,
-        "cat_attendance": 0, "cat_finance": 0, "cat_leave": 0,
-        "cat_schedule": 0, "cat_knowledge": 0, "cat_other": 0,
+        "cat_approval": 0,
+        "cat_crm": 0,
+        "cat_report": 0,
+        "cat_attendance": 0,
+        "cat_finance": 0,
+        "cat_leave": 0,
+        "cat_schedule": 0,
+        "cat_knowledge": 0,
+        "cat_other": 0,
         "estimated_minutes_saved": 0,
         "estimated_labor_cost_saved": 0,
         "roi_percent": 0,
@@ -1321,7 +1358,7 @@ async def _aggregate_one_tenant(
             .lt("created_at", day_end)
             .execute()
         )
-        for r in (fb_res.data or []):
+        for r in fb_res.data or []:
             rating = r.get("rating", 0)
             if rating and rating >= 4:
                 metrics["positive_feedback"] += 1
@@ -1334,8 +1371,15 @@ async def _aggregate_one_tenant(
     total_minutes_saved = 0.0
     total_labor_saved = 0.0
     cat_fields = [
-        "cat_approval", "cat_crm", "cat_report", "cat_attendance",
-        "cat_finance", "cat_leave", "cat_schedule", "cat_knowledge", "cat_other",
+        "cat_approval",
+        "cat_crm",
+        "cat_report",
+        "cat_attendance",
+        "cat_finance",
+        "cat_leave",
+        "cat_schedule",
+        "cat_knowledge",
+        "cat_other",
     ]
     for col in cat_fields:
         cat_name = col.replace("cat_", "")
@@ -1352,9 +1396,7 @@ async def _aggregate_one_tenant(
 
     ai_cost = float(metrics["ai_cost_usd"])
     if ai_cost > 0:
-        metrics["roi_percent"] = round(
-            (total_labor_saved - ai_cost) / ai_cost * 100, 2
-        )
+        metrics["roi_percent"] = round((total_labor_saved - ai_cost) / ai_cost * 100, 2)
     elif total_labor_saved > 0:
         metrics["roi_percent"] = 9999.0  # effectively infinite ROI
 

@@ -29,7 +29,9 @@ async def inject_system_prompts(
     if iteration == 0:
         _inject_role_and_tools(lc_msgs, agent_config, complexity, intent_summary, state)
         _inject_cot_framework(lc_msgs, complexity)
-        await _inject_error_learning(lc_msgs, agent_config, state, complexity, intent_summary)
+        await _inject_error_learning(
+            lc_msgs, agent_config, state, complexity, intent_summary
+        )
         await _inject_few_shot(lc_msgs, agent_config, state, intent_summary)
         _inject_role_few_shot(lc_msgs, agent_config)
 
@@ -57,6 +59,7 @@ async def inject_system_prompts(
 # [D] helpers
 # ---------------------------------------------------------------------------
 
+
 def _inject_role_and_tools(lc_msgs, agent_config, complexity, intent_summary, state):
     extra_lines = []
     user_role = agent_config.user_role
@@ -71,8 +74,7 @@ def _inject_role_and_tools(lc_msgs, agent_config, complexity, intent_summary, st
     )
     if complexity == QueryComplexity.SIMPLE:
         tool_schemas = [
-            s for s in tool_schemas
-            if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
+            s for s in tool_schemas if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
         ]
     if tool_schemas:
         tool_names = ", ".join(t["function"]["name"] for t in tool_schemas)
@@ -102,7 +104,9 @@ def _inject_cot_framework(lc_msgs, complexity):
         lc_msgs.insert(insert_pos, SystemMessage(content=cot_prompt))
 
 
-async def _inject_error_learning(lc_msgs, agent_config, state, complexity, intent_summary):
+async def _inject_error_learning(
+    lc_msgs, agent_config, state, complexity, intent_summary
+):
     try:
         from app.agent.learning_system import learning_system
 
@@ -114,7 +118,8 @@ async def _inject_error_learning(lc_msgs, agent_config, state, complexity, inten
         )
         if complexity == QueryComplexity.SIMPLE:
             tool_schemas = [
-                s for s in tool_schemas
+                s
+                for s in tool_schemas
                 if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
             ]
 
@@ -175,7 +180,9 @@ async def _inject_few_shot(lc_msgs, agent_config, state, intent_summary):
                     ]
                     few_shot = "【历史优秀对话参考】\n" + "\n---\n".join(ex_parts)
         except Exception as e:
-            logger.debug("[PromptBuilder] Dynamic few-shot lookup failed, using static: %s", e)
+            logger.debug(
+                "[PromptBuilder] Dynamic few-shot lookup failed, using static: %s", e
+            )
 
         # Fallback to static scene/intent-aware examples
         if not few_shot:
@@ -212,6 +219,7 @@ def _inject_role_few_shot(lc_msgs, agent_config):
 # ---------------------------------------------------------------------------
 # [E] helpers
 # ---------------------------------------------------------------------------
+
 
 def _inject_reflection_guidance(lc_msgs, state, iteration):
     reflection_guidance = state.get("reflection_guidance", "")
@@ -279,6 +287,7 @@ def _inject_compacted_summary(lc_msgs, state):
 # [F] helpers
 # ---------------------------------------------------------------------------
 
+
 def _inject_slot_context(lc_msgs, state):
     slot_ctx = state.get("slot_context")
     if slot_ctx:
@@ -307,9 +316,7 @@ async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
         # Dynamic budget: adjust based on selected model's context window
         _resolved = agent_config.resolved_configs or {}
         _tier_key = (
-            complexity.model_tier
-            if hasattr(complexity, "model_tier")
-            else "balanced"
+            complexity.model_tier if hasattr(complexity, "model_tier") else "balanced"
         )
         _ctx_window = (_resolved.get(_tier_key) or {}).get("context_window")
         context_engine.adjust_budget_for_model(_ctx_window)
@@ -328,9 +335,7 @@ async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
                 SystemMessage(content=f"[上下文引擎检索结果]\n{engine_ctx}"),
             )
     except Exception as e:
-        logger.error(
-            f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}"
-        )
+        logger.error(f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}")
 
 
 def _inject_rag_context(lc_msgs, rag_context):

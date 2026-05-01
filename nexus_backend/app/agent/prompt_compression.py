@@ -74,6 +74,7 @@ async def _set_cooldown() -> None:
     except Exception:
         pass
 
+
 # Anti-redo prefix injected into compression summaries.
 # Prevents the model from re-executing tasks mentioned in the summary.
 # Inspired by Hermes Agent's SUMMARY_PREFIX design.
@@ -298,7 +299,8 @@ def _split_messages(
         cutoff_idx = _find_tail_cut_by_tokens(
             non_system,
             token_budget=tail_token_budget,
-            min_messages=keep_recent * 2,  # At minimum protect N turns (×2 for Q+A pairs)
+            min_messages=keep_recent
+            * 2,  # At minimum protect N turns (×2 for Q+A pairs)
         )
         if cutoff_idx <= 0:
             return system_msgs, [], non_system
@@ -441,7 +443,9 @@ async def _update_summary(
         logger.warning(
             f"[PromptCompression] Incremental update failed: {e}, appending new summary"
         )
-        fallback = await _summarize_messages(new_messages, model=model, token_budget=budget)
+        fallback = await _summarize_messages(
+            new_messages, model=model, token_budget=budget
+        )
         return f"{existing_summary}\n\n[后续补充]\n{fallback}"
 
 

@@ -47,10 +47,15 @@ async def backup_database():
                 # TODO: 实际写入 S3 / 对象存储，此处仅日志占位
                 logger.info(
                     "Backed up %s for org %s: %d records (ts=%s)",
-                    table, org_id, record_count, timestamp,
+                    table,
+                    org_id,
+                    record_count,
+                    timestamp,
                 )
             except Exception as e:
                 logger.error(
                     "backup_database: failed to backup %s for org %s: %s",
-                    table, org_id, e,
+                    table,
+                    org_id,
+                    e,
                 )

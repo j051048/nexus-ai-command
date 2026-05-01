@@ -36,7 +36,9 @@ class QueryTransformer:
         self._llm_client = None
         self._resolved_model = None
 
-    async def _call_gateway(self, prompt: str, max_tokens: int = 300, temperature: float = 0.3) -> str | None:
+    async def _call_gateway(
+        self, prompt: str, max_tokens: int = 300, temperature: float = 0.3
+    ) -> str | None:
         """Call LLM via unified gateway."""
         try:
             from app.services.llm_gateway import get_gateway
@@ -60,7 +62,6 @@ class QueryTransformer:
         Generate a hypothetical document that would answer the query.
         This document is then used for embedding search.
         """
-
 
         prompt = f"""请模拟用户在对话中提到这个问题时的自然表达方式，生成一段简短的对话片段。
 
@@ -89,7 +90,6 @@ class QueryTransformer:
         Generate multiple related queries for better retrieval coverage.
         """
 
-
         prompt = f"""请根据用户的问题，生成{num_queries}个语义相近但表达方式不同的问题。
 这些问题将用于检索相关知识，以提高检索的全面性。
 
@@ -109,7 +109,9 @@ class QueryTransformer:
                 expanded = result.split("\n")
                 expanded = [q.strip() for q in expanded if q.strip()][:num_queries]
                 all_queries = [query] + expanded
-                logger.debug(f"[MultiQuery] Generated {len(all_queries)} query variants")
+                logger.debug(
+                    f"[MultiQuery] Generated {len(all_queries)} query variants"
+                )
                 return all_queries
             return [query]
         except Exception as e:
@@ -123,7 +125,6 @@ class QueryTransformer:
         Rewrite query for better semantic matching.
         Supports context-aware rewriting with recent conversation history.
         """
-
 
         # 构建对话上下文（最近 3 轮）用于代词消解
         context_block = ""

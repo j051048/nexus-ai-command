@@ -550,7 +550,9 @@ async def _execute_single_tool(
 
     if await record_tool_call_redis(config.session_id, record.tool_name):
         record.status = "error"
-        record.result = f"Error: 工具 '{record.tool_name}' 在本会话中调用次数过多，已触发熔断。"
+        record.result = (
+            f"Error: 工具 '{record.tool_name}' 在本会话中调用次数过多，已触发熔断。"
+        )
         return record
 
     # 1. RBAC Check — delegated to unified tool_rbac module (single authority)
@@ -649,13 +651,16 @@ async def _execute_single_tool(
     for arg_key, arg_val in (record.tool_args or {}).items():
         if isinstance(arg_val, str) and len(arg_val) > 10:
             fw_result = await prompt_firewall.scan_input(
-                arg_val, user_id=config.user_id, context={"source": "tool_arg", "tool": record.tool_name}
+                arg_val,
+                user_id=config.user_id,
+                context={"source": "tool_arg", "tool": record.tool_name},
             )
-            if not fw_result.is_safe and fw_result.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL):
+            if not fw_result.is_safe and fw_result.risk_level in (
+                RiskLevel.HIGH,
+                RiskLevel.CRITICAL,
+            ):
                 record.status = "blocked"
-                record.result = (
-                    f"⚠️ 工具参数 '{arg_key}' 包含可疑注入内容，已拦截。"
-                )
+                record.result = f"⚠️ 工具参数 '{arg_key}' 包含可疑注入内容，已拦截。"
                 logger.warning(
                     f"[Execute] Firewall blocked tool_arg {record.tool_name}.{arg_key}: "
                     f"risk={fw_result.risk_level}"
@@ -807,6 +812,7 @@ async def _execute_single_tool(
             # P0-1: Handle both str and dict (format_result) returns from tools
             if isinstance(result, dict):
                 import json
+
                 record.result = json.dumps(result, ensure_ascii=False, default=str)
             else:
                 record.result = str(result)
@@ -942,7 +948,9 @@ async def _execute_single_tool(
 
     record.status = "error"
     record.error_type = _classify_error(str(last_error)).value
-    friendly = format_friendly_error(record.error_type, str(last_error), record.tool_name)
+    friendly = format_friendly_error(
+        record.error_type, str(last_error), record.tool_name
+    )
     record.result = friendly
     record.duration_ms = int((time.time() - start_time) * 1000)
     record_tool_execution(record.tool_name, False, record.duration_ms)
@@ -1044,8 +1052,10 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
         补偿失败不会中断流程（best-effort），但会记录日志供人工介入。
         """
         successful_irreversible = [
-            r for r in completed
-            if r.status == "success" and getattr(get_tool(r.tool_name), "is_irreversible", False)
+            r
+            for r in completed
+            if r.status == "success"
+            and getattr(get_tool(r.tool_name), "is_irreversible", False)
         ]
         if not successful_irreversible:
             return
@@ -1064,12 +1074,12 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
                     "token": getattr(agent_config, "token", None),
                 }
                 comp_result = await asyncio.wait_for(
-                    tool.compensate(record.tool_args or {}, agent_config.user_id, comp_config),
+                    tool.compensate(
+                        record.tool_args or {}, agent_config.user_id, comp_config
+                    ),
                     timeout=15.0,
                 )
-                logger.info(
-                    f"[Saga] Compensated {record.tool_name}: {comp_result}"
-                )
+                logger.info(f"[Saga] Compensated {record.tool_name}: {comp_result}")
                 record.result = f"{record.result}\n[已补偿回滚: {comp_result}]"
             except Exception as e:
                 logger.error(

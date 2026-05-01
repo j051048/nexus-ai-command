@@ -62,13 +62,19 @@ class GetEmployeeInfoTool(BaseTool):
         employees = [emp for emp in result.data if emp.get("role") != "founder"]
 
         if not employees:
-            return self.format_result(data=None, summary=f"找不到名为 '{name}' 的普通员工")
+            return self.format_result(
+                data=None, summary=f"找不到名为 '{name}' 的普通员工"
+            )
 
         return self.format_result(
             data=employees,
             summary=f"找到 {len(employees)} 名员工",
             actions=[
-                {"label": "查看审批历史", "tool": "get_employee_approval_history", "args": {"employee_id": employees[0]["id"]}},
+                {
+                    "label": "查看审批历史",
+                    "tool": "get_employee_approval_history",
+                    "args": {"employee_id": employees[0]["id"]},
+                },
             ],
         )
 
@@ -122,7 +128,10 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
         try:
             uuid.UUID(employee_id)
         except (ValueError, AttributeError):
-            return self.format_result(data=None, summary=f"employee_id '{employee_id}' 不是有效的UUID格式，请先使用 get_employee_info 工具通过姓名查询员工ID")
+            return self.format_result(
+                data=None,
+                summary=f"employee_id '{employee_id}' 不是有效的UUID格式，请先使用 get_employee_info 工具通过姓名查询员工ID",
+            )
 
         client = _pkg._get_client(config)
         result = (
@@ -141,7 +150,11 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
             data=result.data,
             summary=f"最近 {len(result.data)} 条审批记录",
             actions=[
-                {"label": "查看员工信息", "tool": "get_employee_info", "args": {"query": ""}},
+                {
+                    "label": "查看员工信息",
+                    "tool": "get_employee_info",
+                    "args": {"query": ""},
+                },
                 {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
             ],
         )

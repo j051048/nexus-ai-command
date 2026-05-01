@@ -64,7 +64,9 @@ class GetUserPreferencesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"[PreferenceTool] Get failed: {e}")
-            return self.format_result(data={}, summary=safe_tool_error(e, "获取偏好设置"))
+            return self.format_result(
+                data={}, summary=safe_tool_error(e, "获取偏好设置")
+            )
 
 
 class UpdateUserPreferencesTool(BaseTool):
@@ -177,4 +179,6 @@ class UpdateUserPreferencesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"[PreferenceTool] Update failed: {e}")
-            return self.format_result(data={}, summary=safe_tool_error(e, "更新偏好设置"))
+            return self.format_result(
+                data={}, summary=safe_tool_error(e, "更新偏好设置")
+            )

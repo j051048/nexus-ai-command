@@ -169,7 +169,10 @@ class SmartApprovalTool(BaseTool):
         # P0 Security: Limit batch size
         if len(selected_requests) > MAX_BATCH_SIZE:
             return self.format_result(
-                data={"max_batch_size": MAX_BATCH_SIZE, "total_matching": len(selected_requests)},
+                data={
+                    "max_batch_size": MAX_BATCH_SIZE,
+                    "total_matching": len(selected_requests),
+                },
                 summary=f"安全限制：单次批量操作最多处理{MAX_BATCH_SIZE}条，当前符合条件{len(selected_requests)}条，请分批处理",
             )
 
@@ -193,12 +196,14 @@ class SmartApprovalTool(BaseTool):
                     if isinstance(user_info, dict)
                     else "未知"
                 )
-                preview_items.append({
-                    "index": i,
-                    "user_name": user_name,
-                    "type": req.get("type", "未知"),
-                    "amount": float(req.get("amount", 0)),
-                })
+                preview_items.append(
+                    {
+                        "index": i,
+                        "user_name": user_name,
+                        "type": req.get("type", "未知"),
+                        "amount": float(req.get("amount", 0)),
+                    }
+                )
 
             return self.format_result(
                 data={
@@ -209,7 +214,13 @@ class SmartApprovalTool(BaseTool):
                     "remaining": max(0, len(selected_requests) - 5),
                 },
                 summary=f"{action_name}预览: {len(selected_requests)}件，共¥{total_amount:,.2f}，请确认后执行",
-                actions=[{"label": f"确认{action_name}", "tool": "smart_approve", "args": {"action": action, "confirm": True}}],
+                actions=[
+                    {
+                        "label": f"确认{action_name}",
+                        "tool": "smart_approve",
+                        "args": {"action": action, "confirm": True},
+                    }
+                ],
             )
 
         # P0 Security: Log the confirmed action
@@ -347,7 +358,9 @@ class SmartApprovalTool(BaseTool):
                     "processed_at": datetime.now().strftime("%H:%M:%S"),
                 },
                 summary=f"批量审批完成，批准{approved_count}件，跳过{skipped_count}件，涉及金额¥{total_amount:,.2f}",
-                actions=[{"label": "查看每日简报", "tool": "get_daily_briefing", "args": {}}],
+                actions=[
+                    {"label": "查看每日简报", "tool": "get_daily_briefing", "args": {}}
+                ],
             )
 
         elif action == "reject":

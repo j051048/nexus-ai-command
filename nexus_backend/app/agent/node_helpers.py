@@ -34,6 +34,14 @@ from app.core.ai_metrics import (
     record_tool_execution,  # noqa: F401
 )
 from app.services.content_moderation import sanitize_output, scan_content  # noqa: F401
+from app.services.error_recovery_service import (
+    llm_circuit_breaker,  # noqa: F401
+    tool_circuit_breaker,  # noqa: F401
+)
+from app.services.plugin_system_service import (
+    ExtensionPoint,  # noqa: F401
+    plugin_system_service,  # noqa: F401
+)
 from app.tools import get_all_tools_schema, get_tool
 
 logger = logging.getLogger(__name__)
@@ -842,6 +850,7 @@ def _get_tool_schemas(
 
     # Safety cap: if filtering still leaves too many tools, keep only the most relevant
     from app.core.config import settings
+
     MAX_TOOLS = settings.TOOL_MAX_TOOLS
     if len(filtered) > MAX_TOOLS:
         logger.info(

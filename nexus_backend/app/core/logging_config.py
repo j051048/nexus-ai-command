@@ -80,17 +80,27 @@ import re as _re
 # P1-6: Compiled PII patterns for efficient scrubbing
 _PII_PATTERNS = [
     # Email addresses
-    (_re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'), '[EMAIL]'),
+    (_re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"), "[EMAIL]"),
     # Chinese phone numbers
-    (_re.compile(r'(?<!\d)1[3-9]\d{9}(?!\d)'), '[PHONE]'),
+    (_re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)"), "[PHONE]"),
     # JWT tokens (3-part base64 dot-separated)
-    (_re.compile(r'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'), '[JWT]'),
+    (
+        _re.compile(
+            r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"
+        ),
+        "[JWT]",
+    ),
     # API keys / Bearer tokens (generic long alphanumeric strings preceded by key indicators)
-    (_re.compile(r'(?i)(?:api[_-]?key|token|secret|password|authorization)["\s:=]+\S{8,}'), '[REDACTED_CREDENTIAL]'),
+    (
+        _re.compile(
+            r'(?i)(?:api[_-]?key|token|secret|password|authorization)["\s:=]+\S{8,}'
+        ),
+        "[REDACTED_CREDENTIAL]",
+    ),
     # Supabase service keys (sbp_ prefix)
-    (_re.compile(r'sbp_[A-Za-z0-9]{20,}'), '[SB_KEY]'),
+    (_re.compile(r"sbp_[A-Za-z0-9]{20,}"), "[SB_KEY]"),
     # OpenAI-style keys (sk- prefix)
-    (_re.compile(r'sk-[A-Za-z0-9]{20,}'), '[API_KEY]'),
+    (_re.compile(r"sk-[A-Za-z0-9]{20,}"), "[API_KEY]"),
 ]
 
 

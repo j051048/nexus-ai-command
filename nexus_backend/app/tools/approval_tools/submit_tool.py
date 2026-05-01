@@ -97,7 +97,9 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             try:
                 amount = float(amount)
             except (TypeError, ValueError):
-                return self.format_result(data=None, summary="金额格式错误，请提供有效的数字金额")
+                return self.format_result(
+                    data=None, summary="金额格式错误，请提供有效的数字金额"
+                )
             if amount <= 0:
                 return self.format_result(data=None, summary="审批金额必须大于0")
 
@@ -108,15 +110,25 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 if start_date:
                     s = datetime.strptime(start_date, "%Y-%m-%d")
                     if s.year < now.year - 1 or s.year > now.year + 1:
-                        return self.format_result(data=None, summary=f"开始日期 {start_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}")
+                        return self.format_result(
+                            data=None,
+                            summary=f"开始日期 {start_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}",
+                        )
                 if end_date:
                     e = datetime.strptime(end_date, "%Y-%m-%d")
                     if e.year < now.year - 1 or e.year > now.year + 1:
-                        return self.format_result(data=None, summary=f"结束日期 {end_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}")
+                        return self.format_result(
+                            data=None,
+                            summary=f"结束日期 {end_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}",
+                        )
                 if start_date and end_date and e < s:
-                    return self.format_result(data=None, summary="结束日期不能早于开始日期")
+                    return self.format_result(
+                        data=None, summary="结束日期不能早于开始日期"
+                    )
             except ValueError:
-                return self.format_result(data=None, summary="日期格式错误，请使用 YYYY-MM-DD 格式")
+                return self.format_result(
+                    data=None, summary="日期格式错误，请使用 YYYY-MM-DD 格式"
+                )
 
         # 防重复提交：检查同用户是否有近期完全相同的待审批申请
         try:
@@ -131,7 +143,10 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 dup_query = dup_query.eq("amount", amount)
             dup_res = await dup_query.limit(1).execute()
             if dup_res.data:
-                return self.format_result(data=None, summary=f"您已有一条相同类型（{approval_type}）的待审批申请，请勿重复提交")
+                return self.format_result(
+                    data=None,
+                    summary=f"您已有一条相同类型（{approval_type}）的待审批申请，请勿重复提交",
+                )
         except Exception as e:
             logger.debug("[SubmitApproval] Dedup check failed (non-blocking): %s", e)
 
@@ -144,14 +159,18 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             .execute()
         )
         if not employee_check.data:
-            return self.format_result(data=None, summary=f"找不到您的用户信息（ID: {employee_id}）")
+            return self.format_result(
+                data=None, summary=f"找不到您的用户信息（ID: {employee_id}）"
+            )
 
         actual_employee = employee_check.data
         employee_name = actual_employee.get("name", "未知")
         employee_org_id = actual_employee.get("organization_id")
 
         if actual_employee.get("role") == "founder":
-            return self.format_result(data=None, summary="老板无需通过AI提交审批申请，您可以直接审批")
+            return self.format_result(
+                data=None, summary="老板无需通过AI提交审批申请，您可以直接审批"
+            )
 
         # 构建详情
         full_details = description
@@ -216,7 +235,9 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             logger.debug("[AI审批] 插入结果成功")
         except Exception as e:
             logger.exception(f"[AI审批] 插入失败: {e}")
-            return self.format_result(data=None, summary=f"提交失败：数据库错误 - {str(e)}")
+            return self.format_result(
+                data=None, summary=f"提交失败：数据库错误 - {str(e)}"
+            )
 
         if result.data:
             req_id = result.data[0].get("id")
@@ -259,11 +280,24 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                         .execute()
                     )
                 return self.format_result(
-                    data={"request_id": req_id, "type": approval_type, "amount": amount, "auto_approved": True},
+                    data={
+                        "request_id": req_id,
+                        "type": approval_type,
+                        "amount": amount,
+                        "auto_approved": True,
+                    },
                     summary=f"已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...），金额 ¥{amount} 在自动审批限额内，系统已自动批准",
                     actions=[
-                        {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
-                        {"label": "创建请假", "tool": "create_leave_request", "args": {}},
+                        {
+                            "label": "查看待审批",
+                            "tool": "get_pending_approvals",
+                            "args": {},
+                        },
+                        {
+                            "label": "创建请假",
+                            "tool": "create_leave_request",
+                            "args": {},
+                        },
                     ],
                 )
             else:
@@ -288,11 +322,25 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 }
                 level_label = level_names.get(approval_level, approval_level)
                 return self.format_result(
-                    data={"request_id": req_id, "type": approval_type, "amount": amount, "chain_name": chain_name, "approval_level": approval_level},
+                    data={
+                        "request_id": req_id,
+                        "type": approval_type,
+                        "amount": amount,
+                        "chain_name": chain_name,
+                        "approval_level": approval_level,
+                    },
                     summary=f"已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...），等待{level_label}审批",
                     actions=[
-                        {"label": "查看待审批", "tool": "get_pending_approvals", "args": {}},
-                        {"label": "创建报销", "tool": "create_expense_claim", "args": {}},
+                        {
+                            "label": "查看待审批",
+                            "tool": "get_pending_approvals",
+                            "args": {},
+                        },
+                        {
+                            "label": "创建报销",
+                            "tool": "create_expense_claim",
+                            "args": {},
+                        },
                     ],
                 )
 

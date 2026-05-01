@@ -140,7 +140,9 @@ class WebFetchTool(BaseTool):
         if not url:
             return self.format_result(data={}, summary="请提供要抓取的 URL。")
         if not url.startswith(("http://", "https://")):
-            return self.format_result(data={}, summary="URL 必须以 http:// 或 https:// 开头。")
+            return self.format_result(
+                data={}, summary="URL 必须以 http:// 或 https:// 开头。"
+            )
 
         try:
             max_length = max(100, min(int(max_length), 10000))
@@ -149,7 +151,9 @@ class WebFetchTool(BaseTool):
 
         # --- 安全检查 ---
         if _is_private_url(url):
-            return self.format_result(data={}, summary="出于安全限制，不允许访问内网地址。")
+            return self.format_result(
+                data={}, summary="出于安全限制，不允许访问内网地址。"
+            )
 
         # --- 抓取 ---
         try:

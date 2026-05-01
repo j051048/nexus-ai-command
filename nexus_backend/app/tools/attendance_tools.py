@@ -70,11 +70,15 @@ class ClockInOutTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         clock_type = args.get("clock_type", "").strip()
         if not clock_type:
-            return self.format_result(data=None, summary="请指定打卡类型（clock_in/clock_out/field_work）")
+            return self.format_result(
+                data=None, summary="请指定打卡类型（clock_in/clock_out/field_work）"
+            )
 
         # 直接使用 user_id 作为 employee_id（users 表的 id 即用户ID）
         employee_id = user_id
@@ -95,7 +99,7 @@ class ClockInOutTool(BaseTool):
                 "field_work": "外勤打卡",
             }
             ctype = type_labels.get(clock_type, clock_type)
-            time_str = str(record.get('clock_time', ''))[:19]
+            time_str = str(record.get("clock_time", ""))[:19]
 
             return self.format_result(
                 data={"type": ctype, "clock_time": time_str, "id": record["id"]},
@@ -153,7 +157,9 @@ class GetAttendanceRecordTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         if args.get("employee_id") and (
             err := _validate_uuid(args["employee_id"], "employee_id")
@@ -187,11 +193,13 @@ class GetAttendanceRecordTool(BaseTool):
                 ctype = type_labels.get(
                     r.get("clock_type", ""), r.get("clock_type", "")
                 )
-                items.append({
-                    "clock_time": str(r.get('clock_time', ''))[:16],
-                    "type": ctype,
-                    "status": r.get('status', '正常'),
-                })
+                items.append(
+                    {
+                        "clock_time": str(r.get("clock_time", ""))[:16],
+                        "type": ctype,
+                        "status": r.get("status", "正常"),
+                    }
+                )
 
             return self.format_result(
                 data={"records": items, "total": len(records)},
@@ -201,7 +209,9 @@ class GetAttendanceRecordTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询考勤记录失败: {e}")
-            return self.format_result(data=None, summary=safe_tool_error(e, "查询考勤记录"))
+            return self.format_result(
+                data=None, summary=safe_tool_error(e, "查询考勤记录")
+            )
 
 
 class CreateShiftScheduleTool(BaseTool):
@@ -252,14 +262,18 @@ class CreateShiftScheduleTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         employee_id = args.get("employee_id", "").strip()
         shift_date = args.get("shift_date", "").strip()
         shift_type_id = args.get("shift_type_id", "").strip()
 
         if not employee_id or not shift_date or not shift_type_id:
-            return self.format_result(data=None, summary="员工ID、排班日期和班次类型不能为空")
+            return self.format_result(
+                data=None, summary="员工ID、排班日期和班次类型不能为空"
+            )
 
         if err := _validate_uuid(employee_id, "employee_id"):
             return self.format_result(data=None, summary=f"参数错误: {err}")
@@ -276,7 +290,11 @@ class CreateShiftScheduleTool(BaseTool):
             )
 
             return self.format_result(
-                data={"employee_id": employee_id, "shift_date": shift_date, "id": schedule["id"]},
+                data={
+                    "employee_id": employee_id,
+                    "shift_date": shift_date,
+                    "id": schedule["id"],
+                },
                 summary="排班创建成功",
                 actions=[{"label": "查看排班表", "tool": "list_shift_schedules"}],
             )
@@ -331,7 +349,9 @@ class ListShiftSchedulesTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         if args.get("department_id") and (
             err := _validate_uuid(args["department_id"], "department_id")
@@ -361,12 +381,18 @@ class ListShiftSchedulesTool(BaseTool):
                     if s.get("employee")
                     else "未知"
                 )
-                shift_name = s.get('shift_type', {}).get('name', '未知') if s.get('shift_type') else '未知'
-                items.append({
-                    "shift_date": s.get("shift_date"),
-                    "employee_name": employee_name,
-                    "shift_type": shift_name,
-                })
+                shift_name = (
+                    s.get("shift_type", {}).get("name", "未知")
+                    if s.get("shift_type")
+                    else "未知"
+                )
+                items.append(
+                    {
+                        "shift_date": s.get("shift_date"),
+                        "employee_name": employee_name,
+                        "shift_type": shift_name,
+                    }
+                )
 
             return self.format_result(
                 data={"schedules": items, "total": len(schedules)},
@@ -376,7 +402,9 @@ class ListShiftSchedulesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询排班表失败: {e}")
-            return self.format_result(data=None, summary=safe_tool_error(e, "查询排班表"))
+            return self.format_result(
+                data=None, summary=safe_tool_error(e, "查询排班表")
+            )
 
 
 class AttendanceStatisticsTool(BaseTool):
@@ -424,7 +452,9 @@ class AttendanceStatisticsTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         if args.get("department_id") and (
             err := _validate_uuid(args["department_id"], "department_id")
@@ -454,7 +484,9 @@ class AttendanceStatisticsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取考勤统计失败: {e}")
-            return self.format_result(data=None, summary=safe_tool_error(e, "获取考勤统计"))
+            return self.format_result(
+                data=None, summary=safe_tool_error(e, "获取考勤统计")
+            )
 
 
 class RequestLeaveTool(BaseTool):
@@ -520,14 +552,18 @@ class RequestLeaveTool(BaseTool):
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
-            return self.format_result(data=None, summary="无法获取组织信息，请确保已正确登录")
+            return self.format_result(
+                data=None, summary="无法获取组织信息，请确保已正确登录"
+            )
 
         leave_type = args.get("leave_type", "").strip()
         start_date = args.get("start_date", "").strip()
         end_date = args.get("end_date", "").strip()
 
         if not leave_type or not start_date or not end_date:
-            return self.format_result(data=None, summary="请假类型、开始日期和结束日期不能为空")
+            return self.format_result(
+                data=None, summary="请假类型、开始日期和结束日期不能为空"
+            )
 
         # 直接使用 user_id 作为 employee_id（users 表的 id 即用户ID）
         employee_id = user_id

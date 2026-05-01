@@ -340,7 +340,11 @@ async def check_data_consistency():
                     if existing.data:
                         continue
                 except Exception as e:
-                    logger.debug("[SystemTasks] Dedup check failed for admin %s: %s", admin.get("id"), e)
+                    logger.debug(
+                        "[SystemTasks] Dedup check failed for admin %s: %s",
+                        admin.get("id"),
+                        e,
+                    )
 
                 await _send_system_notification(
                     user_id=admin["id"],
@@ -419,7 +423,9 @@ async def check_pending_approvals():
             )
             org_admins[org_id] = [a["id"] for a in (admin_res.data or [])]
         except Exception as e:
-            logger.debug("[SystemTasks] Failed to fetch admins for org %s: %s", org_id, e)
+            logger.debug(
+                "[SystemTasks] Failed to fetch admins for org %s: %s", org_id, e
+            )
 
     notified = 0
     for approval in approvals:

@@ -118,9 +118,7 @@ def _filter_think_content(content: str) -> str:
 _agent_graph = get_agent_graph()
 
 
-async def run_agent_stream(
-    **kwargs
-) -> AsyncGenerator[str, None]:
+async def run_agent_stream(**kwargs) -> AsyncGenerator[str, None]:
     """
     Wrapper for _run_agent_stream_impl that yields a status immediately
     and catches all errors to prevent StreamingResponse failures.
@@ -141,7 +139,9 @@ async def run_agent_stream(
 
     try:
         async for chunk in _run_agent_stream_impl(**{**kwargs, "_trace_id": _trace_id}):
-            _buffered_bytes += len(chunk.encode("utf-8")) if isinstance(chunk, str) else len(chunk)
+            _buffered_bytes += (
+                len(chunk.encode("utf-8")) if isinstance(chunk, str) else len(chunk)
+            )
             if _buffered_bytes > _MAX_BUFFER_BYTES:
                 logger.warning(
                     "[Stream] Backpressure limit hit (%d bytes buffered), aborting stream "
@@ -158,7 +158,9 @@ async def run_agent_stream(
         return
     except Exception as e:
         logger.error(f"[Stream] Global agent failure: {e}", exc_info=True)
-        async for evt in _emit_error_and_cleanup(all_thinking_steps, tracer, _trace_id, e):
+        async for evt in _emit_error_and_cleanup(
+            all_thinking_steps, tracer, _trace_id, e
+        ):
             yield evt
 
 
@@ -310,7 +312,9 @@ async def _run_agent_stream_impl(
 
         _trimmed_caps = get_capabilities_for_role(user_role)
         if _trimmed_caps != ENTERPRISE_CAPABILITIES:
-            system_prompt = system_prompt.replace(ENTERPRISE_CAPABILITIES, _trimmed_caps)
+            system_prompt = system_prompt.replace(
+                ENTERPRISE_CAPABILITIES, _trimmed_caps
+            )
             logger.debug(f"[Stream] Trimmed capabilities for role={user_role}")
     except Exception:
         pass
@@ -427,15 +431,41 @@ async def _run_agent_stream_impl(
     # ── P0 #10: On-demand GenUI protocol injection ──
     # Only inject the ~1,800 token GenUI prompt when intent suggests UI output
     _GENUI_INTENT_KEYWORDS = (
-        "数据", "报表", "图表", "分析", "对比", "排名", "审批", "日报", "周报",
-        "写邮件", "待办", "日程", "看板", "漏斗", "进度", "热力", "甘特",
-        "表格", "统计", "趋势", "同比", "环比", "占比", "分布",
-        "report", "chart", "dashboard", "compare", "status",
+        "数据",
+        "报表",
+        "图表",
+        "分析",
+        "对比",
+        "排名",
+        "审批",
+        "日报",
+        "周报",
+        "写邮件",
+        "待办",
+        "日程",
+        "看板",
+        "漏斗",
+        "进度",
+        "热力",
+        "甘特",
+        "表格",
+        "统计",
+        "趋势",
+        "同比",
+        "环比",
+        "占比",
+        "分布",
+        "report",
+        "chart",
+        "dashboard",
+        "compare",
+        "status",
     )
     if last_user_content and not _is_simple:
         _need_genui = any(kw in last_user_content for kw in _GENUI_INTENT_KEYWORDS)
         if _need_genui:
             from app.core.prompts_registry import GEN_UI_PROTOCOL
+
             system_prompt += "\n" + GEN_UI_PROTOCOL
             logger.debug("[Stream] GenUI protocol injected (intent match)")
 

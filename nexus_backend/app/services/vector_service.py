@@ -25,6 +25,7 @@ _UUID_RE = re.compile(
 def _valid_uuid(val: str | None) -> bool:
     return bool(val and _UUID_RE.match(val))
 
+
 # P1: Embedding Model Versioning — Track model changes to detect stale embeddings
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_MODEL_VERSION = "2026-03"
@@ -331,9 +332,7 @@ class VectorService:
         # Resolve embedding model dynamically via gateway
         embedding_model = EMBEDDING_MODEL
         try:
-            gw_api_key, gw_base_url, gw_model = await self._get_embedding_config(
-                org_id
-            )
+            gw_api_key, gw_base_url, gw_model = await self._get_embedding_config(org_id)
             if gw_model:
                 embedding_model = gw_model
             if gw_api_key:

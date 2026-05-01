@@ -107,7 +107,9 @@ class SmartReportTool(BaseTool):
                 emp_result = await emp_query.execute()
                 emp_count = emp_result.count or 0
             except Exception as e:
-                logger.debug("SmartReport: employees table query failed (graceful): %s", e)
+                logger.debug(
+                    "SmartReport: employees table query failed (graceful): %s", e
+                )
             if emp_count == 0:
                 try:
                     uq = (
@@ -167,7 +169,9 @@ class SmartReportTool(BaseTool):
                     if w.get("status") in ("done", "closed", "completed")
                 )
             except Exception as e:
-                logger.debug("SmartReport: work_orders table query failed (graceful): %s", e)
+                logger.debug(
+                    "SmartReport: work_orders table query failed (graceful): %s", e
+                )
 
             # 4. 考勤统计（attendance_records 表存在）
             att_total = 0
@@ -188,7 +192,9 @@ class SmartReportTool(BaseTool):
                     1 for a in (att_result.data or []) if a.get("status") == "late"
                 )
             except Exception as e:
-                logger.debug("SmartReport: attendance_records query failed (graceful): %s", e)
+                logger.debug(
+                    "SmartReport: attendance_records query failed (graceful): %s", e
+                )
 
             dept_note = (
                 f"（部门: {department_id[:8]}...）" if department_id else "（全组织）"
@@ -296,7 +302,9 @@ class AnomalyDetectionTool(BaseTool):
                                 f"⏰ **考勤预警**: 本周共 {len(late_records)} 次迟到记录，建议关注"
                             )
                 except Exception as e:
-                    logger.debug("AnomalyDetection: attendance query failed (graceful): %s", e)
+                    logger.debug(
+                        "AnomalyDetection: attendance query failed (graceful): %s", e
+                    )
 
             # 报销异常检测（expense_claims 表可能不存在）
             if scope in ("expense", "all"):
@@ -324,7 +332,10 @@ class AnomalyDetectionTool(BaseTool):
                                     f"(平均: ¥{avg_amount:,.0f})"
                                 )
                 except Exception as e:
-                    logger.debug("AnomalyDetection: expense_claims query failed (graceful): %s", e)
+                    logger.debug(
+                        "AnomalyDetection: expense_claims query failed (graceful): %s",
+                        e,
+                    )
 
             # 库存异常检测
             if scope in ("inventory", "all"):
@@ -351,7 +362,9 @@ class AnomalyDetectionTool(BaseTool):
                             f"📦 **库存预警**: {len(low_stock)} 项物资低于安全库存 ({names})"
                         )
                 except Exception as e:
-                    logger.debug("AnomalyDetection: inventory query failed (graceful): %s", e)
+                    logger.debug(
+                        "AnomalyDetection: inventory query failed (graceful): %s", e
+                    )
 
             if not alerts:
                 scope_labels = {
@@ -360,7 +373,10 @@ class AnomalyDetectionTool(BaseTool):
                     "inventory": "库存",
                     "all": "全部",
                 }
-                return self.format_result(data={}, summary=f"{scope_labels.get(scope, scope)}范围未检测到明显异常。")
+                return self.format_result(
+                    data={},
+                    summary=f"{scope_labels.get(scope, scope)}范围未检测到明显异常。",
+                )
 
             return "🔍 **异常检测报告**\n\n" + "\n\n".join(alerts)
 
@@ -420,7 +436,9 @@ class PredictiveMaintenanceTool(BaseTool):
             assets = asset_result.data or []
 
             if not assets:
-                return self.format_result(data={}, summary="当前没有使用中的资产需要维护检查。")
+                return self.format_result(
+                    data={}, summary="当前没有使用中的资产需要维护检查。"
+                )
 
             now = datetime.now(UTC)
             suggestions: list[str] = []
@@ -481,7 +499,9 @@ class PredictiveMaintenanceTool(BaseTool):
 
             if not suggestions:
                 type_note = f"（类型: {asset_type}）" if asset_type else ""
-                return self.format_result(data={}, summary=f"所有使用中的资产{type_note}暂无维护需求。")
+                return self.format_result(
+                    data={}, summary=f"所有使用中的资产{type_note}暂无维护需求。"
+                )
 
             return (
                 f"🔧 **维护预测报告**\n以下 {len(suggestions)} 项资产建议安排维护:\n\n"
@@ -563,7 +583,9 @@ class AutoDispatchTool(BaseTool):
                 emp_result = await emp_query.execute()
                 employees = emp_result.data or []
             except Exception as e:
-                logger.debug("AutoDispatch: employees table query failed (graceful): %s", e)
+                logger.debug(
+                    "AutoDispatch: employees table query failed (graceful): %s", e
+                )
             if not employees:
                 try:
                     uq = (
@@ -821,7 +843,9 @@ class OnboardingAssistantTool(BaseTool):
                 )
                 employee = emp_result.data
             except Exception as e:
-                logger.debug("Onboarding: employees table query failed (graceful): %s", e)
+                logger.debug(
+                    "Onboarding: employees table query failed (graceful): %s", e
+                )
             if not employee:
                 try:
                     emp_result = (

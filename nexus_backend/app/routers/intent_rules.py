@@ -105,7 +105,9 @@ async def create_intent_rule(
             .execute()
         )
         if existing.data:
-            return api_error(ErrorCode.RESOURCE_CONFLICT, f"关键词「{body.keyword}」已存在")
+            return api_error(
+                ErrorCode.RESOURCE_CONFLICT, f"关键词「{body.keyword}」已存在"
+            )
 
         result = (
             await db.table("intent_rules")
@@ -123,7 +125,9 @@ async def create_intent_rule(
         # 热重载规则
         await _trigger_reload()
 
-        return api_success(data=result.data[0] if result.data else None, message="规则创建成功")
+        return api_success(
+            data=result.data[0] if result.data else None, message="规则创建成功"
+        )
     except Exception as e:
         logger.error(f"Create intent rule error: {e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -175,12 +179,7 @@ async def delete_intent_rule(
 
         db = getattr(request.state, "db", None) or supabase
 
-        (
-            await db.table("intent_rules")
-            .delete()
-            .eq("id", rule_id)
-            .execute()
-        )
+        (await db.table("intent_rules").delete().eq("id", rule_id).execute())
 
         await _trigger_reload()
         return api_success(data=None, message="规则已删除")

@@ -216,7 +216,9 @@ class SemanticCacheService:
                     cached_val = await r.get(_redis_cache_key(query_hash, user_id))
                     if cached_val:
                         if self._is_stale_response(cached_val):
-                            logger.info("[Cache] Skipping stale intermediate state from Redis")
+                            logger.info(
+                                "[Cache] Skipping stale intermediate state from Redis"
+                            )
                         else:
                             logger.info(
                                 f"Semantic Cache Redis-Hit: query='{query[:30]}...'"
@@ -242,7 +244,9 @@ class SemanticCacheService:
             if hash_res and hash_res.data:
                 resp_text = hash_res.data["response_text"]
                 if self._is_stale_response(resp_text):
-                    logger.info("[Cache] Skipping stale intermediate state from DB hash")
+                    logger.info(
+                        "[Cache] Skipping stale intermediate state from DB hash"
+                    )
                 else:
                     logger.info(f"Semantic Cache Hash-Hit: query='{query[:30]}...'")
                     import asyncio
@@ -283,7 +287,9 @@ class SemanticCacheService:
                 match = res.data[0]
                 resp_text = match["response_text"]
                 if self._is_stale_response(resp_text):
-                    logger.info("[Cache] Skipping stale intermediate state from semantic match")
+                    logger.info(
+                        "[Cache] Skipping stale intermediate state from semantic match"
+                    )
                 else:
                     logger.info(
                         f"Semantic Cache Hit: query='{query[:30]}...', similarity={match['similarity']:.4f}"
@@ -621,9 +627,13 @@ class SemanticCacheService:
             except Exception as e:
                 logger.debug(f"[SemanticCache] Warmup skip '{query}': {e}")
         org_label = (org_id[:8] + "...") if org_id else "global"
-        logger.info(f"[SemanticCache] Warmed {warmed}/{len(self._COMMON_QUERY_TEMPLATES)} common queries for org={org_label}")
+        logger.info(
+            f"[SemanticCache] Warmed {warmed}/{len(self._COMMON_QUERY_TEMPLATES)} common queries for org={org_label}"
+        )
 
-    async def auto_warmup_from_history(self, org_id: str | None = None, min_hits: int = 3):
+    async def auto_warmup_from_history(
+        self, org_id: str | None = None, min_hits: int = 3
+    ):
         """Auto-warm cache from historically popular queries.
 
         Queries with hit_count >= min_hits are considered popular and worth pre-warming.
@@ -632,9 +642,14 @@ class SemanticCacheService:
             return
 
         try:
-            result = await supabase.table("semantic_cache").select(
-                "query_text"
-            ).gte("hit_count", min_hits).eq("org_id", org_id).limit(20).execute()
+            result = (
+                await supabase.table("semantic_cache")
+                .select("query_text")
+                .gte("hit_count", min_hits)
+                .eq("org_id", org_id)
+                .limit(20)
+                .execute()
+            )
 
             if not result.data:
                 return
@@ -648,7 +663,9 @@ class SemanticCacheService:
                     embedding = await self._get_embedding(query)
                     if embedding and self.redis:
                         cache_key = self._make_cache_key(query, org_id)
-                        await self.redis.set(f"emb:{cache_key}", str(embedding), ex=86400)
+                        await self.redis.set(
+                            f"emb:{cache_key}", str(embedding), ex=86400
+                        )
                         warmed += 1
                 except Exception:
                     pass

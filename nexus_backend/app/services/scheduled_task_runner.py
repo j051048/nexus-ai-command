@@ -78,7 +78,9 @@ class ScheduledTaskRunner:
                         msg[:120],
                     )
                 else:
-                    logger.error("[ScheduledTaskRunner] Loop error: %s", e, exc_info=True)
+                    logger.error(
+                        "[ScheduledTaskRunner] Loop error: %s", e, exc_info=True
+                    )
 
             # Exponential backoff on consecutive failures (cap at 5 min)
             backoff = min(self._check_interval * (2 ** min(consecutive_errors, 3)), 300)

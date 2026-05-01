@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/hr", tags=["HR"])
 
 # ─── Pydantic 请求模型 ────────────────────────────────────────
 
+
 class EmployeeCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="员工姓名")
     email: str | None = Field(None, max_length=200, description="邮箱")
@@ -176,6 +177,7 @@ async def list_candidates(
 
 # ─── 写操作端点 ────────────────────────────────────────────────
 
+
 @router.post("/employees")
 async def create_employee(
     req: Request,
@@ -242,7 +244,10 @@ async def update_employee(
 
     try:
         # 构建更新数据，仅包含非空字段
-        update_data = {"updated_by": user_id, "updated_at": datetime.utcnow().isoformat()}
+        update_data = {
+            "updated_by": user_id,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
         if body.name is not None:
             update_data["name"] = body.name
         if body.email is not None:

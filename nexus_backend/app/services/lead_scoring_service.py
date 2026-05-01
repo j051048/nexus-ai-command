@@ -97,7 +97,9 @@ def score_lead(lead: dict) -> dict:
     stage_w = STAGE_WEIGHTS.get(stage, 10)
     completeness = _completeness_score(lead)
 
-    score = round(recency * 0.3 + engagement * 0.3 + stage_w * 0.25 + completeness * 0.15, 1)
+    score = round(
+        recency * 0.3 + engagement * 0.3 + stage_w * 0.25 + completeness * 0.15, 1
+    )
 
     # Win probability: base from stage, adjusted by score
     base_prob = STAGE_WIN_PROBABILITY.get(stage, 0.05)
@@ -116,7 +118,12 @@ def score_lead(lead: dict) -> dict:
 
 async def score_all_leads(db, org_id: str) -> dict:
     """Score all leads for an organization. Returns summary stats."""
-    result = await db.table("sales_leads").select("*").eq("organization_id", org_id).execute()
+    result = (
+        await db.table("sales_leads")
+        .select("*")
+        .eq("organization_id", org_id)
+        .execute()
+    )
     leads = result.data or []
 
     if not leads:

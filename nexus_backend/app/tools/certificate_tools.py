@@ -301,7 +301,9 @@ class ExpiringCertsTool(BaseTool):
             )
 
             if not certs:
-                return self.format_result(data={}, summary=f"未来 {days} 天内没有即将到期的证照。")
+                return self.format_result(
+                    data={}, summary=f"未来 {days} 天内没有即将到期的证照。"
+                )
 
             holder_labels = {
                 "company": "公司",

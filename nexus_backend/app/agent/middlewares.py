@@ -35,7 +35,9 @@ async def tenant_context_middleware(state: AgentState) -> dict[str, Any]:
     if not state.get("_tenant_context_injected"):
         org_id = config.org_id
         if not org_id:
-            logger.warning("[Middleware] org_id is None, skipping tenant context injection")
+            logger.warning(
+                "[Middleware] org_id is None, skipping tenant context injection"
+            )
             return {"_tenant_context_injected": True}
         logger.debug(f"[Middleware] Injecting tenant context: org_id={org_id}")
         return {

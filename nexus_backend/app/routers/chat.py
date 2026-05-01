@@ -38,6 +38,7 @@ async def _keepalive_wrap(inner, interval: float = 15.0):
     """P0-8: 通用 SSE 心跳包装器。每 interval 秒无事件则发送一个 comment,
     防止 Nginx 60s / Vercel 25s 空闲断连。"""
     import asyncio as _asyncio
+
     aiter = inner.__aiter__()
     fetch = None
     try:
@@ -110,7 +111,10 @@ async def chat(
                     media_type="text/event-stream; charset=utf-8",
                 )
             # P0: Use sanitized input to strip invisible chars / encoded payloads
-            if fw_result.sanitized_input and fw_result.sanitized_input != last_msg.content:
+            if (
+                fw_result.sanitized_input
+                and fw_result.sanitized_input != last_msg.content
+            ):
                 last_msg.content = fw_result.sanitized_input
 
     # 2b. Content Moderation (existing)
@@ -276,7 +280,9 @@ async def chat(
     # P1-5: Check per-user SSE concurrency limit
     async with _sse_lock:
         if _sse_connections[user_id] >= MAX_SSE_PER_USER:
-            logger.warning(f"[Chat] SSE limit reached for user={user_id} ({_sse_connections[user_id]}/{MAX_SSE_PER_USER})")
+            logger.warning(
+                f"[Chat] SSE limit reached for user={user_id} ({_sse_connections[user_id]}/{MAX_SSE_PER_USER})"
+            )
             return StreamingResponse(
                 _error_stream("⚠️ 并发对话数已达上限，请关闭其他对话后重试"),
                 media_type="text/event-stream; charset=utf-8",

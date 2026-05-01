@@ -612,7 +612,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                             },
                         )
             except Exception as e:
-                logger.warning("[RateLimiter] Tiered limit check failed (best-effort): %s", e)
+                logger.warning(
+                    "[RateLimiter] Tiered limit check failed (best-effort): %s", e
+                )
 
         # #37: 添加标准限速响应头
         best_meta = user_meta if user_id else ip_meta

@@ -444,7 +444,9 @@ class CalendarUpdateTool(BaseTool):
             )
             if not cancel_res.data:
                 return "❌ 取消日程失败，请稍后重试。"
-            return self.format_result(data={}, summary=f"已取消日程: **{event['title']}**")
+            return self.format_result(
+                data={}, summary=f"已取消日程: **{event['title']}**"
+            )
 
         # action == "update"
         update_data: dict[str, Any] = {"updated_at": datetime.now(CN_TZ).isoformat()}
@@ -508,4 +510,7 @@ class CalendarUpdateTool(BaseTool):
         if args.get("new_end_time"):
             changes.append(f"结束时间 → {args['new_end_time']}")
 
-        return self.format_result(data={}, summary=f"已更新日程 **{event['title']}**\n修改: {'; '.join(changes)}{conflict_warning}")
+        return self.format_result(
+            data={},
+            summary=f"已更新日程 **{event['title']}**\n修改: {'; '.join(changes)}{conflict_warning}",
+        )

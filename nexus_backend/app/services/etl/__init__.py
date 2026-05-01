@@ -280,7 +280,9 @@ class ETLService:
         organization_id: str = None,
     ) -> dict:
         """Main ETL pipeline: parse -> extract metadata -> generate embeddings."""
-        logger.info(f"[ETL] Pipeline start: doc={doc_id} file={filename} size={len(content)}")
+        logger.info(
+            f"[ETL] Pipeline start: doc={doc_id} file={filename} size={len(content)}"
+        )
         await self._update_progress(doc_id, 10, "parsing")
 
         raw_url = (
@@ -322,7 +324,9 @@ class ETLService:
             success, details = await self.extract_metadata_via_ai(
                 text, filename, active_key, active_url
             )
-            logger.info(f"[ETL] AI analysis done: doc={doc_id} success={success} doc_type={details.get('doc_type', '?')}")
+            logger.info(
+                f"[ETL] AI analysis done: doc={doc_id} success={success} doc_type={details.get('doc_type', '?')}"
+            )
             await self._update_progress(doc_id, 70, "embedding")
 
             if success:
@@ -368,7 +372,9 @@ class ETLService:
                         await self._update_progress(
                             doc_id, 100, "completed", status="ready"
                         )
-                        logger.info(f"[ETL] Pipeline complete: doc={doc_id} file={filename}")
+                        logger.info(
+                            f"[ETL] Pipeline complete: doc={doc_id} file={filename}"
+                        )
                         return {
                             "filename": filename,
                             "status": "success",
@@ -522,7 +528,9 @@ class ETLService:
                         return False, None
                     return True, response.json()
             except httpx.TimeoutException:
-                logger.warning(f"Model {model_name} timed out (180s) for file: {filename}")
+                logger.warning(
+                    f"Model {model_name} timed out (180s) for file: {filename}"
+                )
                 return False, None
             except Exception as e:
                 logger.warning(f"Model {model_name} processing error: {str(e)}")

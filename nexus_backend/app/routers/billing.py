@@ -157,10 +157,7 @@ async def get_usage(
 
         # Read credits
         credit_res = (
-            await db.table("tenant_credits")
-            .select("*")
-            .eq("org_id", org_id)
-            .execute()
+            await db.table("tenant_credits").select("*").eq("org_id", org_id).execute()
         )
         credits = (credit_res.data if credit_res else None) or []
 

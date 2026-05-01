@@ -269,7 +269,9 @@ class GenerateFaqResponseTool(BaseTool):
 
         try:
             result = await AIService.call_llm(prompt, system)
-            return self.format_result(data={}, summary=f"**FAQ智能回复**\n\n**问题：** {question}\n\n{result}")
+            return self.format_result(
+                data={}, summary=f"**FAQ智能回复**\n\n**问题：** {question}\n\n{result}"
+            )
         except Exception as e:
             logger.error(f"Failed to generate FAQ response: {e}")
             return safe_tool_error(e, "生成FAQ回复")

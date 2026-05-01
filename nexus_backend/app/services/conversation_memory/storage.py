@@ -74,7 +74,14 @@ async def save_memory(
     if not org_id:
         try:
             from app.core.database import supabase as _supabase
-            org_resp = await _supabase.table("organization_members").select("organization_id").eq("user_id", user_id).maybe_single().execute()
+
+            org_resp = (
+                await _supabase.table("organization_members")
+                .select("organization_id")
+                .eq("user_id", user_id)
+                .maybe_single()
+                .execute()
+            )
             if org_resp and org_resp.data:
                 org_id = org_resp.data["organization_id"]
         except Exception:
