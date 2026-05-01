@@ -189,13 +189,13 @@ jobs:
             echo "## Backend Test Coverage: ${TOTAL}%" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            # Blocking threshold at 10% (relaxed to match current coverage)
-            if (( $(echo "$TOTAL < 10" | bc -l) )); then
-              echo "::error::Backend test coverage is ${TOTAL}%, below 10% threshold."
-              echo "Coverage is below 10% target. Please improve test coverage." >> $GITHUB_STEP_SUMMARY
+            # Blocking threshold at 30% (Phase 1 baseline)
+            if (( $(echo "$TOTAL < 30" | bc -l) )); then
+              echo "::error::Backend test coverage is ${TOTAL}%, below 30% threshold."
+              echo "Coverage is below 30% target. Please improve test coverage." >> $GITHUB_STEP_SUMMARY
               exit 1
             else
-              echo "Coverage meets the 10% minimum threshold." >> $GITHUB_STEP_SUMMARY
+              echo "Coverage meets the 30% minimum threshold." >> $GITHUB_STEP_SUMMARY
             fi
           else
             echo "::warning::Coverage report not generated"
