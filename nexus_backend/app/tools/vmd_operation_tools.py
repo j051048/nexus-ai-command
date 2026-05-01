@@ -157,7 +157,13 @@ class GenerateMaintenanceReminderTool(BaseTool):
             )
             target = f" — {customer_name}" if customer_name else ""
             summary = f"🔧 **设备维护提醒{target} — {product_name}**\n\n{result}"
-            return self.format_result(data={"product_name": product_name, "maintenance_type": maintenance_type}, summary=summary)
+            return self.format_result(
+                data={
+                    "product_name": product_name,
+                    "maintenance_type": maintenance_type,
+                },
+                summary=summary,
+            )
         except Exception as e:
             logger.error(f"Failed to generate maintenance reminder: {e}")
             return safe_tool_error(e, "生成维护保养提醒")
@@ -292,7 +298,7 @@ class GenerateFaqResponseTool(BaseTool):
             )
             return self.format_result(
                 data={"question": question, "product_name": product_name},
-                summary=f"**FAQ智能回复**\n\n**问题：** {question}\n\n{result}"
+                summary=f"**FAQ智能回复**\n\n**问题：** {question}\n\n{result}",
             )
         except Exception as e:
             logger.error(f"Failed to generate FAQ response: {e}")
@@ -454,8 +460,11 @@ class GenerateRepurchaseCampaignTool(BaseTool):
             )
             summary = f"🎯 **{type_labels.get(campaign_type, '复购')}营销方案 — {customer_segment}**\n\n{result}"
             return self.format_result(
-                data={"customer_segment": customer_segment, "campaign_type": campaign_type},
-                summary=summary
+                data={
+                    "customer_segment": customer_segment,
+                    "campaign_type": campaign_type,
+                },
+                summary=summary,
             )
         except Exception as e:
             logger.error(f"Failed to generate repurchase campaign: {e}")
@@ -695,8 +704,12 @@ class CustomerLifecycleAnalysisTool(BaseTool):
             scope = f"客户 {customer_id}" if customer_id else "全部客户"
             summary = f"📈 **客户生命周期分析 — {scope}**\n\n{result}"
             return self.format_result(
-                data={"customer_id": customer_id, "time_range": time_range, "analysis_focus": analysis_focus},
-                summary=summary
+                data={
+                    "customer_id": customer_id,
+                    "time_range": time_range,
+                    "analysis_focus": analysis_focus,
+                },
+                summary=summary,
             )
         except Exception as e:
             logger.error(f"Failed to generate customer lifecycle analysis: {e}")

@@ -164,7 +164,9 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
         res = await query.execute()
 
         for row in res.data or []:
-            usage["tokens"] += row.get("total_input_tokens", 0) + row.get("total_output_tokens", 0)
+            usage["tokens"] += row.get("total_input_tokens", 0) + row.get(
+                "total_output_tokens", 0
+            )
             usage["cost"] += float(row.get("total_cost", 0.0))
             usage["requests"] += row.get("total_calls", 0)
 
@@ -333,7 +335,7 @@ async def record_usage(
             u_key = _usage_key(tenant_id, scope_model, period)
             if u_key not in _usage_cache:
                 _usage_cache[u_key] = {"tokens": 0, "cost": 0.0, "requests": 0}
-            _usage_cache[u_key]["tokens"] += (input_tokens + output_tokens)
+            _usage_cache[u_key]["tokens"] += input_tokens + output_tokens
             _usage_cache[u_key]["cost"] += cost
             _usage_cache[u_key]["requests"] += 1
 

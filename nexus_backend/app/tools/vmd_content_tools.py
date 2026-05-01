@@ -149,7 +149,9 @@ class GenerateProductManualTool(BaseTool):
                 config=config,
             )
             summary = f"📘 **{product_name} 产品手册框架**\n\n{result}"
-            return self.format_result(data={"product_name": product_name}, summary=summary)
+            return self.format_result(
+                data={"product_name": product_name}, summary=summary
+            )
         except Exception as e:
             logger.error(f"Failed to generate product manual: {e}")
             return safe_tool_error(e, "生成产品手册")
@@ -281,7 +283,9 @@ class GenerateWhitepaperTool(BaseTool):
                 config=config,
             )
             summary = f"📄 **技术白皮书 — {topic}**\n\n{result}"
-            return self.format_result(data={"topic": topic, "industry": industry}, summary=summary)
+            return self.format_result(
+                data={"topic": topic, "industry": industry}, summary=summary
+            )
         except Exception as e:
             logger.error(f"Failed to generate whitepaper: {e}")
             return safe_tool_error(e, "生成白皮书")
@@ -401,7 +405,10 @@ class GenerateApplicationNoteTool(BaseTool):
                 config=config,
             )
             summary = f"🔬 **应用方案 — {application}**\n\n{result}"
-            return self.format_result(data={"application": application, "instrument": instrument}, summary=summary)
+            return self.format_result(
+                data={"application": application, "instrument": instrument},
+                summary=summary,
+            )
         except Exception as e:
             logger.error(f"Failed to generate application note: {e}")
             return safe_tool_error(e, "生成应用方案")
@@ -558,7 +565,9 @@ class GenerateSocialPostTool(BaseTool):
                 "general": "通用",
             }.get(platform, "通用")
             summary = f"📱 **{platform_name}文案 — {topic}**\n\n{result}"
-            return self.format_result(data={"topic": topic, "platform": platform}, summary=summary)
+            return self.format_result(
+                data={"topic": topic, "platform": platform}, summary=summary
+            )
         except Exception as e:
             logger.error(f"Failed to generate social post: {e}")
             return safe_tool_error(e, "生成文案")

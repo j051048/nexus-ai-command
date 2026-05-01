@@ -201,8 +201,7 @@ class CreateEventTool(BaseTool):
 
             if result.data:
                 return self.format_result(
-                    data=result.data[0],
-                    summary=f"成功在项目中创建了事件: {title}。"
+                    data=result.data[0], summary=f"成功在项目中创建了事件: {title}。"
                 )
             return "创建失败，请核对项目 ID 是否正确。"
         except Exception as e:
@@ -319,14 +318,13 @@ class WeeklyReportTool(BaseTool):
                 org_id=org_id,
                 system_prompt=system,
                 messages=messages,
-                temperature=0.3
+                temperature=0.3,
             )
             report = response.content
 
             return self.format_result(
                 data={"report": report, "type": report_type},
-                summary=f"📝 AI 生成的{report_type_name}:\n\n{report}"
+                summary=f"📝 AI 生成的{report_type_name}:\n\n{report}",
             )
         except Exception as e:
             return safe_tool_error(e, f"{report_type_name}生成")
-
