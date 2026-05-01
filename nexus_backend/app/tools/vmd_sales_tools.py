@@ -1,17 +1,7 @@
-"""
-VMD 销售赋能工具集 (Virtual Marketing Department - Sales Enablement Tools)
-
-工作项 #30: 为销售团队提供话术、竞品分析、培训和报价支持
-- 销售话术生成
-- 竞品对比分析
-- 培训材料生成
-- 报价单模板生成
-"""
-
 import logging
 from typing import Any
 
-from app.services.ai_service import AIService
+from app.services.llm_gateway import llm_gateway
 from app.services.vector_service import vector_service
 from app.tools._shared import safe_tool_error
 from app.tools.web_search_helper import search_web
@@ -98,6 +88,7 @@ class GenerateSalesScriptTool(BaseTool):
         scenario = args.get("scenario", "cold_call")
         customer_type = args.get("customer_type", "")
         competitor = args.get("competitor", "")
+        org_id = config.get("org_id") if config else None
 
         scenario_labels = {
             "cold_call": "陌生拜访",
@@ -110,7 +101,6 @@ class GenerateSalesScriptTool(BaseTool):
         # Search knowledge base for product info and competitive intelligence
         kb_context = ""
         try:
-            org_id = config.get("org_id") if config else None
             search_query = f"{product_name} 卖点 优势 {competitor}".strip()
             kb_result = await vector_service.search(
                 search_query,
@@ -148,8 +138,18 @@ class GenerateSalesScriptTool(BaseTool):
         )
 
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"🎯 **销售话术 — {product_name}（{scenario_labels.get(scenario, '')}）**\n\n{result}"
+            result = await llm_gateway.chat(
+                scene_code="vmd_content",
+                agent_code="sales_coach",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return self.format_result(
+                data={"script": result},
+                summary=f"🎯 **销售话术 — {product_name}（{scenario_labels.get(scenario, '')}）**\n\n{result}",
+            )
         except Exception as e:
             logger.error(f"Failed to generate sales script: {e}")
             return safe_tool_error(e, "生成销售话术")
@@ -215,11 +215,11 @@ class GenerateCompetitorComparisonTool(BaseTool):
             return "❌ 请提供我方产品名称和竞品名称。"
 
         comparison_focus = args.get("comparison_focus", "")
+        org_id = config.get("org_id") if config else None
 
         # Search knowledge base
         kb_context = ""
         try:
-            org_id = config.get("org_id") if config else None
             search_query = f"{our_product} {competitors} 参数 对比 优势"
             kb_result = await vector_service.search(
                 search_query,
@@ -269,8 +269,18 @@ class GenerateCompetitorComparisonTool(BaseTool):
         )
 
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"⚔️ **竞品对比分析 — {our_product} vs {competitors}**\n\n{result}"
+            result = await llm_gateway.chat(
+                scene_code="vmd_content",
+                agent_code="competitor_expert",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return self.format_result(
+                data={"comparison": result},
+                summary=f"⚔️ **竞品对比分析 — {our_product} vs {competitors}**\n\n{result}",
+            )
         except Exception as e:
             logger.error(f"Failed to generate competitor comparison: {e}")
             return safe_tool_error(e, "生成竞品对比分析")
@@ -339,6 +349,7 @@ class GenerateTrainingMaterialTool(BaseTool):
         audience = args.get("audience", "new_hire")
         duration = args.get("duration", "1小时")
         product_name = args.get("product_name", "")
+        org_id = config.get("org_id") if config else None
 
         audience_labels = {
             "new_hire": "新入职销售",
@@ -350,7 +361,6 @@ class GenerateTrainingMaterialTool(BaseTool):
         # Search knowledge base
         kb_context = ""
         try:
-            org_id = config.get("org_id") if config else None
             search_query = f"{topic} {product_name} 培训 知识点".strip()
             kb_result = await vector_service.search(
                 search_query,
@@ -388,8 +398,18 @@ class GenerateTrainingMaterialTool(BaseTool):
         )
 
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"📚 **培训课件 — {topic}**\n\n{result}"
+            result = await llm_gateway.chat(
+                scene_code="vmd_content",
+                agent_code="training_expert",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return self.format_result(
+                data={"training": result},
+                summary=f"📚 **培训课件 — {topic}**\n\n{result}",
+            )
         except Exception as e:
             logger.error(f"Failed to generate training material: {e}")
             return safe_tool_error(e, "生成培训材料")
@@ -460,11 +480,11 @@ class GenerateQuotationTemplateTool(BaseTool):
         customer_name = args.get("customer_name", "")
         include_service = args.get("include_service", True)
         discount_policy = args.get("discount_policy", "")
+        org_id = config.get("org_id") if config else None
 
         # Search knowledge base for product pricing
         kb_context = ""
         try:
-            org_id = config.get("org_id") if config else None
             kb_result = await vector_service.search(
                 f"{products} 价格 配置 报价",
                 user_id,
@@ -512,8 +532,17 @@ class GenerateQuotationTemplateTool(BaseTool):
         )
 
         try:
-            result = await AIService.call_llm(prompt, system)
-            return self.format_result(data={}, summary=f"**报价单模板**\n\n{result}")
+            result = await llm_gateway.chat(
+                scene_code="vmd_content",
+                agent_code="quotation_specialist",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return self.format_result(
+                data={"template": result}, summary=f"**报价单模板**\n\n{result}"
+            )
         except Exception as e:
             logger.error(f"Failed to generate quotation template: {e}")
             return safe_tool_error(e, "生成报价单")

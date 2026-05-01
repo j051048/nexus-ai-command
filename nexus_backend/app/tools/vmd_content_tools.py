@@ -11,7 +11,7 @@ VMD 内容营销工具集 (Virtual Marketing Department - Content Tools)
 import logging
 from typing import Any
 
-from app.services.ai_service import AIService
+from app.services.llm_gateway import llm_gateway
 from app.services.vector_service import vector_service
 from app.tools._shared import safe_tool_error
 
@@ -136,9 +136,20 @@ class GenerateProductManualTool(BaseTool):
             "使用中文输出，格式清晰，适合直接用于产品宣传。"
         )
 
+        org_id = config.get("org_id") if config else None
+
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"📘 **{product_name} 产品手册框架**\n\n{result}"
+            result = await llm_gateway.chat(
+                prompt=prompt,
+                system_prompt=system,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code="vmd_content",
+                agent_code="content_expert",
+                config=config,
+            )
+            summary = f"📘 **{product_name} 产品手册框架**\n\n{result}"
+            return self.format_result(data={"product_name": product_name}, summary=summary)
         except Exception as e:
             logger.error(f"Failed to generate product manual: {e}")
             return safe_tool_error(e, "生成产品手册")
@@ -257,9 +268,20 @@ class GenerateWhitepaperTool(BaseTool):
             "基于知识库资料编写，标注需要补充实际数据的位置。中文输出。"
         )
 
+        org_id = config.get("org_id") if config else None
+
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"📄 **技术白皮书 — {topic}**\n\n{result}"
+            result = await llm_gateway.chat(
+                prompt=prompt,
+                system_prompt=system,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code="vmd_content",
+                agent_code="content_expert",
+                config=config,
+            )
+            summary = f"📄 **技术白皮书 — {topic}**\n\n{result}"
+            return self.format_result(data={"topic": topic, "industry": industry}, summary=summary)
         except Exception as e:
             logger.error(f"Failed to generate whitepaper: {e}")
             return safe_tool_error(e, "生成白皮书")
@@ -366,9 +388,20 @@ class GenerateApplicationNoteTool(BaseTool):
 
         system = "你是科学仪器应用工程师，擅长编写应用方案和方法学文档。内容需要专业准确，涵盖完整的实验流程。中文输出。"
 
+        org_id = config.get("org_id") if config else None
+
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"🔬 **应用方案 — {application}**\n\n{result}"
+            result = await llm_gateway.chat(
+                prompt=prompt,
+                system_prompt=system,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code="vmd_content",
+                agent_code="content_expert",
+                config=config,
+            )
+            summary = f"🔬 **应用方案 — {application}**\n\n{result}"
+            return self.format_result(data={"application": application, "instrument": instrument}, summary=summary)
         except Exception as e:
             logger.error(f"Failed to generate application note: {e}")
             return safe_tool_error(e, "生成应用方案")
@@ -505,8 +538,18 @@ class GenerateSocialPostTool(BaseTool):
             "文案要兼顾专业性和可读性，符合目标平台的传播特点。中文输出。"
         )
 
+        org_id = config.get("org_id") if config else None
+
         try:
-            result = await AIService.call_llm(prompt, system)
+            result = await llm_gateway.chat(
+                prompt=prompt,
+                system_prompt=system,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code="vmd_content",
+                agent_code="social_expert",
+                config=config,
+            )
             platform_name = {
                 "wechat": "微信公众号",
                 "linkedin": "LinkedIn",
@@ -514,7 +557,8 @@ class GenerateSocialPostTool(BaseTool):
                 "weibo": "微博",
                 "general": "通用",
             }.get(platform, "通用")
-            return f"📱 **{platform_name}文案 — {topic}**\n\n{result}"
+            summary = f"📱 **{platform_name}文案 — {topic}**\n\n{result}"
+            return self.format_result(data={"topic": topic, "platform": platform}, summary=summary)
         except Exception as e:
             logger.error(f"Failed to generate social post: {e}")
             return safe_tool_error(e, "生成文案")

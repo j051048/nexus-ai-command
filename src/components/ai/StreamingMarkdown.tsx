@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 
 interface StreamingMarkdownProps {
   content: string;
   isStreaming: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- react-markdown Components type requires any
-  components: Record<string, React.ComponentType<any>>;
+  components: Components;
   className?: string;
 }
 

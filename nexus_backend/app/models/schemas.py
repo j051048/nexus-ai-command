@@ -146,21 +146,20 @@ class ProjectBase(BaseModel):
 
 
 class ProjectCreate(ProjectBase):
-    userId: str  # noqa: N815  # owner_id, maybe inferred from token but kept for compatibility
+    user_id: str | None = None  # Typically inferred from token, but can be explicit
 
 
 class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    status: str | None = None
     stage: str | None = None
     progress: int | None = None
 
 
 class Project(ProjectBase):
     id: str
-    owner_id: str
-    status: str
+    user_id: str
+    stage: str
     progress: int
     created_at: datetime
     updated_at: datetime | None = None

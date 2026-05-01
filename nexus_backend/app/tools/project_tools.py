@@ -3,9 +3,9 @@ import uuid as _uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-from app.tools._shared import safe_tool_error
+from app.services.llm_gateway import llm_gateway
+from app.tools._shared import _get_client, _validate_uuid, safe_tool_error
 
-from ._shared import _get_client
 from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
@@ -29,23 +29,29 @@ class ProjectListTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        client = _get_client(config)
-        org_id = config.get("org_id") if config else None
-        query = (
-            client.table("projects")
-            .select("id, name, stage, progress")
-            .neq("stage", "archived")
-        )
-        if org_id:
-            query = query.eq("organization_id", org_id)
-        result = await query.execute()
-        if not result.data:
-            return "暂无进行中的项目。"
-        items = [
-            f"ID: {p['id']} | 名称: {p['name']} | 状态: {p.get('stage', '未知')} | 进度: {p.get('progress', 0)}%"
-            for p in result.data
-        ]
-        return "项目清单：\n" + "\n".join(items)
+        try:
+            client = _get_client(config)
+            org_id = config.get("org_id") if config else None
+            query = (
+                client.table("projects")
+                .select("id, name, stage, progress")
+                .neq("stage", "archived")
+            )
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            
+            result = await query.execute()
+            if not result.data:
+                return self.format_result(data=[], summary="暂无进行中的项目。")
+            
+            items = [
+                f"ID: {p['id']} | 名称: {p['name']} | 状态: {p.get('stage', '未知')} | 进度: {p.get('progress', 0)}%"
+                for p in result.data
+            ]
+            summary = "项目清单：\n" + "\n".join(items)
+            return self.format_result(data=result.data, summary=summary)
+        except Exception as e:
+            return safe_tool_error(e, "查询项目列表")
 
 
 class CreateProjectTool(BaseTool):
@@ -110,12 +116,12 @@ class CreateProjectTool(BaseTool):
             if res.data:
                 pid = res.data[0]["id"]
                 return self.format_result(
-                    data={},
+                    data=res.data[0],
                     summary=f"项目 '{name}' 已成功立项 (ID: {pid})！您可以继续添加项目事件或里程碑。",
                 )
             return "创建失败。"
         except Exception as e:
-            return f"系统错误: {str(e)}"
+            return safe_tool_error(e, "创建项目")
 
 
 class CreateEventTool(BaseTool):
@@ -175,15 +181,10 @@ class CreateEventTool(BaseTool):
         event_type = args.get("event_type")
 
         # Validate UUID format
-        try:
-            _uuid.UUID(project_id)
-        except (ValueError, TypeError, AttributeError):
-            return f"project_id '{project_id}' 不是有效的UUID格式。"
+        uuid_err = _validate_uuid(project_id, "project_id")
+        if uuid_err:
+            return uuid_err
 
-        # Ensure project_timeline table exists (it might be missing in migration, so we should allow fallback or catch error)
-        # Assuming table exists or we need to add it to migration.
-        # Check migration: I only added `projects` table. I did NOT add `project_timeline`.
-        # I MUST add project_timeline table.
         try:
             client = _get_client(config)
             result = (
@@ -200,10 +201,13 @@ class CreateEventTool(BaseTool):
             )
 
             if result.data:
-                return f"成功在项目中创建了事件: {title}。"
+                return self.format_result(
+                    data=result.data[0],
+                    summary=f"成功在项目中创建了事件: {title}。"
+                )
+            return "创建失败，请核对项目 ID 是否正确。"
         except Exception as e:
-            return safe_tool_error(e, "创建事件")
-        return "创建失败，请核对项目 ID 是否正确。"
+            return safe_tool_error(e, "创建项目事件")
 
 
 class WeeklyReportTool(BaseTool):
@@ -236,8 +240,6 @@ class WeeklyReportTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        from app.services.ai_service import AIService
-
         report_type = args.get("report_type", "weekly")
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
@@ -252,9 +254,13 @@ class WeeklyReportTool(BaseTool):
             )
             report_type_name = "周报"
 
-        # 聚合任务数据
+        # 聚合数据 (任务、项目事件、当前项目)
         tasks_data = []
+        events_data = []
+        projects_data = []
+
         try:
+            # 1. 任务数据 (基于 assignee_id)
             tasks_res = (
                 await client.table("oa_tasks")
                 .select("title, status, priority")
@@ -263,28 +269,19 @@ class WeeklyReportTool(BaseTool):
                 .execute()
             )
             tasks_data = tasks_res.data or []
-        except Exception as e:
-            logger.debug("任务数据查询失败: %s", e)
 
-        # 聚合项目事件 — 限定本组织
-        events_data = []
-        try:
-            events_query = (
-                client.table("project_timeline")
+            # 2. 项目事件 (由 RLS 基于项目所属组织进行隔离)
+            # 注意：project_timeline 表没有 organization_id 字段，依赖 RLS 自动过滤
+            events_res = (
+                await client.table("project_timeline")
                 .select("title, event_type, content")
                 .gte("created_at", period_start)
                 .limit(20)
+                .execute()
             )
-            if org_id:
-                events_query = events_query.eq("organization_id", org_id)
-            events_res = await events_query.execute()
             events_data = events_res.data or []
-        except Exception as e:
-            logger.debug("项目事件查询失败: %s", e)
 
-        # 查询用户项目 — 限定本组织
-        projects_data = []
-        try:
+            # 3. 用户负责的项目
             proj_query = (
                 client.table("projects")
                 .select("name, stage, progress")
@@ -295,9 +292,11 @@ class WeeklyReportTool(BaseTool):
                 proj_query = proj_query.eq("organization_id", org_id)
             proj_res = await proj_query.execute()
             projects_data = proj_res.data or []
-        except Exception as e:
-            logger.debug("用户项目查询失败: %s", e)
 
+        except Exception as e:
+            logger.warning("周报数据聚合部分失败: %s", e)
+
+        # 构建 Prompt
         prompt = (
             f"请根据以下工作数据生成{report_type_name}:\n\n"
             f"任务完成情况: {tasks_data}\n"
@@ -312,7 +311,23 @@ class WeeklyReportTool(BaseTool):
         )
 
         try:
-            report = await AIService.call_llm(prompt, system)
-            return f"📝 AI 生成的{report_type_name}:\n\n{report}"
+            # P0: 使用统一的 llm_gateway 代替 AIService
+            messages = [{"role": "user", "content": prompt}]
+            response = await llm_gateway.chat(
+                scene_code="project",
+                agent_code="weekly_report",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=messages,
+                temperature=0.3
+            )
+            report = response.content
+            
+            return self.format_result(
+                data={"report": report, "type": report_type},
+                summary=f"📝 AI 生成的{report_type_name}:\n\n{report}"
+            )
         except Exception as e:
-            return safe_tool_error(e, "{report_type_name}生成")
+            return safe_tool_error(e, f"{report_type_name}生成")
+

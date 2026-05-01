@@ -1,17 +1,7 @@
-"""
-VMD 产研销协同工具集 (Virtual Marketing Department - Synergy Tools)
-
-工作项 #31: 为市场-研发-销售协同提供数据支撑
-- 行业动态监测
-- 市场调研报告
-- 竞品全维度分析
-- 客户反馈汇总
-"""
-
 import logging
 from typing import Any
 
-from app.services.ai_service import AIService
+from app.services.llm_gateway import llm_gateway
 from app.services.vector_service import vector_service
 from app.tools._shared import safe_tool_error
 from app.tools.web_search_helper import search_web
@@ -74,6 +64,7 @@ class MonitorIndustryTrendsTool(BaseTool):
         category = args.get("category", "all")
         industry = args.get("industry", "科学仪器")
         keywords = args.get("keywords", "")
+        org_id = config.get("org_id") if config else None
 
         category_labels = {
             "policy": "政策法规",
@@ -86,7 +77,6 @@ class MonitorIndustryTrendsTool(BaseTool):
         # Search knowledge base for industry intelligence
         kb_context = ""
         try:
-            org_id = config.get("org_id") if config else None
             search_query = f"{industry} {category_labels.get(category, '')} {keywords} 动态 趋势".strip()
             kb_result = await vector_service.search(
                 search_query,
@@ -134,8 +124,18 @@ class MonitorIndustryTrendsTool(BaseTool):
         )
 
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"📡 **行业动态报告 — {industry}**\n\n{result}"
+            result = await llm_gateway.chat(
+                scene_code="vmd_market",
+                agent_code="industry_analyst",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return self.format_result(
+                data={"report": result},
+                summary=f"📡 **行业动态报告 — {industry}**\n\n{result}",
+            )
         except Exception as e:
             logger.error(f"Failed to monitor industry trends: {e}")
             return safe_tool_error(e, "生成行业动态报告")
@@ -197,11 +197,11 @@ class GenerateMarketResearchTool(BaseTool):
 
         research_focus = args.get("research_focus", "")
         region = args.get("region", "国内")
+        org_id = config.get("org_id") if config else None
 
         # Search knowledge base
         kb_context = ""
         try:
-            org_id = config.get("org_id") if config else None
             search_query = f"{market_segment} 市场 需求 规模 {region}".strip()
             kb_result = await vector_service.search(
                 search_query,
@@ -267,9 +267,17 @@ class GenerateMarketResearchTool(BaseTool):
         )
 
         try:
-            result = await AIService.call_llm(prompt, system)
+            result = await llm_gateway.chat(
+                scene_code="vmd_market",
+                agent_code="market_specialist",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
             return self.format_result(
-                data={}, summary=f"**市场调研报告 — {market_segment}**\n\n{result}"
+                data={"report": result},
+                summary=f"**市场调研报告 — {market_segment}**\n\n{result}",
             )
         except Exception as e:
             logger.error(f"Failed to generate market research: {e}")
@@ -338,13 +346,13 @@ class GenerateCompetitorAnalysisTool(BaseTool):
 
         analysis_depth = args.get("analysis_depth", "standard")
         focus_product = args.get("focus_product", "")
+        org_id = config.get("org_id") if config else None
 
         depth_labels = {"quick": "快速概览", "standard": "标准分析", "deep": "深度研究"}
 
         # Search knowledge base
         kb_context = ""
         try:
-            org_id = config.get("org_id") if config else None
             search_query = (
                 f"{competitor_name} {focus_product} 竞品 分析 产品线 市场策略".strip()
             )
@@ -393,8 +401,18 @@ class GenerateCompetitorAnalysisTool(BaseTool):
         )
 
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"🔎 **竞品分析 — {competitor_name}**\n\n{result}"
+            result = await llm_gateway.chat(
+                scene_code="vmd_market",
+                agent_code="competitor_analyst",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return self.format_result(
+                data={"report": result},
+                summary=f"🔎 **竞品分析 — {competitor_name}**\n\n{result}",
+            )
         except Exception as e:
             logger.error(f"Failed to generate competitor analysis: {e}")
             return safe_tool_error(e, "生成竞品分析")
@@ -460,6 +478,7 @@ class AggregateCustomerFeedbackTool(BaseTool):
         product_name = args.get("product_name", "")
         time_range = args.get("time_range", "last_quarter")
         feedback_type = args.get("feedback_type", "all")
+        org_id = config.get("org_id") if config else None
 
         # Validate enum values to prevent invalid_text_representation errors
         if time_range not in ("last_month", "last_quarter", "last_year", "all"):
@@ -500,7 +519,6 @@ class AggregateCustomerFeedbackTool(BaseTool):
         # Search knowledge base for feedback patterns
         kb_context = ""
         try:
-            org_id = config.get("org_id") if config else None
             search_query = f"{product_name} 客户反馈 问题 投诉 建议".strip()
             kb_result = await vector_service.search(
                 search_query,
@@ -543,8 +561,18 @@ class AggregateCustomerFeedbackTool(BaseTool):
         )
 
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"📢 **客户反馈汇总分析**\n\n{result}"
+            result = await llm_gateway.chat(
+                scene_code="vmd_market",
+                agent_code="voc_analyst",
+                user_id=user_id,
+                org_id=org_id,
+                system_prompt=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return self.format_result(
+                data={"analysis": result},
+                summary=f"📢 **客户反馈汇总分析**\n\n{result}",
+            )
         except Exception as e:
             logger.error(f"Failed to aggregate customer feedback: {e}")
             return safe_tool_error(e, "汇总客户反馈")

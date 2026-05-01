@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,7 +78,7 @@ interface CreatedKey {
 
 // ============== API Helpers ==============
 
-const API_BASE = `${import.meta.env.VITE_API_BASE_URL}/api/api-keys`;
+const API_BASE = `${getApiBaseUrl()}/api/api-keys`;
 
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();

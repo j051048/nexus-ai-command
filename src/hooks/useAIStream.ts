@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { AIMessage, ThinkingStep } from '@/types/nexus';
 import { toast } from 'sonner';
@@ -100,7 +101,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
     /** Tier 1 primary: Zeabur backend directly */
     const getBackendUrl = useCallback(() => {
-        let url = import.meta.env.VITE_API_BASE_URL;
+        let url = getApiBaseUrl();
         if (!url.startsWith('http')) {
             url = `https://${url}`;
         }
@@ -409,7 +410,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         setAiStatus('正在连接 AI 服务...');
         // P0 Security Fix: Never send API keys from the browser.
         // Route through backend proxy which holds the key server-side.
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+        const API_BASE = getApiBaseUrl();
         const proxyUrl = `${API_BASE}/api/chat/proxy`;
         const { data: { session } } = await supabase.auth.getSession();
         const response = await fetch(proxyUrl, {

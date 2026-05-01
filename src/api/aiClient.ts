@@ -1,7 +1,8 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = getApiBaseUrl();
 
 // --- Distributed Trace ID ---
 // Generate a unique trace ID per browser tab/session for end-to-end tracing.

@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -60,7 +61,7 @@ export function useWebSocketPush() {
     }
 
     // 构造 WebSocket URL
-    let baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    let baseUrl = getApiBaseUrl();
     if (!baseUrl) return;
 
     // 将 http(s) 转换为 ws(s)

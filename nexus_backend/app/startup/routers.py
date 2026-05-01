@@ -166,6 +166,8 @@ def register_routers(app: FastAPI) -> None:
 
     # ── 8. IM / Integration ───────────────────────────────────────────────
     from app.routers import (
+        ai_assistant,
+        gdpr,
         im_callbacks,
         im_chat,
         im_oauth,
@@ -175,10 +177,14 @@ def register_routers(app: FastAPI) -> None:
         plugins,
         push,
         webhooks,
+        workflow_analytics,
     )
     from app.routers import mcp as mcp_router
     from app.routers import robot as robot_router
 
+    app.include_router(ai_assistant.router)
+    app.include_router(gdpr.router)
+    app.include_router(workflow_analytics.router)
     app.include_router(im_chat.router)
     app.include_router(im_oauth.router)
     app.include_router(im_callbacks.router)
@@ -207,6 +213,7 @@ def register_routers(app: FastAPI) -> None:
     from app.routers import system_configs as system_configs_router
 
     app.include_router(super_admin.router)
+    app.include_router(intent_rules_router.router)
     app.include_router(api_docs.router)
     app.include_router(api_keys.router)
     app.include_router(backups.router)
@@ -215,7 +222,6 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(system_configs_router.router)
     app.include_router(dsar_router.router)
     app.include_router(system_router.router)
-    app.include_router(intent_rules_router.router)
 
     # ── 10. VMD / LLM Optional Routers ─────────────────────────────
     from app.routers import llm

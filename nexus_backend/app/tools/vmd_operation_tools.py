@@ -12,7 +12,7 @@ import logging
 import uuid as _uuid
 from typing import Any
 
-from app.services.ai_service import AIService
+from app.services.llm_gateway import llm_gateway
 from app.services.vector_service import vector_service
 from app.tools._shared import safe_tool_error
 
@@ -143,10 +143,21 @@ class GenerateMaintenanceReminderTool(BaseTool):
             "内容要具体可操作，语气专业且温暖。中文输出。"
         )
 
+        org_id = config.get("org_id") if config else None
+        
         try:
-            result = await AIService.call_llm(prompt, system)
+            result = await llm_gateway.chat(
+                prompt=prompt,
+                system_prompt=system,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code="vmd_market",
+                agent_code="maintenance_expert",
+                config=config,
+            )
             target = f" — {customer_name}" if customer_name else ""
-            return f"🔧 **设备维护提醒{target} — {product_name}**\n\n{result}"
+            summary = f"🔧 **设备维护提醒{target} — {product_name}**\n\n{result}"
+            return self.format_result(data={"product_name": product_name, "maintenance_type": maintenance_type}, summary=summary)
         except Exception as e:
             logger.error(f"Failed to generate maintenance reminder: {e}")
             return safe_tool_error(e, "生成维护保养提醒")
@@ -267,10 +278,21 @@ class GenerateFaqResponseTool(BaseTool):
             f"确保回答准确、有参考价值。标注信息来源（知识库/行业通识）。中文输出。"
         )
 
+        org_id = config.get("org_id") if config else None
+
         try:
-            result = await AIService.call_llm(prompt, system)
+            result = await llm_gateway.chat(
+                prompt=prompt,
+                system_prompt=system,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code="vmd_market",
+                agent_code="faq_expert",
+                config=config,
+            )
             return self.format_result(
-                data={}, summary=f"**FAQ智能回复**\n\n**问题：** {question}\n\n{result}"
+                data={"question": question, "product_name": product_name}, 
+                summary=f"**FAQ智能回复**\n\n**问题：** {question}\n\n{result}"
             )
         except Exception as e:
             logger.error(f"Failed to generate FAQ response: {e}")
@@ -418,9 +440,23 @@ class GenerateRepurchaseCampaignTool(BaseTool):
             "方案要具体、有数据支撑、可操作。中文输出。"
         )
 
+        org_id = config.get("org_id") if config else None
+
         try:
-            result = await AIService.call_llm(prompt, system)
-            return f"🎯 **{type_labels.get(campaign_type, '复购')}营销方案 — {customer_segment}**\n\n{result}"
+            result = await llm_gateway.chat(
+                prompt=prompt,
+                system_prompt=system,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code="vmd_market",
+                agent_code="marketing_expert",
+                config=config,
+            )
+            summary = f"🎯 **{type_labels.get(campaign_type, '复购')}营销方案 — {customer_segment}**\n\n{result}"
+            return self.format_result(
+                data={"customer_segment": customer_segment, "campaign_type": campaign_type},
+                summary=summary
+            )
         except Exception as e:
             logger.error(f"Failed to generate repurchase campaign: {e}")
             return safe_tool_error(e, "生成复购营销方案")
@@ -644,10 +680,24 @@ class CustomerLifecycleAnalysisTool(BaseTool):
             "分析要有数据支撑，建议要具体可执行。中文输出。"
         )
 
+        org_id = config.get("org_id") if config else None
+
         try:
-            result = await AIService.call_llm(prompt, system)
+            result = await llm_gateway.chat(
+                prompt=prompt,
+                system_prompt=system,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code="vmd_market",
+                agent_code="analyst_expert",
+                config=config,
+            )
             scope = f"客户 {customer_id}" if customer_id else "全部客户"
-            return f"📈 **客户生命周期分析 — {scope}**\n\n{result}"
+            summary = f"📈 **客户生命周期分析 — {scope}**\n\n{result}"
+            return self.format_result(
+                data={"customer_id": customer_id, "time_range": time_range, "analysis_focus": analysis_focus},
+                summary=summary
+            )
         except Exception as e:
             logger.error(f"Failed to generate customer lifecycle analysis: {e}")
             return safe_tool_error(e, "生成客户生命周期分析")

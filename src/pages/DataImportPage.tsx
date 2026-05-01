@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -45,7 +46,7 @@ export default function DataImportPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   
   const { session } = useAuth();
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  const apiBaseUrl = getApiBaseUrl();
   
   // 文件类型和大小限制
   const ALLOWED_TYPES = ['.csv', '.xlsx', '.xls'];

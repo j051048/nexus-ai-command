@@ -23,7 +23,7 @@ interface Project {
     stage: 'planning' | 'in_progress' | 'completed' | 'on_hold';
     progress: number;
     created_at: string;
-    owner_id: string;
+    user_id: string;
 }
 
 type ViewMode = 'grid' | 'kanban';

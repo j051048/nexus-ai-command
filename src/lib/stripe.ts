@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 /**
  * Stripe.js 初始化 + Checkout 辅助函数
  */
@@ -29,7 +30,7 @@ export async function redirectToCheckout(sessionId: string): Promise<void> {
 /** 跳转到 Stripe 客户门户 */
 export async function redirectToCustomerPortal(returnUrl: string): Promise<void> {
   // 后端需要提供 portal session endpoint
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+  const API_BASE = getApiBaseUrl();
   const res = await fetch(`${API_BASE}/api/billing/portal-session`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

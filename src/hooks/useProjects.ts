@@ -21,8 +21,7 @@ export function useProjects() {
         const data = Array.isArray(response.data?.projects) ? response.data.projects : [];
         const mapped = data.map(p => ({
             ...p,
-            stage: p.status,
-            type: 'Enterprise'
+            type: p.type || 'Enterprise'
         }));
         setProjects(mapped as Project[]);
         setLoading(false);
@@ -53,8 +52,7 @@ export function useProjectDetail(projectId: string | null) {
         if (p) {
             setProject({
                 ...p,
-                stage: p.status,
-                type: 'Enterprise'
+                type: p.type || 'Enterprise'
             });
         }
 
@@ -144,7 +142,7 @@ export function useUpdateProjectStage() {
       // Update stage via backend API
       await aiClient.fetch(`api/projects/${projectId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: stage }),
+        body: JSON.stringify({ stage }),
       });
 
       // Auto-insert timeline milestone

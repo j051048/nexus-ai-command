@@ -146,19 +146,19 @@ export interface NexusDocument {
 
 export interface Project {
   id: string;
-  owner_id: string;
+  user_id: string;
   name: string;
   description: string;
-  status: 'planning' | 'in_progress' | 'completed' | 'on_hold';
+  stage: string;
   progress: number;
-  start_date: string;
-  end_date: string;
-  created_at: string;
-  updated_at: string;
-  // UI Helpers
-  stage?: string;
-  type?: string;
+  type: string;
+  metadata?: Record<string, any>;
   member_ids?: string[];
+  start_date?: string;
+  end_date?: string;
+  created_at?: string;
+  updated_at?: string;
+  status?: string; // Kept for backwards compatibility if needed temporarily
 }
 
 export interface ProjectTimeline {

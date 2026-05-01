@@ -243,26 +243,21 @@ export const MessageBubble = React.memo(function MessageBubble({
         </code>
       );
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- react-markdown component overrides require flexible prop types
-    a: ({ node, ...props }: any) => (
+    a: ({ node, ...props }: React.ComponentPropsWithoutRef<'a'> & { node?: any }) => (
       <a target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-4 hover:decoration-solid" {...props} />
     ),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    table: ({ node, ...props }: any) => (
+    table: ({ node, ...props }: React.ComponentPropsWithoutRef<'table'> & { node?: any }) => (
       <div className="overflow-x-auto my-4 border rounded-md">
         <table className="w-full text-sm text-left" {...props} />
       </div>
     ),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    th: ({ node, ...props }: any) => (
+    th: ({ node, ...props }: React.ComponentPropsWithoutRef<'th'> & { node?: any }) => (
       <th className="border-b bg-muted/50 px-4 py-2 font-medium" {...props} />
     ),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    td: ({ node, ...props }: any) => (
+    td: ({ node, ...props }: React.ComponentPropsWithoutRef<'td'> & { node?: any }) => (
       <td className="border-b px-4 py-2" {...props} />
     ),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockquote: ({ node, ...props }: any) => (
+    blockquote: ({ node, ...props }: React.ComponentPropsWithoutRef<'blockquote'> & { node?: any }) => (
       <blockquote className="border-l-4 border-primary/30 pl-4 py-1 my-2 italic bg-muted/20 rounded-r" {...props} />
     ),
   }), [onSendMessage, message.thinkingSteps, isStreamingNow]);

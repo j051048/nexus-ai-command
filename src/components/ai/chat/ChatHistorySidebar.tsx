@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -54,7 +55,7 @@ export function ChatHistorySidebar({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+      const API_BASE = getApiBaseUrl();
       const res = await fetch(`${API_BASE}/api/chat/sessions`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
@@ -77,7 +78,7 @@ export function ChatHistorySidebar({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+      const API_BASE = getApiBaseUrl();
       const res = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },

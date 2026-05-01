@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,7 +59,7 @@ interface TemplateListResponse {
 
 // ─── Constants ──────────────────────────────────────────────
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = getApiBaseUrl();
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   finance: <DollarSign className="w-4 h-4" />,

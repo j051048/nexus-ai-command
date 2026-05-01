@@ -22,7 +22,7 @@ describe('Core Pages Importability', () => {
             try {
                 const mod = await import(page.path);
                 expect(mod).toBeDefined();
-            } catch (e: unknown) {
+            } catch (e) {
                 // 允许模块依赖导致的运行时错误（组件渲染时才会真正报错）
                 // 只要不是 MODULE_NOT_FOUND 类型的致命错误即可
                 const errMsg = e instanceof Error ? e.message : '';

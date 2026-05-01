@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -112,7 +113,7 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
         if (!token) { toast.error('请先登录'); continue; }
         const formData = new FormData();
         formData.append('file', file);
-        const baseUrl = import.meta.env.VITE_API_BASE_URL;
+        const baseUrl = getApiBaseUrl();
         const resp = await fetch(`${baseUrl}/api/chat/upload-image`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
@@ -404,7 +405,7 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) { toast.error('请先登录后再上传文档', { id: toastId }); return; }
-      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      const baseUrl = getApiBaseUrl();
       const response = await fetch(`${baseUrl}/api/documents/upload`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -442,7 +443,7 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
           if (!token) { toast.error('请先登录'); return; }
           const formData = new FormData();
           formData.append('audio', audioBlob, 'recording.webm');
-          const baseUrl = import.meta.env.VITE_API_BASE_URL;
+          const baseUrl = getApiBaseUrl();
           const resp = await fetch(`${baseUrl}/api/chat/transcribe`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },

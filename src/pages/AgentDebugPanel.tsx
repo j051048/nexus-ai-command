@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/apiConfig";
 /**
  * Agent 调试面板
  * HITL Admin Debug Panel for inspecting agent execution traces.
@@ -139,7 +140,7 @@ interface QualityTrendItem {
 
 // ─── API Helper ──────────────────────────────────────────
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = getApiBaseUrl();
 
 async function apiFetch<T>(endpoint: string): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
