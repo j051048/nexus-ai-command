@@ -54,9 +54,10 @@ async def test_generate_whitepaper_flow(vmd_tool_config):
 
         args = {"topic": "疫苗生产质控", "industry": "制药", "technology": "拉曼光谱"}
         result = await tool.run(args, USER_ID, vmd_tool_config)
+        summary = result["summary"] if isinstance(result, dict) else result
 
-        assert "白皮书" in result
-        assert "疫苗生产" in result
+        assert "白皮书" in summary
+        assert "疫苗生产" in summary
 
 
 @pytest.mark.asyncio
@@ -69,9 +70,11 @@ async def test_generate_social_post_variants(vmd_tool_config):
         # Test wechat platform
         args = {"topic": "新品发布", "platform": "wechat", "tone": "promotional"}
         result = await tool.run(args, USER_ID, vmd_tool_config)
-        assert "微信公众号" in result
+        summary = result["summary"] if isinstance(result, dict) else result
+        assert "微信公众号" in summary
 
         # Test linkedin platform
         args = {"topic": "技术分享", "platform": "linkedin"}
         result = await tool.run(args, USER_ID, vmd_tool_config)
-        assert "LinkedIn" in result
+        summary = result["summary"] if isinstance(result, dict) else result
+        assert "LinkedIn" in summary
