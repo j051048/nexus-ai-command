@@ -191,16 +191,25 @@ async def get_usage_history(
             .gte("stat_date", since)
             .execute()
         )
-        # 按日聚合
+        # 按日聚合（保留 input/output token 分拆，供前端图表使用）
         daily: dict[str, dict] = {}
         for r in result.data or []:
             d = r.get("stat_date", "")
             if d not in daily:
-                daily[d] = {"date": d, "tokens": 0, "cost_usd": 0.0, "requests": 0}
-            daily[d]["tokens"] += r.get("total_input_tokens", 0) + r.get(
-                "total_output_tokens", 0
-            )
-            daily[d]["cost_usd"] += float(r.get("total_cost", 0))
+                daily[d] = {
+                    "date": d,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0,
+                    "cost": 0.0,
+                    "requests": 0,
+                }
+            inp = r.get("total_input_tokens", 0)
+            out = r.get("total_output_tokens", 0)
+            daily[d]["input_tokens"] += inp
+            daily[d]["output_tokens"] += out
+            daily[d]["total_tokens"] += inp + out
+            daily[d]["cost"] += float(r.get("total_cost", 0))
             daily[d]["requests"] += r.get("total_calls", 0)
 
         history = sorted(daily.values(), key=lambda x: x["date"])

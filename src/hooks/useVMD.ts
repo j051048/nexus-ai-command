@@ -599,18 +599,14 @@ export function useDeleteScheduleRule() {
 }
 
 export function useModelUsageStats(range: string = 'week') {
+  const days = range === 'month' ? 30 : 7;
   return useQuery({
     queryKey: ['llm-usage-stats', range],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: { usage: AnyData[] } }>(
-        'api/vmd/dashboard/model-usage'
+      const res = await aiClient.fetch<{ success: boolean; data: { history: AnyData[] } }>(
+        `api/usage/history?days=${days}`
       );
-      return (res.data?.usage || []).map((item: AnyData) => ({
-        ...item,
-        model_code: item.model_code ?? 'unknown',
-        total_tokens: (item.total_input_tokens ?? 0) + (item.total_output_tokens ?? 0),
-        call_count: item.call_count ?? 0,
-      }));
+      return res.data?.history || [];
     },
     staleTime: 60_000,
   });
