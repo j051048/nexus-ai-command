@@ -74,10 +74,10 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
     const [reportDialogOpen, setReportDialogOpen] = useState(false);
     const weeklyReport = useGenerateWeeklyReport();
 
-    const { data: subtasks = [] } = useQuery({
+    const { data: subtasks = [] } = useQuery<ProjectTask[]>({
         queryKey: ['project-subtasks', projectId],
         queryFn: async () => {
-            const response = await (httpClient as { get: (url: string) => Promise<{ data: { tasks?: unknown[] } }> }).get(`/api/projects/${projectId}/tasks`);
+            const response = await (httpClient as { get: (url: string) => Promise<{ data: { tasks?: ProjectTask[] } }> }).get(`/api/projects/${projectId}/tasks`);
             return response.data?.tasks || [];
         },
         enabled: !!projectId,
@@ -168,7 +168,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                             <span className="px-2 py-0.5 text-[10px] rounded-full font-medium uppercase bg-primary/10 text-primary">
                                 {project.type}
                             </span>
-                            <span className="text-xs text-muted-foreground">创建于 {new Date(project.created_at).toLocaleDateString()}</span>
+                            <span className="text-xs text-muted-foreground">创建于 {project.created_at ? new Date(project.created_at).toLocaleDateString() : '未知'}</span>
                         </div>
                         <h1 className="text-2xl font-bold text-foreground">{project.name}</h1>
                     </div>
@@ -551,7 +551,7 @@ function ProjectSubtasks({ projectId, tasks, onProgressChange }: {
 
     const handleStatusToggle = async (task: ProjectTask) => {
         const newStatus = (task.status === 'done' || task.status === 'completed') ? 'todo' : 'done';
-        const { error } = await (supabase.from('oa_tasks') as { update: (data: Record<string, unknown>) => { eq: (col: string, val: unknown) => Promise<{ error: unknown }> } })
+        const { error } = await (supabase.from('oa_tasks') as unknown as { update: (data: Record<string, unknown>) => { eq: (col: string, val: unknown) => Promise<{ error: unknown }> } })
             .update({ status: newStatus })
             .eq('id', task.id);
         if (error) { toast.error('更新任务状态失败'); return; }

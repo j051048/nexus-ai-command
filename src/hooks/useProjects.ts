@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Project, ProjectTimeline } from '@/types/nexus';
 import { getApiBaseUrl } from '@/lib/apiConfig';
 import { httpClient } from '@/lib/httpClient';
+import { supabase } from '@/integrations/supabase/client';
 export type { ProjectTimeline };
 
 export function useProjects() {
@@ -19,7 +20,7 @@ export function useProjects() {
         setLoading(true);
         const response = await httpClient.get('/api/projects');
         const data = Array.isArray(response.data?.projects) ? response.data.projects : [];
-        const mapped = data.map(p => ({
+        const mapped = data.map((p: Project) => ({
             ...p,
             type: p.type || 'Enterprise'
         }));
@@ -57,7 +58,7 @@ export function useProjectDetail(projectId: string | null) {
         }
 
         const timelineData = timelineRes.data?.timeline || [];
-        setTimeline(timelineData.map(t => ({
+        setTimeline(timelineData.map((t: ProjectTimeline) => ({
             ...t,
             occurred_at: t.created_at
         })));
@@ -290,7 +291,7 @@ export function useRecalcProgress() {
 
       if (!tasks || tasks.length === 0) return;
 
-      const completed = tasks.filter(t => t.status === 'done' || t.status === 'completed').length;
+      const completed = tasks.filter((t: { status: string }) => t.status === 'done' || t.status === 'completed').length;
       const progress = Math.round((completed / tasks.length) * 100);
 
       await aiClient.fetch(`api/projects/${projectId}`, {
@@ -388,9 +389,7 @@ ${timeline.slice(0, 10).map(t => `- [${t.event_type}] ${t.title}: ${t.content} (
 export function useGenerateWeeklyReport() {
   return useMutation({
     mutationFn: async (projectId: string) => {
-      const res = await aiClient(`/api/projects/${projectId}/weekly-report`, {
-        method: 'POST',
-      }) as { data?: { report: string; stats: Record<string, number> } };
+      const res = await aiClient.post<{ report: string; stats: Record<string, number> }>(`/api/projects/${projectId}/weekly-report`);
       return res?.data;
     },
     onError: () => toast.error('周报生成失败'),

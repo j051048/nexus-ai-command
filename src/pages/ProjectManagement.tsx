@@ -37,7 +37,7 @@ export function ProjectManagement() {
     const [isAiCreating, setIsAiCreating] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const { role } = useAuth();
-    const canDelete = role === 'boss' || role === 'admin';
+    const canDelete = role === 'boss' || role === 'manager';
     const deleteProject = useDeleteProject();
     const { confirm, ConfirmDialogProps } = useConfirmDialog();
 

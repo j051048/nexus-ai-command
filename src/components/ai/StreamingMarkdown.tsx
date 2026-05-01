@@ -68,8 +68,7 @@ const MemoizedMarkdown = React.memo(
     components,
   }: {
     content: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- react-markdown Components type
-    components: Record<string, React.ComponentType<any>>;
+    components: Components;
   }) {
     return (
       <ReactMarkdown

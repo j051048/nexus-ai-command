@@ -198,7 +198,7 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
   // New chat handler
   const handleNewChat = useCallback(() => {
     setMessages([]);
-    setSessionId(undefined);
+    setSessionId(`session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     clearTrace();
     resetOrchestration();
     setShowTrace(false);
@@ -388,7 +388,7 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
   const handleSavePrompt = useCallback(async (prompt: string) => {
     const title = prompt.length > 20 ? prompt.slice(0, 20) + '...' : prompt;
     try {
-      await savePrompt({ title, content: prompt, category: 'custom' });
+      await savePrompt({ title, prompt });
       toast.success('提示词已保存');
     } catch { toast.error('保存失败'); }
   }, [savePrompt]);

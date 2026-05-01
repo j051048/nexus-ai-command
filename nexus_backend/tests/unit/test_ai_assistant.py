@@ -43,19 +43,11 @@ async def test_batch_approval_suggestions_empty(mock_request):
     assert "不能为空" in str(exc.value.detail)
 
 @pytest.mark.asyncio
-@patch("app.routers.ai_assistant.llm_gateway.chat", new_callable=AsyncMock)
-async def test_batch_approval_suggestions_success(mock_chat, mock_request):
+async def test_batch_approval_suggestions_success(mock_request):
     mock_db = mock_request.state.db
     mock_exec = AsyncMock()
     mock_exec.return_value.data = [{"id": "r1", "amount": 100}]
     mock_db.table.return_value.select.return_value.in_.return_value.execute = mock_exec
-
-    # llm_gateway.chat 返回 ChatResponse，后台任务执行后存储结果
-    mock_chat.return_value = ChatResponse(
-        request_id="test",
-        model_code="test",
-        content='{"approve_count": 1, "reject_count": 0, "reason": "ok"}',
-    )
 
     mock_bg = MagicMock()
     res = await batch_approval_suggestions(request_ids=["r1"], request=mock_request, background_tasks=mock_bg, user_id="u1", db=mock_db)
@@ -66,18 +58,11 @@ async def test_batch_approval_suggestions_success(mock_chat, mock_request):
     mock_bg.add_task.assert_called_once()
 
 @pytest.mark.asyncio
-@patch("app.routers.ai_assistant.llm_gateway.chat", new_callable=AsyncMock)
-async def test_get_customer_memory_summary(mock_chat, mock_request):
+async def test_get_customer_memory_summary(mock_request):
     mock_db = mock_request.state.db
     mock_exec = AsyncMock()
     mock_exec.return_value.data = [{"content": "Customer wants more discount"}]
     mock_db.table.return_value.select.return_value.eq.return_value.ilike.return_value.order.return_value.limit.return_value.execute = mock_exec
-
-    mock_chat.return_value = ChatResponse(
-        request_id="test",
-        model_code="test",
-        content='```json\n{"summary": "Need discount", "key_points": ["d"], "sentiment": "neutral"}\n```',
-    )
 
     import app.routers.ai_assistant
     # Clear cache

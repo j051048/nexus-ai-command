@@ -1,5 +1,17 @@
 /// <reference types="vite/client" />
 
+// react-syntax-highlighter subpath declarations (types package doesn't cover ESM subpaths)
+declare module 'react-syntax-highlighter/dist/esm/prism' {
+  import type { SyntaxHighlighterProps } from 'react-syntax-highlighter';
+  const PrismLight: React.ComponentType<SyntaxHighlighterProps>;
+  export default PrismLight;
+}
+
+declare module 'react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus' {
+  const style: { [key: string]: React.CSSProperties };
+  export default style;
+}
+
 // Web Speech API type declarations
 interface SpeechRecognitionEvent extends Event {
   readonly resultIndex: number;
