@@ -53,19 +53,21 @@ async def test_tender_analysis_flow(audit_config):
     tool = _load_tool("analyze_tender_document")
 
     # 生产代码已改为 llm_gateway.chat，直接 mock 该方法
+    # llm_gateway 在函数内本地导入，需从源头模块 patch
     mock_chat_response = ChatResponse(
         request_id="test",
         model_code="test",
         content="🚩 **投标风险提示**\n1. 垫资比例过高\n2. 违约金条款过严",
     )
 
-    with patch("app.tools.tender_tool.llm_gateway.chat", new_callable=AsyncMock, return_value=mock_chat_response):
+    with patch("app.services.llm_gateway.llm_gateway.chat", new_callable=AsyncMock, return_value=mock_chat_response):
         args = {"tender_text": "投标人须具备ISO9001认证，最低注册资本500万"}
         config = {**audit_config, "api_key": "test-key", "base_url": "https://api.test.com/v1"}
         result = await tool.run(args, USER_ID, config)
+        summary = result["summary"] if isinstance(result, dict) else result
 
-        assert "投标风险提示" in result
-        assert "违约金" in result
+        assert "投标风险提示" in summary
+        assert "违约金" in summary
 
 
 def test_audit_tools_registration():
