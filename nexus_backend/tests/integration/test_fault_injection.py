@@ -1,56 +1,72 @@
 import httpx
 import pytest
 import respx
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from app.core.auth import get_current_user_id
+from app.core.security_middleware import TenantContextMiddleware
 from app.main import app
 
 
-# 模拟 Supabase 查询链
 def _mock_db_client():
     """返回模拟的 Supabase 客户端，支持链式调用"""
-    mock_response = MagicMock()
-    mock_response.data = {"id": "test-user-123", "role": "admin"}
-    mock_response.error = None
+    mock_user_response = MagicMock()
+    mock_user_response.data = {
+        "id": "test-user-123",
+        "role": "admin",
+        "organization_id": "org-456",
+    }
+    mock_user_response.error = None
 
     mock_builder = MagicMock()
     mock_builder.select.return_value = mock_builder
     mock_builder.eq.return_value = mock_builder
     mock_builder.maybe_single.return_value = mock_builder
-    mock_builder.execute = AsyncMock(return_value=mock_response)
+    mock_builder.execute = AsyncMock(return_value=mock_user_response)
 
     mock_db = MagicMock()
     mock_db.table.return_value = mock_builder
+    mock_db.get_scoped_client = MagicMock(return_value=mock_db)
+    mock_db.get_org_filtered_client = MagicMock(return_value=mock_db)
     return mock_db
 
 
-def _make_client():
-    """创建测试客户端，绕过认证和数据库依赖"""
+@pytest.fixture(scope="module")
+def client():
+    """创建测试客户端，绕过认证和数据库依赖。
 
-    # 覆盖 FastAPI 依赖注入
+    关键: Starlette 的 BaseHTTPMiddleware 在 __init__ 时将原始 dispatch
+    捕获为 self.dispatch_func。修改类属性不会影响已有实例。
+    必须: 1) 修改类属性, 2) 将 app.middleware_stack 置空,
+    3) 使新请求触发 rebuild — 新实例会使用修改后的 dispatch。
+    """
+    mock_db = _mock_db_client()
+
+    # 1. 覆盖 FastAPI 依赖注入
     async def _override_auth():
         return "test-user-123"
 
     app.dependency_overrides[get_current_user_id] = _override_auth
 
-    # Mock TenantContextMiddleware：注入 user_id 和 db 到 request.state
-    from app.core.security_middleware import TenantContextMiddleware
-
+    # 2. Patch class-level dispatch
     _original_dispatch = TenantContextMiddleware.dispatch
 
     async def _mocked_dispatch(self_mw, request, call_next):
         request.state.user_id = "test-user-123"
         request.state.org_id = "org-456"
-        request.state.db = _mock_db_client()
+        request.state.db = mock_db
         request.state.auth_failed = False
         return await call_next(request)
 
     TenantContextMiddleware.dispatch = _mocked_dispatch
 
+    # 3. Force middleware stack rebuild so new instances pick up the patched dispatch
+    app.middleware_stack = None
+
     try:
         from fastapi.testclient import TestClient
-        return TestClient(app)
+
+        c = TestClient(app)
     except TypeError:
         from httpx import ASGITransport, AsyncClient
         import asyncio
@@ -63,7 +79,9 @@ def _make_client():
                 if self._client is None:
                     loop = asyncio.new_event_loop()
                     self._client = loop.run_until_complete(
-                        AsyncClient(transport=ASGITransport(app=app), base_url="http://test").__aenter__()
+                        AsyncClient(
+                            transport=ASGITransport(app=app), base_url="http://test"
+                        ).__aenter__()
                     )
                     self._loop = loop
 
@@ -71,16 +89,14 @@ def _make_client():
                 self._ensure()
                 return self._loop.run_until_complete(self._client.post(*args, **kwargs))
 
-        return _SyncAsyncBridge()
+        c = _SyncAsyncBridge()
 
-
-@pytest.fixture(scope="module")
-def client():
-    from app.core.security_middleware import TenantContextMiddleware
-    c = _make_client()
     yield c
+
+    # Restore original state
+    TenantContextMiddleware.dispatch = _original_dispatch
+    app.middleware_stack = None
     app.dependency_overrides.clear()
-    # 恢复原始中间件（如果测试结束后不清理会影响其他测试模块）
 
 
 @pytest.mark.security
