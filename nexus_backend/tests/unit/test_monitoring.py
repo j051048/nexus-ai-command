@@ -1,23 +1,34 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
+pytest.importorskip("prometheus_client", reason="prometheus_client not installed")
 
 from app.monitoring.agent_metrics import AgentMetrics
 from app.monitoring.health_monitor import AgentHealthMonitor
 
+
 @pytest.mark.asyncio
 async def test_record_node_execution():
     metrics = AgentMetrics()
-    with patch("app.monitoring.agent_metrics.agent_node_duration.labels") as mock_dur:
-        with patch("app.monitoring.agent_metrics.agent_node_success.labels") as mock_succ:
-            await metrics.record_node_execution("test_node", 1.5, True)
-            mock_dur.return_value.observe.assert_called_once_with(1.5)
-            mock_succ.return_value.inc.assert_called_once()
-            
-    with patch("app.monitoring.agent_metrics.agent_node_duration.labels") as mock_dur:
-        with patch("app.monitoring.agent_metrics.agent_node_failure.labels") as mock_fail:
-            await metrics.record_node_execution("test_node_fail", 2.0, False)
-            mock_dur.return_value.observe.assert_called_once_with(2.0)
-            mock_fail.return_value.inc.assert_called_once()
+    with patch(
+        "app.monitoring.agent_metrics.agent_node_duration.labels"
+    ) as mock_dur, patch(
+        "app.monitoring.agent_metrics.agent_node_success.labels"
+    ) as mock_succ:
+        await metrics.record_node_execution("test_node", 1.5, True)
+        mock_dur.return_value.observe.assert_called_once_with(1.5)
+        mock_succ.return_value.inc.assert_called_once()
+
+    with patch(
+        "app.monitoring.agent_metrics.agent_node_duration.labels"
+    ) as mock_dur, patch(
+        "app.monitoring.agent_metrics.agent_node_failure.labels"
+    ) as mock_fail:
+        await metrics.record_node_execution("test_node_fail", 2.0, False)
+        mock_dur.return_value.observe.assert_called_once_with(2.0)
+        mock_fail.return_value.inc.assert_called_once()
+
 
 @pytest.mark.asyncio
 class TestAgentHealthMonitor:
@@ -30,7 +41,7 @@ class TestAgentHealthMonitor:
 
         rate = await monitor.get_success_rate(hours=1)
         assert rate == 0.95
-        
+
         # Test error handling
         mock_supabase.rpc.side_effect = Exception("DB error")
         rate_error = await monitor.get_success_rate(days=1)
@@ -63,7 +74,7 @@ class TestAgentHealthMonitor:
         monitor = AgentHealthMonitor()
         mock_compress.return_value = None
         mock_cache.clear_pattern = AsyncMock()
-        
+
         await monitor.trigger_auto_recovery()
         mock_cache.clear_pattern.assert_called_once_with("tool_cache:*")
         mock_compress.assert_called_once()

@@ -20,7 +20,7 @@ test.describe('Document Management Flow', () => {
     await page.goto('/knowledge');
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('heading', { name: '企业知识库管理' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '知识图谱' })).toBeVisible();
   });
 });
 
