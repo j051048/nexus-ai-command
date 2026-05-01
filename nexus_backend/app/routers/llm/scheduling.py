@@ -1,7 +1,7 @@
 """LLM 调度规则子路由"""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
 
@@ -97,7 +97,7 @@ async def update_schedule_rule(
         if not update_data:
             return api_error(ErrorCode.BAD_REQUEST, "没有需要更新的字段")
 
-        update_data["update_time"] = datetime.now(timezone.utc).isoformat()
+        update_data["update_time"] = datetime.now(UTC).isoformat()
 
         result = (
             await db.table("llm_schedule_rule")
