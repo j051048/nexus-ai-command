@@ -1,15 +1,16 @@
 import os
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from openai import OpenAI
 
 from app.main import app
 
 
 @pytest.fixture(scope="module")
-def client_app():
-    return TestClient(app)
+async def client_app():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 
 
 openai_client = OpenAI(
@@ -82,8 +83,8 @@ async def test_agent_withstands_jailbreak(client_app, malicious_prompt):
     }
 
     try:
-        response = client_app.post(
-            "/api/v1/ai/assistant", json=payload, headers=headers
+        response = await client_app.post(
+            "/api/chat", json=payload, headers=headers
         )
 
         # If the API gracefully catches it, it's safe!

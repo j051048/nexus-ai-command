@@ -1,5 +1,4 @@
 import logging
-import uuid as _uuid
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -39,11 +38,11 @@ class ProjectListTool(BaseTool):
             )
             if org_id:
                 query = query.eq("organization_id", org_id)
-            
+
             result = await query.execute()
             if not result.data:
                 return self.format_result(data=[], summary="暂无进行中的项目。")
-            
+
             items = [
                 f"ID: {p['id']} | 名称: {p['name']} | 状态: {p.get('stage', '未知')} | 进度: {p.get('progress', 0)}%"
                 for p in result.data
@@ -323,7 +322,7 @@ class WeeklyReportTool(BaseTool):
                 temperature=0.3
             )
             report = response.content
-            
+
             return self.format_result(
                 data={"report": report, "type": report_type},
                 summary=f"📝 AI 生成的{report_type_name}:\n\n{report}"

@@ -115,7 +115,7 @@ class TestApprovalTool:
         """无效 UUID"""
         tool = _load_tool("approve_request")
         result = await tool.run({"request_id": "bad-id"}, FAKE_USER_ID, CONFIG)
-        assert "不是有效的UUID" in result
+        assert "不是有效的UUID" in result['summary']
 
     @pytest.mark.asyncio
     async def test_preview_mode(self):
@@ -132,8 +132,8 @@ class TestApprovalTool:
 
         with patch("app.tools.approval_tools._get_client", return_value=db):
             result = await tool.run({"request_id": FAKE_REQ_ID, "confirm": False}, FAKE_USER_ID, CONFIG)
-        assert "审批预览" in result
-        assert "李四" in result
+        assert "审批预览" in result['summary']
+        assert "李四" in result['summary']
 
     @pytest.mark.asyncio
     async def test_already_processed(self):
@@ -148,7 +148,7 @@ class TestApprovalTool:
 
         with patch("app.tools.approval_tools._get_client", return_value=db):
             result = await tool.run({"request_id": FAKE_REQ_ID, "confirm": True}, FAKE_USER_ID, CONFIG)
-        assert "已被处理" in result
+        assert "已被处理" in result['summary']
 
     @pytest.mark.asyncio
     async def test_manager_limit(self):
@@ -162,8 +162,8 @@ class TestApprovalTool:
 
         with patch("app.tools.approval_tools._get_client", return_value=db):
             result = await tool.run({"request_id": FAKE_REQ_ID}, FAKE_USER_ID, CONFIG)
-        assert "权限不足" in result
-        assert "5,000" in result
+        assert "权限不足" in result['summary']
+        assert "5,000" in result['summary']
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -177,7 +177,7 @@ class TestRejectTool:
     async def test_invalid_uuid(self):
         tool = _load_tool("reject_request")
         result = await tool.run({"request_id": "xxx", "reason": "不合理"}, FAKE_USER_ID, CONFIG)
-        assert "不是有效的UUID" in result
+        assert "不是有效的UUID" in result['summary']
 
     @pytest.mark.asyncio
     async def test_preview_mode(self):
@@ -191,8 +191,8 @@ class TestRejectTool:
 
         with patch("app.tools.approval_tools._get_client", return_value=db):
             result = await tool.run({"request_id": FAKE_REQ_ID, "reason": "超预算", "confirm": False}, FAKE_USER_ID, CONFIG)
-        assert "驳回预览" in result
-        assert "超预算" in result
+        assert "驳回预览" in result['summary']
+        assert "超预算" in result['summary']
 
     @pytest.mark.asyncio
     async def test_already_processed(self):
@@ -205,7 +205,7 @@ class TestRejectTool:
 
         with patch("app.tools.approval_tools._get_client", return_value=db):
             result = await tool.run({"request_id": FAKE_REQ_ID, "reason": "x", "confirm": True}, FAKE_USER_ID, CONFIG)
-        assert "已被处理" in result
+        assert "已被处理" in result['summary']
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -219,7 +219,7 @@ class TestGetEmployeeApprovalHistoryTool:
     async def test_invalid_uuid(self):
         tool = _load_tool("get_employee_approval_history")
         result = await tool.run({"employee_id": "not-uuid"}, FAKE_USER_ID, CONFIG)
-        assert "不是有效的UUID" in result
+        assert "不是有效的UUID" in result['summary']
 
     @pytest.mark.asyncio
     async def test_empty_history(self):
@@ -229,7 +229,7 @@ class TestGetEmployeeApprovalHistoryTool:
 
         with patch("app.tools.approval_tools._get_client", return_value=db):
             result = await tool.run({"employee_id": FAKE_USER_ID}, FAKE_USER_ID, CONFIG)
-        assert "暂无审批记录" in result
+        assert "暂无审批记录" in result['summary']
 
     @pytest.mark.asyncio
     async def test_returns_history(self):
@@ -245,8 +245,9 @@ class TestGetEmployeeApprovalHistoryTool:
 
         with patch("app.tools.approval_tools._get_client", return_value=db):
             result = await tool.run({"employee_id": FAKE_USER_ID, "limit": 2}, FAKE_USER_ID, CONFIG)
-        assert "2条审批记录" in result
-        assert "AI代提交" in result
+        assert "条审批记录" in result['summary']
+        # submitted_via="ai_assistant" 详情在 data 中
+        assert any(r.get("submitted_via") == "ai_assistant" for r in result['data'])
 
 class TestUrgeApprovalTool:
     @pytest.mark.asyncio

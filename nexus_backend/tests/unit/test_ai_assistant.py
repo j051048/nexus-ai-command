@@ -8,6 +8,7 @@ from app.routers.ai_assistant import (
     batch_approval_suggestions,
     get_customer_memory_summary
 )
+from app.services.llm_adapters.base import ChatResponse
 from fastapi import HTTPException
 
 @pytest.fixture
@@ -35,46 +36,57 @@ async def test_parse_voice_no_org(mock_request):
 
 @pytest.mark.asyncio
 async def test_batch_approval_suggestions_empty(mock_request):
+    # background_tasks 是新签名新增的必传参数
+    mock_bg = MagicMock()
     with pytest.raises(HTTPException) as exc:
-        await batch_approval_suggestions(request_ids=[], request=mock_request, user_id="u1", db=mock_request.state.db)
+        await batch_approval_suggestions(request_ids=[], request=mock_request, background_tasks=mock_bg, user_id="u1", db=mock_request.state.db)
     assert "不能为空" in str(exc.value.detail)
 
 @pytest.mark.asyncio
-@patch("app.routers.ai_assistant.get_llm")
-async def test_batch_approval_suggestions_success(mock_get_llm, mock_request):
+@patch("app.routers.ai_assistant.llm_gateway.chat", new_callable=AsyncMock)
+async def test_batch_approval_suggestions_success(mock_chat, mock_request):
     mock_db = mock_request.state.db
     mock_exec = AsyncMock()
     mock_exec.return_value.data = [{"id": "r1", "amount": 100}]
     mock_db.table.return_value.select.return_value.in_.return_value.execute = mock_exec
 
-    mock_llm_instance = AsyncMock()
-    mock_llm_result = MagicMock()
-    mock_llm_result.content = '{"approve_count": 1, "reject_count": 0, "reason": "ok"}'
-    mock_llm_instance.ainvoke.return_value = mock_llm_result
-    mock_get_llm.return_value = mock_llm_instance
+    # llm_gateway.chat 返回 ChatResponse，后台任务执行后存储结果
+    mock_chat.return_value = ChatResponse(
+        request_id="test",
+        model_code="test",
+        content='{"approve_count": 1, "reject_count": 0, "reason": "ok"}',
+    )
 
-    res = await batch_approval_suggestions(request_ids=["r1"], request=mock_request, user_id="u1", db=mock_db)
-    assert res.get("data").get("approve_count") == 1
-    assert mock_get_llm.called
+    mock_bg = MagicMock()
+    res = await batch_approval_suggestions(request_ids=["r1"], request=mock_request, background_tasks=mock_bg, user_id="u1", db=mock_db)
+    # 改为后台任务模式：返回 task_id 而非直接结果
+    assert res.get("data").get("task_id") is not None
+    assert res.get("data").get("status") == "processing"
+    # 确认后台任务已注册
+    mock_bg.add_task.assert_called_once()
 
 @pytest.mark.asyncio
-@patch("app.routers.ai_assistant.get_llm")
-async def test_get_customer_memory_summary(mock_get_llm, mock_request):
+@patch("app.routers.ai_assistant.llm_gateway.chat", new_callable=AsyncMock)
+async def test_get_customer_memory_summary(mock_chat, mock_request):
     mock_db = mock_request.state.db
     mock_exec = AsyncMock()
     mock_exec.return_value.data = [{"content": "Customer wants more discount"}]
     mock_db.table.return_value.select.return_value.eq.return_value.ilike.return_value.order.return_value.limit.return_value.execute = mock_exec
 
-    mock_llm_instance = AsyncMock()
-    mock_llm_result = MagicMock()
-    mock_llm_result.content = '```json\n{"summary": "Need discount", "key_points": ["d"], "sentiment": "neutral"}\n```'
-    mock_llm_instance.ainvoke.return_value = mock_llm_result
-    mock_get_llm.return_value = mock_llm_instance
+    mock_chat.return_value = ChatResponse(
+        request_id="test",
+        model_code="test",
+        content='```json\n{"summary": "Need discount", "key_points": ["d"], "sentiment": "neutral"}\n```',
+    )
 
     import app.routers.ai_assistant
     # Clear cache
     app.routers.ai_assistant._memory_summary_cache = {}
 
-    res = await get_customer_memory_summary(customer_name="Alpha", request=mock_request, user_id="u1")
-    assert res.get("data").get("has_insights") is True
-    assert res.get("data").get("summary") == "Need discount"
+    mock_bg = MagicMock()
+    res = await get_customer_memory_summary(customer_name="Alpha", request=mock_request, background_tasks=mock_bg, user_id="u1")
+    # 改为后台任务模式：有记忆数据时返回 task_id
+    assert res.get("data").get("task_id") is not None
+    assert res.get("data").get("status") == "processing"
+    # 确认后台任务已注册
+    mock_bg.add_task.assert_called_once()

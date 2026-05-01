@@ -1,16 +1,17 @@
 import json
 
 import pytest
-from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
 
-def _get_client():
+async def _get_client():
+    """返回异步 httpx 客户端（ASGI transport 仅支持异步）"""
     if not hasattr(_get_client, "_instance"):
-        _get_client._instance = TestClient(app)
+        _get_client._instance = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     return _get_client._instance
 
 
@@ -33,9 +34,9 @@ json_strategy = st.recursive(
         keys=st.text(min_size=1, max_size=50), values=json_strategy, max_size=20
     )
 )
-def test_fuzz_ai_assistant_endpoint(payload):
+async def test_fuzz_ai_assistant_endpoint(payload):
     """
-    Fuzz test for the /api/v1/ai/assistant endpoint.
+    Fuzz test for the /api/chat endpoint.
     Sends completely randomized structured JSON inputs to ensure the service
     gracefully handles and rejects invalid structures (HTTP 422 Unprocessable Entity)
     instead of crashing the server with Internal Server Error (HTTP 500).
@@ -50,8 +51,9 @@ def test_fuzz_ai_assistant_endpoint(payload):
     }
 
     try:
-        response = _get_client().post(
-            "/api/v1/ai/assistant", json=payload, headers=headers
+        client = await _get_client()
+        response = await client.post(
+            "/api/chat", json=payload, headers=headers
         )
 
         # We expect a validation error (422) or unauthorized (401/403)
@@ -69,7 +71,7 @@ def test_fuzz_ai_assistant_endpoint(payload):
 @pytest.mark.security
 @settings(deadline=None, max_examples=20)
 @given(query=st.text(min_size=1000, max_size=50000))  # Testing massive strings
-def test_fuzz_massive_prompt(query):
+async def test_fuzz_massive_prompt(query):
     """
     Fuzz test for excessively massive string lengths to ensure we don't trigger
     RegEx DoS (ReDoS) or run out of memory before the prompt exceeds token limits.
@@ -81,7 +83,8 @@ def test_fuzz_massive_prompt(query):
         "Authorization": "Bearer fake_token_for_fuzzing",
     }
 
-    response = _get_client().post("/api/v1/ai/assistant", json=payload, headers=headers)
+    client = await _get_client()
+    response = await client.post("/api/chat", json=payload, headers=headers)
 
     # We mainly care that the server doesn't crash (500)
     assert (

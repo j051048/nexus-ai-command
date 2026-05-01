@@ -91,8 +91,8 @@ class TestPlanNodeIntegration:
     """Plan 节点 → 生成工具调用计划"""
 
     @pytest.mark.asyncio
-    @patch("app.agent.node_plan._get_llm")
-    async def test_plan_generates_steps(self, mock_get_llm):
+    @patch("app.agent.plan.llm_caller.invoke_with_fallback")
+    async def test_plan_generates_steps(self, mock_invoke):
         from app.agent.node_plan import plan_node
 
         # Mock LLM 返回带工具调用的响应
@@ -102,11 +102,9 @@ class TestPlanNodeIntegration:
             {"name": "GetCustomersTool", "args": {"limit": 10}, "id": "tc-1"}
         ]
         mock_msg.additional_kwargs = {}
+        mock_msg.response_metadata = {"token_usage": {"prompt_tokens": 100, "completion_tokens": 50}, "finish_reason": "stop"}
 
-        mock_llm = AsyncMock()
-        mock_llm.ainvoke = AsyncMock(return_value=mock_msg)
-        mock_llm.bind_tools = MagicMock(return_value=mock_llm)
-        mock_get_llm.return_value = mock_llm
+        mock_invoke.return_value = mock_msg
 
         state = _make_base_state("查询客户列表", QueryComplexity.MODERATE)
         state["current_phase"] = AgentPhase.PLANNING

@@ -23,6 +23,7 @@ def _make_state(**overrides) -> dict:
     @dataclass
     class FakeConfig:
         max_iterations: int = 5
+        system_confirmed: bool = False
 
     base = {
         "error": None,
@@ -210,9 +211,20 @@ class TestLoopDetectionAndSafety:
             assert "⚠️ 检测到工具调用循环" in state["reflection_guidance"]
 
     def test_after_execute_loop_second_time(self):
-        state = _make_state(iteration=3, _loop_escape_attempted=True)
-        from unittest.mock import patch
-        with patch("app.agent.graph._detect_loop", return_value=True):
+        from unittest.mock import MagicMock, patch
+
+        mock_tc = MagicMock()
+        mock_tc.status = "success"
+        mock_tc.tool_name = "mock_tool"
+
+        state = _make_state(
+            iteration=3,
+            _loop_escape_attempted=True,
+            completed_tool_calls=[mock_tc],
+        )
+        with patch("app.agent.graph._detect_loop", return_value=True), \
+             patch("app.agent.graph.get_completed_tools", return_value=[mock_tc]), \
+             patch("app.agent.graph._has_irreversible_tool", return_value=True):
             nxt = _after_execute(state)
             assert nxt == "reflect"
             assert state["circuit_break_reason"] == "loop_detected"

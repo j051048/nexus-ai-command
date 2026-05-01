@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.services.llm_adapters.base import ChatResponse
 from tests.e2e.test_tool_e2e_regression import _load_tool
 
 USER_ID = "auditor-01"
@@ -51,13 +52,14 @@ async def test_tender_analysis_flow(audit_config):
     """验证招标文件解析及风险评估工具"""
     tool = _load_tool("analyze_tender_document")
 
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "choices": [{"message": {"content": "🚩 **投标风险提示**\n1. 垫资比例过高\n2. 违约金条款过严"}}]
-    }
+    # 生产代码已改为 llm_gateway.chat，直接 mock 该方法
+    mock_chat_response = ChatResponse(
+        request_id="test",
+        model_code="test",
+        content="🚩 **投标风险提示**\n1. 垫资比例过高\n2. 违约金条款过严",
+    )
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response):
+    with patch("app.tools.tender_tool.llm_gateway.chat", new_callable=AsyncMock, return_value=mock_chat_response):
         args = {"tender_text": "投标人须具备ISO9001认证，最低注册资本500万"}
         config = {**audit_config, "api_key": "test-key", "base_url": "https://api.test.com/v1"}
         result = await tool.run(args, USER_ID, config)

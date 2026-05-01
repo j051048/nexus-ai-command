@@ -134,7 +134,8 @@ class TestToolTimeout:
             result = await _execute_single_tool(record, config)
 
         assert result.status == "error"
-        assert "timed out" in result.result.lower() or "timeout" in result.result.lower()
+        # format_friendly_error 将超时信息转为中文友好消息
+        assert "超时" in result.result or "重试" in result.result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -171,10 +172,11 @@ class TestToolException:
             result = await _execute_single_tool(record, config)
 
         assert result.status == "error"
-        assert "failed" in result.result.lower() or "失败" in result.result
+        # format_friendly_error 输出中文友好消息
+        assert "⚠️" in result.result
 
     async def test_tool_exception_result_contains_error_message(self):
-        """异常工具的 result 应包含错误信息"""
+        """异常工具的 result 应包含用户友好的错误信息"""
         from app.agent.nodes import _execute_single_tool
 
         config = AgentConfig(
@@ -198,7 +200,10 @@ class TestToolException:
             mock_cb.record_failure = lambda: None
             result = await _execute_single_tool(record, config)
 
-        assert "数据库连接失败" in result.result
+        # format_friendly_error 将 RuntimeError("数据库连接失败") 映射为
+        # "操作暂时失败，正在为您重试..."（通用可重试错误消息）
+        assert "⚠️" in result.result
+        assert isinstance(result.result, str) and len(result.result) > 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

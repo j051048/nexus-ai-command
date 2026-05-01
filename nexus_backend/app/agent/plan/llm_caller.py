@@ -16,8 +16,8 @@ from app.agent.node_helpers import (
     plugin_system_service,
     record_llm_latency,
 )
-from app.services.error_recovery_service import llm_circuit_breaker
 from app.agent.plan.self_consistency import plan_with_self_consistency
+from app.services.error_recovery_service import llm_circuit_breaker
 from app.services.plugin_system_service import ExtensionPoint
 
 

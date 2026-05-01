@@ -152,7 +152,7 @@ export interface Project {
   stage: string;
   progress: number;
   type: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   member_ids?: string[];
   start_date?: string;
   end_date?: string;

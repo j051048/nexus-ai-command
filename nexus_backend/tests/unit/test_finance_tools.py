@@ -105,21 +105,18 @@ class TestExpenseClaimTool:
 
 @pytest.mark.asyncio
 class TestInvoiceOCRTool:
-    @patch("httpx.AsyncClient.post")
-    async def test_invoice_ocr_success(self, mock_post, mock_config):
+    @patch("app.services.llm_gateway.llm_gateway.chat", new_callable=AsyncMock)
+    async def test_invoice_ocr_success(self, mock_chat, mock_config):
         mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "choices": [{"message": {"content": "- 发票号码: 123456\n- 金额: 100"}}]
-        }
-        mock_post.return_value = mock_resp
+        mock_resp.finish_reason = "stop"
+        mock_resp.content = "- 发票号码: 123456\n- 金额: 100"
+        mock_chat.return_value = mock_resp
 
         tool = InvoiceOCRTool()
         args = {"image_url": "http://img.com/a.jpg"}
         res = await tool.run(args, "user1", config=mock_config)
-        res_str = str(res)
-        assert "发票识别结果" in res_str
-        assert "123456" in res_str
+        assert "发票识别结果" in res['summary']
+        assert "123456" in res['summary']
         
     async def test_invoice_ocr_no_url(self, mock_config):
         tool = InvoiceOCRTool()

@@ -144,7 +144,7 @@ class GenerateMaintenanceReminderTool(BaseTool):
         )
 
         org_id = config.get("org_id") if config else None
-        
+
         try:
             result = await llm_gateway.chat(
                 prompt=prompt,
@@ -291,7 +291,7 @@ class GenerateFaqResponseTool(BaseTool):
                 config=config,
             )
             return self.format_result(
-                data={"question": question, "product_name": product_name}, 
+                data={"question": question, "product_name": product_name},
                 summary=f"**FAQ智能回复**\n\n**问题：** {question}\n\n{result}"
             )
         except Exception as e:

@@ -60,9 +60,9 @@ class TestSmartApprovalTool:
         db = _mock_db()
         db.execute = AsyncMock(return_value=MagicMock(data=[]))
 
-        with patch("app.tools.boss_tools._get_client", return_value=db):
+        with patch("app.tools.boss_tools.smart_approval._get_client", return_value=db):
             result = await tool.run({"action": "batch_approve"}, FAKE_USER_ID, CONFIG)
-        assert "没有待审批" in result
+        assert "没有待审批" in result["summary"]
 
     @pytest.mark.asyncio
     async def test_preview_mode(self):
@@ -77,11 +77,11 @@ class TestSmartApprovalTool:
         db = _mock_db()
         db.execute = AsyncMock(return_value=MagicMock(data=pending))
 
-        with patch("app.tools.boss_tools._get_client", return_value=db):
+        with patch("app.tools.boss_tools.smart_approval._get_client", return_value=db):
             result = await tool.run({"action": "batch_approve", "confirm": False}, FAKE_USER_ID, CONFIG)
-        assert "批量批准预览" in result
-        assert "2 件" in result
-        assert "7,000" in result
+        assert "批量批准预览" in result["summary"]
+        assert "2" in result["summary"]
+        assert "7,000" in result["summary"]
 
     @pytest.mark.asyncio
     async def test_conditional_filter(self):
@@ -96,14 +96,14 @@ class TestSmartApprovalTool:
         db = _mock_db()
         db.execute = AsyncMock(return_value=MagicMock(data=pending))
 
-        with patch("app.tools.boss_tools._get_client", return_value=db):
+        with patch("app.tools.boss_tools.smart_approval._get_client", return_value=db):
             result = await tool.run({
                 "action": "conditional_approve",
                 "condition": "金额小于5000的全部通过",
                 "confirm": False,
             }, FAKE_USER_ID, CONFIG)
         # 应该只筛选出1条
-        assert "1 件" in result
+        assert "1" in result["summary"]
 
     @pytest.mark.asyncio
     async def test_batch_size_limit(self):
@@ -117,9 +117,9 @@ class TestSmartApprovalTool:
         db = _mock_db()
         db.execute = AsyncMock(return_value=MagicMock(data=pending))
 
-        with patch("app.tools.boss_tools._get_client", return_value=db):
+        with patch("app.tools.boss_tools.smart_approval._get_client", return_value=db):
             result = await tool.run({"action": "batch_approve", "confirm": True}, FAKE_USER_ID, CONFIG)
-        assert "安全限制" in result
+        assert "安全限制" in result["summary"]
 
     @pytest.mark.asyncio
     async def test_delegate_no_target(self):
@@ -130,7 +130,7 @@ class TestSmartApprovalTool:
         db = _mock_db()
         db.execute = AsyncMock(return_value=MagicMock(data=pending))
 
-        with patch("app.tools.boss_tools._get_client", return_value=db):
+        with patch("app.tools.boss_tools.smart_approval._get_client", return_value=db):
             result = await tool.run({"action": "delegate", "confirm": True}, FAKE_USER_ID, CONFIG)
         assert "请指定委托人" in result
 
@@ -150,7 +150,7 @@ class TestDailyBriefingTool:
         # 每个 .execute() 调用返回空
         db.execute = AsyncMock(return_value=MagicMock(data=[], count=0))
 
-        with patch("app.tools.boss_tools._get_client", return_value=db):
+        with patch("app.tools.boss_tools.daily_briefing._get_client", return_value=db):
             result = await tool.run({}, FAKE_USER_ID, CONFIG)
         # 实际输出: "🎉 **太棒了！当前没有待处理事项**"
         assert "没有待处理事项" in result
@@ -198,7 +198,7 @@ class TestWebSearchTool:
         """空查询"""
         tool = _load_tool("web_search")
         result = await tool.run({"query": ""}, FAKE_USER_ID, CONFIG)
-        assert "请提供搜索关键词" in result
+        assert "请提供搜索关键词" in result["summary"]
 
     @pytest.mark.asyncio
     async def test_no_api_key(self):
@@ -207,7 +207,7 @@ class TestWebSearchTool:
         with patch("app.tools.web_search_tool.settings") as mock_settings:
             mock_settings.BRAVE_SEARCH_API_KEY = ""
             result = await tool.run({"query": "测试搜索"}, FAKE_USER_ID, CONFIG)
-        assert "未配置" in result
+        assert "未配置" in result["summary"]
 
     @pytest.mark.asyncio
     async def test_timeout(self):
@@ -229,7 +229,7 @@ class TestWebSearchTool:
             _CACHE.clear()
 
             result = await tool.run({"query": "超时测试"}, FAKE_USER_ID, CONFIG)
-        assert "超时" in result
+        assert "超时" in result["summary"]
 
     @pytest.mark.asyncio
     async def test_empty_results(self):
@@ -254,4 +254,4 @@ class TestWebSearchTool:
             _CACHE.clear()
 
             result = await tool.run({"query": "不存在的关键词xyz"}, FAKE_USER_ID, CONFIG)
-        assert "未找到相关结果" in result
+        assert "未找到相关结果" in result["summary"]

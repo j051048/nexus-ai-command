@@ -243,21 +243,21 @@ export const MessageBubble = React.memo(function MessageBubble({
         </code>
       );
     },
-    a: ({ node, ...props }: React.ComponentPropsWithoutRef<'a'> & { node?: any }) => (
+    a: ({ node, ...props }: React.ComponentPropsWithoutRef<'a'> & { node?: unknown }) => (
       <a target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-4 hover:decoration-solid" {...props} />
     ),
-    table: ({ node, ...props }: React.ComponentPropsWithoutRef<'table'> & { node?: any }) => (
+    table: ({ node, ...props }: React.ComponentPropsWithoutRef<'table'> & { node?: unknown }) => (
       <div className="overflow-x-auto my-4 border rounded-md">
         <table className="w-full text-sm text-left" {...props} />
       </div>
     ),
-    th: ({ node, ...props }: React.ComponentPropsWithoutRef<'th'> & { node?: any }) => (
+    th: ({ node, ...props }: React.ComponentPropsWithoutRef<'th'> & { node?: unknown }) => (
       <th className="border-b bg-muted/50 px-4 py-2 font-medium" {...props} />
     ),
-    td: ({ node, ...props }: React.ComponentPropsWithoutRef<'td'> & { node?: any }) => (
+    td: ({ node, ...props }: React.ComponentPropsWithoutRef<'td'> & { node?: unknown }) => (
       <td className="border-b px-4 py-2" {...props} />
     ),
-    blockquote: ({ node, ...props }: React.ComponentPropsWithoutRef<'blockquote'> & { node?: any }) => (
+    blockquote: ({ node, ...props }: React.ComponentPropsWithoutRef<'blockquote'> & { node?: unknown }) => (
       <blockquote className="border-l-4 border-primary/30 pl-4 py-1 my-2 italic bg-muted/20 rounded-r" {...props} />
     ),
   }), [onSendMessage, message.thinkingSteps, isStreamingNow]);
