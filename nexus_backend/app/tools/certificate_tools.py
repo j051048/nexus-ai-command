@@ -94,7 +94,7 @@ class ListCertificatesTool(BaseTool):
             )
 
             if not certs:
-                return self.format_result(data={}, summary=f"当前暂无证照记录。")
+                return self.format_result(data={}, summary="当前暂无证照记录。")
 
             status_labels = {
                 "valid": "有效",

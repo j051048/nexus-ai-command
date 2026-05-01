@@ -102,7 +102,7 @@ from app.agent.state import (
 )
 from app.core.agent_metrics import record_agent_execution
 from app.core.config import settings
-from app.core.timeout import with_complexity_timeout, with_timeout
+from app.core.timeout import with_complexity_timeout
 
 logger = logging.getLogger(__name__)
 

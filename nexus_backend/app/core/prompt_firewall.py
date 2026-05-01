@@ -440,7 +440,7 @@ class PromptFirewall:
             else:
                 return {"dismiss": True}
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.debug("[PromptFirewall] LLM judge timed out, using regex verdict")
             return None
         except Exception as e:

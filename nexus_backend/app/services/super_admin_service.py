@@ -557,7 +557,7 @@ class SuperAdminService:
         if action not in ("start", "extend"):
             raise ValueError("action 必须为 start 或 extend")
         if plan not in VALID_PLANS or plan == "free":
-            raise ValueError(f"试用计划不能为 free，可选: starter, professional, enterprise")
+            raise ValueError("试用计划不能为 free，可选: starter, professional, enterprise")
         if days < 1 or days > 365:
             raise ValueError("试用天数必须在 1-365 之间")
 

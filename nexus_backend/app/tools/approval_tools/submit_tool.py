@@ -6,7 +6,7 @@ from typing import Any
 import app.tools.approval_tools as _pkg
 
 from ..base_tool import BaseTool
-from ._constants import AI_ASSISTANT_ID, _LEVEL_NAMES
+from ._constants import AI_ASSISTANT_ID
 from ._helpers import _notify_next_approver
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,6 @@ class SubmitApprovalOnBehalfTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        from datetime import datetime
 
         client = _pkg._get_client(config)
         # 使用当前登录用户的 ID（从 JWT 解析出来的）

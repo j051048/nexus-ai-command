@@ -326,7 +326,7 @@ class ExpenseQueryTool(BaseTool):
         )
 
         if not claims.data:
-            return self.format_result(data={}, summary=f"您最近没有报销记录。")
+            return self.format_result(data={}, summary="您最近没有报销记录。")
 
         status_icons = {
             "pending": "⏳",
@@ -469,7 +469,7 @@ class SalaryQueryTool(BaseTool):
 - 发放状态: {d.get("status", "未知")}"""
             return self.format_result(data={}, summary=f"未找到 {month} 的薪资记录。请联系人事部门确认。")
         except Exception:
-            return self.format_result(data={}, summary=f"薪资数据表尚未配置。请联系管理员设置薪资模块。")
+            return self.format_result(data={}, summary="薪资数据表尚未配置。请联系管理员设置薪资模块。")
 
 
 class InvoiceOCRTool(BaseTool):

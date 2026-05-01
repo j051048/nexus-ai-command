@@ -216,7 +216,7 @@ class SemanticRouter:
                 f"{sum(len(v) for v in embeddings.values())} exemplars"
             )
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("[SemanticRouter] Initialization timed out (20s)")
             # Return empty embeddings so we don't block — fallback to LLM classify
             self._exemplar_embeddings = {}

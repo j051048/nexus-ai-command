@@ -220,7 +220,7 @@ class ListExpensesTool(BaseTool):
             )
 
             if not claims:
-                return self.format_result(data={}, summary=f"当前暂无报销记录。")
+                return self.format_result(data={}, summary="当前暂无报销记录。")
 
             status_labels = {
                 "pending": "待审批",

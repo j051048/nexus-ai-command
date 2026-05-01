@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id

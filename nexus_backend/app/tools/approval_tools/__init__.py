@@ -11,10 +11,10 @@ P0 Enhancement: Uses advance_step for chain-based approvals.
 from app.tools._shared import _get_client, _validate_uuid  # noqa: F401
 
 from ._constants import (  # noqa: F401
-    AI_ASSISTANT_ID,
-    MAX_BATCH_SIZE,
     _LEVEL_NAMES,
     _LEVEL_ROLE_MAP,
+    AI_ASSISTANT_ID,
+    MAX_BATCH_SIZE,
 )
 from ._helpers import _notify_next_approver  # noqa: F401
 from .approve_tool import ApprovalTool  # noqa: F401

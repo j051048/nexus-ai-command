@@ -175,7 +175,7 @@ async def delete_intent_rule(
 
         db = getattr(request.state, "db", None) or supabase
 
-        result = (
+        (
             await db.table("intent_rules")
             .delete()
             .eq("id", rule_id)

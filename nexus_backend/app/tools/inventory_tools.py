@@ -180,7 +180,7 @@ class InventoryInTool(BaseTool):
             return "❌ 入库数量必须大于0"
 
         try:
-            record = await inventory_service.inventory_in(
+            await inventory_service.inventory_in(
                 org_id=org_id,
                 item_id=item_id,
                 quantity=quantity,
@@ -271,7 +271,7 @@ class InventoryOutTool(BaseTool):
                 return f"❌ {err}"
 
         try:
-            record = await inventory_service.inventory_out(
+            await inventory_service.inventory_out(
                 org_id=org_id,
                 item_id=item_id,
                 quantity=quantity,

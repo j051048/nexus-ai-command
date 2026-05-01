@@ -20,15 +20,11 @@ Sub-modules:
 """
 
 from app.agent.memory.compaction import (
-    micro_compact_messages,
     _strip_reasoning_from_history,
+    micro_compact_messages,
 )
 from app.agent.memory.persistence import persist_result
 from app.agent.memory.prepare import prepare_initial_state
-
-# Re-export for backward compatibility with test mocks that patch
-# "app.agent.memory.ChatService" (the old flat-file location).
-from app.services.chat_service import ChatService as ChatService  # noqa: F401
 from app.agent.memory.token_window import (
     HARD_TURN_LIMIT,
     SHORT_TERM_WINDOW,
@@ -36,6 +32,10 @@ from app.agent.memory.token_window import (
     decompress_message_embedding,
     trim_messages_to_window,
 )
+
+# Re-export for backward compatibility with test mocks that patch
+# "app.agent.memory.ChatService" (the old flat-file location).
+from app.services.chat_service import ChatService as ChatService  # noqa: F401
 
 __all__ = [
     # Primary API (used by external modules)

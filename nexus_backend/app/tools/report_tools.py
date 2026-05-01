@@ -2,7 +2,6 @@
 ReportGenerator 工具 — 将数据生成为格式化的 Markdown / HTML 报告。
 """
 
-import json
 import logging
 from datetime import datetime
 from html import escape as html_escape

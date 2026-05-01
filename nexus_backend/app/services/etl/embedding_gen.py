@@ -288,7 +288,7 @@ async def generate_embeddings(
             )
 
         current_batch_text = []
-        for pi, (parent_id, parent_text) in enumerate(parent_ids):
+        for _pi, (parent_id, parent_text) in enumerate(parent_ids):
             child_chunks = list(
                 semantic_chunk(parent_text, size=chunk_size, overlap=chunk_overlap)
             )

@@ -644,7 +644,7 @@ async def _execute_single_tool(
             return record
 
     # 2b-pre. P0-6: Prompt Firewall — scan string args for injection payloads
-    from app.core.prompt_firewall import prompt_firewall, RiskLevel
+    from app.core.prompt_firewall import RiskLevel, prompt_firewall
 
     for arg_key, arg_val in (record.tool_args or {}).items():
         if isinstance(arg_val, str) and len(arg_val) > 10:

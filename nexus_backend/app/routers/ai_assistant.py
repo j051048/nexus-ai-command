@@ -13,7 +13,7 @@ from time import time as _time
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 
 from app.core.auth import get_current_user_id
-from app.core.dependencies import get_db, get_org_id
+from app.core.dependencies import get_db
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.ai_voice_parser import parse_voice_intent
 

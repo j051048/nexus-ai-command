@@ -132,7 +132,6 @@ class WebFetchTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        import json
 
         url = (args.get("url") or "").strip()
         max_length = args.get("max_length", 2000)

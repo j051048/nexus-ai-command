@@ -12,13 +12,13 @@ Usage in retrieval:
 """
 
 import logging
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class MemoryVisibility(str, Enum):
+class MemoryVisibility(StrEnum):
     """Three-tier visibility levels for memory access control."""
 
     PRIVATE = "private"

@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Any
 
 import app.tools.approval_tools as _pkg
-
 from app.tools._shared import safe_tool_error
 
 from ..base_tool import BaseTool
@@ -133,11 +132,10 @@ class ApprovalTool(BaseTool):
 
         # P0 Security Fix #1: Return preview if not confirmed
         if not confirm:
-            chain_info = ""
             if request_data.get("chain_id"):
                 step = request_data.get("current_step", 0)
                 level = request_data.get("approval_level", "")
-                chain_info = f"\n• 审批链步骤: 第{step + 1}步 ({level})"
+                f"\n• 审批链步骤: 第{step + 1}步 ({level})"
 
             return self.format_result(
                 data=request_data,

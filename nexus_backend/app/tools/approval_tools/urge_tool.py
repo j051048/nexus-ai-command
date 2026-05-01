@@ -2,8 +2,7 @@ import logging
 from typing import Any
 
 import app.tools.approval_tools as _pkg
-
-from app.tools._shared import safe_tool_error, _validate_uuid
+from app.tools._shared import _validate_uuid, safe_tool_error
 
 from ..base_tool import BaseTool
 

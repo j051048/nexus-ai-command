@@ -8,7 +8,6 @@
 import asyncio
 import logging
 import time
-from typing import Optional
 
 import numpy as np
 
@@ -60,12 +59,12 @@ class ToolEmbeddingIndex:
                 ),
                 timeout=20.0,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("[ToolEmbIdx] Batch embedding timed out (20s)")
             return
 
         new_embeddings: dict[str, np.ndarray] = {}
-        for (name, _), emb in zip(texts, embeddings_list):
+        for (name, _), emb in zip(texts, embeddings_list, strict=False):
             if emb is not None:
                 new_embeddings[name] = np.array(emb, dtype=np.float32)
 
@@ -99,7 +98,7 @@ class ToolEmbeddingIndex:
         query: str,
         top_k: int = 12,
         min_score: float = 0.25,
-        candidate_names: Optional[set[str]] = None,
+        candidate_names: set[str] | None = None,
     ) -> list[tuple[str, float]]:
         """返回与 query 语义最相关的工具列表 [(tool_name, score)]。
 

@@ -420,7 +420,7 @@ class PredictiveMaintenanceTool(BaseTool):
             assets = asset_result.data or []
 
             if not assets:
-                return self.format_result(data={}, summary=f"当前没有使用中的资产需要维护检查。")
+                return self.format_result(data={}, summary="当前没有使用中的资产需要维护检查。")
 
             now = datetime.now(UTC)
             suggestions: list[str] = []

@@ -71,6 +71,7 @@ def get_llm(org_id: str = None, model: str = None, **kwargs):
     for routers (like ai_assistant.py) that expect .ainvoke().
     """
     from langchain_openai import ChatOpenAI
+
     from app.core.config import settings
 
     return ChatOpenAI(

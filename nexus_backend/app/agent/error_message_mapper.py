@@ -7,7 +7,6 @@ Used by node_execute.py to improve user experience when tools fail.
 
 import re
 
-
 # ── Pattern → friendly message mapping ──────────────────────────────────
 
 _FRIENDLY_MESSAGES: list[tuple[re.Pattern, str, str | None]] = [

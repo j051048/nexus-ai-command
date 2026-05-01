@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Any
 
 import app.tools.approval_tools as _pkg
-
 from app.tools._shared import safe_tool_error
 
 from ..base_tool import BaseTool

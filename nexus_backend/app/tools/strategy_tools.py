@@ -68,7 +68,7 @@ class DataAttributionTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        metric = args.get(
+        args.get(
             "metric", "all"
         )  # noqa: F841 — reserved for per-metric filtering
         period = args.get("period", "month")
@@ -205,7 +205,7 @@ class DataAttributionTool(BaseTool):
             logger.debug("审批数据查询失败: %s", e)
 
         if not data_context:
-            return self.format_result(data={}, summary=f"暂无足够数据进行归因分析。请确保相关业务数据已录入系统。")
+            return self.format_result(data={}, summary="暂无足够数据进行归因分析。请确保相关业务数据已录入系统。")
 
         prompt = (
             f"请对以下{period_name}经营数据进行多维度归因分析:\n\n"

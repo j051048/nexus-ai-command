@@ -18,6 +18,7 @@ from app.services.notification_service import (
     notification_service,
 )
 from app.tools._shared import safe_tool_error
+
 from ._shared import _get_client
 from .base_tool import BaseTool
 
@@ -416,7 +417,7 @@ class LeaveQueryTool(BaseTool):
             )
 
             if not requests.data:
-                return self.format_result(data={}, summary=f"您最近没有请假记录。")
+                return self.format_result(data={}, summary="您最近没有请假记录。")
 
             type_names = {
                 "annual": "年假",

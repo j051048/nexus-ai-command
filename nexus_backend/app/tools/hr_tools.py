@@ -227,7 +227,6 @@ class EmployeeProfileTool(BaseTool):
             logger.debug("考勤数据查询失败: %s", e)
 
         # 获取销售业绩 (if sales role)
-        sales_info = ""
         try:
             sales_res = (
                 await client.table("sales_metrics")
@@ -236,14 +235,12 @@ class EmployeeProfileTool(BaseTool):
                 .execute()
             )
             if sales_res.data:
-                total_rev = sum(float(s.get("revenue", 0)) for s in sales_res.data)
-                total_leads = sum(int(s.get("leads_count", 0)) for s in sales_res.data)
-                sales_info = f"\n**销售业绩**\n- 累计营收: ¥{total_rev:,.0f}\n- 累计线索: {total_leads}条"
+                sum(float(s.get("revenue", 0)) for s in sales_res.data)
+                sum(int(s.get("leads_count", 0)) for s in sales_res.data)
         except Exception as e:
             logger.debug("销售业绩查询失败: %s", e)
 
         # 获取近期任务
-        tasks_info = ""
         try:
             tasks_res = (
                 await client.table("oa_tasks")
@@ -260,7 +257,7 @@ class EmployeeProfileTool(BaseTool):
                     task_lines.append(
                         f"  {status_icon} {t.get('title', '未命名')} [{t.get('priority', 'medium')}]"
                     )
-                tasks_info = "\n**近期任务**\n" + "\n".join(task_lines)
+                "\n**近期任务**\n" + "\n".join(task_lines)
         except Exception as e:
             logger.debug("近期任务查询失败: %s", e)
 
@@ -273,12 +270,12 @@ class EmployeeProfileTool(BaseTool):
                     f"绩效分: {score}, 排名: {rank}, 考勤: {attendance_info}, "
                     f"角色: {emp.get('role', '员工')}"
                 )
-                risk_analysis = await AIService.call_llm(
+                await AIService.call_llm(
                     risk_prompt,
                     "你是HR分析专家。基于数据给出客观分析，不要编造数据。中文回复。",
                 )
             except Exception:
-                risk_analysis = "AI 风险分析暂不可用"
+                pass
 
         profile_data = {
             "name": emp.get("name", employee_name),

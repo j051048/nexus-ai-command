@@ -8,7 +8,7 @@ Win probability is derived from stage + score.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +56,9 @@ def _recency_score(lead: dict) -> float:
             updated = datetime.fromisoformat(updated.replace("Z", "+00:00"))
         except (ValueError, TypeError):
             return 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if updated.tzinfo is None:
-        updated = updated.replace(tzinfo=timezone.utc)
+        updated = updated.replace(tzinfo=UTC)
     days_ago = (now - updated).days
     if days_ago <= 0:
         return 100
@@ -110,7 +110,7 @@ def score_lead(lead: dict) -> dict:
         "score": score,
         "win_probability": win_probability,
         "ai_suggestion": suggestion,
-        "last_scored_at": datetime.now(timezone.utc).isoformat(),
+        "last_scored_at": datetime.now(UTC).isoformat(),
     }
 
 

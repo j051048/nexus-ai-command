@@ -3,7 +3,6 @@
 暴露 UserPreferenceService 给 Agent，支持查看和更新用户个人偏好。
 """
 
-import json
 import logging
 from typing import Any
 

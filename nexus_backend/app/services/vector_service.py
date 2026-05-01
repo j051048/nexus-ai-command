@@ -807,7 +807,7 @@ class VectorService:
                                 if len(self._embed_cache) > self._EMBED_CACHE_MAX:
                                     self._embed_cache.popitem(last=False)
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning(
                         f"Batch embedding timed out after {timeout}s "
                         f"(batch {batch_start // batch_size + 1})"

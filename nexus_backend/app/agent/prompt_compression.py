@@ -20,7 +20,6 @@ v2 Improvements (inspired by Hermes Agent context_compressor.py):
 
 import logging
 import re
-import time
 
 from langchain_core.messages import (
     AIMessage,
