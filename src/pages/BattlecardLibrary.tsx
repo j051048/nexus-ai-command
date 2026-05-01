@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * 竞品打击库页面
  * 动态数据驱动 + admin/boss 可管理竞品、产品、对比维度

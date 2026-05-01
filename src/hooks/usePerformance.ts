@@ -5,7 +5,6 @@ import { useEffect, useRef, useCallback } from 'react';
  * @param callback 回调函数
  * @param delay 延迟时间（毫秒）
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic function wrapper pattern
 export function useDebounce<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number
@@ -38,7 +37,6 @@ export function useDebounce<T extends (...args: never[]) => unknown>(
  * @param callback 回调函数
  * @param delay 延迟时间（毫秒）
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic function wrapper pattern
 export function useThrottle<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number

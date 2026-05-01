@@ -64,7 +64,6 @@ export function useSaveAISettings() {
 
   return useMutation({
     mutationFn: async (settings: { base_url: string; api_key: string | null; model: string; behavior_preferences?: BehaviorPreferences }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase RPC types not generated
       const sb = supabase as { auth: { getSession: () => Promise<{ data: { session: { user: { id: string } } | null } }> }; from: (table: string) => Record<string, unknown> };
       
       // 直接从 Supabase 实时获取当前会话，不依赖 React 状态/闭包

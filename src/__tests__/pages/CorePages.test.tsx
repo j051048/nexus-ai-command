@@ -22,11 +22,12 @@ describe('Core Pages Importability', () => {
             try {
                 const mod = await import(page.path);
                 expect(mod).toBeDefined();
-            } catch (e: any) {
+            } catch (e: unknown) {
                 // 允许模块依赖导致的运行时错误（组件渲染时才会真正报错）
                 // 只要不是 MODULE_NOT_FOUND 类型的致命错误即可
-                if (e.message?.includes('Cannot find module') ||
-                    e.message?.includes('Failed to resolve import')) {
+                const errMsg = e instanceof Error ? e.message : '';
+                if (errMsg.includes('Cannot find module') ||
+                    errMsg.includes('Failed to resolve import')) {
                     // 模块路径不存在则跳过
                     console.warn(`⚠️ ${page.name} import skipped: module not found`);
                 } else {

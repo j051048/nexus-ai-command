@@ -77,7 +77,6 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
     const { data: subtasks = [] } = useQuery({
         queryKey: ['project-subtasks', projectId],
         queryFn: async () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- httpClient generic overload
             const response = await (httpClient as { get: (url: string) => Promise<{ data: { tasks?: unknown[] } }> }).get(`/api/projects/${projectId}/tasks`);
             return response.data?.tasks || [];
         },
@@ -552,7 +551,6 @@ function ProjectSubtasks({ projectId, tasks, onProgressChange }: {
 
     const handleStatusToggle = async (task: ProjectTask) => {
         const newStatus = (task.status === 'done' || task.status === 'completed') ? 'todo' : 'done';
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase table type not generated for oa_tasks
         const { error } = await (supabase.from('oa_tasks') as { update: (data: Record<string, unknown>) => { eq: (col: string, val: unknown) => Promise<{ error: unknown }> } })
             .update({ status: newStatus })
             .eq('id', task.id);

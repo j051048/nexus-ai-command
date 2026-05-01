@@ -57,7 +57,6 @@ export function ProjectManagement() {
             const { data, error } = await query;
             if (error) throw error;
             setProjects(data as Project[] || []);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : "加载项目失败";
             toast.error(msg);

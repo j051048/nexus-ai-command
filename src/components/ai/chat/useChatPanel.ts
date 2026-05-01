@@ -486,7 +486,7 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
             const existingNames = new Set((existingByName || []).map((t: { name: string }) => t.name));
             orphanTaskNames = new Set(taskNames.filter(n => !existingNames.has(n)));
           }
-        } catch {}
+        } catch { /* orphan task lookup is best-effort */ }
 
         const validData = (deletedTaskIds.size > 0 || orphanTaskNames.size > 0)
           ? data.filter((r: ProactiveRow) => {
@@ -522,7 +522,7 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
             }));
           return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
         });
-      } catch {}
+      } catch { /* proactive message loading is best-effort */ }
     };
     loadProactiveFromDB();
   }, [user.id]);
