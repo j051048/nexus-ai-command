@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useCallback, useRef, useState } from 'react';
 
 export interface PageContextData {
@@ -75,5 +76,6 @@ export function useRegisterPageContext(ctx: PageContextData | null) {
       prevRef.current = '';
       clearPageContext();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx?.type, ctx?.id, ctx?.name, setPageContext, clearPageContext]);
 }

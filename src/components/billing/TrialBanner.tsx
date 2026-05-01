@@ -129,6 +129,7 @@ export function TrialBanner() {
  * const { canAccess, showUpgrade } = usePaywall('professional');
  * if (!canAccess) return showUpgrade();
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePaywall(requiredPlan: 'starter' | 'professional' | 'enterprise' = 'starter') {
   const { data: subscription } = useSubscription();
   const startTrial = useStartTrial();

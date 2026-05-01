@@ -181,7 +181,11 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
     try {
       const res = await aiClient.fetch<{ data: { messages: AIMessage[] } }>(`/api/chat/history/${sessionId}`);
       if (res?.data?.messages?.length) {
-        setMessages(res.data.messages.map((m: AIMessage) => ({ ...m, timestamp: new Date(m.timestamp) })));
+        let loaded = res.data.messages.map((m: AIMessage) => ({ ...m, timestamp: new Date(m.timestamp) }));
+        if (loaded.length > 200) {
+          loaded = loaded.slice(loaded.length - 200);
+        }
+        setMessages(loaded);
       } else {
         setMessages([greeting]);
       }
@@ -217,7 +221,10 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
       ...(imageUrls.length ? { imageUrls } : {}),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => {
+      const next = [...prev, userMessage];
+      return next.length > 200 ? next.slice(next.length - 200) : next;
+    });
     const messageToSend = currentInput;
     setInput('');
     setShowQuickReplies(false);
@@ -238,9 +245,14 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
       await streamChat(enrichedMessage, messagesRef.current, detectedAgent, {
         onUpdate: (content, assistantMsgId) => {
           setMessages((prev) => {
+            let next = prev;
             const exists = prev.find((m) => m.id === assistantMsgId);
-            if (exists) return prev.map((m) => m.id === assistantMsgId ? { ...m, content } : m);
-            return [...prev, { id: assistantMsgId, role: 'assistant', content, timestamp: new Date(), agent: detectedAgent }];
+            if (exists) {
+              next = prev.map((m) => m.id === assistantMsgId ? { ...m, content } : m);
+            } else {
+              next = [...prev, { id: assistantMsgId, role: 'assistant', content, timestamp: new Date(), agent: detectedAgent }];
+            }
+            return next.length > 200 ? next.slice(next.length - 200) : next;
           });
         },
         onThinkingStep: (step) => addThinkingStep(step),

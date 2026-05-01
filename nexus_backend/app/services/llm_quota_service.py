@@ -148,7 +148,7 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
 
         query = (
             supabase.table("llm_usage_stats")
-            .select("total_tokens, total_cost, total_requests")
+            .select("total_input_tokens, total_output_tokens, total_cost, total_calls")
             .eq("tenant_id", tenant_id)
         )
 
@@ -164,9 +164,9 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
         res = await query.execute()
 
         for row in res.data or []:
-            usage["tokens"] += row.get("total_tokens", 0)
+            usage["tokens"] += row.get("total_input_tokens", 0) + row.get("total_output_tokens", 0)
             usage["cost"] += float(row.get("total_cost", 0.0))
-            usage["requests"] += row.get("total_requests", 0)
+            usage["requests"] += row.get("total_calls", 0)
 
     except Exception as e:
         logger.warning(
@@ -319,7 +319,8 @@ async def record_usage(
     tenant_id: str,
     model_code: str,
     user_id: str,
-    tokens: int,
+    input_tokens: int,
+    output_tokens: int,
     cost: float,
 ):
     """
@@ -332,7 +333,7 @@ async def record_usage(
             u_key = _usage_key(tenant_id, scope_model, period)
             if u_key not in _usage_cache:
                 _usage_cache[u_key] = {"tokens": 0, "cost": 0.0, "requests": 0}
-            _usage_cache[u_key]["tokens"] += tokens
+            _usage_cache[u_key]["tokens"] += (input_tokens + output_tokens)
             _usage_cache[u_key]["cost"] += cost
             _usage_cache[u_key]["requests"] += 1
 
@@ -351,7 +352,8 @@ async def record_usage(
                 "p_model_code": model_code,
                 "p_user_id": user_id,
                 "p_stat_date": stat_date,
-                "p_tokens": tokens,
+                "p_input_tokens": input_tokens,
+                "p_output_tokens": output_tokens,
                 "p_cost": cost,
             },
         ).execute()

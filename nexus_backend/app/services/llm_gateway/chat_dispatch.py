@@ -275,7 +275,8 @@ class ChatDispatchMixin:
                 tenant_id=org_id,
                 model_code=model_code,
                 user_id=user_id,
-                tokens=input_tokens + output_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 cost=cost,
             )
 
@@ -444,7 +445,8 @@ class ChatDispatchMixin:
                 tenant_id=org_id,
                 model_code=model_code,
                 user_id=user_id,
-                tokens=total_input_tokens + total_output_tokens,
+                input_tokens=total_input_tokens,
+                output_tokens=total_output_tokens,
                 cost=total_cost,
             )
 
@@ -581,7 +583,8 @@ class ChatDispatchMixin:
                 tenant_id=org_id,
                 model_code=model_code,
                 user_id="system",
-                tokens=total_tokens,
+                input_tokens=total_tokens,
+                output_tokens=0,
                 cost=cost,
             )
 
