@@ -229,7 +229,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      secrets.TEST_SUPABASE_URL != ''
+      vars.TEST_SUPABASE_URL != ''
     defaults:
       run:
         working-directory: ./nexus_backend
@@ -550,6 +550,9 @@ jobs:
     needs: [ci-success]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -561,7 +564,7 @@ jobs:
           path: dist/
 
       - name: Deploy frontend to Vercel
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: env.VERCEL_TOKEN != ''
         run: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -569,7 +572,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Trigger backend deployment
-        if: ${{ secrets.DEPLOY_WEBHOOK_URL != '' }}
+        if: env.DEPLOY_WEBHOOK_URL != ''
         run: |
           curl -s -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
@@ -591,6 +594,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     environment:
       name: staging
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+      STAGING_DEPLOY_WEBHOOK_URL: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}
+      STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -611,7 +619,7 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Deploy frontend to Vercel (staging)
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: env.VERCEL_TOKEN != ''
         run: npx vercel --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -634,7 +642,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Scan Docker image for vulnerabilities
-        if: ${{ secrets.DOCKER_REGISTRY != '' }}
+        if: env.DOCKER_REGISTRY != ''
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "nexus-backend:staging-${{ github.sha }}"
@@ -656,7 +664,7 @@ jobs:
           DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
 
       - name: Trigger backend staging deployment
-        if: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL != '' }}
+        if: env.STAGING_DEPLOY_WEBHOOK_URL != ''
         run: |
           curl -s -X POST "${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
@@ -665,7 +673,7 @@ jobs:
           STAGING_DEPLOY_WEBHOOK_URL: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}
 
       - name: Run staging smoke tests
-        if: ${{ secrets.STAGING_API_URL != '' }}
+        if: env.STAGING_API_URL != ''
         env:
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
         run: |
