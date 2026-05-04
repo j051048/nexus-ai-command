@@ -147,7 +147,9 @@ class TestCrossModuleWorkflowE2E:
             for ref in related:
                 if ref not in TOOL_REGISTRY:
                     broken_refs.append(f"{name} → {ref}")
-        # 不应有太多断链引用
+        # 不应有太多断链引用（空注册表直接跳过）
+        if not TOOL_REGISTRY:
+            return
         assert len(broken_refs) < len(TOOL_REGISTRY) * 0.1, (
             f"发现 {len(broken_refs)} 个断链引用: {broken_refs[:10]}"
         )

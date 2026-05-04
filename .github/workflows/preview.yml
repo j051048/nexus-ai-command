@@ -38,7 +38,7 @@ jobs:
 
       - name: Deploy to Vercel preview
         id: vercel-deploy
-        if: env.VERCEL_TOKEN != ''
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
         run: |
           DEPLOYMENT_URL=$(npx vercel --token=${{ secrets.VERCEL_TOKEN }} --yes 2>&1 | tail -1)
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
@@ -102,7 +102,7 @@ jobs:
     if: github.event.action == 'closed'
     steps:
       - name: Remove Vercel preview deployment
-        if: env.VERCEL_TOKEN != ''
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
         run: |
           echo "Cleaning up preview for PR #${{ github.event.pull_request.number }}"
           # List and remove deployments matching this PR branch
