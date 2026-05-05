@@ -66,6 +66,7 @@ class ReasoningTraceStore:
 
         if not db:
             from app.core.database import supabase
+
             db = supabase
         if not db:
             return False
@@ -81,9 +82,11 @@ class ReasoningTraceStore:
                 {
                     "tool": tc.get("tool_name", ""),
                     "status": tc.get("status", "success"),
-                    "param_keys": list(tc.get("tool_args", {}).keys())
-                    if isinstance(tc.get("tool_args"), dict)
-                    else [],
+                    "param_keys": (
+                        list(tc.get("tool_args", {}).keys())
+                        if isinstance(tc.get("tool_args"), dict)
+                        else []
+                    ),
                 }
                 for tc in tool_chain[:10]
             ],
@@ -99,7 +102,10 @@ class ReasoningTraceStore:
             # 生成 embedding
             embedding = None
             try:
-                from app.services.conversation_memory.embedding import generate_embedding
+                from app.services.conversation_memory.embedding import (
+                    generate_embedding,
+                )
+
                 embedding = await generate_embedding(intent_summary, org_id)
             except Exception as e:
                 logger.debug(f"[ReasoningTrace] Embedding generation skipped: {e}")
@@ -274,14 +280,10 @@ class ReasoningTraceStore:
         if iterations > 1:
             lines.append(f"（历史执行: {iterations} 轮迭代）")
 
-        lines.append(
-            "你可以参考此历史路径，也可以根据当前上下文调整方案。"
-        )
+        lines.append("你可以参考此历史路径，也可以根据当前上下文调整方案。")
         return "\n".join(lines)
 
-    async def _evict_if_needed(
-        self, db: Any, user_id: str, org_id: str | None
-    ) -> None:
+    async def _evict_if_needed(self, db: Any, user_id: str, org_id: str | None) -> None:
         """按组织维度淘汰最旧最少用的轨迹。"""
         try:
             query = (
@@ -320,7 +322,9 @@ class ReasoningTraceStore:
                     .eq("id", oldest.data[0]["id"])
                     .execute()
                 )
-                logger.debug("[ReasoningTrace] Evicted oldest trace to stay within limit")
+                logger.debug(
+                    "[ReasoningTrace] Evicted oldest trace to stay within limit"
+                )
         except Exception as e:
             logger.debug(f"[ReasoningTrace] Eviction check skipped: {e}")
 

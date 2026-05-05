@@ -346,8 +346,7 @@ class ReflectionAgent:
         """
         # 检查所有工具是否都成功
         all_success = all(
-            tc.get("status") == "success"
-            or (not tc.get("error") and tc.get("result"))
+            tc.get("status") == "success" or (not tc.get("error") and tc.get("result"))
             for tc in tool_calls
         )
         if not all_success:
