@@ -905,6 +905,52 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     return QueryComplexity.SIMPLE, "一般对话"
 
 
+# ─── Data Type Hint (P2 AskDavid-inspired) ───────────────────────────────────
+# Classify whether the query targets structured data (CRUD tools),
+# unstructured data (RAG/knowledge base), or both (hybrid).
+# This helps the Plan node choose more appropriate tool combinations
+# and avoids unnecessary RAG calls for pure CRUD queries.
+
+_STRUCTURED_INDICATORS = re.compile(
+    r"(客户|线索|项目|合同|订单|审批|请假|考勤|工资|薪资|库存|"
+    r"发票|报销|日程|待办|预约|会议室|日报|周报|月报|"
+    r"查(看|询|一下).{0,4}(数据|列表|记录|状态|进度|详情)|"
+    r"(创建|新建|添加|修改|更新|删除|提交|发起|导出))",
+    re.IGNORECASE,
+)
+
+_UNSTRUCTURED_INDICATORS = re.compile(
+    r"(文档|资料|手册|文件|知识库|规范|标准|说明书|"
+    r"招标|投标|标书|方案|白皮书|技术文档|"
+    r"产品.{0,4}(介绍|说明|对比)|"
+    r"行业.{0,4}(报告|分析|趋势)|"
+    r"根据.{0,6}(文件|文档|资料|要求)|"
+    r"参考|查阅|检索|摘要|总结.{0,4}(文档|资料|文件)|"
+    r"怎么(申请|操作|办理|使用)|流程是什么|谁负责|"
+    r"(定义|标准|制度|规则|政策)是什么)",
+    re.IGNORECASE,
+)
+
+
+def _classify_data_hint(query: str, intent_summary: str) -> str:
+    """Classify query data type: 'structured', 'unstructured', or 'hybrid'.
+
+    Zero LLM cost — pure regex matching.
+    Used by route_node to hint the Plan node on optimal tool selection.
+    """
+    text = f"{query} {intent_summary}"
+    has_structured = bool(_STRUCTURED_INDICATORS.search(text))
+    has_unstructured = bool(_UNSTRUCTURED_INDICATORS.search(text))
+
+    if has_structured and has_unstructured:
+        return "hybrid"
+    if has_structured:
+        return "structured"
+    if has_unstructured:
+        return "unstructured"
+    return "hybrid"  # Default: don't assume
+
+
 # ─── RAG Relevance Gate ─────────────────────────────────────────────────────
 # Only trigger RAG (embedding API call) when the query is likely to need
 # information from uploaded documents / knowledge base.
@@ -1202,6 +1248,13 @@ async def route_node(state: AgentState) -> dict:
         content=f"意图分类: {intent_summary} → 复杂度: {complexity.value} → 模型: {selected_model}"
         + (f" → Agent: {agent_code}" if agent_code else ""),
     )
+
+    # ── P2: 数据类型 hint（借鉴 JP Morgan AskDavid 结构化/非结构化分层）──
+    # 在 intent_summary 中附加数据特征标记，让 Plan 节点能更精准地选择工具组合
+    data_hint = _classify_data_hint(last_user_msg, intent_summary)
+    if data_hint != "hybrid":
+        intent_summary = f"[{data_hint}] {intent_summary}"
+        logger.debug(f"[Router] Data hint: {data_hint} for '{last_user_msg[:30]}'")
 
     result = {
         "complexity": complexity,

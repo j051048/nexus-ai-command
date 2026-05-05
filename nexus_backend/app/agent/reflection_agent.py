@@ -6,9 +6,10 @@
 2. ReflectionAgent 执行：
    a. 策略评估（这次对话的规划路径是否最优？）
    b. 技能提炼（成功的工具链是否值得固化为可复用技能？）
+   b2. 推理轨迹保存（完整推理路径持久化，借鉴 JP Morgan AskDavid）
    c. 记忆巩固（触发 consolidation 的 Sleep Cycle）
    d. 模式发现（跨会话行为模式分析）
-3. 结果写入 memory_consolidations / skill_library / learning_system
+3. 结果写入 memory_consolidations / skill_library / reasoning_trace / learning_system
 
 设计原则：
 - 完全异步，不阻塞用户响应
@@ -41,6 +42,7 @@ class ReflectionResult:
     session_id: str
     strategy_evaluated: bool = False
     skill_extracted: bool = False
+    reasoning_trace_saved: bool = False
     consolidation_triggered: bool = False
     pattern_discovered: bool = False
     errors: list[str] = field(default_factory=list)
@@ -101,6 +103,23 @@ class ReflectionAgent:
                 result.errors.append(f"skill_extraction: {e}")
                 logger.error(f"[Reflection] Skill extraction failed: {e}")
 
+        # ── Step 2b: 推理轨迹保存（P0 借鉴 JP Morgan AskDavid 历史步骤维度）──
+        if len(tool_calls) >= _MIN_TOOL_CALLS_FOR_SKILL:
+            try:
+                result.reasoning_trace_saved = await self._save_reasoning_trace(
+                    user_message=user_message,
+                    tool_calls=tool_calls,
+                    complexity=complexity,
+                    plan_summary=plan_summary,
+                    user_id=user_id,
+                    org_id=org_id,
+                    metadata=metadata,
+                    db=db,
+                )
+            except Exception as e:
+                result.errors.append(f"reasoning_trace: {e}")
+                logger.debug(f"[Reflection] Reasoning trace save failed: {e}")
+
         # ── Step 3: 记忆巩固 / Sleep Cycle（重量级）──
         try:
             result.consolidation_triggered = await self._trigger_consolidation(
@@ -132,6 +151,7 @@ class ReflectionAgent:
             [
                 result.strategy_evaluated,
                 result.skill_extracted,
+                result.reasoning_trace_saved,
                 result.consolidation_triggered,
                 result.pattern_discovered,
             ]
@@ -139,6 +159,7 @@ class ReflectionAgent:
             logger.info(
                 f"[Reflection] Completed for session {session_id[:8]}: "
                 f"strategy={result.strategy_evaluated}, skill={result.skill_extracted}, "
+                f"trace={result.reasoning_trace_saved}, "
                 f"consolidation={result.consolidation_triggered}, "
                 f"patterns={result.pattern_discovered}, "
                 f"duration={result.duration_ms}ms, errors={len(result.errors)}"
@@ -306,6 +327,72 @@ class ReflectionAgent:
 
         except Exception as e:
             logger.debug(f"[Reflection] Consolidation skipped: {e}")
+            return False
+
+    async def _save_reasoning_trace(
+        self,
+        user_message: str,
+        tool_calls: list[dict],
+        complexity: str,
+        plan_summary: str,
+        user_id: str,
+        org_id: str | None,
+        metadata: dict | None,
+        db: Any,
+    ) -> bool:
+        """持久化成功的推理轨迹（借鉴 JP Morgan AskDavid 的历史步骤维度）
+
+        仅在所有工具调用成功时保存，失败轨迹由 learning_system 处理。
+        """
+        # 检查所有工具是否都成功
+        all_success = all(
+            tc.get("status") == "success"
+            or (not tc.get("error") and tc.get("result"))
+            for tc in tool_calls
+        )
+        if not all_success:
+            return False
+
+        try:
+            from app.agent.reasoning_trace import reasoning_trace_store
+
+            # 提取规划步骤（从 plan_summary 中解析）
+            plan_steps = []
+            if plan_summary:
+                for line in plan_summary.split("\n"):
+                    line = line.strip()
+                    if line and (
+                        line[0].isdigit()
+                        or line.startswith("-")
+                        or line.startswith("•")
+                    ):
+                        plan_steps.append(line[:200])
+
+            # 提取关键决策（从 metadata 中提取）
+            key_decisions = []
+            if metadata:
+                if metadata.get("model"):
+                    key_decisions.append(f"使用模型: {metadata['model']}")
+                if metadata.get("thinking_steps", 0) > 3:
+                    key_decisions.append(
+                        f"经过 {metadata['thinking_steps']} 步深度推理"
+                    )
+
+            return await reasoning_trace_store.save_trace(
+                user_id=user_id,
+                org_id=org_id,
+                intent_summary=user_message[:300],
+                complexity=complexity,
+                plan_steps=plan_steps,
+                tool_chain=tool_calls,
+                outcome="success",
+                iterations=metadata.get("iterations", 1) if metadata else 1,
+                key_decisions=key_decisions,
+                duration_ms=metadata.get("duration_ms", 0) if metadata else 0,
+                db=db,
+            )
+        except Exception as e:
+            logger.debug(f"[Reflection] Reasoning trace save skipped: {e}")
             return False
 
     async def _learn_preferences(

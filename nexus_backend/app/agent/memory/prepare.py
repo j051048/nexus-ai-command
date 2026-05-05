@@ -555,7 +555,35 @@ async def prepare_initial_state(
                 logger.error(f"[Memory] Episode recall failed: {e}")
                 return None
 
-        # Fire all 6 lookups concurrently (profile already fetched above)
+        async def _fetch_reasoning_trace():
+            """2g. Reasoning Trace Recall (JP Morgan AskDavid inspired)"""
+            if not config.user_id:
+                return None
+            try:
+                from app.agent.reasoning_trace import reasoning_trace_store
+
+                complexity_str = str(state.get("complexity", "")) if state else None
+                trace = await reasoning_trace_store.match_trace(
+                    query=last_user_msg,
+                    user_id=config.user_id,
+                    org_id=config.org_id,
+                    complexity=complexity_str,
+                    db=client,
+                )
+                if trace:
+                    hint = reasoning_trace_store.trace_to_planning_hint(trace)
+                    if hint:
+                        logger.info(
+                            f"[Memory] Matched reasoning trace for user {config.user_id} "
+                            f"(confidence={trace.get('confidence', 0):.2f})"
+                        )
+                    return hint
+                return None
+            except Exception as e:
+                logger.debug(f"[Memory] Reasoning trace recall skipped: {e}")
+                return None
+
+        # Fire all 7 lookups concurrently (profile already fetched above)
         # L1/L2 replace the old monolithic _fetch_long_term_memory()
         results = await asyncio.gather(
             _fetch_l1_critical(),  # [0] L1: directives — highest priority
@@ -564,6 +592,7 @@ async def prepare_initial_state(
             _fetch_kg_context(),  # [3] knowledge graph
             _fetch_pattern_suggestions(),  # [4] behavior patterns
             _fetch_episodic_memory(),  # [5] episodic recall
+            _fetch_reasoning_trace(),  # [6] reasoning trace (AskDavid-inspired)
             return_exceptions=True,
         )
 
