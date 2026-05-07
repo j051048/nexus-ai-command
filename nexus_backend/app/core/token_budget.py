@@ -120,9 +120,7 @@ class TokenBudgetManager:
                 return self._redis_client
         except Exception as e:
             self._redis_unavailable = True
-            logger.warning(
-                "[TokenBudget] Redis client init failed: %s", e
-            )
+            logger.warning("[TokenBudget] Redis client init failed: %s", e)
 
     def _allow_memory_fallback(self) -> bool:
         return (

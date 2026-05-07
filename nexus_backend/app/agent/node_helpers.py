@@ -412,6 +412,7 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
         "create_department",
         "update_department",
         "org_statistics",
+        "award_badge",
     },
     "asset": {
         "list_assets",
