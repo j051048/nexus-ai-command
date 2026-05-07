@@ -24,7 +24,6 @@ def register_routers(app: FastAPI) -> None:
     """
 
     # ── 1. AI / Chat ──────────────────────────────────────────────────────
-    from app.routers import agent_proactive as agent_proactive_router
     from app.routers import (
         agent_observability,
         analysis,
@@ -37,11 +36,24 @@ def register_routers(app: FastAPI) -> None:
         memories,
         metrics,
     )
-    from app.routers import chat_upload as chat_upload_router
-    from app.routers import saved_prompts as saved_prompts_router
-    from app.routers import scheduled_tasks as scheduled_tasks_router
-    from app.routers import soul_document as soul_document_router
-    from app.routers import ws as ws_router
+    from app.routers import (
+        agent_proactive as agent_proactive_router,
+    )
+    from app.routers import (
+        chat_upload as chat_upload_router,
+    )
+    from app.routers import (
+        saved_prompts as saved_prompts_router,
+    )
+    from app.routers import (
+        scheduled_tasks as scheduled_tasks_router,
+    )
+    from app.routers import (
+        soul_document as soul_document_router,
+    )
+    from app.routers import (
+        ws as ws_router,
+    )
 
     app.include_router(chat.router)
     app.include_router(chat_upload_router.router)

@@ -315,7 +315,7 @@ class Settings(BaseSettings):
     ORCHESTRATOR_REPLAN_FAILURE_THRESHOLD: float = Field(default=0.3)
     ORCHESTRATOR_TOKEN_BUDGET: int = Field(default=30000)
     # Tool selection
-    TOOL_MAX_TOOLS: int = Field(default=16)
+    TOOL_MAX_TOOLS: int = Field(default=20)
     TOOL_EMBEDDING_TOP_K: int = Field(default=12)
     TOOL_EMBEDDING_MIN_SCORE: float = Field(default=0.15)
     TOOL_EMBEDDING_GATE: int = Field(default=12)

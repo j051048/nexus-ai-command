@@ -18,16 +18,16 @@ logger = logging.getLogger(__name__)
 
 def _json_safe(value: Any) -> Any:
     """Convert common agent objects into PostgREST-friendly JSON values."""
-    if value is None or isinstance(value, (str, int, float, bool)):
+    if value is None or isinstance(value, str | int | float | bool):
         return value
     if is_dataclass(value):
         return _json_safe(asdict(value))
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         return [_json_safe(v) for v in value]
     if hasattr(value, "value"):
-        return getattr(value, "value")
+        return value.value
     return str(value)
 
 
