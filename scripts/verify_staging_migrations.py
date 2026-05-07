@@ -57,16 +57,28 @@ CRITICAL_TABLES = {
         "policies": {"agent_events_org_select", "agent_events_service_write"},
     },
     "webhook_subscriptions": {
-        "columns": {"organization_id", "target_url", "secret", "is_active"},
-        "policies": set(),
+        "columns": {"organization_id", "url", "secret_hash", "is_active"},
+        "policies": {
+            "webhook_subscriptions_org_select",
+            "webhook_subscriptions_org_insert",
+            "webhook_subscriptions_org_update",
+            "webhook_subscriptions_org_delete",
+        },
     },
     "webhook_delivery_log": {
-        "columns": {"organization_id", "subscription_id", "status_code", "response_body"},
-        "policies": set(),
+        "columns": {"organization_id", "subscription_id", "response_code", "response_body"},
+        "policies": {
+            "webhook_delivery_log_org_select",
+            "webhook_delivery_log_service_insert",
+        },
     },
     "vmd_reports": {
-        "columns": {"organization_id", "report_type", "payload"},
-        "policies": set(),
+        "columns": {"organization_id", "report_type", "report_data"},
+        "policies": {
+            "vmd_reports_org_select",
+            "vmd_reports_org_insert",
+            "vmd_reports_org_update",
+        },
     },
 }
 
