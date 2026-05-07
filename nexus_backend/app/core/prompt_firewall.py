@@ -75,7 +75,7 @@ class FirewallConfig:
     # Max zero-width / invisible characters allowed
     max_invisible_chars: int = 3
     # Risk level that blocks the request
-    block_threshold: RiskLevel = RiskLevel.CRITICAL
+    block_threshold: RiskLevel = RiskLevel.HIGH
 
 
 # ---------------------------------------------------------------------------

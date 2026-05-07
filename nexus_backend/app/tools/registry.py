@@ -36,6 +36,11 @@ class ToolInfo:
     tool_class: type
     is_irreversible: bool = False
     required_role: str = "all"
+    risk: str = "low"
+    owner: str = "platform"
+    timeout_s: int | None = None
+    idempotent: bool = True
+    side_effect: bool = False
     extras: dict[str, Any] = field(default_factory=dict)
 
     # 缓存的实例（懒加载）
@@ -46,6 +51,22 @@ class ToolInfo:
         if self._instance is None:
             self._instance = self.tool_class()
         return self._instance
+
+    def to_manifest(self) -> dict[str, Any]:
+        """Return governance metadata for audits, prompts and admin UIs."""
+        return {
+            "name": self.name,
+            "category": self.category,
+            "description": self.description,
+            "required_role": self.required_role,
+            "risk": self.risk,
+            "owner": self.owner,
+            "timeout_s": self.timeout_s,
+            "idempotent": self.idempotent,
+            "side_effect": self.side_effect,
+            "is_irreversible": self.is_irreversible,
+            "extras": self.extras,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +119,11 @@ def register_tool(
             tool_class=cls,
             is_irreversible=is_irreversible,
             required_role=required_role,
+            risk=extras.pop("risk", "high" if is_irreversible else "low"),
+            owner=extras.pop("owner", "platform"),
+            timeout_s=extras.pop("timeout_s", None),
+            idempotent=extras.pop("idempotent", not is_irreversible),
+            side_effect=extras.pop("side_effect", is_irreversible),
             extras=extras,
         )
         logger.debug(
@@ -153,6 +179,11 @@ def auto_discover_tools(package_path: str = "app.tools") -> dict[str, ToolInfo]:
 
     logger.debug("自动发现完成，共 %d 个装饰器注册的工具", len(_TOOL_REGISTRY))
     return dict(_TOOL_REGISTRY)
+
+
+def get_all_tool_manifests() -> list[dict[str, Any]]:
+    """Return all registered tools as governance manifests."""
+    return [info.to_manifest() for info in _TOOL_REGISTRY.values()]
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,19 @@ import { buildSystemPrompt, type UserProfile } from '@/services/agentPrompts';
 import { fetchBusinessContext } from '@/services/businessContext';
 import { httpClient } from '@/lib/httpClient';
 
+const MAX_ASSISTANT_CONTENT_CHARS = 120_000;
+const MAX_THINKING_STEPS = 80;
+const ENABLE_BROWSER_AI_PROXY_FALLBACK = import.meta.env.VITE_ENABLE_BROWSER_AI_PROXY_FALLBACK === 'true';
+const STREAM_TRUNCATION_NOTICE = '\n\n[Stream truncated: response exceeded the client safety limit.]';
+
+function appendStreamContent(current: string, delta: string): string {
+    if (!delta) return current;
+    const next = current + delta;
+    if (next.length <= MAX_ASSISTANT_CONTENT_CHARS) return next;
+    if (current.endsWith(STREAM_TRUNCATION_NOTICE)) return current;
+    return next.slice(0, MAX_ASSISTANT_CONTENT_CHARS) + STREAM_TRUNCATION_NOTICE;
+}
+
 interface UseAIStreamProps {
     userId: string;
     onMessageUpdate?: (messages: AIMessage[]) => void;
@@ -222,7 +235,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     // Handle thinking step events
                     if (parsed.thinking_step) {
                         const step = parsed.thinking_step as ThinkingStep;
-                        setThinkingSteps(prev => [...prev, step]);
+                        setThinkingSteps(prev => [...prev.slice(-(MAX_THINKING_STEPS - 1)), step]);
                         onThinkingStep?.(step);
                         continue;
                     }
@@ -266,7 +279,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
                     // Handle sanitized content correction from backend
                     if (parsed.sanitized_content) {
-                        assistantContent = parsed.sanitized_content;
+                        assistantContent = appendStreamContent('', parsed.sanitized_content);
                         scheduleFlush();
                         continue;
                     }
@@ -291,7 +304,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
                     if (content) {
                         setAiStatus(undefined);
-                        assistantContent += content;
+                        assistantContent = appendStreamContent(assistantContent, content);
                         scheduleFlush();
                         onActivity?.();  // P0 #19: reset timeout on content received
                     }
@@ -470,7 +483,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     const parsed = JSON.parse(jsonStr);
                     const content = parsed.choices?.[0]?.delta?.content as string | undefined;
                     if (content) {
-                        assistantContent += content;
+                        assistantContent = appendStreamContent(assistantContent, content);
                         onUpdate?.(assistantContent, assistantMsgId);
                     }
                 } catch {
@@ -686,6 +699,9 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             if (tier1Succeeded) return;
 
             // ── Tier 2: Enhanced direct mode with business context ──
+            if (!ENABLE_BROWSER_AI_PROXY_FALLBACK) {
+                throw new Error('AI backend is unavailable. Browser-side AI proxy fallback is disabled by policy.');
+            }
             setAiStatus('正在切换到增强直连模式...');
             const success = await attemptEnhancedDirectStream(
                 chatMessages,

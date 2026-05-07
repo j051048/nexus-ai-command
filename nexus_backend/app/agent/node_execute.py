@@ -772,6 +772,8 @@ async def _execute_single_tool(
                     record.tool_args,
                     config.user_id,
                     config.org_id,
+                    config.token,
+                    trace_id,
                 ],
                 expires=int(timeout) + 30,
             )

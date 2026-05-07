@@ -106,6 +106,7 @@ class TokenBudgetManager:
     def __init__(self):
         self._memory_store = _InMemoryBudgetStore()
         self._redis_client = None
+        self._redis_unavailable = False
 
     async def _get_redis(self):
         """Lazily get Redis client from cache_service."""
@@ -118,9 +119,16 @@ class TokenBudgetManager:
                 self._redis_client = cache_service._client
                 return self._redis_client
         except Exception as e:
+            self._redis_unavailable = True
             logger.warning(
-                "[TokenBudget] Redis client init failed, using memory fallback: %s", e
+                "[TokenBudget] Redis client init failed: %s", e
             )
+
+    def _allow_memory_fallback(self) -> bool:
+        return (
+            settings.ENV != "production"
+            or settings.TOKEN_BUDGET_MEMORY_FALLBACK_ENABLED
+        )
 
     def _key(self, dimension: str, entity_id: str) -> str:
         return f"tkbudget:{dimension}:{entity_id}"
@@ -141,7 +149,13 @@ class TokenBudgetManager:
             except Exception as e:
                 logger.warning(f"[TokenBudget] Redis incr failed — fail-closed: {e}")
                 return float("inf")
-        return await self._memory_store.incr_by(key, amount, ttl)
+        if self._allow_memory_fallback():
+            logger.warning(
+                "[TokenBudget] Redis unavailable; using process-local memory fallback"
+            )
+            return await self._memory_store.incr_by(key, amount, ttl)
+        logger.error("[TokenBudget] Redis unavailable in production; fail-closed")
+        return float("inf")
 
     async def _get(self, key: str) -> float:
         """Get counter value. Fail-closed: Redis failure returns infinity to block requests."""
@@ -155,7 +169,13 @@ class TokenBudgetManager:
                     "[TokenBudget] Redis get failed for %s: %s — fail-closed", key, e
                 )
                 return float("inf")
-        return await self._memory_store.get_val(key)
+        if self._allow_memory_fallback():
+            logger.warning(
+                "[TokenBudget] Redis unavailable; reading process-local memory fallback"
+            )
+            return await self._memory_store.get_val(key)
+        logger.error("[TokenBudget] Redis unavailable in production; fail-closed")
+        return float("inf")
 
     async def check_budget(
         self,

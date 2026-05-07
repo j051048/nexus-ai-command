@@ -123,6 +123,7 @@ const DEFAULT_NODE_DATA: Record<string, Record<string, unknown>> = {
 export interface WorkflowCanvasRef {
   getWorkflowData: () => WorkflowDefinition;
   loadWorkflowData: (definition: WorkflowDefinition) => void;
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void;
 }
 
 interface WorkflowCanvasProps {
@@ -218,6 +219,13 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
         if (definition?.conditions) {
           setEdges(conditionsToEdges(definition.conditions));
         }
+      },
+      updateNodeData: (nodeId: string, data: Record<string, unknown>) => {
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
+          )
+        );
       },
     }));
 
@@ -398,6 +406,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
           onDrop={onDrop}
           isValidConnection={isValidConnection}
           nodeTypes={nodeTypes}
+          onlyRenderVisibleElements
           fitView
           fitViewOptions={{ padding: 0.2 }}
           deleteKeyCode={['Backspace', 'Delete']}

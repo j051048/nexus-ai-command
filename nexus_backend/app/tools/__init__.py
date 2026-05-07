@@ -7,6 +7,7 @@ from .base_tool import BaseTool
 from .registry import (
     auto_discover_tools,
     get_all_tool_infos,  # noqa: F401
+    get_all_tool_manifests,  # noqa: F401
     get_tool_info,
     get_tools_by_category,  # noqa: F401
     is_registered,  # noqa: F401

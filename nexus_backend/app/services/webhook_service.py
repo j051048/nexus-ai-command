@@ -74,6 +74,7 @@ class WebhookDelivery:
 
     id: str
     subscription_id: str
+    org_id: str
     event: str
     payload: dict[str, Any]
     status: str = "pending"  # pending, success, failed
@@ -88,6 +89,7 @@ class WebhookDelivery:
         return {
             "id": self.id,
             "subscription_id": self.subscription_id,
+            "org_id": self.org_id,
             "event": self.event,
             "status": self.status,
             "attempts": self.attempts,
@@ -214,6 +216,7 @@ class WebhookService:
                         {
                             "id": sub_id,
                             "org_id": org_id,
+                            "organization_id": org_id,
                             "url": url,
                             "events": events,
                             "secret_hash": hashlib.sha256(secret.encode()).hexdigest(),
@@ -275,6 +278,7 @@ class WebhookService:
             delivery = WebhookDelivery(
                 id=str(uuid.uuid4())[:12],
                 subscription_id=sub.id,
+                org_id=org_id,
                 event=event,
                 payload=payload,
             )
@@ -323,6 +327,7 @@ class WebhookService:
                     if 200 <= resp.status_code < 300:
                         delivery.status = "success"
                         subscription.failure_count = 0
+                        await self._persist_delivery(delivery)
                         return True
 
             except Exception as e:
@@ -347,7 +352,33 @@ class WebhookService:
                 f"{subscription.max_failures} consecutive failures"
             )
 
+        await self._persist_delivery(delivery)
         return False
+
+    async def _persist_delivery(self, delivery: WebhookDelivery) -> None:
+        """Persist delivery attempts for audit and tenant-scoped inspection."""
+        try:
+            from app.core.database import supabase
+
+            if not supabase:
+                return
+            await supabase.table("webhook_delivery_log").insert(
+                {
+                    "id": delivery.id,
+                    "subscription_id": delivery.subscription_id,
+                    "org_id": delivery.org_id,
+                    "organization_id": delivery.org_id,
+                    "event": delivery.event,
+                    "payload": delivery.payload,
+                    "status": delivery.status,
+                    "attempts": delivery.attempts,
+                    "response_code": delivery.response_code,
+                    "response_body": delivery.response_body,
+                    "created_at": delivery.created_at,
+                }
+            ).execute()
+        except Exception as e:
+            logger.warning("Failed to persist webhook delivery %s: %s", delivery.id, e)
 
     def get_recent_deliveries(self, org_id: str = None, limit: int = 50) -> list[dict]:
         """Get recent webhook deliveries."""

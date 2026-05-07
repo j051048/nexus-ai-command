@@ -39,9 +39,9 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Skip large source maps and dev files from precache
-        globIgnores: ['**/node_modules/**', '**/*.map'],
+        globPatterns: ['index.html', 'assets/index-*.css', 'assets/vendor-react-*.js'],
+        globIgnores: ['**/node_modules/**', '**/*.map', '**/stats.html', '**/assets/vendor-syntax-*.js', '**/assets/vendor-charts-*.js', '**/assets/jspdf*.js'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           // HTML pages: NetworkFirst (always get latest, fallback to cache offline)
           {

@@ -11,6 +11,29 @@ from app.agent.node_helpers import (
 from app.agent.plan.tracing import log_decision
 
 
+def _lexical_prune_tool_schemas(
+    schemas: list[dict],
+    user_query: str,
+    max_tools: int,
+) -> list[dict]:
+    """Deterministic fallback when embedding-based Tool RAG is unavailable."""
+    if len(schemas) <= max_tools:
+        return schemas
+
+    terms = {t.lower() for t in user_query.replace("_", " ").split() if len(t) >= 2}
+    always = [s for s in schemas if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
+    rest = [s for s in schemas if s["function"]["name"] not in _ALWAYS_INCLUDE_TOOLS]
+
+    def score(schema: dict) -> tuple[int, int]:
+        fn = schema.get("function", {})
+        haystack = f"{fn.get('name', '')} {fn.get('description', '')}".lower()
+        exact_hits = sum(1 for term in terms if term in haystack)
+        return (exact_hits, len(haystack))
+
+    rest.sort(key=score, reverse=True)
+    return (always + rest)[:max_tools]
+
+
 async def bind_tools_to_llm(
     *,
     agent_config: AgentConfig,
@@ -103,6 +126,19 @@ async def bind_tools_to_llm(
                     )
             except Exception as e:
                 logger.debug("[ToolBind] Embedding pruning skipped: %s", e)
+
+        if len(schemas) > _cfg.TOOL_MAX_TOOLS:
+            before_count = len(schemas)
+            schemas = _lexical_prune_tool_schemas(
+                schemas,
+                user_query=user_query or intent_summary,
+                max_tools=_cfg.TOOL_MAX_TOOLS,
+            )
+            logger.info(
+                "[ToolBind] Deterministic pruned %d -> %d tools",
+                before_count,
+                len(schemas),
+            )
 
         llm = llm.bind_tools(schemas, **bind_kwargs)
 

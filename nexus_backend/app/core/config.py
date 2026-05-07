@@ -211,6 +211,10 @@ class Settings(BaseSettings):
         default=2000.0,
         description="Max cost (USD) per tenant per calendar month. Exceeding blocks LLM calls until next month.",
     )
+    TOKEN_BUDGET_MEMORY_FALLBACK_ENABLED: bool = Field(
+        default=False,
+        description="Allow in-memory token budget fallback in production when Redis is unavailable.",
+    )
 
     # File upload
     MAX_FILE_SIZE_MB: int = Field(
@@ -311,10 +315,10 @@ class Settings(BaseSettings):
     ORCHESTRATOR_REPLAN_FAILURE_THRESHOLD: float = Field(default=0.3)
     ORCHESTRATOR_TOKEN_BUDGET: int = Field(default=30000)
     # Tool selection
-    TOOL_MAX_TOOLS: int = Field(default=20)
+    TOOL_MAX_TOOLS: int = Field(default=16)
     TOOL_EMBEDDING_TOP_K: int = Field(default=12)
-    TOOL_EMBEDDING_MIN_SCORE: float = Field(default=0.20)
-    TOOL_EMBEDDING_GATE: int = Field(default=15)
+    TOOL_EMBEDDING_MIN_SCORE: float = Field(default=0.15)
+    TOOL_EMBEDDING_GATE: int = Field(default=12)
     # Loop detection
     LOOP_WINDOW_SIZE: int = Field(default=30)
     LOOP_GENERIC_REPEAT_THRESHOLD: int = Field(default=3)

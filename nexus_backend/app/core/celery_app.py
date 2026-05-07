@@ -14,7 +14,11 @@ celery_app = Celery(
     "nexus_tasks",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["app.tasks.scheduler", "app.tasks.event_sensors"],
+    include=[
+        "app.tasks.scheduler",
+        "app.tasks.event_sensors",
+        "app.tasks.tool_tasks",
+    ],
 )
 
 # Configuration

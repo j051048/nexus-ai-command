@@ -303,6 +303,26 @@ _SCENE_TOOL_POLICY: dict[str, dict] = {
 }
 
 # Domain → tool name sets
+_SCENE_TOOL_POLICY["task_decompose"] = {
+    "allow_domains": [
+        "project",
+        "analytics",
+        "knowledge",
+        "crm",
+        "approval",
+        "finance",
+        "vmd_content",
+        "vmd_market",
+    ],
+    "deny_tools": {
+        "update_system_config",
+        "create_certificate",
+        "renew_certificate",
+        "process_resignation",
+        "process_asset_lifecycle",
+    },
+}
+
 _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
     "oa_leave": {
         "create_leave_request",

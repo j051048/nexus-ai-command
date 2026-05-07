@@ -83,8 +83,10 @@ export function WorkflowDesigner() {
   // Handle node data update from properties panel
   const handleNodeUpdate = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
+      canvasRef.current?.updateNodeData(nodeId, data);
       // Update the canvas nodes
-      if (canvasRef.current) {
+      const shouldUseLegacyFullReload = false;
+      if (shouldUseLegacyFullReload && canvasRef.current) {
         const currentData = canvasRef.current.getWorkflowData();
         const updatedSteps = currentData.steps.map((step) => {
           if (step.id === nodeId) {
@@ -105,7 +107,7 @@ export function WorkflowDesigner() {
 
       // Update selected node reference
       setSelectedNode((prev) =>
-        prev && prev.id === nodeId ? { ...prev, data: { ...data } } : prev
+        prev && prev.id === nodeId ? { ...prev, data: { ...prev.data, ...data } } : prev
       );
     },
     []

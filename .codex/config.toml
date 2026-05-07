@@ -1,0 +1,25 @@
+[mcp_servers.github-mcp-server]
+args = [
+    "-y",
+    "@modelcontextprotocol/server-github",
+]
+command = "npx"
+
+[mcp_servers.github-mcp-server.env]
+GITHUB_PERSONAL_ACCESS_TOKEN = "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"
+
+[mcp_servers.supabase-mcp-server]
+args = [
+    "-y",
+    "@supabase/mcp-server-supabase@latest",
+    "--access-token",
+    "sbp_003cbb2c9a3774c16a457c6bf196ac4f89032d0c",
+]
+command = "npx"
+
+[mcp_servers.zeabur]
+args = ["zeabur-mcp@latest"]
+command = "npx"
+
+[mcp_servers.zeabur.env]
+ZEABUR_TOKEN = "sk-oydwi7jud7b66vtimfmkveccy6i45"

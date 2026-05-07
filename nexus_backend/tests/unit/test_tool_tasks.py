@@ -10,12 +10,12 @@ def _import_tool_tasks_without_celery():
     # 1. Remove tool_tasks from cache so it will be freshly imported
     sys.modules.pop("app.tasks.tool_tasks", None)
 
-    # 2. Save and replace ALL celery-related modules with None
-    # Setting to None ensures `from celery import shared_task` raises ImportError
+    # 2. Save and replace Celery-related modules with None.
+    # Setting to None ensures app.core.celery_app import raises ImportError
     # even if celery is installed in site-packages (CI environment).
     saved_celery = {}
     for name in list(sys.modules):
-        if name.startswith("celery"):
+        if name.startswith("celery") or name == "app.core.celery_app":
             saved_celery[name] = sys.modules.pop(name)
             sys.modules[name] = None
 
@@ -26,7 +26,7 @@ def _import_tool_tasks_without_celery():
     finally:
         # 4. Restore sys.modules to not affect other tests
         for name in list(sys.modules):
-            if name.startswith("celery") and sys.modules[name] is None:
+            if (name.startswith("celery") or name == "app.core.celery_app") and sys.modules[name] is None:
                 sys.modules.pop(name, None)
         for name, mod_obj in saved_celery.items():
             sys.modules.setdefault(name, mod_obj)

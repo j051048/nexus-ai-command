@@ -14,6 +14,7 @@ from collections.abc import AsyncIterator
 
 from app.core.config import settings
 from app.core.model_pricing import estimate_cost
+from app.core.tenant_throttle import tenant_throttle
 from app.core.token_budget import token_budget_manager
 from app.services.llm_adapters.base import (
     ChatRequest,
@@ -256,10 +257,11 @@ class ChatDispatchMixin:
         # --- Call adapter (with timeout protection) ---
         LLM_CALL_TIMEOUT = 60.0  # 60秒超时
         try:
-            response = await asyncio.wait_for(
-                adapter.chat(chat_request),
-                timeout=LLM_CALL_TIMEOUT,
-            )
+            async with tenant_throttle.acquire(org_id or "default"):
+                response = await asyncio.wait_for(
+                    adapter.chat(chat_request),
+                    timeout=LLM_CALL_TIMEOUT,
+                )
             latency = int((time.monotonic() - start_ts) * 1000)
             response.exec_time_ms = latency
 
@@ -427,16 +429,19 @@ class ChatDispatchMixin:
         total_cost = 0.0
 
         try:
-            async for chunk in adapter.stream_chat(chat_request):
-                chunk.exec_time_ms = int((time.monotonic() - start_ts) * 1000)
+            async with tenant_throttle.acquire(org_id or "default"):
+                async for chunk in adapter.stream_chat(chat_request):
+                    chunk.exec_time_ms = int((time.monotonic() - start_ts) * 1000)
 
-                total_input_tokens = chunk.usage.get("input_tokens", total_input_tokens)
-                total_output_tokens = chunk.usage.get(
-                    "output_tokens", total_output_tokens
-                )
-                total_cost = chunk.usage.get("call_cost", total_cost)
+                    total_input_tokens = chunk.usage.get(
+                        "input_tokens", total_input_tokens
+                    )
+                    total_output_tokens = chunk.usage.get(
+                        "output_tokens", total_output_tokens
+                    )
+                    total_cost = chunk.usage.get("call_cost", total_cost)
 
-                yield chunk
+                    yield chunk
 
             # --- Post-stream bookkeeping ---
             circuit_breaker_manager.record_success(model_code)

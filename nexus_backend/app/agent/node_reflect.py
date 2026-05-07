@@ -8,6 +8,7 @@ import re
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
+from app.agent.execution_policy import get_reflection_budget
 from app.agent.node_helpers import (
     AgentConfig,
     AgentPhase,
@@ -298,16 +299,8 @@ async def reflect_node(state: AgentState) -> dict:
     reflection_count = state.get("reflection_count", 0)
 
     # ── Item 33: Adaptive Reflection Budget ──
-    _REFLECTION_BUDGET = {
-        QueryComplexity.SIMPLE: 0,
-        QueryComplexity.MODERATE: 1,
-        QueryComplexity.COMPLEX: 2,
-        QueryComplexity.CRITICAL: 3,
-    }
-    max_reflections = _REFLECTION_BUDGET.get(complexity, 2)
+    max_reflections = get_reflection_budget(complexity, completed_tools)
     # 涉及不可逆操作时 +1（上限 4）
-    if any(getattr(tc, "is_irreversible", False) for tc in completed_tools):
-        max_reflections = min(max_reflections + 1, 4)
     if reflection_count >= max_reflections:
         logger.info(
             f"[ReflectNode] Reflection budget exhausted "

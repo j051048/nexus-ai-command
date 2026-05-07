@@ -254,6 +254,10 @@ try:
     event_bus = redis_event_bus
     logger.info("[EventBus] Using RedisEventBus (Redis Pub/Sub when available)")
 except Exception as _e:
+    if os.getenv("ENV") == "production" and os.getenv("EVENT_BUS_ALLOW_IN_MEMORY") != "true":
+        raise RuntimeError(
+            "RedisEventBus is required in production unless EVENT_BUS_ALLOW_IN_MEMORY=true"
+        ) from _e
     event_bus = InMemoryEventBus()
     logger.info(f"[EventBus] Using InMemoryEventBus (RedisEventBus init failed: {_e})")
 

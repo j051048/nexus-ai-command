@@ -72,7 +72,9 @@ class CallLoggingMixin:
 
         now = time.time()
         should_flush = (
-            len(self._log_buffer) >= self._LOG_BATCH_SIZE
+            status != "success"
+            or cost >= 0.10
+            or len(self._log_buffer) >= self._LOG_BATCH_SIZE
             or (now - self._log_last_flush) >= self._LOG_FLUSH_INTERVAL
         )
         if should_flush:
@@ -91,3 +93,4 @@ class CallLoggingMixin:
             await supabase.table("llm_call_log").insert(batch).execute()
         except Exception as e:
             logger.warning(f"Failed to batch-insert {len(batch)} LLM call logs: {e}")
+            self._log_buffer = batch + self._log_buffer

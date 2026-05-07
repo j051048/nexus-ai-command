@@ -66,6 +66,7 @@ _background_tasks: set[asyncio.Task] = set()
 from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
+from app.agent.execution_policy import get_reflection_budget
 from app.agent.loop_detector import detect_loop, tool_call_fingerprint
 from app.agent.middlewares import (
     audit_log_middleware,
@@ -102,6 +103,7 @@ from app.agent.state import (
 )
 from app.core.agent_metrics import record_agent_execution
 from app.core.config import settings
+from app.core.model_pricing import estimate_cost
 from app.core.timeout import with_complexity_timeout
 
 logger = logging.getLogger(__name__)
@@ -153,9 +155,13 @@ def _after_plan(state: AgentState) -> str:
         return "respond"
     # Item 33: Reflection budget — skip reflect when budget exhausted
     reflection_count = state.get("reflection_count", 0)
-    if reflection_count >= 2:
+    max_reflections = get_reflection_budget(
+        state.get("complexity"),
+        get_completed_tools(state),
+    )
+    if reflection_count >= max_reflections:
         logger.info(
-            f"[Graph] Reflection budget exhausted ({reflection_count}/2), skipping to respond"
+            f"[Graph] Reflection budget exhausted ({reflection_count}/{max_reflections}), skipping to respond"
         )
         return "respond"
     # MODERATE with direct text (no tools needed) — skip reflect for speed
@@ -916,10 +922,14 @@ class AgentGraph:
             duration = time.time() - start_time
 
             # Record token usage
-            tokens = result.get("total_input_tokens", 0) + result.get(
-                "total_output_tokens", 0
+            input_tokens = result.get("total_input_tokens", 0)
+            output_tokens = result.get("total_output_tokens", 0)
+            tokens = input_tokens + output_tokens
+            cost = estimate_cost(
+                input_tokens,
+                output_tokens,
+                result.get("selected_model", "unknown"),
             )
-            cost = tokens * 0.00001  # Simplified cost calculation
 
             _cfg = result.get("config")
             _uid = getattr(_cfg, "user_id", None) or "unknown"

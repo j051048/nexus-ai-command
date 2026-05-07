@@ -16,11 +16,7 @@ import sys
 
 logger = logging.getLogger(__name__)
 
-KNOWN_GAPS = [
-    "webhook_delivery_log",
-    "vmd_reports",
-    "vmd_sub_task",
-]
+KNOWN_GAPS: list[str] = []
 
 
 async def audit_rls():
