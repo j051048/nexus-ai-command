@@ -995,7 +995,9 @@ class AgentGraph:
                     },
                 )
             except Exception:
-                logger.debug("[AgentGraph] finish_run observability skipped", exc_info=True)
+                logger.debug(
+                    "[AgentGraph] finish_run observability skipped", exc_info=True
+                )
 
             return result
         except Exception as exc:
@@ -1021,7 +1023,9 @@ class AgentGraph:
                     duration_ms=int(duration * 1000),
                 )
             except Exception:
-                logger.debug("[AgentGraph] error finish observability skipped", exc_info=True)
+                logger.debug(
+                    "[AgentGraph] error finish observability skipped", exc_info=True
+                )
             raise
 
     async def stream(self, initial_state: AgentState, thread_id: str = "default"):
@@ -1071,7 +1075,9 @@ class AgentGraph:
                 )
                 initial_state["agent_run_id"] = _run_id
             except Exception:
-                logger.debug("[AgentGraph] stream start_run observability skipped", exc_info=True)
+                logger.debug(
+                    "[AgentGraph] stream start_run observability skipped", exc_info=True
+                )
 
         if config:
             # Merge configurable keys from caller (e.g. trace_logger)

@@ -764,7 +764,10 @@ async def _execute_single_tool(
         isolation = "celery"
     if isolation == "celery":
         try:
-            from app.tasks.tool_tasks import execute_tool_high_risk, execute_tool_isolated
+            from app.tasks.tool_tasks import (
+                execute_tool_high_risk,
+                execute_tool_isolated,
+            )
 
             celery_task = (
                 execute_tool_high_risk
@@ -1280,7 +1283,9 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
                 error_type=record.error_type,
             )
     except Exception:
-        logger.debug("[ExecuteNode] agent_tool_calls persistence skipped", exc_info=True)
+        logger.debug(
+            "[ExecuteNode] agent_tool_calls persistence skipped", exc_info=True
+        )
 
     # Audit trail: log each tool execution for compliance
     try:

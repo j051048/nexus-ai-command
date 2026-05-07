@@ -46,7 +46,9 @@ def _redact_run(row: dict[str, Any]) -> dict[str, Any]:
         "error_message": row.get("error_message"),
         "metadata": metadata,
         "input_tokens": row.get("input_tokens") or row.get("total_input_tokens") or 0,
-        "output_tokens": row.get("output_tokens") or row.get("total_output_tokens") or 0,
+        "output_tokens": row.get("output_tokens")
+        or row.get("total_output_tokens")
+        or 0,
         "cost_usd": float(row.get("cost_usd") or row.get("total_cost") or 0),
         "duration_ms": row.get("duration_ms"),
         "started_at": row.get("started_at"),
@@ -64,7 +66,9 @@ def _summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
         status = run.get("status") or "unknown"
         by_status[status] = by_status.get(status, 0) + 1
         total_cost += float(run.get("cost_usd") or 0)
-        total_tokens += int(run.get("input_tokens") or 0) + int(run.get("output_tokens") or 0)
+        total_tokens += int(run.get("input_tokens") or 0) + int(
+            run.get("output_tokens") or 0
+        )
         if isinstance(run.get("duration_ms"), int):
             completed_durations.append(run["duration_ms"])
 
@@ -149,7 +153,11 @@ async def get_agent_run_detail(
     """Fetch a single Agent run by UUID id or stable run_id."""
     client = _db(request)
     query = client.table("agent_runs").select("*")
-    query = query.eq("id", run_ref) if _UUID_RE.match(run_ref) else query.eq("run_id", run_ref)
+    query = (
+        query.eq("id", run_ref)
+        if _UUID_RE.match(run_ref)
+        else query.eq("run_id", run_ref)
+    )
     run_result = await query.maybe_single().execute()
     if not run_result.data:
         raise HTTPException(status_code=404, detail="Agent run not found")

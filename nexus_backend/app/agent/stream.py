@@ -855,13 +855,17 @@ async def _run_agent_stream_impl(
                         pass  # trace failure must never break the stream
 
                     try:
-                        from app.services.agent_run_observability import agent_run_observer
+                        from app.services.agent_run_observability import (
+                            agent_run_observer,
+                        )
 
                         await agent_run_observer.event(
                             run_id=accumulated_state.get("agent_run_id"),
                             org_id=agent_config.org_id,
                             event_type="node_end",
-                            node_name=event.get("metadata", {}).get("langgraph_node", "unknown"),
+                            node_name=event.get("metadata", {}).get(
+                                "langgraph_node", "unknown"
+                            ),
                             payload={
                                 "phase": str(phase) if phase else "",
                                 "iteration": accumulated_state.get("iteration", 0),
@@ -869,7 +873,9 @@ async def _run_agent_stream_impl(
                                 "has_response": bool(state_delta.get("final_response")),
                                 "completed_tools": [
                                     getattr(tc, "tool_name", "")
-                                    for tc in state_delta.get("completed_tool_calls", [])
+                                    for tc in state_delta.get(
+                                        "completed_tool_calls", []
+                                    )
                                 ],
                             },
                         )

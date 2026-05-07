@@ -89,7 +89,9 @@ class AgentRunObserver:
             from app.core.database import supabase
 
             if supabase:
-                await supabase.table("agent_runs").update(patch).eq("id", run_id).execute()
+                await supabase.table("agent_runs").update(patch).eq(
+                    "id", run_id
+                ).execute()
         except Exception as exc:
             logger.debug("[AgentRunObserver] finish_run skipped: %s", exc)
 
