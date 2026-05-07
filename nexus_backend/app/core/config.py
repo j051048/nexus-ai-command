@@ -532,6 +532,16 @@ class Settings(BaseSettings):
                     "JWT secret (SUPABASE_JWT_SECRET or JWT_SECRET) is required in production"
                 )
 
+            if self.LANGGRAPH_CHECKPOINTER.lower() != "postgres":
+                errors.append(
+                    "LANGGRAPH_CHECKPOINTER must be 'postgres' in production for durable Agent state"
+                )
+
+            if not self.REDIS_URL:
+                errors.append(
+                    "REDIS_URL is required in production for shared rate limits, token budgets, and Celery"
+                )
+
             if self.DEBUG:
                 errors.append("DEBUG mode must be disabled in production")
 

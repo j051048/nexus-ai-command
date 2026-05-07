@@ -342,6 +342,87 @@ async def get_tools_metadata_endpoint(
     return api_success(data={"tools": metadata, "count": len(metadata)})
 
 
+@router.get("/tools/governance")
+async def get_tools_governance_endpoint():
+    """Return the governance manifest and Tool RAG index health."""
+    from app.agent.tool_embedding_index import tool_embedding_index
+    from app.tools import _load_all, get_all_tool_manifests
+
+    _load_all()
+    manifests = get_all_tool_manifests()
+
+    risk_counts: dict[str, int] = {}
+    category_counts: dict[str, int] = {}
+    missing_owner = []
+    default_owner = []
+    missing_timeout = []
+    missing_idempotency = []
+    side_effect_without_risk = []
+    high_risk_tools = []
+
+    for manifest in manifests:
+        name = manifest.get("name")
+        risk = manifest.get("risk") or "unknown"
+        category = manifest.get("category") or "general"
+        owner = manifest.get("owner")
+        has_side_effect = bool(
+            manifest.get("side_effect") or manifest.get("is_irreversible")
+        )
+
+        risk_counts[risk] = risk_counts.get(risk, 0) + 1
+        category_counts[category] = category_counts.get(category, 0) + 1
+
+        if not owner:
+            missing_owner.append(name)
+        elif owner == "platform":
+            default_owner.append(name)
+        if has_side_effect and not manifest.get("timeout_s"):
+            missing_timeout.append(name)
+        if has_side_effect and manifest.get("idempotent") is not False:
+            missing_idempotency.append(name)
+        if has_side_effect and risk not in {"medium", "high", "critical"}:
+            side_effect_without_risk.append(name)
+        if risk in {"high", "critical"}:
+            high_risk_tools.append(name)
+
+    audit = {
+        "risk_counts": risk_counts,
+        "category_counts": category_counts,
+        "missing_owner": missing_owner,
+        "default_owner": default_owner,
+        "missing_timeout": missing_timeout,
+        "missing_idempotency": missing_idempotency,
+        "side_effect_without_risk": side_effect_without_risk,
+        "high_risk_tools": high_risk_tools,
+        "findings": {
+            "missing_owner": len(missing_owner),
+            "default_owner": len(default_owner),
+            "missing_timeout": len(missing_timeout),
+            "missing_idempotency": len(missing_idempotency),
+            "side_effect_without_risk": len(side_effect_without_risk),
+            "high_risk_tools": len(high_risk_tools),
+        },
+    }
+
+    return api_success(
+        data={
+            "tools": manifests,
+            "count": len(manifests),
+            "audit": audit,
+            "tool_rag": tool_embedding_index.stats(),
+        }
+    )
+
+
+@router.post("/tools/rag/refresh")
+async def refresh_tool_rag_endpoint(user_id: str = Depends(get_current_user_id)):
+    """Force-refresh the semantic Tool RAG index for operator diagnostics."""
+    from app.agent.tool_embedding_index import tool_embedding_index
+
+    count = await tool_embedding_index.refresh()
+    return api_success(data={"indexed_tools": count, "requested_by": user_id})
+
+
 @router.get("/tools/capabilities")
 async def get_tools_capabilities():
     """P0-3: AI 能力发现 API — 无需认证，供前端引导页和 onboarding 使用。

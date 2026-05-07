@@ -138,11 +138,18 @@ class ChatDispatchMixin:
     ) -> ChatResponse:
         """Execute a chat call against a single model with all guardrails."""
 
+        estimated_tokens = (
+            sum(len(m.get("content", "")) // 4 for m in messages)
+            + len(system_prompt) // 4
+            + (max_tokens or 4096)
+        )
+
         # --- Quota check ---
         quota_result = await check_quota(
             tenant_id=org_id,
             model_code=model_code,
             user_id=user_id,
+            estimated_tokens=estimated_tokens,
         )
         if not quota_result.allowed:
             latency = int((time.monotonic() - start_ts) * 1000)
@@ -174,10 +181,7 @@ class ChatDispatchMixin:
         # --- P0: Hard cost gate per request ---
         # Estimate cost based on message lengths and model pricing
         try:
-            est_input_tokens = (
-                sum(len(m.get("content", "")) // 4 for m in messages)
-                + len(system_prompt) // 4
-            )
+            est_input_tokens = estimated_tokens - (max_tokens or 4096)
             est_output_tokens = max_tokens or 4096
             est_cost = estimate_cost(est_input_tokens, est_output_tokens, model_code)
             if not await token_budget_manager.check_request_cost(est_cost):
@@ -360,10 +364,16 @@ class ChatDispatchMixin:
             return
 
         # --- Quota check ---
+        estimated_tokens = (
+            sum(len(m.get("content", "")) // 4 for m in messages)
+            + len(system_prompt) // 4
+            + (max_tokens or 4096)
+        )
         quota_result = await check_quota(
             tenant_id=org_id,
             model_code=model_code,
             user_id=user_id,
+            estimated_tokens=estimated_tokens,
         )
         if not quota_result.allowed:
             yield self._error_response(

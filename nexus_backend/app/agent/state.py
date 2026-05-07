@@ -358,6 +358,7 @@ class AgentState(TypedDict, total=False):
     # ── Token tracking ──
     total_input_tokens: int
     total_output_tokens: int
+    agent_run_id: str  # Durable observability run id (agent_runs.id)
 
     # ── Observability ──
     # NOTE: trace_logger is passed via RunnableConfig["configurable"]["trace_logger"]

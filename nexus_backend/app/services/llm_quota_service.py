@@ -198,8 +198,37 @@ async def check_quota(
     configs = await _load_quota_configs(tenant_id)
 
     if not configs:
-        # No quota configured = no restrictions
-        return QuotaCheckResult(allowed=True, reason="No quota configured")
+        # No DB quota configured: still enforce environment-level tenant caps.
+        try:
+            from app.core.config import settings
+
+            default_configs = [
+                QuotaConfig(
+                    tenant_id=tenant_id,
+                    model_code=None,
+                    user_id=None,
+                    period="daily",
+                    max_tokens=0,
+                    max_cost=settings.TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT,
+                    max_requests=0,
+                    overage_action="block",
+                ),
+                QuotaConfig(
+                    tenant_id=tenant_id,
+                    model_code=None,
+                    user_id=None,
+                    period="monthly",
+                    max_tokens=0,
+                    max_cost=settings.TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT,
+                    max_requests=0,
+                    overage_action="block",
+                ),
+            ]
+            configs = [cfg for cfg in default_configs if cfg.max_cost > 0]
+        except Exception:
+            configs = []
+        if not configs:
+            return QuotaCheckResult(allowed=True, reason="No quota configured")
 
     # Sort configs by specificity: user+model > model > tenant-wide
     def specificity(cfg: QuotaConfig) -> int:

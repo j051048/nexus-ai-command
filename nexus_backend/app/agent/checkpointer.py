@@ -109,6 +109,10 @@ def _create_postgres_checkpointer():
         return checkpointer
 
     except ImportError as e:
+        if settings.IS_PRODUCTION:
+            raise RuntimeError(
+                "LANGGRAPH_CHECKPOINTER=postgres requires langgraph-checkpoint-postgres in production"
+            ) from e
         logger.warning(
             f"[Checkpointer] langgraph-checkpoint-postgres not installed, falling back to memory: {e}"
         )
@@ -117,6 +121,10 @@ def _create_postgres_checkpointer():
         degradation_registry.register("checkpointer", str(e), fallback="MemorySaver")
         return _create_memory_checkpointer()
     except Exception as e:
+        if settings.IS_PRODUCTION:
+            raise RuntimeError(
+                "PostgreSQL LangGraph checkpointer failed in production"
+            ) from e
         logger.error(f"[Checkpointer] Failed to create PostgreSQL checkpointer: {e}")
         logger.warning("[Checkpointer] Falling back to memory checkpointer")
         from app.core.degradation_registry import degradation_registry

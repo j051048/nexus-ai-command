@@ -3,6 +3,7 @@ import os
 
 from celery import Celery
 from celery.schedules import crontab
+from kombu import Exchange, Queue
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,37 @@ celery_app.conf.update(
     # P1-8: Global task timeout defaults (individual tasks can override)
     task_soft_time_limit=300,  # 5 min soft limit → SoftTimeLimitExceeded
     task_time_limit=600,  # 10 min hard kill
+    task_default_queue="default",
+    task_queues=(
+        Queue("default", Exchange("default"), routing_key="default"),
+        Queue("agent_tools", Exchange("agent_tools"), routing_key="agent_tools"),
+        Queue(
+            "agent_tools_high_risk",
+            Exchange("agent_tools_high_risk"),
+            routing_key="agent_tools_high_risk",
+        ),
+        Queue("webhooks", Exchange("webhooks"), routing_key="webhooks"),
+        Queue("sensors", Exchange("sensors"), routing_key="sensors"),
+    ),
+    task_routes={
+        "execute_tool_isolated": {
+            "queue": "agent_tools",
+            "routing_key": "agent_tools",
+        },
+        "execute_tool_high_risk": {
+            "queue": "agent_tools_high_risk",
+            "routing_key": "agent_tools_high_risk",
+        },
+        "app.tasks.event_sensors.*": {
+            "queue": "sensors",
+            "routing_key": "sensors",
+        },
+        "app.tasks.webhooks.*": {
+            "queue": "webhooks",
+            "routing_key": "webhooks",
+        },
+    },
+    worker_prefetch_multiplier=1,
 )
 
 

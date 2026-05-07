@@ -4,6 +4,7 @@ import {
   forwardRef,
   useImperativeHandle,
   useEffect,
+  useMemo,
   DragEvent,
 } from 'react';
 import {
@@ -379,6 +380,8 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
 
     // Whether canvas only has fixed nodes (empty state)
     const isEmptyCanvas = nodes.every((n) => FIXED_NODE_TYPES.has(n.type || ''));
+    const isLargeCanvas = nodes.length > 250 || edges.length > 400;
+    const visibleNodeTypes = useMemo(() => nodeTypes, []);
 
     return (
       <div ref={reactFlowWrapper} className="flex-1 h-full relative">
@@ -405,10 +408,13 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
           onDragOver={onDragOver}
           onDrop={onDrop}
           isValidConnection={isValidConnection}
-          nodeTypes={nodeTypes}
+          nodeTypes={visibleNodeTypes}
           onlyRenderVisibleElements
           fitView
           fitViewOptions={{ padding: 0.2 }}
+          minZoom={isLargeCanvas ? 0.15 : 0.25}
+          maxZoom={isLargeCanvas ? 1.25 : 2}
+          nodesDraggable={!isLargeCanvas}
           deleteKeyCode={['Backspace', 'Delete']}
           className="bg-muted/30"
           defaultEdgeOptions={{
@@ -417,12 +423,14 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
           }}
         >
           <Controls className="!bg-background !border !shadow-sm" />
-          <MiniMap
-            className="!bg-background !border !shadow-sm"
-            nodeStrokeWidth={3}
-            zoomable
-            pannable
-          />
+          {!isLargeCanvas && (
+            <MiniMap
+              className="!bg-background !border !shadow-sm"
+              nodeStrokeWidth={3}
+              zoomable
+              pannable
+            />
+          )}
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         </ReactFlow>
       </div>

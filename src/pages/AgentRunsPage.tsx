@@ -1,0 +1,336 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Activity, AlertTriangle, Clock, DollarSign, RefreshCw, Search, Wrench } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { httpClient } from '@/lib/httpClient';
+import { cn } from '@/lib/utils';
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+}
+
+interface AgentRun {
+  id: string;
+  run_id?: string;
+  thread_id?: string;
+  trace_id?: string;
+  session_id?: string;
+  scene_code?: string;
+  agent_code?: string;
+  status: string;
+  input_summary?: string;
+  output_summary?: string;
+  final_response?: string;
+  error?: string;
+  error_message?: string;
+  metadata?: Record<string, unknown>;
+  input_tokens?: number;
+  output_tokens?: number;
+  cost_usd?: number;
+  duration_ms?: number;
+  started_at?: string;
+  finished_at?: string;
+  updated_at?: string;
+}
+
+interface AgentRunSummary {
+  total_runs: number;
+  by_status: Record<string, number>;
+  total_cost_usd: number;
+  total_tokens: number;
+  avg_duration_ms?: number | null;
+}
+
+interface ToolCall {
+  id: string;
+  tool_name: string;
+  status: string;
+  risk?: string;
+  result_preview?: string;
+  error_type?: string;
+  error_message?: string;
+  duration_ms?: number;
+  started_at?: string;
+  tool_args?: Record<string, unknown>;
+}
+
+interface AgentEvent {
+  id: number;
+  event_type: string;
+  node_name?: string;
+  created_at?: string;
+  payload?: Record<string, unknown>;
+}
+
+interface AgentRunsData {
+  runs: AgentRun[];
+  summary: AgentRunSummary;
+}
+
+interface AgentRunDetailData {
+  run: AgentRun;
+  tool_calls: ToolCall[];
+  events: AgentEvent[];
+}
+
+const STATUS_OPTIONS = ['all', 'running', 'completed', 'failed', 'cancelled'];
+
+function formatDate(value?: string) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatDuration(ms?: number | null) {
+  if (!ms) return '-';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function statusClass(status: string) {
+  if (status === 'completed') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (status === 'running') return 'border-blue-200 bg-blue-50 text-blue-700';
+  if (status === 'failed') return 'border-red-200 bg-red-50 text-red-700';
+  return 'border-muted bg-muted text-muted-foreground';
+}
+
+function StatCard({ title, value, icon }: { title: string; value: string | number; icon: ReactNode }) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <p className="truncate text-2xl font-semibold">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function AgentRunsPage() {
+  const [runs, setRuns] = useState<AgentRun[]>([]);
+  const [summary, setSummary] = useState<AgentRunSummary | null>(null);
+  const [selected, setSelected] = useState<AgentRunDetailData | null>(null);
+  const [status, setStatus] = useState('all');
+  const [sessionId, setSessionId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const fetchRuns = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string | number> = { limit: 80 };
+      if (status !== 'all') params.status = status;
+      if (sessionId.trim()) params.session_id = sessionId.trim();
+      const response = await httpClient.get<ApiResponse<AgentRunsData>>('/api/agent-runs', { params });
+      setRuns(response.data.data.runs || []);
+      setSummary(response.data.data.summary);
+    } catch {
+      toast.error('Agent Run 列表加载失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, status]);
+
+  const fetchDetail = useCallback(async (run: AgentRun) => {
+    const ref = run.id || run.run_id;
+    if (!ref) return;
+    setDetailLoading(true);
+    try {
+      const response = await httpClient.get<ApiResponse<AgentRunDetailData>>(`/api/agent-runs/${ref}`);
+      setSelected(response.data.data);
+    } catch {
+      toast.error('Agent Run 详情加载失败');
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRuns();
+  }, [fetchRuns]);
+
+  const statusCounts = useMemo(() => summary?.by_status || {}, [summary]);
+  const selectedRun = selected?.run;
+
+  return (
+    <div className="space-y-5 p-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-normal">Agent Run 管理台</h1>
+          <p className="text-sm text-muted-foreground">按租户查看 LangGraph 运行、工具调用、事件流和成本消耗。</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchRuns} disabled={loading}>
+          <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
+          刷新
+        </Button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <StatCard title="最近运行" value={summary?.total_runs ?? 0} icon={<Activity className="h-5 w-5" />} />
+        <StatCard title="运行中" value={statusCounts.running ?? 0} icon={<Clock className="h-5 w-5" />} />
+        <StatCard title="失败" value={statusCounts.failed ?? 0} icon={<AlertTriangle className="h-5 w-5" />} />
+        <StatCard title="成本 USD" value={`$${(summary?.total_cost_usd ?? 0).toFixed(4)}`} icon={<DollarSign className="h-5 w-5" />} />
+      </div>
+
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="w-full md:w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((item) => (
+                <SelectItem key={item} value={item}>
+                  {item === 'all' ? '全部状态' : item}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              value={sessionId}
+              onChange={(event) => setSessionId(event.target.value)}
+              placeholder="按 session_id 过滤"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">运行列表</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>状态</TableHead>
+                  <TableHead>场景</TableHead>
+                  <TableHead>摘要</TableHead>
+                  <TableHead>Token</TableHead>
+                  <TableHead>成本</TableHead>
+                  <TableHead>耗时</TableHead>
+                  <TableHead>更新时间</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {runs.map((run) => (
+                  <TableRow key={run.id || run.run_id} className="cursor-pointer" onClick={() => fetchDetail(run)}>
+                    <TableCell>
+                      <Badge variant="outline" className={cn('whitespace-nowrap', statusClass(run.status))}>
+                        {run.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[120px] truncate">{run.scene_code || run.agent_code || '-'}</TableCell>
+                    <TableCell className="max-w-[360px] truncate">{run.input_summary || run.output_summary || run.error_message || '-'}</TableCell>
+                    <TableCell>{(run.input_tokens || 0) + (run.output_tokens || 0)}</TableCell>
+                    <TableCell>${(run.cost_usd || 0).toFixed(4)}</TableCell>
+                    <TableCell>{formatDuration(run.duration_ms)}</TableCell>
+                    <TableCell>{formatDate(run.updated_at)}</TableCell>
+                  </TableRow>
+                ))}
+                {!runs.length && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-28 text-center text-muted-foreground">
+                      {loading ? '加载中...' : '暂无运行记录'}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Wrench className="h-4 w-4" />
+              调用详情
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!selectedRun ? (
+              <div className="flex h-[420px] items-center justify-center text-sm text-muted-foreground">
+                选择一条运行查看工具调用和事件
+              </div>
+            ) : (
+              <ScrollArea className="h-[620px] pr-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className={statusClass(selectedRun.status)}>
+                        {selectedRun.status}
+                      </Badge>
+                      {detailLoading && <span className="text-xs text-muted-foreground">更新中...</span>}
+                    </div>
+                    <p className="break-all text-xs text-muted-foreground">{selectedRun.run_id || selectedRun.id}</p>
+                    <p className="text-sm">{selectedRun.final_response || selectedRun.output_summary || selectedRun.error_message || '无输出摘要'}</p>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium">工具调用 ({selected.tool_calls.length})</h3>
+                    <div className="space-y-2">
+                      {selected.tool_calls.map((call) => (
+                        <div key={call.id} className="rounded-md border p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-medium">{call.tool_name}</span>
+                            <Badge variant="outline">{call.status}</Badge>
+                          </div>
+                          <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
+                            <span>{call.risk || 'low'}</span>
+                            <span>{formatDuration(call.duration_ms)}</span>
+                          </div>
+                          {(call.error_message || call.result_preview) && (
+                            <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">
+                              {call.error_message || call.result_preview}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                      {!selected.tool_calls.length && <p className="text-sm text-muted-foreground">无工具调用</p>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium">事件流 ({selected.events.length})</h3>
+                    <div className="space-y-2">
+                      {selected.events.slice(0, 80).map((event) => (
+                        <div key={event.id} className="rounded-md bg-muted/50 p-3 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium">{event.node_name || event.event_type}</span>
+                            <span className="text-muted-foreground">{formatDate(event.created_at)}</span>
+                          </div>
+                          <p className="mt-1 truncate text-muted-foreground">{JSON.stringify(event.payload || {})}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

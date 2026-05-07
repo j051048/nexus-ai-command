@@ -93,6 +93,26 @@ class ToolEmbeddingIndex:
             finally:
                 self._building = False
 
+    async def refresh(self) -> int:
+        """Force-rebuild the in-memory semantic tool index."""
+        async with self._lock:
+            self._building = True
+            try:
+                await self._build()
+            finally:
+                self._building = False
+        return len(self._embeddings)
+
+    def stats(self) -> dict:
+        """Return lightweight health metadata for diagnostics."""
+        age_s = time.time() - self._built_at if self._built_at else None
+        return {
+            "tool_count": len(self._embeddings),
+            "built_at": self._built_at,
+            "age_s": age_s,
+            "ttl_s": _INDEX_TTL,
+        }
+
     async def retrieve(
         self,
         query: str,

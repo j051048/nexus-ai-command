@@ -764,9 +764,15 @@ async def _execute_single_tool(
         isolation = "celery"
     if isolation == "celery":
         try:
-            from app.tasks.tool_tasks import execute_tool_isolated
+            from app.tasks.tool_tasks import execute_tool_high_risk, execute_tool_isolated
 
-            celery_result = execute_tool_isolated.apply_async(
+            celery_task = (
+                execute_tool_high_risk
+                if getattr(tool, "is_irreversible", False)
+                else execute_tool_isolated
+            )
+
+            celery_result = celery_task.apply_async(
                 args=[
                     record.tool_name,
                     record.tool_args,
@@ -1256,6 +1262,25 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
                     record.status,
                     record.result[:500] if record.result else "",
                 )
+
+    # Audit trail: log each tool execution for compliance
+    try:
+        from app.services.agent_run_observability import agent_run_observer
+
+        for record in completed:
+            await agent_run_observer.tool_call(
+                run_id=state.get("agent_run_id"),
+                org_id=agent_config.org_id,
+                tool_name=record.tool_name,
+                tool_call_id=record.tool_call_id,
+                status=record.status,
+                duration_ms=record.duration_ms,
+                args=record.tool_args,
+                result=record.result,
+                error_type=record.error_type,
+            )
+    except Exception:
+        logger.debug("[ExecuteNode] agent_tool_calls persistence skipped", exc_info=True)
 
     # Audit trail: log each tool execution for compliance
     try:

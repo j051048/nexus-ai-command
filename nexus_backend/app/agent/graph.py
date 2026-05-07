@@ -901,6 +901,23 @@ class AgentGraph:
         # Check conversation turn limit
         messages = initial_state.get("messages", [])
         if len(messages) > 50:
+            try:
+                from app.agent.prompt_compression import compress_conversation_history
+
+                initial_state["messages"] = await compress_conversation_history(
+                    messages,
+                    model=getattr(
+                        initial_state.get("config"), "mini_model", "gpt-4o-mini"
+                    ),
+                )
+                messages = initial_state.get("messages", [])
+                logger.info(
+                    "[AgentGraph] Compressed oversized conversation before hard limit: %d messages",
+                    len(messages),
+                )
+            except Exception:
+                logger.warning("[AgentGraph] Oversized conversation compression failed")
+        if len(messages) > 50:
             logger.warning("Conversation exceeded 50 turns, rejecting request")
             initial_state["final_response"] = (
                 "对话轮次已达上限（50轮），请开始新的对话。"
@@ -914,6 +931,23 @@ class AgentGraph:
             },
             "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 5 + 10,
         }
+
+        # Durable run observability
+        _cfg = initial_state.get("config")
+        _run_id = None
+        try:
+            from app.services.agent_run_observability import agent_run_observer
+
+            _run_id = await agent_run_observer.start_run(
+                thread_id=thread_id,
+                org_id=getattr(_cfg, "org_id", None) if _cfg else None,
+                user_id=getattr(_cfg, "user_id", None) if _cfg else None,
+                session_id=getattr(_cfg, "session_id", None) if _cfg else None,
+                metadata={"mode": "run"},
+            )
+            initial_state["agent_run_id"] = _run_id
+        except Exception:
+            logger.debug("[AgentGraph] start_run observability skipped", exc_info=True)
 
         # Record metrics
         start_time = time.time()
@@ -943,8 +977,28 @@ class AgentGraph:
                 success=not result.get("error"),
             )
 
+            try:
+                from app.services.agent_run_observability import agent_run_observer
+
+                await agent_run_observer.finish_run(
+                    run_id=_run_id or result.get("agent_run_id"),
+                    status="error" if result.get("error") else "completed",
+                    error=result.get("error"),
+                    final_response=result.get("final_response", ""),
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    cost_usd=cost,
+                    duration_ms=int(duration * 1000),
+                    metadata={
+                        "complexity": str(result.get("complexity", "unknown")),
+                        "model": result.get("selected_model", "unknown"),
+                    },
+                )
+            except Exception:
+                logger.debug("[AgentGraph] finish_run observability skipped", exc_info=True)
+
             return result
-        except Exception:
+        except Exception as exc:
             duration = time.time() - start_time
             _cfg = initial_state.get("config")
             _uid = getattr(_cfg, "user_id", None) or "unknown"
@@ -957,6 +1011,17 @@ class AgentGraph:
                 duration=duration,
                 success=False,
             )
+            try:
+                from app.services.agent_run_observability import agent_run_observer
+
+                await agent_run_observer.finish_run(
+                    run_id=_run_id or initial_state.get("agent_run_id"),
+                    status="error",
+                    error=str(exc),
+                    duration_ms=int(duration * 1000),
+                )
+            except Exception:
+                logger.debug("[AgentGraph] error finish observability skipped", exc_info=True)
             raise
 
     async def stream(self, initial_state: AgentState, thread_id: str = "default"):
@@ -990,13 +1055,57 @@ class AgentGraph:
             },
             "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 5 + 10,
         }
+        _run_id = initial_state.get("agent_run_id")
+        _cfg = initial_state.get("config")
+        if not _run_id:
+            try:
+                from app.services.agent_run_observability import agent_run_observer
+
+                _run_id = await agent_run_observer.start_run(
+                    thread_id=thread_id,
+                    org_id=getattr(_cfg, "org_id", None) if _cfg else None,
+                    user_id=getattr(_cfg, "user_id", None) if _cfg else None,
+                    session_id=getattr(_cfg, "session_id", None) if _cfg else None,
+                    trace_id=(config or {}).get("configurable", {}).get("trace_id"),
+                    metadata={"mode": "astream_events"},
+                )
+                initial_state["agent_run_id"] = _run_id
+            except Exception:
+                logger.debug("[AgentGraph] stream start_run observability skipped", exc_info=True)
+
         if config:
             # Merge configurable keys from caller (e.g. trace_logger)
             base_config["configurable"].update(config.get("configurable", {}))
-        async for event in self.compiled.astream_events(
-            initial_state, config=base_config, version=version
-        ):
-            yield event
+        start_time = time.time()
+        try:
+            async for event in self.compiled.astream_events(
+                initial_state, config=base_config, version=version
+            ):
+                yield event
+        except Exception as exc:
+            try:
+                from app.services.agent_run_observability import agent_run_observer
+
+                await agent_run_observer.finish_run(
+                    run_id=_run_id or initial_state.get("agent_run_id"),
+                    status="error",
+                    error=str(exc),
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+            except Exception:
+                logger.debug("[AgentGraph] stream error finish skipped", exc_info=True)
+            raise
+        else:
+            try:
+                from app.services.agent_run_observability import agent_run_observer
+
+                await agent_run_observer.finish_run(
+                    run_id=_run_id or initial_state.get("agent_run_id"),
+                    status="completed",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+            except Exception:
+                logger.debug("[AgentGraph] stream finish skipped", exc_info=True)
 
     async def get_state(self, thread_id: str) -> AgentState | None:
         """

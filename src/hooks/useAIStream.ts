@@ -9,6 +9,7 @@ import { httpClient } from '@/lib/httpClient';
 
 const MAX_ASSISTANT_CONTENT_CHARS = 120_000;
 const MAX_THINKING_STEPS = 80;
+const MAX_SSE_BUFFER_CHARS = 64_000;
 const ENABLE_BROWSER_AI_PROXY_FALLBACK = import.meta.env.VITE_ENABLE_BROWSER_AI_PROXY_FALLBACK === 'true';
 const STREAM_TRUNCATION_NOTICE = '\n\n[Stream truncated: response exceeded the client safety limit.]';
 
@@ -212,6 +213,9 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             if (done) break;
 
             textBuffer += decoder.decode(value, { stream: true });
+            if (textBuffer.length > MAX_SSE_BUFFER_CHARS) {
+                textBuffer = textBuffer.slice(-MAX_SSE_BUFFER_CHARS);
+            }
 
             let newlineIndex: number;
             while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
@@ -307,6 +311,11 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         assistantContent = appendStreamContent(assistantContent, content);
                         scheduleFlush();
                         onActivity?.();  // P0 #19: reset timeout on content received
+                        if (assistantContent.endsWith(STREAM_TRUNCATION_NOTICE)) {
+                            await reader.cancel().catch(() => undefined);
+                            streamDone = true;
+                            break;
+                        }
                     }
                 } catch {
                     // JSON incomplete — re-buffer and wait for next chunk
@@ -463,6 +472,9 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             if (done) break;
 
             textBuffer += decoder.decode(value, { stream: true });
+            if (textBuffer.length > MAX_SSE_BUFFER_CHARS) {
+                textBuffer = textBuffer.slice(-MAX_SSE_BUFFER_CHARS);
+            }
 
             let newlineIndex: number;
             while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
@@ -485,6 +497,11 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     if (content) {
                         assistantContent = appendStreamContent(assistantContent, content);
                         onUpdate?.(assistantContent, assistantMsgId);
+                        if (assistantContent.endsWith(STREAM_TRUNCATION_NOTICE)) {
+                            await reader.cancel().catch(() => undefined);
+                            streamDone = true;
+                            break;
+                        }
                     }
                 } catch {
                     textBuffer = line + '\n' + textBuffer;

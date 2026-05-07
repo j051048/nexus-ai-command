@@ -14,6 +14,20 @@ CREATE TABLE IF NOT EXISTS public.webhook_subscriptions (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- If the table already existed with an older shape, make the migration
+-- additive instead of relying on CREATE TABLE IF NOT EXISTS.
+ALTER TABLE public.webhook_subscriptions
+  ADD COLUMN IF NOT EXISTS org_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS organization_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS url text,
+  ADD COLUMN IF NOT EXISTS events text[] NOT NULL DEFAULT ARRAY['*']::text[],
+  ADD COLUMN IF NOT EXISTS secret_hash text,
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS description text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS failure_count integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 UPDATE public.webhook_subscriptions
 SET organization_id = org_id
 WHERE organization_id IS NULL;
@@ -34,6 +48,18 @@ CREATE TABLE IF NOT EXISTS public.webhook_delivery_log (
   response_body text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.webhook_delivery_log
+  ADD COLUMN IF NOT EXISTS subscription_id text REFERENCES public.webhook_subscriptions(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS org_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS organization_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS event text,
+  ADD COLUMN IF NOT EXISTS payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS response_code integer,
+  ADD COLUMN IF NOT EXISTS response_body text,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
 UPDATE public.webhook_delivery_log
 SET organization_id = org_id

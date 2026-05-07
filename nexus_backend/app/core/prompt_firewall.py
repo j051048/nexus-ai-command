@@ -175,6 +175,21 @@ _INJECTION_PATTERNS: list[tuple[str, str, RiskLevel]] = [
         RiskLevel.HIGH,
     ),
     (
+        r"(tool|search|webpage|document|file)\s+(says|said|instructs|orders)\s+.*(ignore|override|disregard)",
+        "injection_indirect_tool_content",
+        RiskLevel.HIGH,
+    ),
+    (
+        r"(copy|paste|execute|follow)\s+the\s+(instructions?|prompt)\s+(inside|from)\s+(this|the)\s+(tool|file|document|website)",
+        "injection_follow_external_instructions",
+        RiskLevel.HIGH,
+    ),
+    (
+        r"(exfiltrate|leak|send)\s+(secrets?|api\s*keys?|tokens?|credentials?)",
+        "injection_secret_exfiltration",
+        RiskLevel.CRITICAL,
+    ),
+    (
         r"(透露|显示|输出|告诉我|泄露|打印)(你的)?(系统|原始|完整)?(提示词|指令|prompt|配置)",
         "injection_reveal_prompt_cn",
         RiskLevel.HIGH,

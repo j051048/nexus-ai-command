@@ -615,6 +615,29 @@ async def _run_agent_stream_impl(
         base_thread = f"{agent_config.org_id or 'default'}::{agent_config.session_id}"
         scoped_thread_id = f"{base_thread}::msg-{int(start_time)}"
 
+        # Durable observability run id shared by graph nodes and final stream
+        try:
+            from app.services.agent_run_observability import agent_run_observer
+
+            _agent_run_id = await agent_run_observer.start_run(
+                thread_id=scoped_thread_id,
+                org_id=agent_config.org_id,
+                user_id=user_id,
+                session_id=session_id or "default",
+                trace_id=_trace_id,
+                metadata={
+                    "mode": "sse",
+                    "agent_name": agent_name,
+                    "scene_code": scene_code,
+                    "vmd_agent_code": vmd_agent_code,
+                },
+            )
+            initial_state["agent_run_id"] = _agent_run_id
+            accumulated_state["agent_run_id"] = _agent_run_id
+        except Exception:
+            _agent_run_id = None
+            logger.debug("[Stream] agent_runs start skipped", exc_info=True)
+
         # Track whether we're inside a <think>...</think> block during streaming.
         # Reasoning models (step-3.5-flash, DeepSeek-R1, QwQ, etc.) emit these
         # tags which must be suppressed before reaching the frontend.
@@ -631,6 +654,7 @@ async def _run_agent_stream_impl(
                 config={
                     "configurable": {
                         "trace_logger": tracer,
+                        "trace_id": _trace_id,
                     },
                 },
                 version="v2",
@@ -829,6 +853,28 @@ async def _run_agent_stream_impl(
                         )
                     except Exception:
                         pass  # trace failure must never break the stream
+
+                    try:
+                        from app.services.agent_run_observability import agent_run_observer
+
+                        await agent_run_observer.event(
+                            run_id=accumulated_state.get("agent_run_id"),
+                            org_id=agent_config.org_id,
+                            event_type="node_end",
+                            node_name=event.get("metadata", {}).get("langgraph_node", "unknown"),
+                            payload={
+                                "phase": str(phase) if phase else "",
+                                "iteration": accumulated_state.get("iteration", 0),
+                                "has_plan": bool(state_delta.get("plan")),
+                                "has_response": bool(state_delta.get("final_response")),
+                                "completed_tools": [
+                                    getattr(tc, "tool_name", "")
+                                    for tc in state_delta.get("completed_tool_calls", [])
+                                ],
+                            },
+                        )
+                    except Exception:
+                        pass
 
         # Release tenant throttle after graph execution completes normally
         await _throttle_ctx.__aexit__(None, None, None)
@@ -1318,6 +1364,28 @@ async def _run_agent_stream_impl(
     _success = not accumulated_state.get("error")
     record_agent_e2e(_tier, duration_ms, _success)
     check_agent_success_rate(_success)
+
+    try:
+        from app.services.agent_run_observability import agent_run_observer
+
+        await agent_run_observer.finish_run(
+            run_id=accumulated_state.get("agent_run_id"),
+            status="completed" if _success else "error",
+            error=accumulated_state.get("error"),
+            final_response=final_response,
+            input_tokens=total_in,
+            output_tokens=total_out,
+            cost_usd=_calc_cost_usd(actual_model, total_in, total_out),
+            duration_ms=duration_ms,
+            metadata={
+                "complexity": _tier,
+                "model": actual_model,
+                "tool_count": len(completed_tools),
+                "thinking_steps": len(all_thinking_steps),
+            },
+        )
+    except Exception:
+        logger.debug("[Stream] agent_runs finish skipped", exc_info=True)
 
     # ── 10. Finalize trace ──
     if tracer:

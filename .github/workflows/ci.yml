@@ -178,6 +178,12 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      - name: Compile backend modules
+        run: python -m compileall app tests
+
+      - name: Run architecture and security guardrails
+        run: pytest tests/unit/test_architecture_guards.py tests/security/test_prompt_firewall_indirect_injection.py -q
+
       - name: Run tests with coverage
         run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-report=json --retries 2 --retry-delay 1
 
@@ -259,6 +265,32 @@ jobs:
       - name: Integration test summary
         if: always()
         run: echo "## RLS Integration Tests" >> $GITHUB_STEP_SUMMARY
+
+  # ============== Staging Migration Verification ==============
+  staging-migration-verify:
+    name: Staging Migration Verification
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    env:
+      STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "nexus_backend/requirements-dev.txt"
+
+      - name: Install backend dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r nexus_backend/requirements-dev.txt
+
+      - name: Verify staging migrations and RLS
+        run: python scripts/verify_staging_migrations.py
 
   # ============== Security Scanning ==============
   security-scan:
@@ -590,7 +622,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [ci-success]
+    needs: [ci-success, staging-migration-verify]
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     environment:
       name: staging

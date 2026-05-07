@@ -72,6 +72,8 @@ export const PluginMarketplace = lazyWithRetry(() => import("@/pages/PluginMarke
 export const LLMModelManagement = lazyWithRetry(() => import("@/pages/LLMModelManagement"));
 export const LLMCostDashboard = lazyWithRetry(() => import("@/pages/LLMCostDashboard"));
 export const SoulDocumentPage = lazyWithRetry(() => import("@/pages/SoulDocumentPage"));
+export const AgentRunsPage = lazyWithRetry(() => import("@/pages/AgentRunsPage"));
+export const ToolGovernancePage = lazyWithRetry(() => import("@/pages/ToolGovernancePage"));
 
 // VMD
 export const VMDCenter = lazyWithRetry(() => import("@/pages/VMDCenter"));
