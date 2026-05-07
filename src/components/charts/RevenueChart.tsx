@@ -15,17 +15,7 @@ import { useRevenueData } from '@/hooks/useSalesData';
 import { useCurrentTargets } from '@/hooks/useTargets';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-
-// Fallback mock data
-const mockRevenueData = [
-  { month: '1月', revenue: 128, target: 120, growth: 8 },
-  { month: '2月', revenue: 156, target: 130, growth: 22 },
-  { month: '3月', revenue: 189, target: 150, growth: 21 },
-  { month: '4月', revenue: 234, target: 180, growth: 24 },
-  { month: '5月', revenue: 198, target: 200, growth: -15 },
-  { month: '6月', revenue: 312, target: 220, growth: 58 },
-  { month: '7月', revenue: 356, target: 280, growth: 14 },
-];
+import { TrendingUp } from 'lucide-react';
 
 const chartConfig = {
   revenue: {
@@ -49,7 +39,7 @@ export function RevenueChart() {
   }, [targets]);
 
   const revenueData = React.useMemo(() => {
-    if (!rawData || rawData.length === 0) return mockRevenueData;
+    if (!rawData || rawData.length === 0) return [];
     // Add target line to each data point if we have a target
     if (monthlyRevenueTarget > 0) {
       return rawData.map(d => ({
@@ -65,7 +55,6 @@ export function RevenueChart() {
     ? monthlyRevenueTarget * revenueData.length 
     : revenueData.reduce((sum, d) => sum + (d.target || 0), 0);
   const completion = totalTarget > 0 ? Math.round((totalRevenue / totalTarget) * 100) : 0;
-  const hasRealData = rawData && rawData.length > 0;
 
   if (isLoading) {
     return (
@@ -73,6 +62,16 @@ export function RevenueChart() {
         <Skeleton className="h-6 w-32 mb-2" />
         <Skeleton className="h-4 w-48 mb-6" />
         <Skeleton className="h-[200px] sm:h-[250px] w-full" />
+      </div>
+    );
+  }
+
+  if (revenueData.length === 0) {
+    return (
+      <div className="relative overflow-hidden card-glass rounded-3xl p-6 sm:p-8 border border-border/50 shadow-2xl h-full flex flex-col items-center justify-center min-h-[300px]">
+        <TrendingUp className="w-12 h-12 text-muted-foreground/30 mb-4" />
+        <p className="text-sm text-muted-foreground font-medium">暂无营收数据</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">录入销售业绩后将自动生成趋势图</p>
       </div>
     );
   }
@@ -86,9 +85,8 @@ export function RevenueChart() {
                     <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/80">
                         智能营收预测与追踪
                     </h3>
-                    <p className="text-sm font-medium text-muted-foreground mt-1 flex items-center gap-2">
+                    <p className="text-sm font-medium text-muted-foreground mt-1">
                         月度营收与目标对比
-                        {!hasRealData && <span className="text-warning px-2 py-0.5 rounded-md bg-warning/10 text-xs border border-warning/20">AI 模拟推演模式</span>}
                     </p>
                 </div>
                 <div className="flex items-center gap-6 bg-background/40 backdrop-blur-md px-4 py-3 rounded-2xl border border-border/50 shadow-inner">

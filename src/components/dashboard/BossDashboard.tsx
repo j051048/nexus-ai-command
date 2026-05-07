@@ -117,8 +117,8 @@ export function BossDashboard() {
             )}
             <div className="h-14 px-8 glass-premium border-emerald-500/20 rounded-full flex items-center gap-4">
               <div className="text-right">
-                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Automation</p>
-                <p className="text-emerald-500 font-black font-numbers text-xl">98%</p>
+                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Team Size</p>
+                <p className="text-emerald-500 font-black font-numbers text-xl">{teamData?.length || 0}</p>
               </div>
               <div className="h-6 w-px bg-border" />
               <Activity className="w-6 h-6 text-emerald-500" />
@@ -146,8 +146,8 @@ export function BossDashboard() {
               <AIActivityStats stats={{
                 totalConversations: teamData?.length || 0,
                 tasksHandled: weeklyReport.topPerformers.length * 12,
-                avgConfidence: 94,
-                responseTime: '1.2s'
+                avgConfidence: 0,
+                responseTime: '--'
               }} />
             </div>
           </div>
