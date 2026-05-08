@@ -5,14 +5,14 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_EMAIL_RE = re.compile(r"([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})")
+_EMAIL_RE = re.compile(
+    r"([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})"
+)
 _CN_PHONE_RE = re.compile(r"(?<!\d)(1[3-9]\d)\d{4}(\d{4})(?!\d)")
 _CN_ID_CARD_RE = re.compile(r"(?<!\d)(\d{3})\d{11}(\d{3}[\dXx])(?!\d)")
 _BANK_CARD_RE = re.compile(r"(?<!\d)(\d{4})\d{8,11}(\d{4})(?!\d)")
 _US_SSN_RE = re.compile(r"(?<!\d)(\d{3})-\d{2}-(\d{4})(?!\d)")
-_API_KEY_RE = re.compile(
-    r"(?i)\b((?:sk|api|token|key|secret)[-_]?[A-Za-z0-9]{12,})\b"
-)
+_API_KEY_RE = re.compile(r"(?i)\b((?:sk|api|token|key|secret)[-_]?[A-Za-z0-9]{12,})\b")
 
 _SENSITIVE_KEYS = {
     "password",
@@ -54,7 +54,9 @@ def redact_value(value: Any) -> Any:
         safe: dict[Any, Any] = {}
         for key, item in value.items():
             key_text = str(key).lower()
-            if key_text in _SENSITIVE_KEYS or any(k in key_text for k in _SENSITIVE_KEYS):
+            if key_text in _SENSITIVE_KEYS or any(
+                k in key_text for k in _SENSITIVE_KEYS
+            ):
                 safe[key] = "[REDACTED_SECRET]"
             else:
                 safe[key] = redact_value(item)

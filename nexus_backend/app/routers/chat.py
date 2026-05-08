@@ -274,7 +274,9 @@ async def chat(
     # inside run_agent_stream → memory.prepare_messages, so we pass raw messages.
     from app.agent import run_agent_stream
 
-    raw_messages = redact_value(messages_dicts)  # includes image_urls; masks PII before LLM
+    raw_messages = redact_value(
+        messages_dicts
+    )  # includes image_urls; masks PII before LLM
 
     logger.info(
         f"[Chat] Using LangGraph agent for user={user_id} agent={request.agent} model={ai_config['model']}"
@@ -364,7 +366,11 @@ def _build_tool_fix_suggestions(manifests: list[dict]) -> list[dict]:
         if has_side_effect and manifest.get("idempotent") is not False:
             patch["idempotent"] = False
             reasons.append("side-effect tool should explicitly declare idempotency")
-        if has_side_effect and manifest.get("risk") not in {"medium", "high", "critical"}:
+        if has_side_effect and manifest.get("risk") not in {
+            "medium",
+            "high",
+            "critical",
+        }:
             patch["risk"] = "high"
             reasons.append("side-effect tool is not marked medium/high/critical risk")
 
@@ -497,12 +503,30 @@ async def evaluate_tool_rag_endpoint(
     from app.agent.tool_embedding_index import tool_embedding_index
 
     eval_cases = [
-        {"query": "查看最近的客户跟进和销售漏斗", "expected": ["get_customers", "get_sales_pipeline"]},
-        {"query": "提交一张差旅报销单", "expected": ["create_expense_claim", "submit_expense"]},
-        {"query": "给团队发布一条公告通知", "expected": ["publish_announcement", "send_notification"]},
-        {"query": "查询库存并办理出库", "expected": ["list_inventory", "inventory_out"]},
-        {"query": "生成投标文件并检查合规", "expected": ["generate_bid_document", "check_bid_compliance"]},
-        {"query": "创建一个新员工入职流程", "expected": ["process_onboarding", "generate_onboarding_checklist"]},
+        {
+            "query": "查看最近的客户跟进和销售漏斗",
+            "expected": ["get_customers", "get_sales_pipeline"],
+        },
+        {
+            "query": "提交一张差旅报销单",
+            "expected": ["create_expense_claim", "submit_expense"],
+        },
+        {
+            "query": "给团队发布一条公告通知",
+            "expected": ["publish_announcement", "send_notification"],
+        },
+        {
+            "query": "查询库存并办理出库",
+            "expected": ["list_inventory", "inventory_out"],
+        },
+        {
+            "query": "生成投标文件并检查合规",
+            "expected": ["generate_bid_document", "check_bid_compliance"],
+        },
+        {
+            "query": "创建一个新员工入职流程",
+            "expected": ["process_onboarding", "generate_onboarding_checklist"],
+        },
     ]
 
     rows = []

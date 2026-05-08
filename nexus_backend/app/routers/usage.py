@@ -105,7 +105,9 @@ async def get_cost_alerts(
         if daily_cost_limit and total_cost >= daily_cost_limit * 0.9:
             alerts.append(
                 {
-                    "level": "critical" if total_cost >= daily_cost_limit else "warning",
+                    "level": (
+                        "critical" if total_cost >= daily_cost_limit else "warning"
+                    ),
                     "type": "daily_cost_budget",
                     "message": f"近 {days} 天 LLM 成本 ${total_cost:.4f} 接近日预算 ${daily_cost_limit:.2f}",
                     "action": "检查高成本模型和 Agent Run，必要时启用经济模型路由",
