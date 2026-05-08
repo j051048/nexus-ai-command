@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import contextlib
 import logging
 import os
@@ -93,7 +93,6 @@ def push_daily_briefing(self):
 
         # P0 Security: 按组织遍历，使用 OrgFilteredClient 防止跨租户数据泄露
         orgs_res = await supabase.table("organizations").select("id").execute()
-        orgs_res = await supabase.table("organizations").select("id").execute()
         org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         tool = DailyBriefingTool()
@@ -137,38 +136,6 @@ def push_daily_briefing(self):
         sent = sum(await asyncio.gather(*[_send_for_org(org_id) for org_id in org_ids]))
         return f"Sent daily briefing to {sent} users across {len(org_ids)} orgs"
 
-        """
-        for org_id in org_ids:
-            try:
-                org_client = supabase.get_org_filtered_client(org_id)
-                # 查询该组织的管理层用户
-                result = (
-                    await org_client.table("users")
-                    .select("id, role")
-                    .in_("role", ["manager", "founder"])
-                    .execute()
-                )
-                users = result.data or []
-
-                for u in users:
-                    try:
-                        briefing = await tool.run(
-                            {}, u["id"], config={"org_id": org_id}
-                        )
-                        await send_notification(
-                            title="每日晨报",
-                            content=briefing[:500],
-                            target_user_id=u["id"],
-                        )
-                        sent += 1
-                    except Exception as e:
-                        logger.error(f"Briefing failed for user {u['id']}: {e}")
-            except Exception as e:
-                logger.error(f"Daily briefing failed for org {org_id}: {e}")
-
-        return f"Sent daily briefing to {sent} users across {len(org_ids)} orgs"
-        """
-
     return _run_async(_run())
 
 
@@ -191,7 +158,6 @@ def mine_sales_leads():
         seven_days_ago = (datetime.now() - timedelta(days=7)).isoformat()
 
         # P0 Security: 按组织遍历，防止跨租户数据泄露
-        orgs_res = await supabase.table("organizations").select("id").execute()
         orgs_res = await supabase.table("organizations").select("id").execute()
         org_ids = [o["id"] for o in (orgs_res.data or [])]
 
@@ -245,26 +211,6 @@ def mine_sales_leads():
                         SCHEDULER_MAX_LEADS_TOTAL,
                     )
                     break
-                continue
-                """
-                for lead in stale_leads:
-                    try:
-                        suggestion = await AIService.call_llm(
-                            f"商机: {lead.get('company_name', '')}, 状态: {lead.get('status', '')}, 最后更新: {lead.get('updated_at', '')}",
-                            "你是销售顾问。这个线索已经超过7天未跟进，请给出简短的跟进建议（1-2句话）。",
-                        )
-                        if lead.get("assigned_to"):
-                            await send_notification(
-                                title=f"线索跟进提醒: {lead.get('company_name', '')}",
-                                content=suggestion[:300],
-                                target_user_id=lead["assigned_to"],
-                            )
-                        processed += 1
-                    except Exception as e:
-                        logger.error(
-                            f"Lead mining failed for {lead.get('id', '?')}: {e}"
-                        )
-                """
             except Exception as e:
                 logger.error(f"Lead mining failed for org {org_id}: {e}")
 

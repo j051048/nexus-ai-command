@@ -9,6 +9,7 @@ Benefits:
 """
 
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -521,6 +522,9 @@ class Settings(BaseSettings):
             if not self.OPENAI_API_KEY:
                 errors.append("OPENAI_API_KEY is required in production")
 
+            if not self.AI_BASE_URL:
+                errors.append("AI_BASE_URL is required in production")
+
             if not self.SUPABASE_URL:
                 errors.append("SUPABASE_URL is required in production")
 
@@ -547,6 +551,17 @@ class Settings(BaseSettings):
 
             if not self.ENCRYPTION_KEY or self.ENCRYPTION_KEY == "":
                 errors.append("ENCRYPTION_KEY is required in production")
+
+            health_token = os.getenv("HEALTH_CHECK_TOKEN", "")
+            if not health_token or len(health_token) < 24:
+                errors.append(
+                    "HEALTH_CHECK_TOKEN must be configured in production with at least 24 characters"
+                )
+
+            if self.TOKEN_BUDGET_MEMORY_FALLBACK_ENABLED:
+                errors.append(
+                    "TOKEN_BUDGET_MEMORY_FALLBACK_ENABLED must stay false in production"
+                )
 
         return errors
 

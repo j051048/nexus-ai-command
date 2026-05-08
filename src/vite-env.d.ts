@@ -7,6 +7,19 @@ declare module 'react-syntax-highlighter/dist/esm/prism' {
   export default PrismLight;
 }
 
+declare module 'react-syntax-highlighter/dist/esm/prism-light' {
+  import type { SyntaxHighlighterProps } from 'react-syntax-highlighter';
+  const PrismLight: React.ComponentType<SyntaxHighlighterProps> & {
+    registerLanguage: (name: string, language: unknown) => void;
+  };
+  export default PrismLight;
+}
+
+declare module 'react-syntax-highlighter/dist/esm/languages/prism/*' {
+  const language: unknown;
+  export default language;
+}
+
 declare module 'react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus' {
   const style: { [key: string]: React.CSSProperties };
   export default style;

@@ -1,32 +1,42 @@
 import React from "react";
 import { Route } from "react-router-dom";
 import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
+import type { ModuleFlag } from "@/config/featureFlags";
+import { ModuleGate } from "./ModuleGate";
 import {
-  CRMPage,
-  ContractManagement,
-  TenderAnalysisPage,
   BattlecardLibrary,
-  DocumentsPage,
-  KnowledgeGraphPage,
+  ContractManagement,
+  CRMPage,
   DataImportPage,
+  DocumentsPage,
+  InventoryPage,
+  KnowledgeGraphPage,
+  TenderAnalysisPage,
   TrainingCenter,
   WorkOrderPage,
-  InventoryPage,
 } from "./lazyImports";
+
+function guarded(flag: ModuleFlag, moduleName: string, child: React.ReactNode) {
+  return (
+    <ModuleGate flag={flag}>
+      <ModuleErrorBoundary moduleName={moduleName}>{child}</ModuleErrorBoundary>
+    </ModuleGate>
+  );
+}
 
 export function businessRoutes() {
   return (
     <>
-      <Route path="crm" element={<ModuleErrorBoundary moduleName="CRM"><CRMPage /></ModuleErrorBoundary>} />
-      <Route path="contracts" element={<ModuleErrorBoundary moduleName="合同管理"><ContractManagement /></ModuleErrorBoundary>} />
-      <Route path="tender-analysis" element={<ModuleErrorBoundary moduleName="标书分析"><TenderAnalysisPage /></ModuleErrorBoundary>} />
-      <Route path="battlecards" element={<ModuleErrorBoundary moduleName="竞品卡片"><BattlecardLibrary /></ModuleErrorBoundary>} />
-      <Route path="documents" element={<ModuleErrorBoundary moduleName="知识库"><DocumentsPage /></ModuleErrorBoundary>} />
-      <Route path="knowledge" element={<ModuleErrorBoundary moduleName="知识图谱"><KnowledgeGraphPage /></ModuleErrorBoundary>} />
-      <Route path="import" element={<ModuleErrorBoundary moduleName="数据导入"><DataImportPage /></ModuleErrorBoundary>} />
-      <Route path="training" element={<ModuleErrorBoundary moduleName="培训中心"><TrainingCenter /></ModuleErrorBoundary>} />
-      <Route path="work-orders" element={<ModuleErrorBoundary moduleName="工单管理"><WorkOrderPage /></ModuleErrorBoundary>} />
-      <Route path="inventory" element={<ModuleErrorBoundary moduleName="库存管理"><InventoryPage /></ModuleErrorBoundary>} />
+      <Route path="crm" element={guarded("crm", "CRM", <CRMPage />)} />
+      <Route path="contracts" element={guarded("documents", "Contract Management", <ContractManagement />)} />
+      <Route path="tender-analysis" element={guarded("tender", "Tender Analysis", <TenderAnalysisPage />)} />
+      <Route path="battlecards" element={guarded("battlecards", "Battlecards", <BattlecardLibrary />)} />
+      <Route path="documents" element={guarded("documents", "Documents", <DocumentsPage />)} />
+      <Route path="knowledge" element={guarded("knowledge", "Knowledge Graph", <KnowledgeGraphPage />)} />
+      <Route path="import" element={guarded("import", "Data Import", <DataImportPage />)} />
+      <Route path="training" element={guarded("training", "Training Center", <TrainingCenter />)} />
+      <Route path="work-orders" element={guarded("work_orders", "Work Orders", <WorkOrderPage />)} />
+      <Route path="inventory" element={guarded("inventory", "Inventory", <InventoryPage />)} />
     </>
   );
 }

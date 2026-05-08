@@ -1,24 +1,33 @@
 import React from "react";
 import { Route } from "react-router-dom";
 import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
+import { ModuleGate } from "./ModuleGate";
 import {
-  VMDCenter,
-  VMDTaskCenter,
   VMDAgentConfig,
+  VMDCenter,
   VMDClueManagement,
   VMDCompliancePage,
   VMDDashboard,
+  VMDTaskCenter,
 } from "./lazyImports";
+
+function vmdElement(moduleName: string, child: React.ReactNode) {
+  return (
+    <ModuleGate flag="vmd">
+      <ModuleErrorBoundary moduleName={moduleName}>{child}</ModuleErrorBoundary>
+    </ModuleGate>
+  );
+}
 
 export function vmdRoutes() {
   return (
     <>
-      <Route path="vmd" element={<ModuleErrorBoundary moduleName="VMD"><VMDCenter /></ModuleErrorBoundary>} />
-      <Route path="vmd/tasks" element={<ModuleErrorBoundary moduleName="VMD任务"><VMDTaskCenter /></ModuleErrorBoundary>} />
-      <Route path="vmd/agents" element={<ModuleErrorBoundary moduleName="VMD代理"><VMDAgentConfig /></ModuleErrorBoundary>} />
-      <Route path="vmd/clues" element={<ModuleErrorBoundary moduleName="VMD线索"><VMDClueManagement /></ModuleErrorBoundary>} />
-      <Route path="vmd/compliance" element={<ModuleErrorBoundary moduleName="VMD合规"><VMDCompliancePage /></ModuleErrorBoundary>} />
-      <Route path="vmd/dashboard" element={<ModuleErrorBoundary moduleName="VMD仪表盘"><VMDDashboard /></ModuleErrorBoundary>} />
+      <Route path="vmd" element={vmdElement("VMD", <VMDCenter />)} />
+      <Route path="vmd/tasks" element={vmdElement("VMD Tasks", <VMDTaskCenter />)} />
+      <Route path="vmd/agents" element={vmdElement("VMD Agents", <VMDAgentConfig />)} />
+      <Route path="vmd/clues" element={vmdElement("VMD Clues", <VMDClueManagement />)} />
+      <Route path="vmd/compliance" element={vmdElement("VMD Compliance", <VMDCompliancePage />)} />
+      <Route path="vmd/dashboard" element={vmdElement("VMD Dashboard", <VMDDashboard />)} />
     </>
   );
 }

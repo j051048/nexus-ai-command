@@ -381,7 +381,109 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
     // Whether canvas only has fixed nodes (empty state)
     const isEmptyCanvas = nodes.every((n) => FIXED_NODE_TYPES.has(n.type || ''));
     const isLargeCanvas = nodes.length > 250 || edges.length > 400;
+    const isHugeCanvas = nodes.length > 500 || edges.length > 800;
     const visibleNodeTypes = useMemo(() => nodeTypes, []);
+    const hugeCanvasPreview = useMemo(() => {
+      if (!isHugeCanvas) return null;
+
+      const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+      const sampledNodes = nodes.slice(0, 800);
+      const sampledEdges = edges.slice(0, 1200);
+      const xs = sampledNodes.map((node) => Number(node.position?.x) || 0);
+      const ys = sampledNodes.map((node) => Number(node.position?.y) || 0);
+      const minX = Math.min(...xs, 0) - 120;
+      const minY = Math.min(...ys, 0) - 120;
+      const maxX = Math.max(...xs, 800) + 220;
+      const maxY = Math.max(...ys, 600) + 180;
+
+      return {
+        nodeMap,
+        nodes: sampledNodes,
+        edges: sampledEdges,
+        viewBox: `${minX} ${minY} ${Math.max(800, maxX - minX)} ${Math.max(600, maxY - minY)}`,
+      };
+    }, [edges, isHugeCanvas, nodes]);
+
+    if (isHugeCanvas && hugeCanvasPreview) {
+      return (
+        <div ref={reactFlowWrapper} className="flex-1 h-full relative overflow-auto bg-muted/30">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 text-sm backdrop-blur">
+            <div>
+              <p className="font-semibold">Large workflow preview mode</p>
+              <p className="text-xs text-muted-foreground">
+                {nodes.length} nodes / {edges.length} edges. Editing is disabled to protect browser memory.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+              onClick={() => onNodeSelect(null)}
+            >
+              Clear selection
+            </button>
+          </div>
+          <svg
+            className="min-h-full min-w-full"
+            viewBox={hugeCanvasPreview.viewBox}
+            role="img"
+            aria-label="Large workflow topology preview"
+          >
+            <g opacity="0.38">
+              {hugeCanvasPreview.edges.map((edge) => {
+                const source = hugeCanvasPreview.nodeMap.get(edge.source);
+                const target = hugeCanvasPreview.nodeMap.get(edge.target);
+                if (!source || !target) return null;
+                const sx = (Number(source.position?.x) || 0) + 72;
+                const sy = (Number(source.position?.y) || 0) + 28;
+                const tx = (Number(target.position?.x) || 0) + 72;
+                const ty = (Number(target.position?.y) || 0) + 28;
+                return (
+                  <line
+                    key={edge.id}
+                    x1={sx}
+                    y1={sy}
+                    x2={tx}
+                    y2={ty}
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeWidth={1.4}
+                  />
+                );
+              })}
+            </g>
+            <g>
+              {hugeCanvasPreview.nodes.map((node) => {
+                const x = Number(node.position?.x) || 0;
+                const y = Number(node.position?.y) || 0;
+                const label = String((node.data as Record<string, unknown>)?.label || node.type || node.id);
+                return (
+                  <g key={node.id} onClick={() => onNodeSelect(node)} className="cursor-pointer">
+                    <rect
+                      x={x}
+                      y={y}
+                      width={144}
+                      height={56}
+                      rx={6}
+                      fill="hsl(var(--card))"
+                      stroke="hsl(var(--border))"
+                      strokeWidth={1.5}
+                    />
+                    <text
+                      x={x + 12}
+                      y={y + 32}
+                      fill="hsl(var(--foreground))"
+                      fontSize={12}
+                      fontWeight={600}
+                    >
+                      {label.length > 18 ? `${label.slice(0, 18)}...` : label}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          </svg>
+        </div>
+      );
+    }
 
     return (
       <div ref={reactFlowWrapper} className="flex-1 h-full relative">

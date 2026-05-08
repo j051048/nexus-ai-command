@@ -16,11 +16,47 @@ interface SyntaxProps {
 }
 
 // Lazy-load react-syntax-highlighter (~608KB) — only loaded when code blocks appear
-const SyntaxHighlighter = lazyWithRetry(() =>
-  import('react-syntax-highlighter/dist/esm/prism').then(mod => ({ 
-    default: mod.default as unknown as React.ComponentType<SyntaxProps> 
-  }))
-) as React.ComponentType<SyntaxProps>;
+const SyntaxHighlighter = lazyWithRetry(async () => {
+  const [
+    highlighter,
+    javascript,
+    typescript,
+    python,
+    bash,
+    json,
+    sql,
+    css,
+    markup,
+  ] = await Promise.all([
+    import('react-syntax-highlighter/dist/esm/prism-light'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/javascript'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/typescript'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/python'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/bash'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/json'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/sql'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/css'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/markup'),
+  ]);
+
+  highlighter.default.registerLanguage('javascript', javascript.default);
+  highlighter.default.registerLanguage('js', javascript.default);
+  highlighter.default.registerLanguage('typescript', typescript.default);
+  highlighter.default.registerLanguage('ts', typescript.default);
+  highlighter.default.registerLanguage('python', python.default);
+  highlighter.default.registerLanguage('py', python.default);
+  highlighter.default.registerLanguage('bash', bash.default);
+  highlighter.default.registerLanguage('sh', bash.default);
+  highlighter.default.registerLanguage('json', json.default);
+  highlighter.default.registerLanguage('sql', sql.default);
+  highlighter.default.registerLanguage('css', css.default);
+  highlighter.default.registerLanguage('html', markup.default);
+  highlighter.default.registerLanguage('xml', markup.default);
+
+  return {
+    default: highlighter.default as unknown as React.ComponentType<SyntaxProps>,
+  };
+}) as React.ComponentType<SyntaxProps>;
 const loadStyle = () => import('react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus').then(mod => mod.default);
 
 // Wrapper that lazy-loads both the highlighter component and its style

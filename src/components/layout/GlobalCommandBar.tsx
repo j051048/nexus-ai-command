@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { aiClient } from '@/api/aiClient';
 import { pinyin } from 'pinyin-pro';
+import { isModuleEnabled, type ModuleFlag } from '@/config/featureFlags';
 
 /**
  * 拼音处理辅助函数：生成全拼和首字母
@@ -73,6 +74,41 @@ interface NavCommandItem {
   icon: React.ComponentType<{ className?: string }>;
   keywords?: string[];
   group: string;
+}
+
+function moduleForPath(path: string): ModuleFlag | null {
+  const normalized = path.split('?')[0].replace(/^\/+/, '');
+  if (normalized === 'crm') return 'crm';
+  if (normalized === 'contracts' || normalized === 'documents') return 'documents';
+  if (normalized === 'knowledge') return 'knowledge';
+  if (normalized === 'approval') return 'approval';
+  if (normalized === 'sales') return 'sales';
+  if (normalized === 'projects') return 'projects';
+  if (normalized === 'oa') return 'oa';
+  if (normalized === 'hr') return 'hr';
+  if (normalized === 'finance') return 'finance';
+  if (normalized === 'work-orders') return 'work_orders';
+  if (normalized === 'reports') return 'reports';
+  if (normalized === 'report-builder') return 'report_builder';
+  if (normalized === 'inventory') return 'inventory';
+  if (normalized === 'assets') return 'assets';
+  if (normalized === 'certificates') return 'certificates';
+  if (normalized === 'workflows' || normalized.startsWith('workflows/') || normalized === 'workflow-templates') return 'workflow_designer';
+  if (normalized === 'form-designer' || normalized.startsWith('form-designer/')) return 'form_designer';
+  if (normalized === 'custom-dashboard') return 'custom_dashboard';
+  if (normalized === 'tender-analysis') return 'tender';
+  if (normalized === 'battlecards') return 'battlecards';
+  if (normalized === 'training') return 'training';
+  if (normalized === 'vmd' || normalized.startsWith('vmd/')) return 'vmd';
+  if (normalized === 'plugins') return 'plugins';
+  if (normalized === 'soul-document') return 'soul_document';
+  if (normalized === 'agent-debug' || normalized === 'dev/animations') return 'dev_tools';
+  return null;
+}
+
+function isCommandFeatureEnabled(item: NavCommandItem): boolean {
+  const moduleFlag = moduleForPath(item.path);
+  return moduleFlag ? isModuleEnabled(moduleFlag) : true;
 }
 
 interface CustomerResult {
@@ -343,7 +379,7 @@ export function GlobalCommandBar() {
   }, []);
 
   // Group items
-  const groups = COMMAND_ITEMS.reduce<Record<string, NavCommandItem[]>>((acc, item) => {
+  const groups = COMMAND_ITEMS.filter(isCommandFeatureEnabled).reduce<Record<string, NavCommandItem[]>>((acc, item) => {
     if (!acc[item.group]) acc[item.group] = [];
     acc[item.group].push(item);
     return acc;

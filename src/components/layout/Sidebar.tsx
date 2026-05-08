@@ -90,6 +90,7 @@ import { Button } from "@/components/ui/button";
 import { useExceptions } from "@/hooks/useExceptions";
 import { usePendingApprovalsCount } from "@/hooks/useApprovals";
 import { useUnreadCount } from "@/hooks/useNotificationCenter";
+import { isModuleEnabled, type ModuleFlag } from "@/config/featureFlags";
 
 type AppRole = "boss" | "manager" | "ai_assistant" | "employee" | "founder";
 
@@ -144,6 +145,41 @@ function loadEnabledModules(): string[] {
 
 function saveEnabledModules(modules: string[]) {
   localStorage.setItem(ENABLED_MODULES_KEY, JSON.stringify(modules));
+}
+
+function moduleForHref(href: string): ModuleFlag | null {
+  const path = href.split("?")[0].replace(/^\/+/, "");
+  if (path === "crm") return "crm";
+  if (path === "contracts" || path === "documents") return "documents";
+  if (path === "knowledge") return "knowledge";
+  if (path === "approval") return "approval";
+  if (path === "sales") return "sales";
+  if (path === "projects") return "projects";
+  if (path === "oa") return "oa";
+  if (path === "hr") return "hr";
+  if (path === "finance") return "finance";
+  if (path === "work-orders") return "work_orders";
+  if (path === "reports") return "reports";
+  if (path === "report-builder") return "report_builder";
+  if (path === "inventory") return "inventory";
+  if (path === "assets") return "assets";
+  if (path === "certificates") return "certificates";
+  if (path === "workflows" || path.startsWith("workflows/") || path === "workflow-templates") return "workflow_designer";
+  if (path === "form-designer" || path.startsWith("form-designer/")) return "form_designer";
+  if (path === "custom-dashboard") return "custom_dashboard";
+  if (path === "tender-analysis") return "tender";
+  if (path === "battlecards") return "battlecards";
+  if (path === "training") return "training";
+  if (path === "vmd" || path.startsWith("vmd/")) return "vmd";
+  if (path === "plugins") return "plugins";
+  if (path === "soul-document") return "soul_document";
+  if (path === "dev/animations" || path === "agent-debug") return "dev_tools";
+  return null;
+}
+
+function isNavFeatureEnabled(item: NavItem): boolean {
+  const moduleFlag = moduleForHref(item.href);
+  return moduleFlag ? isModuleEnabled(moduleFlag) : true;
 }
 
 const NAV_CONFIG: NavItem[] = [
@@ -337,7 +373,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
         ).map(group =>
           renderNavGroup(group, NAV_CONFIG.filter(i => {
             const hasRole = !i.roles || i.roles.includes((role || user?.role || "employee") as AppRole);
-            return i.group === group && hasRole;
+            return i.group === group && hasRole && isNavFeatureEnabled(i);
           }))
         )}
 
@@ -360,7 +396,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
                   const enabled = enabledModules.includes(group);
                   const groupItems = NAV_CONFIG.filter(i => {
                     const hasRole = !i.roles || i.roles.includes((role || user?.role || "employee") as AppRole);
-                    return i.group === group && hasRole;
+                    return i.group === group && hasRole && isNavFeatureEnabled(i);
                   });
                   if (groupItems.length === 0) return null;
                   return (

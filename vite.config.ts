@@ -119,30 +119,57 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 500, // Warn if any chunk exceeds 500KB
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-query": ["@tanstack/react-query"],
-          "vendor-supabase": ["@supabase/supabase-js"],
-          "vendor-forms": ["react-hook-form", "@hookform/resolvers", "zod"],
-          "vendor-motion": ["framer-motion", "react-joyride"],
-          "vendor-dnd": ["@hello-pangea/dnd"],
-          "vendor-pdf": ["jspdf", "html2canvas"],
-          "vendor-date": ["date-fns", "react-day-picker"],
-          "vendor-ui": [
-            "@radix-ui/react-dialog",
-            "@radix-ui/react-dropdown-menu",
-            "@radix-ui/react-tooltip",
-            "@radix-ui/react-tabs",
-            "@radix-ui/react-popover",
-            "@radix-ui/react-select",
-            "@radix-ui/react-alert-dialog",
-            "@radix-ui/react-scroll-area",
-          ],
-          "vendor-charts": ["recharts"],
-          "vendor-flow": ["@xyflow/react"],
-          "vendor-markdown": ["react-markdown", "remark-gfm", "rehype-sanitize"],
-          "vendor-syntax": ["react-syntax-highlighter"],
-          "vendor-icons": ["lucide-react"],
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+
+          if (id.includes("react-syntax-highlighter/dist/esm/styles")) return "vendor-syntax-styles";
+          if (id.includes("react-syntax-highlighter")) return "vendor-syntax-core";
+          if (id.includes("html2canvas")) return "vendor-html2canvas";
+          if (id.includes("jspdf")) return "vendor-jspdf";
+
+          if (id.includes("@xyflow/react")) return "vendor-flow";
+          if (id.includes("recharts")) return "vendor-charts";
+          if (id.includes("lucide-react")) return "vendor-icons";
+          if (id.includes("@supabase/supabase-js")) return "vendor-supabase";
+          if (id.includes("@tanstack/react-query")) return "vendor-query";
+          if (id.includes("@hello-pangea/dnd")) return "vendor-dnd";
+          if (id.includes("framer-motion") || id.includes("react-joyride")) return "vendor-motion";
+          if (id.includes("date-fns") || id.includes("react-day-picker")) return "vendor-date";
+          if (
+            id.includes("react-hook-form") ||
+            id.includes("@hookform/resolvers") ||
+            id.includes("zod")
+          ) {
+            return "vendor-forms";
+          }
+          if (
+            id.includes("@radix-ui/react-dialog") ||
+            id.includes("@radix-ui/react-dropdown-menu") ||
+            id.includes("@radix-ui/react-tooltip") ||
+            id.includes("@radix-ui/react-tabs") ||
+            id.includes("@radix-ui/react-popover") ||
+            id.includes("@radix-ui/react-select") ||
+            id.includes("@radix-ui/react-alert-dialog") ||
+            id.includes("@radix-ui/react-scroll-area")
+          ) {
+            return "vendor-ui";
+          }
+          if (
+            id.includes("react-markdown") ||
+            id.includes("remark-gfm") ||
+            id.includes("rehype-sanitize")
+          ) {
+            return "vendor-markdown";
+          }
+          if (
+            id.includes("react-dom") ||
+            id.includes("react-router-dom") ||
+            /node_modules[/\\]react[/\\]/.test(id)
+          ) {
+            return "vendor-react";
+          }
+
+          return undefined;
         },
       },
     },

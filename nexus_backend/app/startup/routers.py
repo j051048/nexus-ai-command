@@ -188,6 +188,7 @@ def register_routers(app: FastAPI) -> None:
         im_settings,
         kingdee,
         oauth,
+        enterprise_sso,
         plugins,
         push,
         webhooks,
@@ -205,6 +206,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(im_settings.router)
     app.include_router(webhooks.router)
     app.include_router(oauth.router)
+    app.include_router(enterprise_sso.router)
     app.include_router(push.router)
     app.include_router(plugins.router)
     app.include_router(kingdee.router)
@@ -218,6 +220,7 @@ def register_routers(app: FastAPI) -> None:
         api_keys,
         backups,
         compliance,
+        compliance_evidence,
         data_transfer,
         deployment_health,
         super_admin,
@@ -233,6 +236,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(api_keys.router)
     app.include_router(backups.router)
     app.include_router(compliance.router)
+    app.include_router(compliance_evidence.router)
     app.include_router(data_transfer.router)
     app.include_router(deployment_health.router)
     app.include_router(system_configs_router.router)
