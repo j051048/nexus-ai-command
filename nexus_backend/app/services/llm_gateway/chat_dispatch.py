@@ -45,7 +45,7 @@ _TRANSIENT_ERROR_MARKERS = (
 
 
 def _is_transient_llm_error(error: Exception) -> bool:
-    if isinstance(error, (TimeoutError, asyncio.TimeoutError)):
+    if isinstance(error, TimeoutError | asyncio.TimeoutError):
         return True
     message = str(error).lower()
     return any(marker in message for marker in _TRANSIENT_ERROR_MARKERS)
