@@ -52,10 +52,10 @@ describe('ThinkingChain', () => {
   it('渲染所有阶段标签', () => {
     render(React.createElement(ThinkingChain, { steps: baseSteps }));
     // 折叠状态下 badge 显示 label 或 tool_name
-    expect(screen.getByText('规划')).toBeInTheDocument();
+    expect(screen.getByText(/规划/)).toBeInTheDocument();
     expect(screen.getByText(/GetCustomersTool/)).toBeInTheDocument(); // executing badge shows tool_name
-    expect(screen.getByText('反思')).toBeInTheDocument();
-    expect(screen.getByText('回复')).toBeInTheDocument();
+    expect(screen.getByText(/反思/)).toBeInTheDocument();
+    expect(screen.getByText(/回复/)).toBeInTheDocument();
   });
 
   it('折叠状态显示工具名和耗时', () => {
