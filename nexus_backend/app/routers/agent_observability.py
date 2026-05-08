@@ -8,9 +8,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.core.auth import get_current_org_id, get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 
 router = APIRouter(prefix="/api/agent-runs", tags=["Agent Observability"])
+require_agent_ops = require_role(["admin", "founder", "boss"])
 
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -90,7 +92,7 @@ def _summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
 @router.get("/")
 async def list_agent_runs(
     request: Request,
-    _user_id: str = Depends(get_current_user_id),
+    _role: str = Depends(require_agent_ops),
     _org_id: str = Depends(get_current_org_id),
     status: str | None = Query(None, max_length=40),
     session_id: str | None = Query(None, max_length=128),
@@ -123,7 +125,7 @@ async def list_agent_runs(
 @router.get("/summary")
 async def get_agent_runs_summary(
     request: Request,
-    _user_id: str = Depends(get_current_user_id),
+    _role: str = Depends(require_agent_ops),
     _org_id: str = Depends(get_current_org_id),
     limit: int = Query(200, ge=20, le=500),
 ):
@@ -147,7 +149,7 @@ async def get_agent_runs_summary(
 async def get_agent_run_detail(
     run_ref: str,
     request: Request,
-    _user_id: str = Depends(get_current_user_id),
+    _role: str = Depends(require_agent_ops),
     _org_id: str = Depends(get_current_org_id),
 ):
     """Fetch a single Agent run by UUID id or stable run_id."""
@@ -188,5 +190,96 @@ async def get_agent_run_detail(
             "run": run,
             "tool_calls": tool_result.data or [],
             "events": event_result.data or [],
+        }
+    )
+
+
+@router.post("/{run_ref}/replay")
+async def replay_failed_agent_run(
+    run_ref: str,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    _role: str = Depends(require_agent_ops),
+    org_id: str = Depends(get_current_org_id),
+    execute: bool = Query(False, description="Execute a live rerun when true"),
+):
+    """Prepare or execute a controlled replay for a failed Agent run."""
+    client = _db(request)
+    query = client.table("agent_runs").select("*")
+    query = (
+        query.eq("id", run_ref)
+        if _UUID_RE.match(run_ref)
+        else query.eq("run_id", run_ref)
+    )
+    run_result = await query.maybe_single().execute()
+    if not run_result.data:
+        raise HTTPException(status_code=404, detail="Agent run not found")
+
+    run = _redact_run(run_result.data)
+    prompt = (
+        run.get("input_summary")
+        or (run.get("metadata") or {}).get("last_user_message")
+        or (run.get("metadata") or {}).get("query")
+        or ""
+    )
+    if not prompt:
+        raise api_error(
+            ErrorCode.VALIDATION_MISSING_FIELD,
+            message="Cannot replay: original input summary is missing",
+        )
+
+    replay_plan = {
+        "source_run_id": run.get("run_id") or run.get("id"),
+        "source_status": run.get("status"),
+        "thread_id": f"replay::{run.get('run_id') or run.get('id')}",
+        "prompt_preview": prompt[:500],
+        "execute": execute,
+        "safety": "dry_run_plan" if not execute else "live_rerun_requested",
+    }
+
+    if not execute:
+        return api_success(data={"replay": replay_plan})
+
+    if run.get("status") not in {"failed", "error", "cancelled"}:
+        raise api_error(
+            ErrorCode.VALIDATION_INVALID_INPUT,
+            message="Only failed/error/cancelled runs can be replayed live",
+        )
+
+    from langchain_core.messages import HumanMessage
+
+    from app.agent.graph import get_agent_graph
+    from app.agent.state import AgentConfig
+
+    token = ""
+    auth_header = request.headers.get("authorization") or ""
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1]
+
+    result = await get_agent_graph().run(
+        {
+            "messages": [HumanMessage(content=prompt)],
+            "config": AgentConfig(
+                user_id=user_id,
+                org_id=org_id,
+                session_id=f"replay:{run.get('session_id') or 'default'}",
+                token=token,
+                user_role=_role,
+            ),
+            "metadata": {
+                "replay_of": run.get("run_id") or run.get("id"),
+                "replay_reason": "operator_requested_failed_run_replay",
+            },
+        },
+        thread_id=replay_plan["thread_id"],
+    )
+    return api_success(
+        data={
+            "replay": replay_plan,
+            "result": {
+                "final_response": result.get("final_response"),
+                "error": result.get("error"),
+                "agent_run_id": result.get("agent_run_id"),
+            },
         }
     )

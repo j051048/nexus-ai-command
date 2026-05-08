@@ -4,16 +4,55 @@
  * 为 core 业务流程提供基础的 API 模拟，支持在无后端环境下运行。
  */
 
-import { Page, expect } from "@playwright/test";
+import { Page, Route, expect } from "@playwright/test";
+
+const corsHeaders = {
+  'access-control-allow-origin': 'http://localhost:4173',
+  'access-control-allow-credentials': 'true',
+  'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+  'access-control-allow-headers': 'authorization,content-type,x-client-info,apikey,x-requested-with,x-org-id,x-csrf-token,x-idempotency-key',
+};
+
+export async function fulfillJson(route: Route, body: unknown, status = 200) {
+  if (route.request().method() === 'OPTIONS') {
+    await route.fulfill({ status: 204, headers: corsHeaders, body: '' });
+    return;
+  }
+  await route.fulfill({
+    status,
+    headers: {
+      ...corsHeaders,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function createFakeJwt(role = 'boss') {
+  const now = Math.floor(Date.now() / 1000);
+  const encode = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+  return [
+    encode({ alg: 'HS256', typ: 'JWT' }),
+    encode({
+      sub: 'test-user-id',
+      email: 'test-admin@nexus-ai.com',
+      role: 'authenticated',
+      app_metadata: { provider: 'email', role },
+      user_metadata: { role, name: 'E2E Admin' },
+      aud: 'authenticated',
+      exp: now + 3600,
+      iat: now,
+    }),
+    'fake-signature',
+  ].join('.');
+}
 
 export async function setupBusinessMocks(page: Page) {
   // 1. 拦截 Auth token 请求（login + refresh）
   await page.route('**/auth/v1/token*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        access_token: 'fake-token-content',
+    await fulfillJson(route, {
+        access_token: createFakeJwt('boss'),
         token_type: 'bearer',
         expires_in: 3600,
         refresh_token: 'fake-refresh',
@@ -21,34 +60,31 @@ export async function setupBusinessMocks(page: Page) {
           id: 'test-user-id',
           email: 'test-admin@nexus-ai.com',
           user_metadata: { role: 'boss', name: 'E2E Admin' },
-          app_metadata: { provider: 'email' }
+          app_metadata: { provider: 'email', role: 'boss' }
         }
-      })
-    });
+      });
   });
 
   // 2. 拦截 Auth user 信息
   await page.route('**/auth/v1/user*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
+    await fulfillJson(route, {
         id: 'test-user-id',
         email: 'test-admin@nexus-ai.com',
         user_metadata: { role: 'boss', name: 'E2E Admin' },
-        app_metadata: { provider: 'email' }
-      })
-    });
+        app_metadata: { provider: 'email', role: 'boss' }
+      });
   });
 
   // 3. 拦截用户 profile API
   await page.route('**/api/users/profile*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
+    await fulfillJson(route, {
         code: 200,
         data: {
+          id: 'test-user-id',
+          email: 'test-admin@nexus-ai.com',
+          name: 'E2E Admin',
+          role: 'boss',
+          avatar_url: null,
           user: {
             id: 'test-user-id',
             email: 'test-admin@nexus-ai.com',
@@ -57,25 +93,16 @@ export async function setupBusinessMocks(page: Page) {
             avatar_url: null
           }
         }
-      })
-    });
+      });
   });
 
   // 4. 拦截 RPC 调用 (get_user_role, is_super_admin)
   await page.route('**/rest/v1/rpc/get_user_role*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ role: 'boss' })
-    });
+    await fulfillJson(route, 'boss');
   });
 
   await page.route('**/rest/v1/rpc/is_super_admin*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(false)
-    });
+    await fulfillJson(route, false);
   });
 
   // 5. 拦截组织信息
@@ -185,6 +212,10 @@ export async function mockLoggedInState(page: Page, _role?: string) {
  */
 export async function loginViaForm(page: Page) {
   await page.goto('/login');
+  const bossRole = page.getByTestId('role-boss-btn');
+  if (await bossRole.isVisible().catch(() => false)) {
+    await bossRole.click();
+  }
   await page.getByTestId('login-email-input').fill('test-admin@nexus-ai.com');
   await page.getByTestId('login-password-input').fill('TestPass123!');
   await page.getByTestId('login-submit-btn').click();

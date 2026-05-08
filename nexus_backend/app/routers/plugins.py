@@ -14,6 +14,63 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/plugins", tags=["Plugins"])
 
 
+def _plugin_governance(plugin: dict) -> dict:
+    schema = plugin.get("config_schema") or {}
+    password_fields = [
+        key for key, field in schema.items() if field.get("type") == "password"
+    ]
+    required_fields = [
+        key for key, field in schema.items() if field.get("required") is True
+    ]
+    category = plugin.get("category", "productivity")
+    risk = "low"
+    findings: list[str] = []
+    permissions: list[str] = []
+
+    if password_fields:
+        risk = "medium"
+        findings.append("requires_secret_configuration")
+        permissions.append("secrets:read")
+    if category in {"erp", "security"}:
+        risk = "high"
+        findings.append("touches_sensitive_enterprise_systems")
+    if "webhook" in " ".join(schema.keys()).lower():
+        risk = "high"
+        findings.append("can_call_external_webhook")
+        permissions.append("network:egress")
+
+    return {
+        "plugin_id": plugin.get("id"),
+        "risk": risk,
+        "required_config_fields": required_fields,
+        "secret_fields": password_fields,
+        "permissions": sorted(set(permissions)),
+        "findings": findings,
+        "install_gate": "manual_review" if risk == "high" else "standard_review",
+    }
+
+
+@router.get("/governance")
+async def get_plugin_governance(
+    category: str = None,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Return marketplace plugin risk ratings and install gates."""
+    plugins = await plugin_marketplace_service.list_plugins(category=category)
+    audits = [_plugin_governance(plugin) for plugin in plugins]
+    risk_counts: dict[str, int] = {}
+    for audit in audits:
+        risk = audit["risk"]
+        risk_counts[risk] = risk_counts.get(risk, 0) + 1
+    return api_success(
+        data={
+            "plugins": audits,
+            "risk_counts": risk_counts,
+            "count": len(audits),
+        }
+    )
+
+
 @router.get("")
 async def list_plugins(
     req: Request,
@@ -71,7 +128,11 @@ async def install_plugin(
         result = await plugin_marketplace_service.install_plugin(
             org_id=org_id, plugin_id=plugin_id, config=body.config, db=db
         )
-        return api_success(data={"plugin": result}, message="插件安装成功")
+        plugin = await plugin_marketplace_service.get_plugin(plugin_id)
+        return api_success(
+            data={"plugin": result, "governance": _plugin_governance(plugin or {})},
+            message="插件安装成功",
+        )
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "插件参数校验失败")
     except Exception as e:

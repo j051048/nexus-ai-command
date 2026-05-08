@@ -790,5 +790,10 @@ def mask_pii_for_storage(content: str) -> str:
 
 def sanitize_pii_for_llm(text: str) -> str:
     """Mask PII (phone, ID card, email, bank card) before sending to LLM."""
-    sanitized, _ = content_moderator._scan_pii(text)
-    return sanitized
+    try:
+        from app.core.pii_redactor import redact_text
+
+        return redact_text(text)
+    except Exception:
+        sanitized, _ = content_moderator._scan_pii(text)
+        return sanitized

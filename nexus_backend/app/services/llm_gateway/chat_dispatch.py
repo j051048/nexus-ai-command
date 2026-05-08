@@ -22,9 +22,86 @@ from app.services.llm_adapters.base import (
     EmbeddingResponse,
 )
 from app.services.llm_circuit_breaker import circuit_breaker_manager
+from app.services.llm_gateway.routing_policy import choose_model_variant
 from app.services.llm_quota_service import check_quota, record_usage
 
 logger = logging.getLogger(__name__)
+
+_TRANSIENT_ERROR_MARKERS = (
+    "timeout",
+    "timed out",
+    "429",
+    "rate limit",
+    "rate_limit",
+    "too many requests",
+    "500",
+    "502",
+    "503",
+    "504",
+    "connection",
+    "connect",
+    "temporarily unavailable",
+)
+
+
+def _is_transient_llm_error(error: Exception) -> bool:
+    if isinstance(error, (TimeoutError, asyncio.TimeoutError)):
+        return True
+    message = str(error).lower()
+    return any(marker in message for marker in _TRANSIENT_ERROR_MARKERS)
+
+
+def _extract_user_query(messages: list[dict]) -> str:
+    for message in reversed(messages or []):
+        if message.get("role") == "user" and isinstance(message.get("content"), str):
+            return message["content"]
+    return ""
+
+
+async def _prune_runtime_tools(
+    tools: list[dict] | None,
+    *,
+    messages: list[dict],
+    scene_code: str,
+    agent_code: str,
+) -> list[dict] | None:
+    """Prune large tool lists before direct gateway calls to avoid context bloat."""
+    if not tools or len(tools) <= settings.TOOL_EMBEDDING_GATE:
+        return tools
+
+    query = _extract_user_query(messages)
+    if not query:
+        return tools[: settings.TOOL_MAX_TOOLS]
+
+    try:
+        from app.agent.tool_embedding_index import tool_embedding_index
+
+        def _tool_name(schema: dict) -> str:
+            return schema.get("function", {}).get("name", "")
+
+        candidate_names = {_tool_name(tool) for tool in tools if _tool_name(tool)}
+        ranked = await tool_embedding_index.retrieve(
+            query=query,
+            top_k=settings.TOOL_EMBEDDING_TOP_K,
+            min_score=settings.TOOL_EMBEDDING_MIN_SCORE,
+            candidate_names=candidate_names,
+        )
+        if ranked:
+            keep_names = {name for name, _score in ranked}
+            pruned = [tool for tool in tools if _tool_name(tool) in keep_names]
+            if pruned:
+                logger.info(
+                    "[ToolRAG] runtime pruned tools %d -> %d scene=%s agent=%s",
+                    len(tools),
+                    len(pruned),
+                    scene_code,
+                    agent_code,
+                )
+                return pruned[: settings.TOOL_MAX_TOOLS]
+    except Exception as exc:
+        logger.debug("[ToolRAG] runtime pruning skipped: %s", exc)
+
+    return tools[: settings.TOOL_MAX_TOOLS]
 
 
 class ChatDispatchMixin:
@@ -92,16 +169,24 @@ class ChatDispatchMixin:
         )
 
         if response.finish_reason == "error":
-            # Attempt backup model
+            fallback_codes: list[str] = []
             backup_code = await self._get_backup_model(
                 scene_code, agent_code, org_id, exclude=model_code
             )
             if backup_code:
+                fallback_codes.append(backup_code)
+            mini_code = settings.AI_MINI_MODEL
+            if mini_code and mini_code not in {model_code, *fallback_codes}:
+                fallback_codes.append(mini_code)
+
+            for fallback_code in fallback_codes:
                 logger.info(
-                    f"Retrying with backup model '{backup_code}' after primary '{model_code}' failed"
+                    "Retrying with fallback model '%s' after '%s' failed",
+                    fallback_code,
+                    model_code,
                 )
                 backup_response = await self._try_chat_with_model(
-                    model_code=backup_code,
+                    model_code=fallback_code,
                     org_id=org_id,
                     user_id=user_id,
                     scene_code=scene_code,
@@ -143,6 +228,25 @@ class ChatDispatchMixin:
             + len(system_prompt) // 4
             + (max_tokens or 4096)
         )
+
+        routing_decision = choose_model_variant(
+            primary_model=model_code,
+            scene_code=scene_code,
+            agent_code=agent_code,
+            org_id=org_id,
+            user_id=user_id,
+            estimated_tokens=estimated_tokens,
+            has_tools=bool(tools),
+        )
+        if routing_decision.changed:
+            logger.info(
+                "[LLMRouting] %s -> %s reason=%s bucket=%s",
+                model_code,
+                routing_decision.model_code,
+                routing_decision.reason,
+                routing_decision.bucket,
+            )
+            model_code = routing_decision.model_code
 
         # --- Quota check ---
         quota_result = await check_quota(
@@ -244,6 +348,13 @@ class ChatDispatchMixin:
                     f"Failed to load upgraded model {model_code}",
                 )
 
+        tools = await _prune_runtime_tools(
+            tools,
+            messages=messages,
+            scene_code=scene_code,
+            agent_code=agent_code,
+        )
+
         # --- Build request ---
         chat_request = ChatRequest(
             scene_code=scene_code,
@@ -258,14 +369,38 @@ class ChatDispatchMixin:
             request_id=request_id,
         )
 
-        # --- Call adapter (with timeout protection) ---
-        LLM_CALL_TIMEOUT = 60.0  # 60秒超时
+        # --- Call adapter (with timeout protection and retry budget) ---
+        llm_call_timeout = max(5.0, min((config.timeout_ms or 60000) / 1000.0, 120.0))
+        max_attempts = max(1, min((config.max_retries or 0) + 1, 3))
         try:
-            async with tenant_throttle.acquire(org_id or "default"):
-                response = await asyncio.wait_for(
-                    adapter.chat(chat_request),
-                    timeout=LLM_CALL_TIMEOUT,
-                )
+            response = None
+            last_error: Exception | None = None
+            for attempt in range(max_attempts):
+                try:
+                    async with tenant_throttle.acquire(org_id or "default"):
+                        response = await asyncio.wait_for(
+                            adapter.chat(chat_request),
+                            timeout=llm_call_timeout,
+                        )
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    if attempt >= max_attempts - 1 or not _is_transient_llm_error(exc):
+                        raise
+                    sleep_s = min(0.5 * (2**attempt), 2.0)
+                    logger.warning(
+                        "[LLMRetry] transient failure model=%s attempt=%d/%d sleep=%.1fs error=%s",
+                        model_code,
+                        attempt + 1,
+                        max_attempts,
+                        sleep_s,
+                        str(exc)[:160],
+                    )
+                    await asyncio.sleep(sleep_s)
+
+            if response is None:
+                raise last_error or RuntimeError("LLM call failed without response")
+
             latency = int((time.monotonic() - start_ts) * 1000)
             response.exec_time_ms = latency
 
@@ -418,6 +553,13 @@ class ChatDispatchMixin:
                     f"Failed to load upgraded model {model_code}",
                 )
                 return
+
+        tools = await _prune_runtime_tools(
+            tools,
+            messages=messages,
+            scene_code=scene_code,
+            agent_code=agent_code,
+        )
 
         # --- Build request ---
         chat_request = ChatRequest(

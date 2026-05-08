@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Activity, AlertTriangle, Clock, DollarSign, RefreshCw, Search, Wrench } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Clock,
+  DollarSign,
+  GitBranch,
+  Play,
+  RefreshCw,
+  Search,
+  Wrench,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -59,8 +69,6 @@ interface ToolCall {
   error_type?: string;
   error_message?: string;
   duration_ms?: number;
-  started_at?: string;
-  tool_args?: Record<string, unknown>;
 }
 
 interface AgentEvent {
@@ -82,7 +90,22 @@ interface AgentRunDetailData {
   events: AgentEvent[];
 }
 
-const STATUS_OPTIONS = ['all', 'running', 'completed', 'failed', 'cancelled'];
+interface CostAlert {
+  level: string;
+  type: string;
+  message: string;
+  action: string;
+}
+
+interface CostAlertsData {
+  alerts: CostAlert[];
+  summary: {
+    total_cost_usd: number;
+    high_cost_runs?: Array<{ id: string; run_id?: string; cost_usd: number; summary?: string }>;
+  };
+}
+
+const STATUS_OPTIONS = ['all', 'running', 'completed', 'failed', 'error', 'cancelled'];
 
 function formatDate(value?: string) {
   if (!value) return '-';
@@ -103,7 +126,7 @@ function formatDuration(ms?: number | null) {
 function statusClass(status: string) {
   if (status === 'completed') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   if (status === 'running') return 'border-blue-200 bg-blue-50 text-blue-700';
-  if (status === 'failed') return 'border-red-200 bg-red-50 text-red-700';
+  if (status === 'failed' || status === 'error') return 'border-red-200 bg-red-50 text-red-700';
   return 'border-muted bg-muted text-muted-foreground';
 }
 
@@ -123,14 +146,52 @@ function StatCard({ title, value, icon }: { title: string; value: string | numbe
   );
 }
 
+function TraceTopology({ events, toolCalls }: { events: AgentEvent[]; toolCalls: ToolCall[] }) {
+  const nodes = events
+    .map((event) => event.node_name || event.event_type)
+    .filter(Boolean)
+    .slice(0, 10);
+  const uniqueNodes = Array.from(new Set(nodes));
+  const fallback = toolCalls.map((call) => call.tool_name).slice(0, 10);
+  const displayNodes = uniqueNodes.length ? uniqueNodes : fallback;
+
+  if (!displayNodes.length) {
+    return <p className="text-sm text-muted-foreground">暂无可视化节点</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
+      {displayNodes.map((node, index) => (
+        <div key={`${node}-${index}`} className="flex items-center gap-2">
+          <div className="rounded-md border bg-background px-2.5 py-1 text-xs font-medium">{node}</div>
+          {index < displayNodes.length - 1 && <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AgentRunsPage() {
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [summary, setSummary] = useState<AgentRunSummary | null>(null);
   const [selected, setSelected] = useState<AgentRunDetailData | null>(null);
+  const [costAlerts, setCostAlerts] = useState<CostAlertsData | null>(null);
   const [status, setStatus] = useState('all');
   const [sessionId, setSessionId] = useState('');
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [replaying, setReplaying] = useState(false);
+
+  const fetchCostAlerts = useCallback(async () => {
+    try {
+      const response = await httpClient.get<ApiResponse<CostAlertsData>>('/api/usage/cost-alerts', {
+        params: { days: 1 },
+      });
+      setCostAlerts(response.data.data);
+    } catch {
+      setCostAlerts(null);
+    }
+  }, []);
 
   const fetchRuns = useCallback(async () => {
     setLoading(true);
@@ -141,12 +202,13 @@ export default function AgentRunsPage() {
       const response = await httpClient.get<ApiResponse<AgentRunsData>>('/api/agent-runs', { params });
       setRuns(response.data.data.runs || []);
       setSummary(response.data.data.summary);
+      await fetchCostAlerts();
     } catch {
       toast.error('Agent Run 列表加载失败');
     } finally {
       setLoading(false);
     }
-  }, [sessionId, status]);
+  }, [fetchCostAlerts, sessionId, status]);
 
   const fetchDetail = useCallback(async (run: AgentRun) => {
     const ref = run.id || run.run_id;
@@ -162,19 +224,40 @@ export default function AgentRunsPage() {
     }
   }, []);
 
+  const replaySelected = useCallback(async (execute: boolean) => {
+    const ref = selected?.run.id || selected?.run.run_id;
+    if (!ref) return;
+    setReplaying(true);
+    try {
+      const response = await httpClient.post<ApiResponse<Record<string, unknown>>>(
+        `/api/agent-runs/${ref}/replay`,
+        null,
+        { params: { execute } },
+      );
+      toast.success(execute ? '失败运行已重新执行' : '已生成重放计划');
+      console.info('Agent replay response', response.data.data);
+      if (execute) await fetchRuns();
+    } catch {
+      toast.error('Agent Run 重放失败');
+    } finally {
+      setReplaying(false);
+    }
+  }, [fetchRuns, selected]);
+
   useEffect(() => {
     fetchRuns();
   }, [fetchRuns]);
 
   const statusCounts = useMemo(() => summary?.by_status || {}, [summary]);
   const selectedRun = selected?.run;
+  const canReplay = selectedRun && ['failed', 'error', 'cancelled'].includes(selectedRun.status);
 
   return (
     <div className="space-y-5 p-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">Agent Run 管理台</h1>
-          <p className="text-sm text-muted-foreground">按租户查看 LangGraph 运行、工具调用、事件流和成本消耗。</p>
+          <p className="text-sm text-muted-foreground">按租户查看 LangGraph 运行、工具调用、事件流、成本告警和失败重放。</p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchRuns} disabled={loading}>
           <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
@@ -182,10 +265,26 @@ export default function AgentRunsPage() {
         </Button>
       </div>
 
+      {!!costAlerts?.alerts.length && (
+        <Card className="border-amber-200 bg-amber-50/60">
+          <CardContent className="space-y-2 p-4">
+            {costAlerts.alerts.slice(0, 3).map((alert) => (
+              <div key={`${alert.type}-${alert.message}`} className="flex items-start gap-2 text-sm">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-medium text-amber-900">{alert.message}</p>
+                  <p className="text-amber-800/80">{alert.action}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-3 md:grid-cols-4">
         <StatCard title="最近运行" value={summary?.total_runs ?? 0} icon={<Activity className="h-5 w-5" />} />
         <StatCard title="运行中" value={statusCounts.running ?? 0} icon={<Clock className="h-5 w-5" />} />
-        <StatCard title="失败" value={statusCounts.failed ?? 0} icon={<AlertTriangle className="h-5 w-5" />} />
+        <StatCard title="失败" value={(statusCounts.failed ?? 0) + (statusCounts.error ?? 0)} icon={<AlertTriangle className="h-5 w-5" />} />
         <StatCard title="成本 USD" value={`$${(summary?.total_cost_usd ?? 0).toFixed(4)}`} icon={<DollarSign className="h-5 w-5" />} />
       </div>
 
@@ -215,7 +314,7 @@ export default function AgentRunsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_460px]">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">运行列表</CardTitle>
@@ -274,7 +373,7 @@ export default function AgentRunsPage() {
                 选择一条运行查看工具调用和事件
               </div>
             ) : (
-              <ScrollArea className="h-[620px] pr-4">
+              <ScrollArea className="h-[680px] pr-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -285,6 +384,21 @@ export default function AgentRunsPage() {
                     </div>
                     <p className="break-all text-xs text-muted-foreground">{selectedRun.run_id || selectedRun.id}</p>
                     <p className="text-sm">{selectedRun.final_response || selectedRun.output_summary || selectedRun.error_message || '无输出摘要'}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" disabled={!canReplay || replaying} onClick={() => replaySelected(false)}>
+                        <GitBranch className="mr-2 h-4 w-4" />
+                        重放计划
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={!canReplay || replaying} onClick={() => replaySelected(true)}>
+                        <Play className="mr-2 h-4 w-4" />
+                        重新执行
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium">执行拓扑</h3>
+                    <TraceTopology events={selected.events} toolCalls={selected.tool_calls} />
                   </div>
 
                   <div>

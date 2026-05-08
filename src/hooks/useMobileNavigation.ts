@@ -29,7 +29,7 @@ const TAB_CONFIG: Record<Exclude<TabId, 'ai'>, TabConfig> = {
       '/import', '/form-designer', '/workflow-templates',
       '/vmd', '/vmd/tasks', '/vmd/agents', '/vmd/clues',
       '/vmd/compliance', '/vmd/dashboard', '/llm/models',
-      '/agent-debug',
+      '/agent-debug', '/agent-runs', '/tools/governance',
     ],
   },
   notifications: {
@@ -91,6 +91,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/vmd/compliance': '合规校验',
   '/vmd/dashboard': 'VMD 数据看板',
   '/llm/models': 'LLM 模型管理',
+  '/agent-runs': 'Agent Run 管理台',
+  '/tools/governance': 'Tool 治理',
   '/agent-debug': 'Agent 调试',
 };
 

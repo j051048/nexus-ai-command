@@ -39,6 +39,13 @@ SENSITIVE_ENDPOINT_LIMITS: dict[str, int] = {
     # P1-1: SSE streaming endpoints — tighter limit since each holds a worker coroutine
     "/api/chat": 10,
     "/api/chat/send": 10,
+    "/api/agent-runs": 20,
+    "/api/tools/rag/refresh": 3,
+    "/api/tools/rag/evaluate": 10,
+    "/api/tools/governance": 20,
+    "/api/plugins": 30,
+    "/api/llm": 30,
+    "/api/usage/cost-alerts": 30,
     "/api/documents/upload": 15,
     "/api/export": 10,
     # P1-1: WebSocket upgrade — prevent rapid reconnection storms
@@ -417,6 +424,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     # P1-8: Endpoint category mapping for tiered limits
     ENDPOINT_CATEGORIES = {
         "/api/chat": "chat",
+        "/api/agent-runs": "chat",
+        "/api/tools/rag": "chat",
+        "/api/plugins": "admin",
+        "/api/llm": "admin",
         "/api/documents/upload": "upload",
         "/api/auth": "auth",
         "/api/export": "export",

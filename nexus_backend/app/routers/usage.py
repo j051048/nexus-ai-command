@@ -59,6 +59,134 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
         return api_success(data={"has_alert": False, "message": "暂时无法获取额度状态"})
 
 
+@router.get("/cost-alerts")
+async def get_cost_alerts(
+    req: Request,
+    days: int = Query(default=1, ge=1, le=30),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Return actionable LLM/Agent cost alerts for the current tenant."""
+    try:
+        db = _get_admin_db()
+        org_id = getattr(req.state, "org_id", None)
+        if not db or not org_id:
+            return api_success(data={"alerts": [], "summary": {"total_cost_usd": 0}})
+
+        since = (date.today() - timedelta(days=days - 1)).isoformat()
+        usage_res = (
+            await db.table("llm_usage_stats")
+            .select(
+                "model_code,total_input_tokens,total_output_tokens,total_calls,total_cost,stat_date"
+            )
+            .eq("tenant_id", str(org_id))
+            .gte("stat_date", since)
+            .execute()
+        )
+        rows = usage_res.data or []
+        total_cost = float(sum(r.get("total_cost", 0) for r in rows))
+        total_tokens = sum(
+            r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0)
+            for r in rows
+        )
+
+        quota_res = (
+            await db.table("llm_quota_config")
+            .select("monthly_token_limit,monthly_cost_limit")
+            .eq("tenant_id", str(org_id))
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        quota = (quota_res.data or [{}])[0] if quota_res.data else {}
+        monthly_cost_limit = float(quota.get("monthly_cost_limit") or 100)
+        daily_cost_limit = float(monthly_cost_limit / 30)
+
+        alerts: list[dict] = []
+        if daily_cost_limit and total_cost >= daily_cost_limit * 0.9:
+            alerts.append(
+                {
+                    "level": "critical" if total_cost >= daily_cost_limit else "warning",
+                    "type": "daily_cost_budget",
+                    "message": f"近 {days} 天 LLM 成本 ${total_cost:.4f} 接近日预算 ${daily_cost_limit:.2f}",
+                    "action": "检查高成本模型和 Agent Run，必要时启用经济模型路由",
+                }
+            )
+
+        model_costs: dict[str, dict] = {}
+        for row in rows:
+            model = row.get("model_code") or "unknown"
+            if model not in model_costs:
+                model_costs[model] = {"model_code": model, "cost_usd": 0.0, "calls": 0}
+            model_costs[model]["cost_usd"] += float(row.get("total_cost", 0))
+            model_costs[model]["calls"] += int(row.get("total_calls", 0) or 0)
+
+        top_models = sorted(
+            model_costs.values(), key=lambda item: item["cost_usd"], reverse=True
+        )[:5]
+        if (
+            top_models
+            and total_cost > 0
+            and top_models[0]["cost_usd"] / total_cost >= 0.6
+        ):
+            alerts.append(
+                {
+                    "level": "warning",
+                    "type": "model_cost_concentration",
+                    "message": f"{top_models[0]['model_code']} 占近 {days} 天成本超过 60%",
+                    "action": "确认该模型是否仅用于复杂/高风险任务，避免普通任务误走强模型",
+                }
+            )
+
+        run_res = (
+            await db.table("agent_runs")
+            .select("id,run_id,status,cost_usd,total_cost,updated_at,input_summary")
+            .eq("organization_id", str(org_id))
+            .order("updated_at", desc=True)
+            .limit(100)
+            .execute()
+        )
+        high_cost_runs = []
+        for row in run_res.data or []:
+            cost = float(row.get("cost_usd") or row.get("total_cost") or 0)
+            if cost >= max(1.0, daily_cost_limit * 0.2):
+                high_cost_runs.append(
+                    {
+                        "id": row.get("id"),
+                        "run_id": row.get("run_id"),
+                        "status": row.get("status"),
+                        "cost_usd": cost,
+                        "summary": (row.get("input_summary") or "")[:160],
+                    }
+                )
+        if high_cost_runs:
+            alerts.append(
+                {
+                    "level": "warning",
+                    "type": "high_cost_agent_run",
+                    "message": f"发现 {len(high_cost_runs)} 条高成本 Agent Run",
+                    "action": "进入 Agent Run 管理台复盘工具调用和反思循环",
+                }
+            )
+
+        return api_success(
+            data={
+                "alerts": alerts,
+                "summary": {
+                    "period_days": days,
+                    "total_cost_usd": round(total_cost, 6),
+                    "total_tokens": total_tokens,
+                    "daily_cost_limit_usd": daily_cost_limit,
+                    "monthly_cost_limit_usd": monthly_cost_limit,
+                    "top_models": top_models,
+                    "high_cost_runs": high_cost_runs[:10],
+                },
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch cost alerts: {e}")
+        return api_success(data={"alerts": [], "summary": {"total_cost_usd": 0}})
+
+
 @router.get("/current")
 async def get_current_usage(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取当前用量摘要（token/费用/请求数 + 配额限制）"""

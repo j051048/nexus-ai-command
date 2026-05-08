@@ -219,6 +219,7 @@ def register_routers(app: FastAPI) -> None:
         backups,
         compliance,
         data_transfer,
+        deployment_health,
         super_admin,
     )
     from app.routers import dsar as dsar_router
@@ -233,6 +234,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(backups.router)
     app.include_router(compliance.router)
     app.include_router(data_transfer.router)
+    app.include_router(deployment_health.router)
     app.include_router(system_configs_router.router)
     app.include_router(dsar_router.router)
     app.include_router(system_router.router)

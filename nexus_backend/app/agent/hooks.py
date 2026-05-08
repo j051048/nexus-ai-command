@@ -180,10 +180,15 @@ _EMAIL_RE = re.compile(r"([a-zA-Z0-9])[a-zA-Z0-9.]*@([a-zA-Z0-9.-]+)")
 
 def _mask_text(text: str) -> str:
     """对文本中的手机号、身份证、邮箱做脱敏。"""
-    text = _PHONE_RE.sub(r"\1****\2", text)
-    text = _ID_CARD_RE.sub(r"\1***********\2", text)
-    text = _EMAIL_RE.sub(r"\1***@\2", text)
-    return text
+    try:
+        from app.core.pii_redactor import redact_text
+
+        return redact_text(text)
+    except Exception:
+        text = _PHONE_RE.sub(r"\1****\2", text)
+        text = _ID_CARD_RE.sub(r"\1***********\2", text)
+        text = _EMAIL_RE.sub(r"\1***@\2", text)
+        return text
 
 
 def _mask_value(value: Any) -> Any:
@@ -219,7 +224,7 @@ class PIISanitizeHook(AgentHook):
     priority = 20  # 在权限校验之后、审计之前
 
     async def before_llm_call(self, messages: list[dict], context: dict) -> list[dict]:
-        from app.services.content_moderation import sanitize_pii_for_llm
+        from app.core.pii_redactor import redact_text
 
         for msg in messages:
             content = (
@@ -228,7 +233,7 @@ class PIISanitizeHook(AgentHook):
                 else getattr(msg, "content", None)
             )
             if isinstance(content, str) and content:
-                sanitized = sanitize_pii_for_llm(content)
+                sanitized = redact_text(content)
                 if sanitized != content:
                     if isinstance(msg, dict):
                         msg["content"] = sanitized

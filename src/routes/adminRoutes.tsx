@@ -81,8 +81,8 @@ export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.Re
       <Route path="plugins" element={<AdminRoute><ModuleErrorBoundary moduleName="插件市场"><PluginMarketplace /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="llm/models" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM模型"><LLMModelManagement /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="llm/costs" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM成本"><LLMCostDashboard /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="agent-runs" element={<AdminRoute><ModuleErrorBoundary moduleName="Agent Run"><AgentRunsPage /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="tools/governance" element={<AdminRoute><ModuleErrorBoundary moduleName="Tool Governance"><ToolGovernancePage /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="agent-runs" element={<AdminRoute allowedRoles={['boss', 'founder', 'admin']}><ModuleErrorBoundary moduleName="Agent Run"><AgentRunsPage /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="tools/governance" element={<AdminRoute allowedRoles={['boss', 'founder', 'admin']}><ModuleErrorBoundary moduleName="Tool Governance"><ToolGovernancePage /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="ai-roi" element={<AdminRoute allowedRoles={['boss', 'founder', 'manager']}><ModuleErrorBoundary moduleName="AI ROI"><AiRoiDashboard /></ModuleErrorBoundary></AdminRoute>} />
 
       {/* Developer Tools */}

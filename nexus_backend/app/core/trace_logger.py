@@ -17,9 +17,9 @@ def _get_sanitizer():
     global _sanitize_output
     if _sanitize_output is None:
         try:
-            from app.services.content_moderation import sanitize_output
+            from app.core.pii_redactor import redact_text
 
-            _sanitize_output = sanitize_output
+            _sanitize_output = redact_text
         except ImportError:
 
             def _noop(x):

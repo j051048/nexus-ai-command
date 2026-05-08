@@ -8,7 +8,9 @@ from fastapi.responses import StreamingResponse
 
 from app.core.auth import get_current_user_id
 from app.core.config import settings
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
+from app.core.pii_redactor import redact_value
 from app.core.prompt_firewall import prompt_firewall
 from app.core.trace_logger import TraceLogger
 from app.models.schemas import ChatRequest
@@ -18,6 +20,7 @@ from app.services.token_service import validate_request_tokens
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Chat"])
+require_tool_governance_admin = require_role(["admin", "founder", "boss"])
 
 # P1-5: Per-user SSE concurrent connection limit
 MAX_SSE_PER_USER = 3
@@ -271,7 +274,7 @@ async def chat(
     # inside run_agent_stream → memory.prepare_messages, so we pass raw messages.
     from app.agent import run_agent_stream
 
-    raw_messages = messages_dicts  # Reuse already-built list (includes image_urls)
+    raw_messages = redact_value(messages_dicts)  # includes image_urls; masks PII before LLM
 
     logger.info(
         f"[Chat] Using LangGraph agent for user={user_id} agent={request.agent} model={ai_config['model']}"
@@ -342,8 +345,48 @@ async def get_tools_metadata_endpoint(
     return api_success(data={"tools": metadata, "count": len(metadata)})
 
 
+def _build_tool_fix_suggestions(manifests: list[dict]) -> list[dict]:
+    suggestions: list[dict] = []
+    for manifest in manifests:
+        name = manifest.get("name")
+        has_side_effect = bool(
+            manifest.get("side_effect") or manifest.get("is_irreversible")
+        )
+        patch: dict = {}
+        reasons: list[str] = []
+
+        if not manifest.get("owner") or manifest.get("owner") == "platform":
+            patch["owner"] = manifest.get("category") or "platform"
+            reasons.append("owner is missing or still using the platform default")
+        if has_side_effect and not manifest.get("timeout_s"):
+            patch["timeout_s"] = 30
+            reasons.append("side-effect tool has no timeout guard")
+        if has_side_effect and manifest.get("idempotent") is not False:
+            patch["idempotent"] = False
+            reasons.append("side-effect tool should explicitly declare idempotency")
+        if has_side_effect and manifest.get("risk") not in {"medium", "high", "critical"}:
+            patch["risk"] = "high"
+            reasons.append("side-effect tool is not marked medium/high/critical risk")
+
+        if patch:
+            suggestions.append(
+                {
+                    "tool_name": name,
+                    "category": manifest.get("category"),
+                    "patch": patch,
+                    "reasons": reasons,
+                    "example_decorator_args": ", ".join(
+                        f"{key}={value!r}" for key, value in patch.items()
+                    ),
+                }
+            )
+    return suggestions
+
+
 @router.get("/tools/governance")
-async def get_tools_governance_endpoint():
+async def get_tools_governance_endpoint(
+    _role: str = Depends(require_tool_governance_admin),
+):
     """Return the governance manifest and Tool RAG index health."""
     from app.agent.tool_embedding_index import tool_embedding_index
     from app.tools import _load_all, get_all_tool_manifests
@@ -409,18 +452,90 @@ async def get_tools_governance_endpoint():
             "tools": manifests,
             "count": len(manifests),
             "audit": audit,
+            "fix_suggestions": _build_tool_fix_suggestions(manifests),
             "tool_rag": tool_embedding_index.stats(),
         }
     )
 
 
+@router.get("/tools/governance/fix-plan")
+async def get_tools_governance_fix_plan(
+    _role: str = Depends(require_tool_governance_admin),
+):
+    """Return deterministic metadata patches operators can turn into a PR."""
+    from app.tools import _load_all, get_all_tool_manifests
+
+    _load_all()
+    manifests = get_all_tool_manifests()
+    suggestions = _build_tool_fix_suggestions(manifests)
+    return api_success(
+        data={
+            "suggestions": suggestions,
+            "count": len(suggestions),
+            "mode": "reviewable_patch_plan",
+        }
+    )
+
+
 @router.post("/tools/rag/refresh")
-async def refresh_tool_rag_endpoint(user_id: str = Depends(get_current_user_id)):
+async def refresh_tool_rag_endpoint(
+    user_id: str = Depends(get_current_user_id),
+    _role: str = Depends(require_tool_governance_admin),
+):
     """Force-refresh the semantic Tool RAG index for operator diagnostics."""
     from app.agent.tool_embedding_index import tool_embedding_index
 
     count = await tool_embedding_index.refresh()
     return api_success(data={"indexed_tools": count, "requested_by": user_id})
+
+
+@router.get("/tools/rag/evaluate")
+async def evaluate_tool_rag_endpoint(
+    _role: str = Depends(require_tool_governance_admin),
+):
+    """Run a small deterministic Tool RAG eval set and report Top-K recall."""
+    from app.agent.tool_embedding_index import tool_embedding_index
+
+    eval_cases = [
+        {"query": "查看最近的客户跟进和销售漏斗", "expected": ["get_customers", "get_sales_pipeline"]},
+        {"query": "提交一张差旅报销单", "expected": ["create_expense_claim", "submit_expense"]},
+        {"query": "给团队发布一条公告通知", "expected": ["publish_announcement", "send_notification"]},
+        {"query": "查询库存并办理出库", "expected": ["list_inventory", "inventory_out"]},
+        {"query": "生成投标文件并检查合规", "expected": ["generate_bid_document", "check_bid_compliance"]},
+        {"query": "创建一个新员工入职流程", "expected": ["process_onboarding", "generate_onboarding_checklist"]},
+    ]
+
+    rows = []
+    hits = 0
+    for case in eval_cases:
+        retrieved = await tool_embedding_index.retrieve(
+            case["query"], top_k=8, min_score=0.0
+        )
+        names = [name for name, _score in retrieved]
+        matched = [name for name in case["expected"] if name in names]
+        if matched:
+            hits += 1
+        rows.append(
+            {
+                "query": case["query"],
+                "expected": case["expected"],
+                "retrieved": retrieved,
+                "matched": matched,
+                "passed": bool(matched),
+            }
+        )
+
+    return api_success(
+        data={
+            "cases": rows,
+            "summary": {
+                "total": len(eval_cases),
+                "passed": hits,
+                "top_k_recall": round(hits / len(eval_cases), 4),
+                "tool_rag": tool_embedding_index.stats(),
+            },
+        }
+    )
 
 
 @router.get("/tools/capabilities")

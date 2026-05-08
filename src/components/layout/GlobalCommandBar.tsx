@@ -48,6 +48,7 @@ import {
   Warehouse,
   Fingerprint,
   PlusCircle,
+  Activity,
 } from 'lucide-react';
 import { aiClient } from '@/api/aiClient';
 import { pinyin } from 'pinyin-pro';
@@ -153,6 +154,8 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: 'API 密钥', path: '/api-keys', icon: Key, keywords: ['api', 'key', '密钥'], group: '系统管理' },
   { label: '模型管理', path: '/llm/models', icon: Settings, keywords: ['模型', 'llm', 'model', 'ai模型'], group: '系统管理' },
   { label: 'LLM 成本', path: '/llm/costs', icon: DollarSign, keywords: ['llm成本', '模型费用', 'token'], group: '系统管理' },
+  { label: 'Agent Run 管理台', path: '/agent-runs', icon: Activity, keywords: ['agent run', 'trace', '运行观测', '重放'], group: '系统管理' },
+  { label: 'Tool 治理清单', path: '/tools/governance', icon: Shield, keywords: ['tool治理', '工具治理', 'tool rag', '召回评估'], group: '系统管理' },
   { label: '数据导入', path: '/import', icon: Upload, keywords: ['导入', 'import', 'csv', 'excel'], group: '系统管理' },
   { label: '插件市场', path: '/plugins', icon: Plug, keywords: ['插件', 'plugin', '扩展'], group: '系统管理' },
   { label: 'Agent 调试', path: '/agent-debug', icon: Settings, keywords: ['agent', '调试', 'debug'], group: '系统管理' },

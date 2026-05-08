@@ -83,6 +83,8 @@ def test_agent_run_management_api_is_org_scoped():
     assert "agent_runs" in router
     assert "agent_tool_calls" in router
     assert "agent_events" in router
+    assert "require_agent_ops" in router
+    assert "/{run_ref}/replay" in router
     assert '"agent_runs"' in database
     assert '"agent_tool_calls"' in database
     assert '"agent_events"' in database
@@ -99,7 +101,12 @@ def test_operator_frontend_pages_are_routed():
     assert 'path="agent-runs"' in admin_routes
     assert 'path="tools/governance"' in admin_routes
     assert "/api/agent-runs" in agent_page
+    assert "/api/usage/cost-alerts" in agent_page
+    assert "replaySelected" in agent_page
+    assert "TraceTopology" in agent_page
     assert "/api/tools/governance" in tool_page
+    assert "/api/tools/rag/evaluate" in tool_page
+    assert "fix_suggestions" in tool_page
 
 
 def test_staging_migration_verifier_covers_critical_tables():
@@ -113,3 +120,30 @@ def test_staging_migration_verifier_covers_critical_tables():
     assert "vmd_reports" in script
     assert "row level security is not enabled" in script
     assert "Staging Migration Verification" in ci
+    assert "--require-db" in ci
+
+
+def test_cost_tool_plugin_and_deploy_governance_are_wired():
+    usage = read("nexus_backend/app/routers/usage.py")
+    chat = read("nexus_backend/app/routers/chat.py")
+    plugins = read("nexus_backend/app/routers/plugins.py")
+    deploy = read("nexus_backend/app/routers/deployment_health.py")
+    startup = read("nexus_backend/app/startup/routers.py")
+    doctor = read("scripts/private_deploy_doctor.py")
+    assert "/cost-alerts" in usage
+    assert "model_cost_concentration" in usage
+    assert "/tools/governance/fix-plan" in chat
+    assert "/tools/rag/evaluate" in chat
+    assert "_plugin_governance" in plugins
+    assert "/governance" in plugins
+    assert 'prefix="/api/system/deployment-health"' in deploy
+    assert "deployment_health.router" in startup
+    assert "private deployment doctor" in doctor.lower()
+
+
+def test_llm_gateway_has_ab_routing_policy():
+    dispatch = read("nexus_backend/app/services/llm_gateway/chat_dispatch.py")
+    policy = read("nexus_backend/app/services/llm_gateway/routing_policy.py")
+    assert "choose_model_variant" in dispatch
+    assert "LLM_ENABLE_AB_ROUTING" in policy
+    assert "LLM_AB_ECONOMY_MODEL" in policy

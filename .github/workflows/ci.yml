@@ -290,7 +290,7 @@ jobs:
           pip install -r nexus_backend/requirements-dev.txt
 
       - name: Verify staging migrations and RLS
-        run: python scripts/verify_staging_migrations.py
+        run: python scripts/verify_staging_migrations.py --require-db
 
   # ============== Security Scanning ==============
   security-scan:
@@ -503,6 +503,17 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements-dev.txt
+
+      - name: Private deployment doctor
+        run: python ../scripts/private_deploy_doctor.py
+        env:
+          ENV: test
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SERVICE_KEY: placeholder
+          SUPABASE_JWT_SECRET: placeholder
+          REDIS_URL: redis://localhost:6379/0
+          OPENAI_API_KEY: sk-placeholder
+          LANGGRAPH_CHECKPOINTER: memory
           
       - name: Install k6
         run: |
