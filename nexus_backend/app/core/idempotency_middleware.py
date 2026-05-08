@@ -14,6 +14,7 @@ Flow:
 
 import json
 import logging
+import time
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -37,6 +38,27 @@ _PROTECTED_PREFIXES = (
     "/api/v1/contracts",
     "/api/v1/vmd/",
 )
+
+_memory_cache: dict[str, tuple[float, dict]] = {}
+_MAX_MEMORY_CACHE_ITEMS = 1000
+
+
+def _memory_get(cache_key: str) -> dict | None:
+    item = _memory_cache.get(cache_key)
+    if not item:
+        return None
+    expires_at, data = item
+    if expires_at < time.time():
+        _memory_cache.pop(cache_key, None)
+        return None
+    return data
+
+
+def _memory_set(cache_key: str, data: dict, ttl: int) -> None:
+    if len(_memory_cache) >= _MAX_MEMORY_CACHE_ITEMS:
+        oldest_key = next(iter(_memory_cache))
+        _memory_cache.pop(oldest_key, None)
+    _memory_cache[cache_key] = (time.time() + ttl, data)
 
 
 class IdempotencyMiddleware(BaseHTTPMiddleware):
@@ -85,6 +107,8 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         # Build Redis key with path + method for uniqueness
         cache_key = f"idempotency:{request.method}:{path}:{idempotency_key}"
 
+        cache_service = None
+        use_memory_fallback = False
         try:
             from app.services.cache_service import cache_service
 
@@ -103,9 +127,16 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     headers={"X-Idempotency-Replayed": "true"},
                 )
         except Exception as e:
-            # If Redis is down, proceed without idempotency (degrade gracefully)
-            logger.error("Idempotency cache check failed: %s", e)
-            return await call_next(request)
+            logger.error("Idempotency cache check failed; using memory fallback: %s", e)
+            use_memory_fallback = True
+            cached_data = _memory_get(cache_key)
+            if cached_data:
+                return Response(
+                    content=cached_data["body"],
+                    status_code=cached_data["status_code"],
+                    media_type=cached_data.get("media_type", "application/json"),
+                    headers={"X-Idempotency-Replayed": "true", "X-Idempotency-Store": "memory"},
+                )
 
         # Execute the actual request
         response = await call_next(request)
@@ -128,7 +159,10 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     "media_type": response.media_type or "application/json",
                 }
 
-                await cache_service.set(cache_key, cache_data, ttl=IDEMPOTENCY_TTL)
+                if use_memory_fallback or cache_service is None:
+                    _memory_set(cache_key, cache_data, ttl=min(IDEMPOTENCY_TTL, 3600))
+                else:
+                    await cache_service.set(cache_key, cache_data, ttl=IDEMPOTENCY_TTL)
                 logger.debug("Idempotency cached: %s", cache_key)
 
                 # Return a new response with the already-read body

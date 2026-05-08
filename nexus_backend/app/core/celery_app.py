@@ -7,14 +7,16 @@ from kombu import Exchange, Queue
 
 logger = logging.getLogger(__name__)
 
-# Get Redis URL from env or default to localhost
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
+CELERY_WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "4"))
 
 # Initialize Celery app
 celery_app = Celery(
     "nexus_tasks",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=CELERY_BROKER_URL,
+    backend=CELERY_RESULT_BACKEND,
     include=[
         "app.tasks.scheduler",
         "app.tasks.event_sensors",
@@ -67,6 +69,7 @@ celery_app.conf.update(
         },
     },
     worker_prefetch_multiplier=1,
+    worker_concurrency=CELERY_WORKER_CONCURRENCY,
 )
 
 

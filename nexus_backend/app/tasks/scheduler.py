@@ -10,6 +10,11 @@ from app.services.crawler_service import crawler_service
 
 logger = logging.getLogger(__name__)
 
+SCHEDULER_TENANT_CONCURRENCY = int(os.getenv("SCHEDULER_TENANT_CONCURRENCY", "5"))
+SCHEDULER_LLM_CONCURRENCY = int(os.getenv("SCHEDULER_LLM_CONCURRENCY", "8"))
+SCHEDULER_MAX_LEADS_PER_ORG = int(os.getenv("SCHEDULER_MAX_LEADS_PER_ORG", "10"))
+SCHEDULER_MAX_LEADS_TOTAL = int(os.getenv("SCHEDULER_MAX_LEADS_TOTAL", "200"))
+
 
 def _run_async(coro):
     """Helper to run async code in sync Celery tasks."""
@@ -88,10 +93,51 @@ def push_daily_briefing(self):
 
         # P0 Security: 按组织遍历，使用 OrgFilteredClient 防止跨租户数据泄露
         orgs_res = await supabase.table("organizations").select("id").execute()
+        orgs_res = await supabase.table("organizations").select("id").execute()
         org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         tool = DailyBriefingTool()
-        sent = 0
+        tenant_sem = asyncio.Semaphore(SCHEDULER_TENANT_CONCURRENCY)
+        llm_sem = asyncio.Semaphore(SCHEDULER_LLM_CONCURRENCY)
+
+        async def _send_for_org(org_id: str) -> int:
+            async with tenant_sem:
+                sent_for_org = 0
+                try:
+                    org_client = supabase.get_org_filtered_client(org_id)
+                    result = (
+                        await org_client.table("users")
+                        .select("id, role")
+                        .in_("role", ["manager", "founder"])
+                        .execute()
+                    )
+                    users = result.data or []
+
+                    async def _send_one(user: dict) -> int:
+                        try:
+                            async with llm_sem:
+                                briefing = await tool.run(
+                                    {}, user["id"], config={"org_id": org_id}
+                                )
+                            await send_notification(
+                                title="姣忔棩鏅ㄦ姤",
+                                content=briefing[:500],
+                                target_user_id=user["id"],
+                            )
+                            return 1
+                        except Exception as e:
+                            logger.error(f"Briefing failed for user {user['id']}: {e}")
+                            return 0
+
+                    sent_for_org = sum(await asyncio.gather(*[_send_one(u) for u in users]))
+                except Exception as e:
+                    logger.error(f"Daily briefing failed for org {org_id}: {e}")
+                return sent_for_org
+
+        sent = sum(await asyncio.gather(*[_send_for_org(org_id) for org_id in org_ids]))
+        return f"Sent daily briefing to {sent} users across {len(org_ids)} orgs"
+
+        """
         for org_id in org_ids:
             try:
                 org_client = supabase.get_org_filtered_client(org_id)
@@ -121,6 +167,7 @@ def push_daily_briefing(self):
                 logger.error(f"Daily briefing failed for org {org_id}: {e}")
 
         return f"Sent daily briefing to {sent} users across {len(org_ids)} orgs"
+        """
 
     return _run_async(_run())
 
@@ -145,6 +192,7 @@ def mine_sales_leads():
 
         # P0 Security: 按组织遍历，防止跨租户数据泄露
         orgs_res = await supabase.table("organizations").select("id").execute()
+        orgs_res = await supabase.table("organizations").select("id").execute()
         org_ids = [o["id"] for o in (orgs_res.data or [])]
 
         processed = 0
@@ -156,11 +204,49 @@ def mine_sales_leads():
                     .select("*")
                     .eq("stage", "lead")
                     .lt("updated_at", seven_days_ago)
-                    .limit(20)
+                    .limit(SCHEDULER_MAX_LEADS_PER_ORG)
                     .execute()
                 )
 
-                stale_leads = result.data or []
+                stale_leads = (result.data or [])[
+                    : max(0, SCHEDULER_MAX_LEADS_TOTAL - processed)
+                ]
+                if not stale_leads:
+                    continue
+
+                llm_sem = asyncio.Semaphore(SCHEDULER_LLM_CONCURRENCY)
+
+                async def _process_lead(lead: dict) -> int:
+                    try:
+                        async with llm_sem:
+                            suggestion = await AIService.call_llm(
+                                f"Lead: {lead.get('company_name', '')}, status: {lead.get('status', '')}, last_update: {lead.get('updated_at', '')}",
+                                "You are a sales advisor. This lead has not been followed up for over 7 days. Give 1-2 concise follow-up suggestions.",
+                            )
+                        if lead.get("assigned_to"):
+                            await send_notification(
+                                title=f"Lead follow-up reminder: {lead.get('company_name', '')}",
+                                content=suggestion[:300],
+                                target_user_id=lead["assigned_to"],
+                            )
+                        return 1
+                    except Exception as e:
+                        logger.error(
+                            "Lead mining failed for %s: %s", lead.get("id", "?"), e
+                        )
+                        return 0
+
+                processed += sum(
+                    await asyncio.gather(*[_process_lead(lead) for lead in stale_leads])
+                )
+                if processed >= SCHEDULER_MAX_LEADS_TOTAL:
+                    logger.warning(
+                        "Lead mining stopped at total cap: %s",
+                        SCHEDULER_MAX_LEADS_TOTAL,
+                    )
+                    break
+                continue
+                """
                 for lead in stale_leads:
                     try:
                         suggestion = await AIService.call_llm(
@@ -178,6 +264,7 @@ def mine_sales_leads():
                         logger.error(
                             f"Lead mining failed for {lead.get('id', '?')}: {e}"
                         )
+                """
             except Exception as e:
                 logger.error(f"Lead mining failed for org {org_id}: {e}")
 
@@ -1242,20 +1329,26 @@ def aggregate_ai_roi_daily():
         except Exception as e:
             logger.warning("[ROI] Failed to load baselines: %s", e)
 
-        total_upserted = 0
+        tenant_sem = asyncio.Semaphore(SCHEDULER_TENANT_CONCURRENCY)
 
-        for org_id in org_ids:
-            try:
-                metrics = await _aggregate_one_tenant(
-                    supabase, org_id, yesterday, baselines
-                )
-                if metrics:
-                    await supabase.table("ai_roi_daily").upsert(
-                        metrics, on_conflict="tenant_id,metric_date"
-                    ).execute()
-                    total_upserted += 1
-            except Exception as e:
-                logger.error("[ROI] Failed for tenant %s: %s", org_id, e)
+        async def _aggregate_and_upsert(org_id: str) -> int:
+            async with tenant_sem:
+                try:
+                    metrics = await _aggregate_one_tenant(
+                        supabase, org_id, yesterday, baselines
+                    )
+                    if metrics:
+                        await supabase.table("ai_roi_daily").upsert(
+                            metrics, on_conflict="tenant_id,metric_date"
+                        ).execute()
+                        return 1
+                except Exception as e:
+                    logger.error("[ROI] Failed for tenant %s: %s", org_id, e)
+                return 0
+
+        total_upserted = sum(
+            await asyncio.gather(*[_aggregate_and_upsert(org_id) for org_id in org_ids])
+        )
 
         return (
             f"Aggregated ROI for {total_upserted}/{len(org_ids)} tenants on {yesterday}"

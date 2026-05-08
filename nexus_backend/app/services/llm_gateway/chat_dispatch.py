@@ -58,6 +58,29 @@ def _extract_user_query(messages: list[dict]) -> str:
     return ""
 
 
+def _estimate_chat_usage(
+    *,
+    model_code: str,
+    system_prompt: str,
+    messages: list[dict],
+    output_text: str = "",
+    max_tokens: int | None = None,
+) -> dict:
+    input_chars = len(system_prompt or "") + sum(
+        len(str(message.get("content") or "")) for message in messages
+    )
+    input_tokens = max(1, input_chars // 4)
+    output_tokens = max(1, len(output_text or "") // 4) if output_text else 0
+    if output_tokens == 0 and max_tokens:
+        output_tokens = max(1, min(max_tokens, 1024))
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "call_cost": estimate_cost(input_tokens, output_tokens, model_code),
+    }
+
+
 async def _prune_runtime_tools(
     tools: list[dict] | None,
     *,
@@ -410,6 +433,25 @@ class ChatDispatchMixin:
             input_tokens = response.usage.get("input_tokens", 0)
             output_tokens = response.usage.get("output_tokens", 0)
             cost = response.usage.get("call_cost", 0.0)
+            if not input_tokens or not output_tokens or not cost:
+                estimated_usage = _estimate_chat_usage(
+                    model_code=model_code,
+                    system_prompt=system_prompt,
+                    messages=messages,
+                    output_text=response.content,
+                    max_tokens=chat_request.max_tokens,
+                )
+                input_tokens = input_tokens or estimated_usage["input_tokens"]
+                output_tokens = output_tokens or estimated_usage["output_tokens"]
+                cost = cost or estimated_usage["call_cost"]
+                response.usage = {
+                    **response.usage,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": input_tokens + output_tokens,
+                    "call_cost": cost,
+                    "estimated": True,
+                }
 
             # Record quota usage
             await record_usage(
@@ -579,6 +621,7 @@ class ChatDispatchMixin:
         total_input_tokens = 0
         total_output_tokens = 0
         total_cost = 0.0
+        streamed_content_parts: list[str] = []
 
         try:
             async with tenant_throttle.acquire(org_id or "default"):
@@ -592,11 +635,34 @@ class ChatDispatchMixin:
                         "output_tokens", total_output_tokens
                     )
                     total_cost = chunk.usage.get("call_cost", total_cost)
+                    if chunk.content:
+                        streamed_content_parts.append(chunk.content)
 
                     yield chunk
 
             # --- Post-stream bookkeeping ---
             circuit_breaker_manager.record_success(model_code)
+            if not total_input_tokens or not total_output_tokens or not total_cost:
+                estimated_usage = _estimate_chat_usage(
+                    model_code=model_code,
+                    system_prompt=system_prompt,
+                    messages=messages,
+                    output_text="".join(streamed_content_parts),
+                    max_tokens=chat_request.max_tokens,
+                )
+                total_input_tokens = total_input_tokens or estimated_usage["input_tokens"]
+                total_output_tokens = (
+                    total_output_tokens or estimated_usage["output_tokens"]
+                )
+                total_cost = total_cost or estimated_usage["call_cost"]
+                logger.warning(
+                    "[LLMUsage] Streaming usage missing for model=%s request=%s; estimated tokens input=%s output=%s cost=%.6f",
+                    model_code,
+                    request_id,
+                    total_input_tokens,
+                    total_output_tokens,
+                    total_cost,
+                )
 
             await record_usage(
                 tenant_id=org_id,

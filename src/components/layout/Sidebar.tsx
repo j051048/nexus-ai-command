@@ -193,7 +193,7 @@ const NAV_CONFIG: NavItem[] = [
 
 const NAV_GROUPS = ["primary", "业务", "办公", "数据", "资产", "管理"];
 
-export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
+function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
   const { user } = useUser();
   const { role, signOut, profile } = useAuth();
   const location = useLocation();
@@ -460,3 +460,5 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
     </aside>
   );
 }
+
+export const Sidebar = React.memo(SidebarComponent);

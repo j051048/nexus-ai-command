@@ -7,7 +7,7 @@ import { buildSystemPrompt, type UserProfile } from '@/services/agentPrompts';
 import { fetchBusinessContext } from '@/services/businessContext';
 import { httpClient } from '@/lib/httpClient';
 
-const MAX_ASSISTANT_CONTENT_CHARS = 120_000;
+const MAX_ASSISTANT_CONTENT_CHARS = 30_000;
 const MAX_THINKING_STEPS = 80;
 const MAX_SSE_BUFFER_CHARS = 64_000;
 const ENABLE_BROWSER_AI_PROXY_FALLBACK = import.meta.env.VITE_ENABLE_BROWSER_AI_PROXY_FALLBACK === 'true';

@@ -995,6 +995,14 @@ async def critic_node(state: AgentState) -> dict:
             raise ValueError(f"No JSON found in critic response: {raw_text[:200]}")
         parsed = _json.loads(json_match.group())
         result = CriticResult(**parsed)
+        weighted_score = (
+            result.completeness * 0.4
+            + result.relevance * 0.3
+            + result.accuracy * 0.3
+        )
+        result.passed = bool(
+            result.passed and weighted_score >= 0.7 and result.accuracy >= 0.6
+        )
     except Exception as e:
         # Critic failure should never block the response — silently pass
         logger.warning(f"[CriticNode] Evaluation failed, silently passing: {e}")
@@ -1029,9 +1037,7 @@ async def critic_node(state: AgentState) -> dict:
         return {
             "critic_passed": True,
             "critic_feedback": critic_feedback,
-            "confidence_score": min(
-                result.completeness, result.relevance, result.accuracy
-            ),
+            "confidence_score": weighted_score,
             "current_phase": AgentPhase.RESPONDING,
             "thinking_steps": [
                 ThinkingStep(

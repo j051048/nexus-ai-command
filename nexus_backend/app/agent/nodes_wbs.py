@@ -263,6 +263,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
         wbs_warnings = _validate_wbs(wbs_structure)
         if wbs_warnings:
             logger.warning(f"[WBS] Validation warnings: {wbs_warnings}")
+            raise ValueError("WBS validation failed: " + "; ".join(wbs_warnings))
 
         task_summary = ", ".join(
             f"{t.get('agent_code', '?')}:{t.get('title', '?')}"

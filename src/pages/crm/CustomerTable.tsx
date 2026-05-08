@@ -26,7 +26,7 @@ export interface CustomerTableProps {
   onDelete: (c: Customer) => void;
 }
 
-export default function CustomerTable({
+function CustomerTable({
   customers,
   onSelect,
   onEdit,
@@ -144,3 +144,5 @@ export default function CustomerTable({
     </div>
   );
 }
+
+export default React.memo(CustomerTable);
