@@ -26,6 +26,7 @@ def register_routers(app: FastAPI) -> None:
     # ── 1. AI / Chat ──────────────────────────────────────────────────────
     from app.routers import (
         agent_observability,
+        ai_feedback,
         analysis,
         audio,
         batch,
@@ -66,6 +67,8 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(ws_router.router)
     app.include_router(agent_proactive_router.router)
     app.include_router(agent_observability.router)
+    app.include_router(ai_feedback.router)
+    app.include_router(ai_feedback.router_v1)
     app.include_router(export.router)
     app.include_router(charts.router)
     app.include_router(analysis.router)

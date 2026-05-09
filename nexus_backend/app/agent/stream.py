@@ -846,6 +846,10 @@ async def _run_agent_stream_impl(
                                 "has_plan": bool(state_delta.get("plan")),
                                 "has_response": bool(state_delta.get("final_response")),
                                 "confidence": state_delta.get("confidence_score"),
+                                "prompt_snapshot": state_delta.get("prompt_snapshot")
+                                or accumulated_state.get("prompt_snapshot"),
+                                "context_ledger": state_delta.get("context_ledger")
+                                or accumulated_state.get("context_ledger"),
                             },
                             tokens_used=(state_delta.get("total_input_tokens", 0) or 0)
                             + (state_delta.get("total_output_tokens", 0) or 0),
@@ -871,6 +875,10 @@ async def _run_agent_stream_impl(
                                 "iteration": accumulated_state.get("iteration", 0),
                                 "has_plan": bool(state_delta.get("plan")),
                                 "has_response": bool(state_delta.get("final_response")),
+                                "prompt_snapshot": state_delta.get("prompt_snapshot")
+                                or accumulated_state.get("prompt_snapshot"),
+                                "context_ledger": state_delta.get("context_ledger")
+                                or accumulated_state.get("context_ledger"),
                                 "completed_tools": [
                                     getattr(tc, "tool_name", "")
                                     for tc in state_delta.get(
@@ -1372,7 +1380,19 @@ async def _run_agent_stream_impl(
     check_agent_success_rate(_success)
 
     try:
+        from app.services.agent_cost_attribution import build_cost_attribution
         from app.services.agent_run_observability import agent_run_observer
+
+        _run_cost = _calc_cost_usd(actual_model, total_in, total_out)
+        _prompt_snapshot = accumulated_state.get("prompt_snapshot")
+        _context_ledger = accumulated_state.get("context_ledger")
+        _cost_attribution = build_cost_attribution(
+            prompt_snapshot=_prompt_snapshot,
+            context_ledger=_context_ledger,
+            input_tokens=total_in,
+            output_tokens=total_out,
+            cost_usd=_run_cost,
+        )
 
         await agent_run_observer.finish_run(
             run_id=accumulated_state.get("agent_run_id"),
@@ -1381,13 +1401,16 @@ async def _run_agent_stream_impl(
             final_response=final_response,
             input_tokens=total_in,
             output_tokens=total_out,
-            cost_usd=_calc_cost_usd(actual_model, total_in, total_out),
+            cost_usd=_run_cost,
             duration_ms=duration_ms,
             metadata={
                 "complexity": _tier,
                 "model": actual_model,
                 "tool_count": len(completed_tools),
                 "thinking_steps": len(all_thinking_steps),
+                "prompt_snapshot": _prompt_snapshot,
+                "context_ledger": _context_ledger,
+                "cost_attribution": _cost_attribution,
             },
         )
     except Exception:
@@ -1399,6 +1422,14 @@ async def _run_agent_stream_impl(
 
     # P3: End agent trace and persist to DB
     try:
+        _trace = agent_trace_service.get_trace(_trace_id)
+        if _trace:
+            _trace.metadata.update(
+                {
+                    "prompt_snapshot": accumulated_state.get("prompt_snapshot"),
+                    "context_ledger": accumulated_state.get("context_ledger"),
+                }
+            )
         agent_trace_service.end_trace(
             _trace_id,
             TraceStatus.COMPLETED,

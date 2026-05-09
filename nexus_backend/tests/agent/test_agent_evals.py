@@ -25,6 +25,7 @@ if _backend_root not in sys.path:
 
 from evals.eval_metrics import EvalDimension, MetricsReporter
 from evals.eval_runner import EvalRunner
+from evals.evaluators.agent_replay import AgentReplayEvaluator
 from evals.evaluators.e2e_golden import E2EGoldenEvaluator
 from evals.evaluators.hallucination import HallucinationEvaluator
 from evals.evaluators.latency_cost import LatencyCostEvaluator
@@ -340,6 +341,21 @@ class TestRAGQualityEval:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+class TestAgentReplayEval:
+    """Replay harness gate: trace/cassette contracts must stay deterministic."""
+
+    @pytest.mark.asyncio
+    async def test_agent_replay_contract_baseline(self, runner):
+        dataset = runner.load_dataset("agent_replay")
+        evaluator = AgentReplayEvaluator()
+        results = await runner.run_evaluation(dataset, evaluator)
+        report = runner.generate_report(results, EvalDimension.AGENT_REPLAY)
+        failed = [r.case_id for r in results if not r.passed]
+        assert report.accuracy >= 0.95, (
+            f"Agent Replay contract pass rate {report.accuracy:.2%} < 95%; failed={failed}"
+        )
+
+
 class TestOverallBaseline:
     """跨维度综合检查: 确保所有维度同时达标。"""
 
@@ -358,6 +374,7 @@ class TestOverallBaseline:
             ("router_accuracy", RouterAccuracyEvaluator(), EvalDimension.ROUTER_ACCURACY),
             ("latency_cost", LatencyCostEvaluator(), EvalDimension.LATENCY_COST),
             ("rag_quality", RAGQualityEvaluator(), EvalDimension.RAG_QUALITY),
+            ("agent_replay", AgentReplayEvaluator(), EvalDimension.AGENT_REPLAY),
         ]
 
         for dataset_name, evaluator, dimension in evaluators:
@@ -375,6 +392,7 @@ class TestOverallBaseline:
             EvalDimension.ROUTER_ACCURACY: 0.85,
             EvalDimension.LATENCY_COST: 0.80,
             EvalDimension.RAG_QUALITY: 0.70,
+            EvalDimension.AGENT_REPLAY: 0.95,
         }
         try:
             baseline_path = Path(__file__).parent.parent / "evals" / "baseline_scores.json"

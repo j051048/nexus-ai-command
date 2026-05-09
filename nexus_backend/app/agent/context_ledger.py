@@ -11,7 +11,6 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-
 MOJIBAKE_MARKERS = ("锛", "鈥", "銆", "�", "鐨", "浣", "涓")
 
 

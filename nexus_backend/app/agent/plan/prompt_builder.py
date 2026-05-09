@@ -313,8 +313,8 @@ def _inject_slot_context(lc_msgs, state):
 
 async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
     try:
-        from app.agent.context_ledger import ContextLedger
         from app.agent.context_engine import context_engine
+        from app.agent.context_ledger import ContextLedger
 
         # Dynamic budget: adjust based on selected model's context window
         _resolved = agent_config.resolved_configs or {}

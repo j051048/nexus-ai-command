@@ -147,3 +147,27 @@ def test_llm_gateway_has_ab_routing_policy():
     assert "choose_model_variant" in dispatch
     assert "LLM_ENABLE_AB_ROUTING" in policy
     assert "LLM_AB_ECONOMY_MODEL" in policy
+
+
+def test_prompt_context_harness_is_wired_to_ops():
+    prompt_registry = read("nexus_backend/app/core/prompts_registry.py")
+    prompt_builder = read("nexus_backend/app/agent/plan/prompt_builder.py")
+    stream = read("nexus_backend/app/agent/stream.py")
+    agent_runs = read("nexus_backend/app/routers/agent_observability.py")
+    replay = read("nexus_backend/app/routers/agent_replay.py")
+    frontend = read("src/pages/AgentRunsPage.tsx")
+    celery = read("nexus_backend/app/core/celery_app.py")
+    assert "_install_clean_runtime_prompts" in prompt_registry
+    assert "get_prompt_manifest" in prompt_registry
+    assert "prompt_snapshot" in prompt_builder
+    assert "context_ledger" in prompt_builder
+    assert "cost_attribution" in stream
+    assert "/prompt-lint" in agent_runs
+    assert "/quality/trends" in agent_runs
+    assert "/shadow-eval" in agent_runs
+    assert "/context-ablation" in agent_runs
+    assert "promote_failures_to_eval_cases" in replay
+    assert "agent_eval_cases" in replay
+    assert "promote-agent-failures-to-evals" in celery
+    assert "Prompt Lint" in frontend
+    assert "Eval 标注队列" in frontend

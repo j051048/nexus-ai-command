@@ -74,6 +74,29 @@ def crawl_arxiv_leads():
     return f"Crawled and processed {len(papers)} papers."
 
 
+@celery_app.task(base=NexusTask)
+@_with_redis_lock("promote_agent_failures_to_eval_cases", lock_ttl=900)
+def promote_agent_failures_to_eval_cases(limit: int = 100):
+    """Promote recent production failures into pending eval cases."""
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.eval_case_promotion_service import (
+            eval_case_promotion_service,
+        )
+
+        if not supabase:
+            return {"promoted": 0, "reason": "no_db"}
+
+        rows = await eval_case_promotion_service.promote_recent_failures(
+            db=supabase,
+            limit=limit,
+        )
+        return {"promoted": len(rows)}
+
+    return _run_async(_run())
+
+
 @celery_app.task(base=NexusTask, bind=True, max_retries=2, default_retry_delay=60)
 @_with_redis_lock("push_daily_briefing", lock_ttl=600)
 def push_daily_briefing(self):

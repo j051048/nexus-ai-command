@@ -8,6 +8,7 @@ Includes Time Travel support via session timeline and checkpoint history.
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
@@ -15,6 +16,12 @@ from app.services.agent_replay_service import agent_replay_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/agent/replay", tags=["Agent Replay"])
+
+
+class EvalCaseUpdate(BaseModel):
+    status: str | None = None
+    expected_json: dict | None = None
+    metadata_json: dict | None = None
 
 
 # IMPORTANT: Static path segments (/compare, /session/*, /checkpoint/*)
@@ -130,6 +137,83 @@ async def promote_failures_to_eval_cases(
     except Exception as e:
         logger.error(f"[Replay] promote failures error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Failed to promote failures")
+
+
+@router.get("/eval-cases")
+async def list_eval_cases(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    status: str | None = Query(None, max_length=40),
+    dimension: str | None = Query(None, max_length=80),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """List pending/labelled eval cases for the current tenant."""
+    try:
+        org_id = getattr(request.state, "org_id", None)
+        db = getattr(request.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database unavailable")
+        query = (
+            db.table("agent_eval_cases")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        if status:
+            query = query.eq("status", status)
+        if dimension:
+            query = query.eq("dimension", dimension)
+        result = await query.execute()
+        return api_success(data={"cases": result.data or []})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Replay] list eval cases error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Failed to list eval cases")
+
+
+@router.patch("/eval-cases/{case_id}")
+async def update_eval_case(
+    case_id: str,
+    body: EvalCaseUpdate,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Label or update an eval case."""
+    try:
+        db = getattr(request.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database unavailable")
+        patch = {
+            k: v
+            for k, v in {
+                "status": body.status,
+                "expected_json": body.expected_json,
+                "metadata_json": body.metadata_json,
+            }.items()
+            if v is not None
+        }
+        if not patch:
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No changes provided")
+        if patch.get("status") in {"labelled", "active"}:
+            from datetime import UTC, datetime
+
+            patch["labelled_by"] = user_id
+            patch["labelled_at"] = datetime.now(UTC).isoformat()
+        result = (
+            await db.table("agent_eval_cases")
+            .update(patch)
+            .eq("id", case_id)
+            .execute()
+        )
+        return api_success(data={"case": (result.data or [None])[0]})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Replay] update eval case error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Failed to update eval case")
 
 
 @router.get("/{thread_id}")

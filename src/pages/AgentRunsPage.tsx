@@ -105,6 +105,36 @@ interface CostAlertsData {
   };
 }
 
+interface QualityTrendsData {
+  days: number;
+  run_count: number;
+  failure_rate: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  avg_duration_ms: number;
+  eval_cases: {
+    total: number;
+    pending_label: number;
+    by_dimension: Record<string, number>;
+  };
+}
+
+interface PromptLintData {
+  total_issues: number;
+  error_count: number;
+  warning_count: number;
+  issues: Array<{ code: string; severity: string; message: string; location: string }>;
+}
+
+interface EvalCase {
+  id: string;
+  status: string;
+  dimension: string;
+  input_json?: Record<string, unknown>;
+  expected_json?: Record<string, unknown>;
+  metadata_json?: Record<string, unknown>;
+}
+
 const STATUS_OPTIONS = ['all', 'running', 'completed', 'failed', 'error', 'cancelled'];
 
 function formatDate(value?: string) {
@@ -176,6 +206,9 @@ export default function AgentRunsPage() {
   const [summary, setSummary] = useState<AgentRunSummary | null>(null);
   const [selected, setSelected] = useState<AgentRunDetailData | null>(null);
   const [costAlerts, setCostAlerts] = useState<CostAlertsData | null>(null);
+  const [qualityTrends, setQualityTrends] = useState<QualityTrendsData | null>(null);
+  const [promptLint, setPromptLint] = useState<PromptLintData | null>(null);
+  const [evalCases, setEvalCases] = useState<EvalCase[]>([]);
   const [status, setStatus] = useState('all');
   const [sessionId, setSessionId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -193,6 +226,25 @@ export default function AgentRunsPage() {
     }
   }, []);
 
+  const fetchQualityOps = useCallback(async () => {
+    try {
+      const [trendRes, lintRes, evalRes] = await Promise.all([
+        httpClient.get<ApiResponse<QualityTrendsData>>('/api/agent-runs/quality/trends', { params: { days: 30 } }),
+        httpClient.get<ApiResponse<PromptLintData>>('/api/agent-runs/prompt-lint'),
+        httpClient.get<ApiResponse<{ cases: EvalCase[] }>>('/api/agent/replay/eval-cases', {
+          params: { status: 'pending_label', limit: 20 },
+        }),
+      ]);
+      setQualityTrends(trendRes.data.data);
+      setPromptLint(lintRes.data.data);
+      setEvalCases(evalRes.data.data.cases || []);
+    } catch {
+      setQualityTrends(null);
+      setPromptLint(null);
+      setEvalCases([]);
+    }
+  }, []);
+
   const fetchRuns = useCallback(async () => {
     setLoading(true);
     try {
@@ -203,12 +255,13 @@ export default function AgentRunsPage() {
       setRuns(response.data.data.runs || []);
       setSummary(response.data.data.summary);
       await fetchCostAlerts();
+      await fetchQualityOps();
     } catch {
       toast.error('Agent Run 列表加载失败');
     } finally {
       setLoading(false);
     }
-  }, [fetchCostAlerts, sessionId, status]);
+  }, [fetchCostAlerts, fetchQualityOps, sessionId, status]);
 
   const fetchDetail = useCallback(async (run: AgentRun) => {
     const ref = run.id || run.run_id;
@@ -243,6 +296,22 @@ export default function AgentRunsPage() {
       setReplaying(false);
     }
   }, [fetchRuns, selected]);
+
+  const markEvalCaseReviewed = useCallback(async (item: EvalCase) => {
+    try {
+      await httpClient.patch(`/api/agent/replay/eval-cases/${item.id}`, {
+        status: 'labelled',
+        expected_json: {
+          ...(item.expected_json || {}),
+          human_reviewed: true,
+        },
+      });
+      toast.success('Eval 样本已标注');
+      await fetchQualityOps();
+    } catch {
+      toast.error('Eval 样本标注失败');
+    }
+  }, [fetchQualityOps]);
 
   useEffect(() => {
     fetchRuns();
@@ -286,6 +355,46 @@ export default function AgentRunsPage() {
         <StatCard title="运行中" value={statusCounts.running ?? 0} icon={<Clock className="h-5 w-5" />} />
         <StatCard title="失败" value={(statusCounts.failed ?? 0) + (statusCounts.error ?? 0)} icon={<AlertTriangle className="h-5 w-5" />} />
         <StatCard title="成本 USD" value={`$${(summary?.total_cost_usd ?? 0).toFixed(4)}`} icon={<DollarSign className="h-5 w-5" />} />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">质量趋势</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">30 天运行</span><span>{qualityTrends?.run_count ?? '-'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">失败率</span><span>{qualityTrends ? `${(qualityTrends.failure_rate * 100).toFixed(1)}%` : '-'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">待标注 Eval</span><span>{qualityTrends?.eval_cases.pending_label ?? evalCases.length}</span></div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Prompt Lint</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">错误</span><span className={promptLint?.error_count ? 'text-red-600' : 'text-emerald-600'}>{promptLint?.error_count ?? '-'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">警告</span><span>{promptLint?.warning_count ?? '-'}</span></div>
+            <p className="line-clamp-2 text-xs text-muted-foreground">{promptLint?.issues?.[0]?.message || '暂无阻断级问题'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Eval 标注队列</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {evalCases.slice(0, 3).map((item) => (
+              <div key={item.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1">
+                <span className="truncate">{String(item.input_json?.query || item.dimension)}</span>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline">{item.dimension}</Badge>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => markEvalCaseReviewed(item)}>标注</Button>
+                </div>
+              </div>
+            ))}
+            {!evalCases.length && <p className="text-muted-foreground">暂无待标注样本</p>}
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -399,6 +508,19 @@ export default function AgentRunsPage() {
                   <div>
                     <h3 className="mb-2 text-sm font-medium">执行拓扑</h3>
                     <TraceTopology events={selected.events} toolCalls={selected.tool_calls} />
+                  </div>
+
+                  <div className="grid gap-2 text-xs">
+                    <div className="rounded-md border p-3">
+                      <div className="mb-1 font-medium">Prompt / Context 巡检</div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Prompt Tokens</span><span>{String((selectedRun.metadata?.prompt_snapshot as Record<string, unknown> | undefined)?.total_tokens_estimated ?? '-')}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Prompt Warnings</span><span>{String(((selectedRun.metadata?.prompt_snapshot as Record<string, unknown> | undefined)?.warnings as unknown[] | undefined)?.length ?? 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Context Tokens</span><span>{String((selectedRun.metadata?.context_ledger as Record<string, unknown> | undefined)?.used_tokens ?? '-')}</span></div>
+                    </div>
+                    <div className="rounded-md border p-3">
+                      <div className="mb-1 font-medium">成本归因</div>
+                      <p className="line-clamp-4 text-muted-foreground">{JSON.stringify((selectedRun.metadata?.cost_attribution as Record<string, unknown> | undefined)?.context_providers || [])}</p>
+                    </div>
                   </div>
 
                   <div>

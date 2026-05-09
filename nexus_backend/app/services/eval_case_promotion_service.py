@@ -7,7 +7,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-
 _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b")
 _PHONE_RE = re.compile(r"\b1[3-9]\d{9}\b")
 _ID_RE = re.compile(r"\b\d{15}(\d{2}[0-9Xx])?\b")
@@ -68,6 +67,7 @@ class EvalCasePromotionService:
             "wrong_tool": "tool_selection",
             "wrong_params": "tool_selection",
             "timeout": "latency_cost",
+            "negative_feedback": "task_completion",
         }.get(error_type, "task_completion")
 
         return PendingEvalCase(

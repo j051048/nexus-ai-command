@@ -39,6 +39,7 @@ const DEFAULT_ENABLED: Set<ModuleFlag> = new Set([
   "reports",
   "sales",
   "work_orders",
+  "workflow_designer",
 ]);
 
 function parseList(value: unknown): Set<string> {

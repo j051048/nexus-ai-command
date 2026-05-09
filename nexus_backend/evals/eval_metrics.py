@@ -20,6 +20,7 @@ class EvalDimension(Enum):
     ROUTER_ACCURACY = "router_accuracy"
     LATENCY_COST = "latency_cost"
     RAG_QUALITY = "rag_quality"
+    AGENT_REPLAY = "agent_replay"
 
 
 @dataclass

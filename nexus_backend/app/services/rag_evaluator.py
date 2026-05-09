@@ -53,7 +53,9 @@ class RAGEvaluator:
                 {
                     "query": query,
                     "retrieved_context": search_result,
+                    "retrieved_items": self._normalize_retrieval(search_result),
                     "expected_keywords": case.get("expected_keywords", []),
+                    "expected_doc_ids": case.get("expected_doc_ids", []),
                     "ground_truth": case.get("ground_truth", ""),
                     "category": case.get("category", ""),
                 }
@@ -64,8 +66,21 @@ class RAGEvaluator:
         if metrics["status"] == "fallback":
             simple = self._compute_simple_metrics(results)
             metrics["metrics"].update(simple["metrics"])
+        metrics["metrics"].update(self._compute_retrieval_metrics(results)["metrics"])
 
         return metrics
+
+    def _normalize_retrieval(self, value: Any) -> list[dict[str, Any]]:
+        if isinstance(value, list):
+            return [v if isinstance(v, dict) else {"text": str(v)} for v in value]
+        if isinstance(value, dict):
+            items = value.get("items") or value.get("results") or []
+            if isinstance(items, list):
+                return [v if isinstance(v, dict) else {"text": str(v)} for v in items]
+            return [value]
+        text = str(value or "")
+        chunks = [c.strip() for c in text.split("\n\n") if c.strip()]
+        return [{"text": c} for c in chunks[:10]]
 
     def _compute_ragas_metrics(self, results: list[dict]) -> dict[str, Any]:
         """Compute RAGAS metrics from evaluation results."""
@@ -169,6 +184,59 @@ class RAGEvaluator:
             "sample_count": total,
             "status": "fallback",
         }
+
+    def _compute_retrieval_metrics(self, results: list[dict]) -> dict[str, Any]:
+        """Compute recall@k / MRR / citation hit style metrics when ids exist."""
+        total_with_ids = 0
+        recall_hits = {1: 0, 3: 0, 5: 0}
+        reciprocal_ranks: list[float] = []
+        keyword_recall_at_5: list[float] = []
+
+        for result in results:
+            items = result.get("retrieved_items") or []
+            expected_ids = {str(x) for x in result.get("expected_doc_ids") or []}
+            if expected_ids:
+                total_with_ids += 1
+                ranks = []
+                for idx, item in enumerate(items, start=1):
+                    item_id = str(
+                        item.get("id")
+                        or item.get("document_id")
+                        or item.get("doc_id")
+                        or item.get("source_id")
+                        or ""
+                    )
+                    if item_id in expected_ids:
+                        ranks.append(idx)
+                for k in recall_hits:
+                    if any(rank <= k for rank in ranks):
+                        recall_hits[k] += 1
+                reciprocal_ranks.append(1 / min(ranks) if ranks else 0)
+
+            keywords = [str(k).lower() for k in result.get("expected_keywords") or []]
+            if keywords:
+                top5_text = "\n".join(str(i.get("text") or i) for i in items[:5]).lower()
+                keyword_recall_at_5.append(
+                    sum(1 for kw in keywords if kw in top5_text) / len(keywords)
+                )
+
+        metrics: dict[str, Any] = {
+            "keyword_recall_at_5": round(
+                sum(keyword_recall_at_5) / len(keyword_recall_at_5), 4
+            )
+            if keyword_recall_at_5
+            else 0,
+        }
+        if total_with_ids:
+            metrics.update(
+                {
+                    "recall_at_1": round(recall_hits[1] / total_with_ids, 4),
+                    "recall_at_3": round(recall_hits[3] / total_with_ids, 4),
+                    "recall_at_5": round(recall_hits[5] / total_with_ids, 4),
+                    "mrr": round(sum(reciprocal_ranks) / len(reciprocal_ranks), 4),
+                }
+            )
+        return {"metrics": metrics, "sample_count": len(results)}
 
 
 rag_evaluator = RAGEvaluator()

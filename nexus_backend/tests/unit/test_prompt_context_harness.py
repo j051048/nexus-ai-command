@@ -13,10 +13,13 @@ from app.agent.context_engine import ContextEngine, ContextProvider
 from app.agent.context_ledger import ContextLedger
 from app.agent.prompt_snapshot import build_prompt_snapshot
 from app.services.agent_replay_harness import agent_replay_harness
+from app.services.agent_cost_attribution import build_cost_attribution
+from app.services.context_ablation_service import context_ablation_service
 from app.services.eval_case_promotion_service import (
     EvalCasePromotionService,
     redact_eval_text,
 )
+from app.services.prompt_linter import prompt_linter
 from evals.evaluators.agent_replay import AgentReplayEvaluator
 
 
@@ -75,6 +78,17 @@ def test_frontend_prompt_file_is_not_backend_mirror():
     assert "BACKEND_PROMPT_MANIFEST_ENDPOINT" in content
     assert "enhanced direct fallback" not in content.lower()
     assert "只能基于本条消息和下方业务数据快照做分析" in content
+
+
+def test_runtime_prompt_registry_is_utf8_clean():
+    from app.core.prompts_registry import SYSTEM_PROMPTS, get_prompt_manifest
+
+    manifest = get_prompt_manifest()
+    assert manifest["frontend_policy"]["direct_mode"] == "minimal_read_only_fallback"
+    assert manifest["system_prompts"]
+    lint = prompt_linter.lint_registry()
+    assert lint["error_count"] == 0
+    assert all("鈥" not in text for text in SYSTEM_PROMPTS.values())
 
 
 def test_agent_replay_harness_asserts_trace_contract():
@@ -139,3 +153,30 @@ def test_failure_log_promotion_redacts_and_builds_pending_case():
     assert row["status"] == "pending_label"
     assert row["dimension"] == "tool_selection"
     assert "[PHONE]" in row["input_json"]["query"]
+
+
+def test_cost_attribution_and_context_ablation():
+    snapshot = {
+        "total_tokens_estimated": 100,
+        "blocks": [
+            {"block_name": "system", "role": "system", "tokens_estimated": 60},
+            {"block_name": "user", "role": "human", "tokens_estimated": 40},
+        ],
+    }
+    ledger = {
+        "used_tokens": 50,
+        "entries": [
+            {"provider": "business_rules", "included": True, "tokens_estimated": 30},
+            {"provider": "chat_history", "included": True, "tokens_estimated": 20},
+        ],
+    }
+    attribution = build_cost_attribution(
+        prompt_snapshot=snapshot,
+        context_ledger=ledger,
+        input_tokens=100,
+        output_tokens=50,
+        cost_usd=0.03,
+    )
+    assert attribution["prompt_blocks"][0]["input_cost_usd_est"] > 0
+    ablation = context_ablation_service.analyze_ledger(ledger)
+    assert ablation["ablations"][0]["provider"] == "business_rules"

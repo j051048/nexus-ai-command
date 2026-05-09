@@ -8,6 +8,7 @@
     "safety": 0.95,
     "router_accuracy": 0.85,
     "latency_cost": 0.80,
-    "rag_quality": 0.70
+    "rag_quality": 0.70,
+    "agent_replay": 0.95
   }
 }

@@ -224,4 +224,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.aggregate_ai_roi_daily",
         "schedule": crontab(hour=0, minute=30),  # 每天凌晨0:30
     },
+    "promote-agent-failures-to-evals": {
+        "task": "app.tasks.scheduler.promote_agent_failures_to_eval_cases",
+        "schedule": crontab(hour=1, minute=10),
+    },
 }

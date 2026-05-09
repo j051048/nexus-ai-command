@@ -13,7 +13,7 @@ from evals.eval_metrics import EvalDimension, EvalResult
 
 
 class AgentReplayEvaluator:
-    dimension = EvalDimension.TASK_COMPLETION
+    dimension = EvalDimension.AGENT_REPLAY
 
     async def evaluate(self, case: dict[str, Any]) -> EvalResult:
         trace_data = case.get("trace") or case.get("cassette") or {}

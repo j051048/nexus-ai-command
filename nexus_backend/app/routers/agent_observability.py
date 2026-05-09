@@ -145,6 +145,150 @@ async def get_agent_runs_summary(
     return api_success(data=_summarize(runs), meta={"sample_size": len(runs)})
 
 
+@router.get("/quality/trends")
+async def get_agent_quality_trends(
+    request: Request,
+    _role: str = Depends(require_agent_ops),
+    _org_id: str = Depends(get_current_org_id),
+    days: int = Query(30, ge=1, le=90),
+):
+    """Return eval/quality trend data for operator dashboards."""
+    from datetime import UTC, datetime, timedelta
+
+    since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+    client = _db(request)
+    runs_result = (
+        await client.table("agent_runs")
+        .select("status, input_tokens, output_tokens, cost_usd, duration_ms, started_at")
+        .gte("started_at", since)
+        .execute()
+    )
+    eval_result = (
+        await client.table("agent_eval_cases")
+        .select("status, dimension, created_at")
+        .gte("created_at", since)
+        .execute()
+    )
+    runs = runs_result.data or []
+    eval_cases = eval_result.data or []
+    failures = [r for r in runs if r.get("status") in {"failed", "error"}]
+    total_tokens = sum(
+        int(r.get("input_tokens") or 0) + int(r.get("output_tokens") or 0)
+        for r in runs
+    )
+    return api_success(
+        data={
+            "days": days,
+            "run_count": len(runs),
+            "failure_rate": round(len(failures) / len(runs), 4) if runs else 0,
+            "total_tokens": total_tokens,
+            "total_cost_usd": round(sum(float(r.get("cost_usd") or 0) for r in runs), 6),
+            "avg_duration_ms": round(
+                sum(int(r.get("duration_ms") or 0) for r in runs) / len(runs)
+            )
+            if runs
+            else 0,
+            "eval_cases": {
+                "total": len(eval_cases),
+                "pending_label": sum(
+                    1 for c in eval_cases if c.get("status") == "pending_label"
+                ),
+                "by_dimension": {
+                    dim: sum(1 for c in eval_cases if c.get("dimension") == dim)
+                    for dim in sorted({c.get("dimension") for c in eval_cases})
+                    if dim
+                },
+            },
+        }
+    )
+
+
+@router.get("/prompt-lint")
+async def lint_runtime_prompts(
+    _role: str = Depends(require_agent_ops),
+    _org_id: str = Depends(get_current_org_id),
+):
+    """Run static prompt lint checks on the backend prompt registry."""
+    from app.services.prompt_linter import prompt_linter
+
+    return api_success(data=prompt_linter.lint_registry())
+
+
+@router.post("/{run_ref}/shadow-eval")
+async def shadow_eval_agent_run(
+    run_ref: str,
+    request: Request,
+    _role: str = Depends(require_agent_ops),
+    _org_id: str = Depends(get_current_org_id),
+):
+    """Run a safe offline shadow assertion against a recorded run."""
+    client = _db(request)
+    query = client.table("agent_runs").select("*")
+    query = (
+        query.eq("id", run_ref)
+        if _UUID_RE.match(run_ref)
+        else query.eq("run_id", run_ref)
+    )
+    run_result = await query.maybe_single().execute()
+    if not run_result.data:
+        raise HTTPException(status_code=404, detail="Agent run not found")
+    run = run_result.data
+    events = (
+        await client.table("agent_events")
+        .select("event_type, node_name, payload, created_at")
+        .eq("agent_run_id", run.get("id"))
+        .order("id", desc=False)
+        .limit(500)
+        .execute()
+    )
+    steps = [
+        {
+            "node_type": e.get("node_name") or e.get("event_type"),
+            "output_data": e.get("payload") or {},
+        }
+        for e in (events.data or [])
+    ]
+    trace_data = {
+        "trace_id": run.get("trace_id"),
+        "total_tokens": int(run.get("input_tokens") or 0)
+        + int(run.get("output_tokens") or 0),
+        "total_duration_ms": run.get("duration_ms") or 0,
+        "final_response": run.get("final_response") or "",
+        "steps": steps,
+    }
+    from app.services.shadow_eval_service import shadow_eval_service
+
+    result = await shadow_eval_service.compare_trace_to_expectations(
+        trace_data=trace_data,
+        candidate_metadata={"source": "recorded_run"},
+    )
+    return api_success(data=result)
+
+
+@router.get("/{run_ref}/context-ablation")
+async def get_context_ablation(
+    run_ref: str,
+    request: Request,
+    _role: str = Depends(require_agent_ops),
+    _org_id: str = Depends(get_current_org_id),
+):
+    """Analyze context-provider token savings/risk for a recorded run."""
+    client = _db(request)
+    query = client.table("agent_runs").select("metadata")
+    query = (
+        query.eq("id", run_ref)
+        if _UUID_RE.match(run_ref)
+        else query.eq("run_id", run_ref)
+    )
+    run_result = await query.maybe_single().execute()
+    if not run_result.data:
+        raise HTTPException(status_code=404, detail="Agent run not found")
+    ledger = (run_result.data.get("metadata") or {}).get("context_ledger") or {}
+    from app.services.context_ablation_service import context_ablation_service
+
+    return api_success(data=context_ablation_service.analyze_ledger(ledger))
+
+
 @router.get("/{run_ref}")
 async def get_agent_run_detail(
     run_ref: str,

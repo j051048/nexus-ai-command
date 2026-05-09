@@ -129,8 +129,10 @@ class TestToolTimeout:
         with (
             patch("app.agent.node_execute.get_tool", return_value=SlowTool()),
             patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.loop_detector.record_tool_call_redis", return_value=False),
         ):
             mock_cb.allow_request.return_value = True
+            config.user_role = "admin"
             result = await _execute_single_tool(record, config)
 
         assert result.status == "error"
@@ -166,9 +168,11 @@ class TestToolException:
             patch("app.agent.node_execute.get_tool", return_value=ErrorTool()),
             patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
             patch("app.agent.node_execute.record_tool_execution"),
+            patch("app.agent.loop_detector.record_tool_call_redis", return_value=False),
         ):
             mock_cb.allow_request.return_value = True
             mock_cb.record_failure = lambda: None
+            config.user_role = "admin"
             result = await _execute_single_tool(record, config)
 
         assert result.status == "error"
@@ -195,9 +199,11 @@ class TestToolException:
             patch("app.agent.node_execute.get_tool", return_value=ErrorTool()),
             patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
             patch("app.agent.node_execute.record_tool_execution"),
+            patch("app.agent.loop_detector.record_tool_call_redis", return_value=False),
         ):
             mock_cb.allow_request.return_value = True
             mock_cb.record_failure = lambda: None
+            config.user_role = "admin"
             result = await _execute_single_tool(record, config)
 
         # format_friendly_error 将 RuntimeError("数据库连接失败") 映射为
@@ -234,9 +240,11 @@ class TestToolNoneReturn:
             patch("app.agent.node_execute.get_tool", return_value=NoneReturnTool()),
             patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
             patch("app.agent.node_execute.record_tool_execution"),
+            patch("app.agent.loop_detector.record_tool_call_redis", return_value=False),
         ):
             mock_cb.allow_request.return_value = True
             mock_cb.record_success = lambda: None
+            config.user_role = "admin"
             result = await _execute_single_tool(record, config)
 
         assert result.status == "success"
