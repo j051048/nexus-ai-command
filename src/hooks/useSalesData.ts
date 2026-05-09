@@ -1,8 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/components/auth/AuthContext';
-import { format, subDays, startOfWeek, subWeeks } from 'date-fns';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { format, startOfWeek, subDays, subWeeks } from 'date-fns';
 import { toast } from 'sonner';
+
+import { useAuth } from '@/components/auth/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { httpClient } from '@/lib/httpClient';
 
 export interface SalesMetric {
@@ -38,7 +39,6 @@ export interface TeamMemberPerformance {
   user_id: string;
 }
 
-// Hook for real-time subscription to sales metrics — replaced with polling
 export function useSalesMetricsRealtime() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -46,7 +46,6 @@ export function useSalesMetricsRealtime() {
   useQuery({
     queryKey: ['sales-metrics-realtime-poll', session?.user?.id],
     queryFn: async () => {
-      // Invalidate all related queries to refetch fresh data
       queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
       queryClient.invalidateQueries({ queryKey: ['win-rate-history'] });
@@ -55,11 +54,10 @@ export function useSalesMetricsRealtime() {
       return null;
     },
     enabled: !!session?.user?.id,
-    refetchInterval: 30000, // 30 seconds
+    refetchInterval: 30000,
   });
 }
 
-// Fetch user's sales metrics for the last N months
 export function useSalesMetrics(months: number = 7) {
   const { session } = useAuth();
 
@@ -67,14 +65,11 @@ export function useSalesMetrics(months: number = 7) {
     queryKey: ['sales-metrics', session?.user?.id, months],
     queryFn: async () => {
       if (!session?.user?.id) return [];
-
       const startDate = format(subDays(new Date(), months * 30), 'yyyy-MM-dd');
       const endDate = format(new Date(), 'yyyy-MM-dd');
-
       const response = await httpClient.get('/api/sales/metrics/range', {
         params: { start_date: startDate, end_date: endDate },
       });
-
       const result = response.data?.data;
       return (Array.isArray(result) ? result : []) as SalesMetric[];
     },
@@ -82,7 +77,6 @@ export function useSalesMetrics(months: number = 7) {
   });
 }
 
-// Fetch sales metrics by date range
 export function useSalesMetricsByRange(startDate: string | null, endDate: string | null) {
   const { session, role, profile } = useAuth();
 
@@ -90,17 +84,8 @@ export function useSalesMetricsByRange(startDate: string | null, endDate: string
     queryKey: ['sales-metrics-range', session?.user?.id, role, startDate, endDate],
     queryFn: async () => {
       if (!session?.user?.id || !startDate || !endDate) return [];
-
-      const params: Record<string, string> = {
-        start_date: startDate,
-        end_date: endDate,
-      };
-
-      // If not boss, request own metrics only
-      if (role !== 'boss') {
-        params.target_user_id = session.user.id;
-      }
-
+      const params: Record<string, string> = { start_date: startDate, end_date: endDate };
+      if (role !== 'boss') params.target_user_id = session.user.id;
       const response = await httpClient.get('/api/sales/metrics/range', { params });
       const result = response.data?.data;
       return (Array.isArray(result) ? result : []) as SalesMetric[];
@@ -109,7 +94,6 @@ export function useSalesMetricsByRange(startDate: string | null, endDate: string
   });
 }
 
-// Fetch win rate data by week for the last N weeks
 export function useWinRateHistory(weeks: number = 8) {
   const { session } = useAuth();
 
@@ -117,51 +101,32 @@ export function useWinRateHistory(weeks: number = 8) {
     queryKey: ['win-rate-history', session?.user?.id, weeks],
     queryFn: async () => {
       if (!session?.user?.id) return [];
-
       const startDate = format(subWeeks(new Date(), weeks), 'yyyy-MM-dd');
       const endDate = format(new Date(), 'yyyy-MM-dd');
-
       const response = await httpClient.get('/api/sales/metrics/range', {
         params: { start_date: startDate, end_date: endDate, target_user_id: session.user.id },
       });
-
       const raw = response.data?.data;
       const data = (Array.isArray(raw) ? raw : []) as Array<{ date: string; win_rate: number | null }>;
-
-      // Group by week and calculate average win rate per week
-      const weeklyData: { week: string; rate: number; target: number }[] = [];
       const weekMap = new Map<string, number[]>();
 
       data.forEach((item) => {
         const weekStart = format(startOfWeek(new Date(item.date), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-        if (!weekMap.has(weekStart)) {
-          weekMap.set(weekStart, []);
-        }
-        if (item.win_rate !== null) {
-          weekMap.get(weekStart)!.push(Number(item.win_rate));
-        }
+        const rates = weekMap.get(weekStart) || [];
+        if (item.win_rate !== null) rates.push(Number(item.win_rate));
+        weekMap.set(weekStart, rates);
       });
 
-      let weekNum = 1;
-      weekMap.forEach((rates, _weekStart) => {
-        const avgRate = rates.length > 0
-          ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
-          : 0;
-        weeklyData.push({
-          week: `第${weekNum}周`,
-          rate: avgRate,
-          target: 25,
-        });
-        weekNum++;
-      });
-
-      return weeklyData;
+      return Array.from(weekMap.entries()).map(([, rates], index) => ({
+        week: `第 ${index + 1} 周`,
+        rate: rates.length ? Math.round(rates.reduce((sum, rate) => sum + rate, 0) / rates.length) : 0,
+        target: 25,
+      }));
     },
     enabled: !!session?.user?.id,
   });
 }
 
-// Fetch monthly revenue data
 export function useRevenueData(months: number = 7) {
   const { session, role, profile } = useAuth();
 
@@ -169,41 +134,32 @@ export function useRevenueData(months: number = 7) {
     queryKey: ['revenue-data', session?.user?.id, role, months, profile?.organization_id],
     queryFn: async () => {
       if (!session?.user?.id) return [];
-
       const startDate = format(subDays(new Date(), months * 30), 'yyyy-MM-dd');
-
       const endDate = format(new Date(), 'yyyy-MM-dd');
       const params: Record<string, string> = { start_date: startDate, end_date: endDate };
-      if (role !== 'boss') {
-        params.target_user_id = session.user.id;
-      }
-
+      if (role !== 'boss') params.target_user_id = session.user.id;
       const response = await httpClient.get('/api/sales/metrics/range', { params });
       const raw = response.data?.data;
       const data = (Array.isArray(raw) ? raw : []) as Array<{ date: string; revenue: number | null }>;
-
-      // Group by month
       const monthMap = new Map<string, number>();
-      const targetPerMonth = 150; // Target in 万
+      const targetPerMonth = 150;
 
       data.forEach((item) => {
         const monthKey = format(new Date(item.date), 'M月');
-        const current = monthMap.get(monthKey) || 0;
-        monthMap.set(monthKey, current + (Number(item.revenue) || 0));
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + (Number(item.revenue) || 0));
       });
 
       return Array.from(monthMap.entries()).map(([month, revenue]) => ({
         month,
-        revenue: Math.round(revenue / 10000), // Convert to 万
+        revenue: Math.round(revenue / 10000),
         target: targetPerMonth,
-        growth: 0, // Could calculate from previous month
+        growth: 0,
       }));
     },
     enabled: !!session?.user?.id,
   });
 }
 
-// Fetch team performance data (for boss role)
 export function useTeamPerformance() {
   const { session, role, profile } = useAuth();
 
@@ -211,7 +167,6 @@ export function useTeamPerformance() {
     queryKey: ['team-performance', session?.user?.id, profile?.organization_id],
     queryFn: async () => {
       if (!session?.user?.id || !profile?.organization_id) return [];
-
       const response = await httpClient.get('/api/sales/team-performance');
       const result = response.data?.data;
       return (Array.isArray(result) ? result : []) as TeamMemberPerformance[];
@@ -220,7 +175,6 @@ export function useTeamPerformance() {
   });
 }
 
-// Fetch leaderboard data
 export function useLeaderboard(limit: number = 5) {
   const { session, profile } = useAuth();
 
@@ -228,26 +182,21 @@ export function useLeaderboard(limit: number = 5) {
     queryKey: ['leaderboard', limit, profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
-
-      const response = await httpClient.get('/api/sales/leaderboard', {
-        params: { limit },
-      });
-
+      const response = await httpClient.get('/api/sales/leaderboard', { params: { limit } });
       const data = Array.isArray(response.data?.data) ? response.data.data : [];
-      return data.map((p: { id: string; name: string; score: number | null; total_bonus: number | null; rank: number | null }, index: number) => ({
+      return data.map((person: { id: string; name: string; score: number | null; total_bonus: number | null }, index: number) => ({
         rank: index + 1,
-        name: p.name,
-        score: p.score || 0,
-        bonus: Number(p.total_bonus) || 0,
+        name: person.name,
+        score: person.score || 0,
+        bonus: Number(person.total_bonus) || 0,
         trend: 'stable' as const,
-        isCurrentUser: p.id === session?.user?.id,
+        isCurrentUser: person.id === session?.user?.id,
       }));
     },
     enabled: !!session?.user?.id && !!profile?.organization_id,
   });
 }
 
-// Save daily sales metrics (with upsert to handle existing dates)
 export function useSaveSalesMetric() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -263,7 +212,6 @@ export function useSaveSalesMetric() {
       date?: string;
     }) => {
       if (!session?.user?.id) throw new Error('Not authenticated');
-
       const response = await httpClient.post('/api/sales/metrics', {
         user_id: session.user.id,
         date: metric.date || format(new Date(), 'yyyy-MM-dd'),
@@ -274,7 +222,6 @@ export function useSaveSalesMetric() {
         calls_made: metric.calls_made || 0,
         score: metric.score || 0,
       });
-
       return response.data?.data;
     },
     onSuccess: () => {
@@ -292,26 +239,14 @@ export function useSaveSalesMetric() {
   });
 }
 
-// Update user's profile score and bonus — kept with supabase (special operation)
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
 
   return useMutation({
-    mutationFn: async (updates: {
-      score?: number;
-      total_bonus?: number;
-      rank?: number;
-    }) => {
+    mutationFn: async (updates: { score?: number; total_bonus?: number; rank?: number }) => {
       if (!session?.user?.id) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('user_id', session.user.id)
-        .select()
-        .single();
-
+      const { data, error } = await supabase.from('profiles').update(updates).eq('user_id', session.user.id).select().single();
       if (error) throw error;
       return data;
     },
@@ -325,59 +260,21 @@ export function useUpdateProfile() {
   });
 }
 
-// Generate mock data for demo purposes — kept with supabase (special operation)
 export function useSeedDemoData() {
-  const queryClient = useQueryClient();
-  const { session } = useAuth();
-
   return useMutation({
     mutationFn: async () => {
-      if (!session?.user?.id) throw new Error('Not authenticated');
-
-      // Generate last 90 days of sample data
-      const records = [];
-      for (let i = 90; i >= 0; i--) {
-        const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
-        records.push({
-          user_id: session.user.id,
-          date,
-          leads_count: Math.floor(Math.random() * 10) + 1,
-          conversions: Math.floor(Math.random() * 5),
-          revenue: Math.floor(Math.random() * 50000) + 10000,
-          win_rate: Math.floor(Math.random() * 30) + 10,
-          calls_made: Math.floor(Math.random() * 20) + 5,
-          score: Math.floor(Math.random() * 20) + 75,
-        });
-      }
-
-      const { error } = await supabase
-        .from('sales_metrics')
-        .upsert(records, { onConflict: 'user_id,date', ignoreDuplicates: true });
-
-      if (error) throw error;
-      return { inserted: records.length };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
-      queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
-      queryClient.invalidateQueries({ queryKey: ['win-rate-history'] });
-      queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
-      toast.success('演示数据已生成');
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || '生成演示数据失败');
+      throw new Error('生产版本已禁用演示数据生成');
     },
   });
 }
 
-// Export sales data as CSV
 export function exportToCSV(data: SalesMetric[], filename: string = 'sales-report') {
   if (!data || data.length === 0) {
     throw new Error('No data to export');
   }
 
   const headers = ['日期', '线索数', '转化数', '营收', '赢率%', '通话数', '绩效分'];
-  const rows = data.map(row => [
+  const rows = data.map((row) => [
     row.date,
     row.leads_count || 0,
     row.conversions || 0,
@@ -386,12 +283,7 @@ export function exportToCSV(data: SalesMetric[], filename: string = 'sales-repor
     row.calls_made || 0,
     row.score || 0,
   ]);
-
-  const csvContent = [
-    headers.join(','),
-    ...rows.map(row => row.join(','))
-  ].join('\n');
-
+  const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
   const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);

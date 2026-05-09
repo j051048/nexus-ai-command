@@ -77,7 +77,7 @@ def test_tool_rag_has_operator_controls():
 def test_agent_run_management_api_is_org_scoped():
     router = read("nexus_backend/app/routers/agent_observability.py")
     database = read("nexus_backend/app/core/database.py")
-    startup = read("nexus_backend/app/startup/routers.py")
+    startup = read("nexus_backend/app/startup/route_groups.py")
     assert 'prefix="/api/agent-runs"' in router
     assert "get_current_org_id" in router
     assert "agent_runs" in router
@@ -128,7 +128,7 @@ def test_cost_tool_plugin_and_deploy_governance_are_wired():
     chat = read("nexus_backend/app/routers/chat.py")
     plugins = read("nexus_backend/app/routers/plugins.py")
     deploy = read("nexus_backend/app/routers/deployment_health.py")
-    startup = read("nexus_backend/app/startup/routers.py")
+    startup = read("nexus_backend/app/startup/route_groups.py")
     doctor = read("scripts/private_deploy_doctor.py")
     assert "/cost-alerts" in usage
     assert "model_cost_concentration" in usage
@@ -171,3 +171,37 @@ def test_prompt_context_harness_is_wired_to_ops():
     assert "promote-agent-failures-to-evals" in celery
     assert "Prompt Lint" in frontend
     assert "Eval 标注队列" in frontend
+
+
+def test_first_launch_saas_guards_are_enforced():
+    flags = read("src/config/featureFlags.ts")
+    payment_service = read("nexus_backend/app/services/payment_service.py")
+    payments_router = read("nexus_backend/app/routers/payments.py")
+    payment_page = read("src/pages/PaymentPage.tsx")
+    readiness = read("scripts/production_readiness_check.mjs")
+    env_example = read(".env.production.example")
+
+    default_enabled = flags.split("const DEFAULT_ENABLED", 1)[1].split("]);", 1)[0]
+    assert '"workflow_designer"' not in default_enabled
+    assert '"oa"' not in default_enabled
+    assert "FIRST_LAUNCH_DISABLED_MODULES" in flags
+    assert "PAYMENT_ENABLE_WECHAT_SANDBOX" in payment_service
+    assert "PAYMENT_ENABLE_ALIPAY_SANDBOX" in payment_service
+    assert "该支付渠道尚未在生产环境启用" in payment_service
+    assert "/methods" in payments_router
+    assert "首发生产环境仅开放对公转账" in payment_page
+    assert "first launch enabled modules are scoped" in readiness
+    assert "beta modules disabled" in readiness
+    assert "workflow_designer" in env_example
+    assert "oa" in env_example
+
+
+def test_router_registration_is_domain_split():
+    startup = read("nexus_backend/app/startup/routers.py")
+    groups = read("nexus_backend/app/startup/route_groups.py")
+    assert "register_crm_sales_routes" in startup
+    assert "register_finance_routes" in startup
+    assert "register_system_routes" in startup
+    assert "def register_crm_sales_routes" in groups
+    assert "def register_finance_routes" in groups
+    assert "def register_optional_routes" in groups

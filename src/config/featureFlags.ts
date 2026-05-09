@@ -34,13 +34,44 @@ const DEFAULT_ENABLED: Set<ModuleFlag> = new Set([
   "documents",
   "finance",
   "knowledge",
-  "oa",
   "projects",
   "reports",
   "sales",
   "work_orders",
-  "workflow_designer",
 ]);
+
+export const FIRST_LAUNCH_ENABLED_MODULES: ModuleFlag[] = [
+  "approval",
+  "billing",
+  "crm",
+  "documents",
+  "finance",
+  "knowledge",
+  "projects",
+  "reports",
+  "sales",
+  "work_orders",
+];
+
+export const FIRST_LAUNCH_DISABLED_MODULES: ModuleFlag[] = [
+  "assets",
+  "battlecards",
+  "certificates",
+  "custom_dashboard",
+  "dev_tools",
+  "form_designer",
+  "hr",
+  "import",
+  "inventory",
+  "oa",
+  "plugins",
+  "report_builder",
+  "soul_document",
+  "tender",
+  "training",
+  "vmd",
+  "workflow_designer",
+];
 
 function parseList(value: unknown): Set<string> {
   if (typeof value !== "string" || value.trim() === "") return new Set();

@@ -1,14 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import { VitePWA } from 'vite-plugin-pwa';
-import { visualizer } from 'rollup-plugin-visualizer';
+import { VitePWA } from "vite-plugin-pwa";
+import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
-// https://vitejs.dev/config/
+
 export default defineConfig(({ mode }) => ({
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
     css: false,
   },
   server: {
@@ -20,87 +20,88 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === 'analyze' && visualizer({ open: true, gzipSize: true, filename: 'stats.html' }),
+    mode === "analyze" && visualizer({ open: true, gzipSize: true, filename: "stats.html" }),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'logo192.png', 'logo512.png', 'apple-touch-icon.png'],
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.ico", "logo192.png", "logo512.png", "apple-touch-icon.png"],
       manifest: {
-        name: 'Nexus AI 智能管理平台',
-        short_name: 'Nexus AI',
-        description: 'AI驱动的企业智能管理平台',
-        theme_color: '#6366f1',
-        background_color: '#0f172a',
-        display: 'standalone',
-        start_url: '/',
-        scope: '/',
+        name: "Nexus AI 智能管理平台",
+        short_name: "Nexus AI",
+        description: "AI 驱动的企业智能管理平台",
+        theme_color: "#6366f1",
+        background_color: "#0f172a",
+        display: "standalone",
+        start_url: "/",
+        scope: "/",
         icons: [
-          { src: '/logo192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/logo512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: "/logo192.png", sizes: "192x192", type: "image/png" },
+          { src: "/logo512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
         ],
       },
       workbox: {
-        globPatterns: ['index.html', 'assets/index-*.css', 'assets/vendor-react-*.js'],
-        globIgnores: ['**/node_modules/**', '**/*.map', '**/stats.html', '**/assets/vendor-syntax-*.js', '**/assets/vendor-charts-*.js', '**/assets/jspdf*.js'],
+        globPatterns: ["index.html", "assets/index-*.css", "assets/vendor-react-*.js"],
+        globIgnores: [
+          "**/node_modules/**",
+          "**/*.map",
+          "**/stats.html",
+          "**/assets/vendor-syntax-*.js",
+          "**/assets/vendor-charts-*.js",
+          "**/assets/jspdf*.js",
+        ],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
-          // HTML pages: NetworkFirst (always get latest, fallback to cache offline)
           {
             urlPattern: /\/[^.]*$/,
-            handler: 'NetworkFirst',
+            handler: "NetworkFirst",
             options: {
-              cacheName: 'html-cache',
+              cacheName: "html-cache",
               expiration: { maxEntries: 20, maxAgeSeconds: 24 * 60 * 60 },
               networkTimeoutSeconds: 3,
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // API requests: NetworkFirst (prefer fresh data, use cache when offline)
           {
             urlPattern: /^https:\/\/.*\/api\//,
-            handler: 'NetworkFirst',
+            handler: "NetworkFirst",
             options: {
-              cacheName: 'api-cache',
+              cacheName: "api-cache",
               expiration: { maxEntries: 100, maxAgeSeconds: 5 * 60 },
               networkTimeoutSeconds: 5,
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Static JS/CSS assets: CacheFirst (immutable hashed filenames)
           {
             urlPattern: /\.(?:js|css)$/,
-            handler: 'CacheFirst',
+            handler: "CacheFirst",
             options: {
-              cacheName: 'static-assets-cache',
+              cacheName: "static-assets-cache",
               expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Images: CacheFirst (reduce bandwidth)
           {
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
-            handler: 'CacheFirst',
+            handler: "CacheFirst",
             options: {
-              cacheName: 'image-cache',
+              cacheName: "image-cache",
               expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Fonts: CacheFirst with long expiration
           {
             urlPattern: /\.(?:woff|woff2|ttf|otf|eot)$/,
-            handler: 'CacheFirst',
+            handler: "CacheFirst",
             options: {
-              cacheName: 'font-cache',
+              cacheName: "font-cache",
               expiration: { maxEntries: 30, maxAgeSeconds: 30 * 24 * 60 * 60 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Supabase/external API calls: NetworkFirst
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
-            handler: 'NetworkFirst',
+            handler: "NetworkFirst",
             options: {
-              cacheName: 'supabase-cache',
+              cacheName: "supabase-cache",
               expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 },
               networkTimeoutSeconds: 5,
               cacheableResponse: { statuses: [0, 200] },
@@ -116,7 +117,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    chunkSizeWarningLimit: 500, // Warn if any chunk exceeds 500KB
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -126,7 +127,6 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("react-syntax-highlighter")) return "vendor-syntax-core";
           if (id.includes("html2canvas")) return "vendor-html2canvas";
           if (id.includes("jspdf")) return "vendor-jspdf";
-
           if (id.includes("@xyflow/react")) return "vendor-flow";
           if (id.includes("recharts")) return "vendor-charts";
           if (id.includes("lucide-react")) return "vendor-icons";
@@ -135,11 +135,7 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("@hello-pangea/dnd")) return "vendor-dnd";
           if (id.includes("framer-motion") || id.includes("react-joyride")) return "vendor-motion";
           if (id.includes("date-fns") || id.includes("react-day-picker")) return "vendor-date";
-          if (
-            id.includes("react-hook-form") ||
-            id.includes("@hookform/resolvers") ||
-            id.includes("zod")
-          ) {
+          if (id.includes("react-hook-form") || id.includes("@hookform/resolvers") || id.includes("zod")) {
             return "vendor-forms";
           }
           if (
@@ -154,18 +150,10 @@ export default defineConfig(({ mode }) => ({
           ) {
             return "vendor-ui";
           }
-          if (
-            id.includes("react-markdown") ||
-            id.includes("remark-gfm") ||
-            id.includes("rehype-sanitize")
-          ) {
+          if (id.includes("react-markdown") || id.includes("remark-gfm") || id.includes("rehype-sanitize")) {
             return "vendor-markdown";
           }
-          if (
-            id.includes("react-dom") ||
-            id.includes("react-router-dom") ||
-            /node_modules[/\\]react[/\\]/.test(id)
-          ) {
+          if (id.includes("react-dom") || id.includes("react-router-dom") || /node_modules[/\\]react[/\\]/.test(id)) {
             return "vendor-react";
           }
 

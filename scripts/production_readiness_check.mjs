@@ -31,6 +31,37 @@ function parseEnv(file) {
 
 const env = { ...parseEnv(envFile), ...process.env };
 const checks = [];
+const firstLaunchEnabled = [
+  "approval",
+  "billing",
+  "crm",
+  "documents",
+  "finance",
+  "knowledge",
+  "projects",
+  "reports",
+  "sales",
+  "work_orders",
+];
+const firstLaunchDisabled = [
+  "assets",
+  "battlecards",
+  "certificates",
+  "custom_dashboard",
+  "dev_tools",
+  "form_designer",
+  "hr",
+  "import",
+  "inventory",
+  "oa",
+  "plugins",
+  "report_builder",
+  "soul_document",
+  "tender",
+  "training",
+  "vmd",
+  "workflow_designer",
+];
 
 function addCheck(name, ok, severity, hint) {
   checks.push({ name, ok: Boolean(ok), severity, hint });
@@ -48,6 +79,19 @@ function hasRealValue(key) {
 
 function hasAnyRealValue(keys) {
   return keys.some((key) => hasRealValue(key));
+}
+
+function csvSet(key) {
+  return new Set(
+    String(env[key] || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function containsAll(set, values) {
+  return values.every((value) => set.has(value));
 }
 
 addCheck("env file exists", existsSync(path.join(root, envFile)), "critical", `${envFile} must exist`);
@@ -76,6 +120,18 @@ addCheck("AI fallback configured", hasAnyRealValue(["AI_FALLBACK_API_KEY", "AI_F
 addCheck("Sentry configured", hasRealValue("SENTRY_DSN"), "warning", "Needed for production exception triage");
 addCheck("Langfuse configured", env.LANGFUSE_ENABLED !== "true" || hasAnyRealValue(["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]), "warning", "If enabled, configure Langfuse keys");
 addCheck("module flags configured", hasRealValue("VITE_ENABLED_MODULES") || hasRealValue("VITE_DISABLED_MODULES"), "warning", "Gate beta modules before first launch");
+addCheck(
+  "first launch enabled modules are scoped",
+  containsAll(csvSet("VITE_ENABLED_MODULES"), firstLaunchEnabled),
+  "critical",
+  `VITE_ENABLED_MODULES should include only validated first-launch modules: ${firstLaunchEnabled.join(",")}`,
+);
+addCheck(
+  "beta modules disabled",
+  containsAll(csvSet("VITE_DISABLED_MODULES"), firstLaunchDisabled),
+  "critical",
+  `Disable beta modules before first launch: ${firstLaunchDisabled.join(",")}`,
+);
 addCheck("monthly cost cap <= 1500", Number(env.TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT || 999999) <= 1500, "warning", "Keep first launch blast radius small");
 addCheck("tenant LLM concurrency <= 5", Number(env.MAX_CONCURRENT_LLM_PER_TENANT || 999999) <= 5, "warning", "Avoid one tenant exhausting workers");
 
