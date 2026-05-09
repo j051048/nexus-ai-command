@@ -15,7 +15,7 @@ This runbook is for the first 20-50 employee deployment.
 1. Restore the latest backup into staging.
 2. Run the 10-flow smoke test:
    login, chat, CRM, document upload, knowledge query, approval, work order, finance, report, billing.
-3. Review disabled module requests from users and enable only modules that passed internal acceptance.
+3. Review newly opened module usage and disable any module that repeatedly fails smoke testing.
 4. Rotate API keys if any integration logs show suspicious failures.
 5. Review top failed tools and add friendly error mappings.
 
@@ -62,8 +62,10 @@ $env:DATABASE_URL="postgresql://..."
 
 ## Module rollout policy
 
-Default enabled for first launch:
-`crm`, `documents`, `knowledge`, `approval`, `finance`, `work_orders`, `sales`, `projects`, `reports`, `billing`.
+Default enabled for first customer launch:
+`approval`, `assets`, `battlecards`, `billing`, `certificates`, `crm`, `custom_dashboard`, `documents`, `finance`, `form_designer`, `hr`, `import`, `inventory`, `knowledge`, `oa`, `plugins`, `projects`, `report_builder`, `reports`, `sales`, `soul_document`, `tender`, `training`, `vmd`, `workflow_designer`, `work_orders`.
 
-Keep disabled until validated:
-`vmd`, `plugins`, `tender`, `battlecards`, `training`, `inventory`, `assets`, `certificates`, `hr`, `workflow_designer`, `form_designer`, `report_builder`, `custom_dashboard`, `soul_document`, `dev_tools`.
+Keep disabled:
+`dev_tools`.
+
+Integration modules are usable only after their production credentials are configured. For Kingdee-backed flows, set `KINGDEE_BASE_URL` and `KINGDEE_API_KEY`; otherwise the API will return a controlled integration error.

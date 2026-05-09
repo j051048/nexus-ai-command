@@ -100,8 +100,8 @@ def create_app() -> FastAPI:
                 "description": "Robot and RPA device command interface (stub)",
             },
             {
-                "name": "Kingdee Mock",
-                "description": "Mock Kingdee ERP integration (dev only)",
+                "name": "Kingdee",
+                "description": "Kingdee ERP integration through a configured HTTP gateway",
             },
             {"name": "Webhooks", "description": "Webhook subscription and delivery"},
             {"name": "OAuth", "description": "OAuth 2.0 authorization server"},

@@ -21,30 +21,33 @@ This checklist targets the first real rollout for a 20-50 person company.
    The launch feature flags migration must exist and be applied:
    `supabase/migrations/20260508_launch_readiness_feature_flags.sql`.
 
-5. Gate beta modules.
-   Default first-launch modules:
-   `crm,documents,knowledge,approval,finance,work_orders,sales,projects,reports,billing`.
-   Keep `vmd,plugins,tender,battlecards,training,inventory,assets,certificates,workflow_designer,form_designer,report_builder,dev_tools` disabled until internal acceptance passes.
+5. Enable the customer-facing launch modules and keep developer tools closed.
+   Default customer launch modules:
+   `approval,assets,battlecards,billing,certificates,crm,custom_dashboard,documents,finance,form_designer,hr,import,inventory,knowledge,oa,plugins,projects,report_builder,reports,sales,soul_document,tender,training,vmd,workflow_designer,work_orders`.
+   Keep only `dev_tools` disabled unless a named admin explicitly needs it in staging.
 
-6. Lock down CORS.
+6. Configure real external credentials before demonstrating integration workflows.
+   For Kingdee-backed flows, set `KINGDEE_BASE_URL` and `KINGDEE_API_KEY`; otherwise the integration endpoints fail closed instead of returning mock data.
+
+7. Lock down CORS.
    `CORS_ORIGINS` must list exact production app domains. Do not use `*`.
 
-7. Verify health endpoints.
+8. Verify health endpoints.
    Public: `/health`.
    Private: `/health/deep` with `X-Health-Token`.
    Admin readiness: `/api/system/deployment-health`.
 
-8. Run local production readiness check.
+9. Run local production readiness check.
    ```bash
    npm run check:prod -- --env .env.production
    ```
 
-9. Run frontend build.
+10. Run frontend build.
    ```bash
    npm run build
    ```
 
-10. Run core backend hardening tests.
+11. Run core backend hardening tests.
     ```bash
     python -m pytest nexus_backend/tests/unit/test_p1_hardening.py -q -o addopts=''
     ```
@@ -64,8 +67,8 @@ This checklist targets the first real rollout for a 20-50 person company.
 4. Create a restore drill.
    Restore one backup into a staging Supabase project and verify login, CRM, chat, documents, approvals.
 
-5. Freeze admin-only dangerous features.
-   Keep plugin marketplace, workflow designer, form designer, VMD, and developer tools behind module flags.
+5. Review newly opened customer modules with the customer champion.
+   Plugin marketplace, workflow designer, form designer, VMD, tender, training, HR, inventory, assets, and certificates should be exercised with real tenant data before broad rollout.
 
 6. Review cost dashboard every day.
    Watch top users, top tenants, model mix, fallback rate, failed tool calls, and token budget denials.

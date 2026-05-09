@@ -29,48 +29,64 @@ export type ModuleFlag =
 
 const DEFAULT_ENABLED: Set<ModuleFlag> = new Set([
   "approval",
-  "billing",
-  "crm",
-  "documents",
-  "finance",
-  "knowledge",
-  "projects",
-  "reports",
-  "sales",
-  "work_orders",
-]);
-
-export const FIRST_LAUNCH_ENABLED_MODULES: ModuleFlag[] = [
-  "approval",
-  "billing",
-  "crm",
-  "documents",
-  "finance",
-  "knowledge",
-  "projects",
-  "reports",
-  "sales",
-  "work_orders",
-];
-
-export const FIRST_LAUNCH_DISABLED_MODULES: ModuleFlag[] = [
   "assets",
   "battlecards",
+  "billing",
   "certificates",
+  "crm",
   "custom_dashboard",
-  "dev_tools",
+  "documents",
+  "finance",
   "form_designer",
   "hr",
   "import",
   "inventory",
+  "knowledge",
   "oa",
   "plugins",
+  "projects",
   "report_builder",
+  "reports",
+  "sales",
   "soul_document",
   "tender",
   "training",
   "vmd",
   "workflow_designer",
+  "work_orders",
+]);
+
+export const CUSTOMER_LAUNCH_ENABLED_MODULES: ModuleFlag[] = [
+  "approval",
+  "assets",
+  "battlecards",
+  "billing",
+  "certificates",
+  "crm",
+  "custom_dashboard",
+  "documents",
+  "finance",
+  "form_designer",
+  "hr",
+  "import",
+  "inventory",
+  "knowledge",
+  "oa",
+  "plugins",
+  "projects",
+  "report_builder",
+  "reports",
+  "sales",
+  "soul_document",
+  "tender",
+  "training",
+  "vmd",
+  "workflow_designer",
+  "work_orders",
+];
+
+export const CUSTOMER_LAUNCH_DISABLED_MODULES: ModuleFlag[] = [
+  "dev_tools",
 ];
 
 function parseList(value: unknown): Set<string> {

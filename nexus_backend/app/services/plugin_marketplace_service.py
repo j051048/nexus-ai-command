@@ -1,201 +1,175 @@
-"""
-插件/扩展市场服务
+"""Plugin marketplace service for the production launch.
 
-提供:
-- 内置插件注册表管理
-- 插件安装/卸载
-- 插件配置管理
-- 已安装插件查询
+Built-in plugins are real installable integration descriptors. The service
+does not claim fabricated popularity metrics and validates required runtime
+configuration before persisting an install.
 """
+
+from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class PluginMarketplaceService:
-    """插件市场服务"""
+def _field(
+    field_type: str,
+    label: str,
+    *,
+    required: bool = False,
+    placeholder: str | None = None,
+) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "type": field_type,
+        "label": label,
+        "required": required,
+    }
+    if placeholder:
+        data["placeholder"] = placeholder
+    return data
 
-    # 内置插件注册表
+
+class PluginMarketplaceService:
+    """Built-in plugin catalog and install/config persistence helpers."""
+
     BUILTIN_PLUGINS: list[dict[str, Any]] = [
         {
             "id": "plugin_kingdee",
             "name": "金蝶 ERP 集成",
-            "description": "连接金蝶 ERP 系统，同步进销存和财务数据",
+            "description": "连接金蝶 ERP HTTP 网关，同步库存、财务和薪资数据。",
             "category": "erp",
             "version": "1.0.0",
             "icon": "database",
             "is_builtin": True,
             "author": "Nexus 官方",
-            "downloads": 1280,
-            "rating": 4.5,
+            "downloads": 0,
+            "rating": None,
+            "metadata_source": "builtin",
+            "requires_connection_test": True,
             "config_schema": {
-                "api_url": {
-                    "type": "text",
-                    "label": "API 地址",
-                    "required": True,
-                    "placeholder": "https://your-kingdee-instance.com/api",
-                },
-                "api_key": {
-                    "type": "password",
-                    "label": "API 密钥",
-                    "required": True,
-                    "placeholder": "输入 API 密钥",
-                },
+                "api_url": _field("text", "API 地址", required=True, placeholder="https://kingdee.example.com/api"),
+                "api_key": _field("password", "API 密钥", required=True),
             },
         },
         {
             "id": "plugin_wecom_bot",
             "name": "企业微信机器人",
-            "description": "通过企微群机器人推送通知和报告",
+            "description": "通过企业微信群机器人发送通知和日报。",
             "category": "notification",
             "version": "1.0.0",
             "icon": "message-circle",
             "is_builtin": True,
             "author": "Nexus 官方",
-            "downloads": 3560,
-            "rating": 4.8,
+            "downloads": 0,
+            "rating": None,
+            "metadata_source": "builtin",
+            "requires_connection_test": True,
             "config_schema": {
-                "webhook_url": {
-                    "type": "text",
-                    "label": "Webhook 地址",
-                    "required": True,
-                    "placeholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",
-                },
+                "webhook_url": _field("text", "Webhook 地址", required=True, placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"),
             },
         },
         {
             "id": "plugin_email_digest",
             "name": "邮件日报摘要",
-            "description": "每日自动发送工作摘要邮件",
+            "description": "按计划向指定收件人发送工作摘要邮件。",
             "category": "productivity",
             "version": "1.0.0",
             "icon": "mail",
             "is_builtin": True,
             "author": "Nexus 官方",
-            "downloads": 2100,
-            "rating": 4.3,
+            "downloads": 0,
+            "rating": None,
+            "metadata_source": "builtin",
             "config_schema": {
-                "recipients": {
-                    "type": "text",
-                    "label": "收件人",
-                    "required": True,
-                    "placeholder": "多个邮箱以逗号分隔",
-                },
-                "send_time": {
-                    "type": "text",
-                    "label": "发送时间",
-                    "required": False,
-                    "placeholder": "18:00 (默认)",
-                },
+                "recipients": _field("text", "收件人", required=True, placeholder="多个邮箱用逗号分隔"),
+                "send_time": _field("text", "发送时间", placeholder="18:00"),
             },
         },
         {
             "id": "plugin_data_backup",
             "name": "数据自动备份",
-            "description": "定期自动备份组织数据到指定存储",
+            "description": "定期导出组织数据到配置的备份存储。",
             "category": "security",
             "version": "1.0.0",
             "icon": "shield",
             "is_builtin": True,
             "author": "Nexus 官方",
-            "downloads": 980,
-            "rating": 4.6,
+            "downloads": 0,
+            "rating": None,
+            "metadata_source": "builtin",
             "config_schema": {},
         },
         {
             "id": "plugin_dingtalk",
             "name": "钉钉集成",
-            "description": "连接钉钉工作台，同步审批和通知",
+            "description": "连接钉钉工作台，同步审批状态并发送业务通知。",
             "category": "notification",
             "version": "1.0.0",
             "icon": "bell",
             "is_builtin": True,
             "author": "Nexus 官方",
-            "downloads": 2800,
-            "rating": 4.4,
+            "downloads": 0,
+            "rating": None,
+            "metadata_source": "builtin",
+            "requires_connection_test": True,
             "config_schema": {
-                "app_key": {
-                    "type": "text",
-                    "label": "AppKey",
-                    "required": True,
-                    "placeholder": "钉钉应用 AppKey",
-                },
-                "app_secret": {
-                    "type": "password",
-                    "label": "AppSecret",
-                    "required": True,
-                    "placeholder": "钉钉应用 AppSecret",
-                },
+                "app_key": _field("text", "AppKey", required=True),
+                "app_secret": _field("password", "AppSecret", required=True),
             },
         },
         {
             "id": "plugin_ai_report",
             "name": "AI 智能报表",
-            "description": "自动生成周报、月报和数据分析报告",
+            "description": "基于系统内数据生成周报、月报和经营分析报告。",
             "category": "productivity",
             "version": "1.0.0",
             "icon": "bar-chart-3",
             "is_builtin": True,
             "author": "Nexus 官方",
-            "downloads": 1750,
-            "rating": 4.7,
+            "downloads": 0,
+            "rating": None,
+            "metadata_source": "builtin",
             "config_schema": {
-                "report_type": {
-                    "type": "text",
-                    "label": "报表类型",
-                    "required": False,
-                    "placeholder": "weekly/monthly",
-                },
+                "report_type": _field("text", "默认报表类型", placeholder="weekly/monthly"),
             },
         },
         {
             "id": "plugin_yonyou",
             "name": "用友 U8 集成",
-            "description": "对接用友 U8 财务与供应链管理系统",
+            "description": "对接用友 U8 HTTP 网关，读取财务与供应链数据。",
             "category": "erp",
             "version": "1.0.0",
             "icon": "server",
             "is_builtin": True,
             "author": "Nexus 官方",
-            "downloads": 890,
-            "rating": 4.2,
+            "downloads": 0,
+            "rating": None,
+            "metadata_source": "builtin",
+            "requires_connection_test": True,
             "config_schema": {
-                "server_url": {
-                    "type": "text",
-                    "label": "服务器地址",
-                    "required": True,
-                    "placeholder": "https://u8-server.example.com",
-                },
-                "token": {
-                    "type": "password",
-                    "label": "访问令牌",
-                    "required": True,
-                    "placeholder": "输入访问令牌",
-                },
+                "server_url": _field("text", "服务地址", required=True, placeholder="https://u8.example.com"),
+                "token": _field("password", "访问令牌", required=True),
             },
         },
         {
             "id": "plugin_compliance_check",
             "name": "合规审查助手",
-            "description": "自动检查文档和流程的合规性",
+            "description": "检查文档、流程和营销内容中的合规风险。",
             "category": "security",
             "version": "1.0.0",
             "icon": "shield-check",
             "is_builtin": True,
             "author": "Nexus 官方",
-            "downloads": 670,
-            "rating": 4.1,
+            "downloads": 0,
+            "rating": None,
+            "metadata_source": "builtin",
             "config_schema": {},
         },
     ]
 
-    # 插件ID到插件的映射 (缓存)
-    _plugin_map: dict[str, dict] = {}
-
-    def __init__(self):
+    def __init__(self) -> None:
         self._plugin_map = {p["id"]: p for p in self.BUILTIN_PLUGINS}
 
     async def list_plugins(
@@ -203,154 +177,165 @@ class PluginMarketplaceService:
         org_id: str | None = None,
         category: str | None = None,
         db: Any = None,
-    ) -> list[dict]:
-        """列出所有可用插件，附带安装状态"""
-        plugins = list(self.BUILTIN_PLUGINS)
-
-        # 按分类筛选
+    ) -> list[dict[str, Any]]:
+        plugins = [dict(plugin) for plugin in self.BUILTIN_PLUGINS]
         if category and category != "all":
             plugins = [p for p in plugins if p.get("category") == category]
 
-        # 如果有 org_id，标记已安装状态
-        installed_ids: set = set()
+        installed: dict[str, dict[str, Any]] = {}
         if org_id and db:
             try:
                 result = (
                     db.table("installed_plugins")
-                    .select("plugin_id, is_active, config")
+                    .select("plugin_id, is_active, config, updated_at")
                     .eq("organization_id", org_id)
                     .execute()
                 )
-                if result.data:
-                    for row in result.data:
-                        installed_ids.add(row["plugin_id"])
-            except Exception as e:
-                logger.warning(f"Failed to fetch installed plugins: {e}")
+                installed = {row["plugin_id"]: row for row in result.data or []}
+            except Exception as exc:
+                logger.warning("Failed to fetch installed plugins: %s", exc)
 
-        # 附加安装状态
         for plugin in plugins:
-            plugin["installed"] = plugin["id"] in installed_ids
-
+            row = installed.get(plugin["id"])
+            plugin["installed"] = bool(row and row.get("is_active", True))
+            plugin["connection_status"] = self._connection_status(plugin, row)
+            if row:
+                plugin["updated_at"] = row.get("updated_at")
         return plugins
 
-    async def get_plugin(self, plugin_id: str) -> dict | None:
-        """获取单个插件详情"""
-        return self._plugin_map.get(plugin_id)
+    async def get_plugin(self, plugin_id: str) -> dict[str, Any] | None:
+        plugin = self._plugin_map.get(plugin_id)
+        return dict(plugin) if plugin else None
 
     async def install_plugin(
         self,
         org_id: str,
         plugin_id: str,
-        config: dict | None = None,
+        config: dict[str, Any] | None = None,
         db: Any = None,
-    ) -> dict:
-        """安装插件到组织"""
-        plugin = self._plugin_map.get(plugin_id)
-        if not plugin:
-            raise ValueError(f"插件不存在: {plugin_id}")
-
-        # 验证必填配置
-        schema = plugin.get("config_schema", {})
-        config = config or {}
-        for key, field_def in schema.items():
-            if field_def.get("required") and not config.get(key):
-                raise ValueError(f"缺少必填配置: {field_def.get('label', key)}")
+    ) -> dict[str, Any]:
+        plugin = self._require_plugin(plugin_id)
+        cleaned_config = self._validate_config(plugin, config or {})
+        now = datetime.now(UTC).isoformat()
 
         if db:
-            try:
-                db.table("installed_plugins").upsert(
-                    {
-                        "organization_id": org_id,
-                        "plugin_id": plugin_id,
-                        "config": config,
-                        "is_active": True,
-                        "updated_at": datetime.utcnow().isoformat(),
-                    },
-                    on_conflict="organization_id,plugin_id",
-                ).execute()
-                logger.info(f"Plugin {plugin_id} installed for org {org_id}")
-            except Exception as e:
-                logger.error(f"Failed to install plugin: {e}")
-                raise
+            db.table("installed_plugins").upsert(
+                {
+                    "organization_id": org_id,
+                    "plugin_id": plugin_id,
+                    "config": cleaned_config,
+                    "is_active": True,
+                    "updated_at": now,
+                },
+                on_conflict="organization_id,plugin_id",
+            ).execute()
+            logger.info("Plugin %s installed for org %s", plugin_id, org_id)
 
         return {
             **plugin,
             "installed": True,
-            "config": config,
+            "config": cleaned_config,
             "is_active": True,
-            "installed_at": datetime.utcnow().isoformat(),
+            "installed_at": now,
+            "updated_at": now,
+            "connection_status": "configured",
         }
 
     async def uninstall_plugin(
         self, org_id: str, plugin_id: str, db: Any = None
     ) -> bool:
-        """从组织卸载插件"""
+        self._require_plugin(plugin_id)
         if db:
-            try:
-                db.table("installed_plugins").delete().eq("organization_id", org_id).eq(
-                    "plugin_id", plugin_id
-                ).execute()
-                logger.info(f"Plugin {plugin_id} uninstalled for org {org_id}")
-            except Exception as e:
-                logger.error(f"Failed to uninstall plugin: {e}")
-                raise
+            db.table("installed_plugins").delete().eq("organization_id", org_id).eq(
+                "plugin_id", plugin_id
+            ).execute()
+            logger.info("Plugin %s uninstalled for org %s", plugin_id, org_id)
         return True
 
     async def update_plugin_config(
-        self, org_id: str, plugin_id: str, config: dict, db: Any = None
-    ) -> dict:
-        """更新插件配置"""
+        self, org_id: str, plugin_id: str, config: dict[str, Any], db: Any = None
+    ) -> dict[str, Any]:
+        plugin = self._require_plugin(plugin_id)
+        cleaned_config = self._validate_config(plugin, config)
+        now = datetime.now(UTC).isoformat()
+
+        if db:
+            db.table("installed_plugins").update(
+                {"config": cleaned_config, "updated_at": now}
+            ).eq("organization_id", org_id).eq("plugin_id", plugin_id).execute()
+            logger.info("Plugin %s config updated for org %s", plugin_id, org_id)
+
+        return {
+            **plugin,
+            "config": cleaned_config,
+            "installed": True,
+            "updated_at": now,
+            "connection_status": "configured",
+        }
+
+    async def get_installed_plugins(self, org_id: str, db: Any = None) -> list[dict[str, Any]]:
+        installed: list[dict[str, Any]] = []
+        if not db:
+            return installed
+
+        try:
+            result = (
+                db.table("installed_plugins")
+                .select("*")
+                .eq("organization_id", org_id)
+                .eq("is_active", True)
+                .execute()
+            )
+            for row in result.data or []:
+                plugin = self._plugin_map.get(row["plugin_id"])
+                if plugin:
+                    installed.append(
+                        {
+                            **plugin,
+                            "installed": True,
+                            "is_active": row.get("is_active", True),
+                            "config": row.get("config", {}),
+                            "installed_at": row.get("installed_at"),
+                            "updated_at": row.get("updated_at"),
+                            "connection_status": self._connection_status(plugin, row),
+                        }
+                    )
+        except Exception as exc:
+            logger.warning("Failed to fetch installed plugins: %s", exc)
+        return installed
+
+    def _require_plugin(self, plugin_id: str) -> dict[str, Any]:
         plugin = self._plugin_map.get(plugin_id)
         if not plugin:
             raise ValueError(f"插件不存在: {plugin_id}")
+        return dict(plugin)
 
-        if db:
-            try:
-                db.table("installed_plugins").update(
-                    {
-                        "config": config,
-                        "updated_at": datetime.utcnow().isoformat(),
-                    }
-                ).eq("organization_id", org_id).eq("plugin_id", plugin_id).execute()
-                logger.info(f"Plugin {plugin_id} config updated for org {org_id}")
-            except Exception as e:
-                logger.error(f"Failed to update plugin config: {e}")
-                raise
+    def _validate_config(
+        self, plugin: dict[str, Any], config: dict[str, Any]
+    ) -> dict[str, Any]:
+        schema = plugin.get("config_schema") or {}
+        cleaned: dict[str, Any] = {}
+        for key, field_def in schema.items():
+            raw_value = config.get(key)
+            value = raw_value.strip() if isinstance(raw_value, str) else raw_value
+            if field_def.get("required") and not value:
+                raise ValueError(f"缺少必填配置: {field_def.get('label', key)}")
+            if value:
+                if key.endswith("_url") or key in {"api_url", "server_url", "webhook_url"}:
+                    if not str(value).startswith(("https://", "http://")):
+                        raise ValueError(f"{field_def.get('label', key)} 必须是 http(s) 地址")
+                cleaned[key] = value
+        return cleaned
 
-        return {**plugin, "config": config, "installed": True}
-
-    async def get_installed_plugins(self, org_id: str, db: Any = None) -> list[dict]:
-        """获取组织已安装的插件列表"""
-        installed = []
-
-        if db:
-            try:
-                result = (
-                    db.table("installed_plugins")
-                    .select("*")
-                    .eq("organization_id", org_id)
-                    .eq("is_active", True)
-                    .execute()
-                )
-
-                if result.data:
-                    for row in result.data:
-                        plugin = self._plugin_map.get(row["plugin_id"])
-                        if plugin:
-                            installed.append(
-                                {
-                                    **plugin,
-                                    "installed": True,
-                                    "is_active": row.get("is_active", True),
-                                    "config": row.get("config", {}),
-                                    "installed_at": row.get("installed_at"),
-                                    "updated_at": row.get("updated_at"),
-                                }
-                            )
-            except Exception as e:
-                logger.warning(f"Failed to fetch installed plugins: {e}")
-
-        return installed
+    def _connection_status(
+        self, plugin: dict[str, Any], install_row: dict[str, Any] | None
+    ) -> str:
+        if not install_row:
+            return "not_installed"
+        config = install_row.get("config") or {}
+        if plugin.get("requires_connection_test"):
+            return "configured" if config else "needs_configuration"
+        return "ready"
 
 
 plugin_marketplace_service = PluginMarketplaceService()

@@ -182,18 +182,45 @@ def test_first_launch_saas_guards_are_enforced():
     env_example = read(".env.production.example")
 
     default_enabled = flags.split("const DEFAULT_ENABLED", 1)[1].split("]);", 1)[0]
-    assert '"workflow_designer"' not in default_enabled
-    assert '"oa"' not in default_enabled
-    assert "FIRST_LAUNCH_DISABLED_MODULES" in flags
+    assert '"workflow_designer"' in default_enabled
+    assert '"oa"' in default_enabled
+    assert '"dev_tools"' not in default_enabled
+    assert "CUSTOMER_LAUNCH_ENABLED_MODULES" in flags
+    assert "CUSTOMER_LAUNCH_DISABLED_MODULES" in flags
     assert "PAYMENT_ENABLE_WECHAT_SANDBOX" in payment_service
     assert "PAYMENT_ENABLE_ALIPAY_SANDBOX" in payment_service
     assert "该支付渠道尚未在生产环境启用" in payment_service
     assert "/methods" in payments_router
     assert "首发生产环境仅开放对公转账" in payment_page
-    assert "first launch enabled modules are scoped" in readiness
-    assert "beta modules disabled" in readiness
+    assert "customer launch modules enabled" in readiness
+    assert "developer tools disabled" in readiness
     assert "workflow_designer" in env_example
     assert "oa" in env_example
+    assert "VITE_DISABLED_MODULES=dev_tools" in env_example
+
+
+def test_customer_launch_integrations_are_not_mocked():
+    kingdee = read("nexus_backend/app/routers/kingdee.py")
+    plugin_service = read("nexus_backend/app/services/plugin_marketplace_service.py")
+    plugin_page = read("src/pages/PluginMarketplace.tsx")
+    main = read("nexus_backend/app/main.py")
+    api_docs = read("nexus_backend/app/core/api_docs.py")
+    env_example = read(".env.production.example")
+
+    assert 'tags=["Kingdee"]' in kingdee
+    assert "Kingdee Mock" not in kingdee
+    assert "httpx.AsyncClient" in kingdee
+    assert "KINGDEE_BASE_URL" in kingdee
+    assert "KINGDEE_API_KEY" in kingdee
+    assert "INTEGRATION_CONNECT_FAILED" in kingdee
+    assert "metadata_source" in plugin_service
+    assert '"rating": None' in plugin_service
+    assert '"downloads": 0' in plugin_service
+    assert "伪造下载/评分指标" in plugin_page
+    assert "renderStars" not in plugin_page
+    assert "Kingdee Mock" not in main
+    assert "Kingdee Mock" not in api_docs
+    assert "KINGDEE_BASE_URL=" in env_example
 
 
 def test_router_registration_is_domain_split():

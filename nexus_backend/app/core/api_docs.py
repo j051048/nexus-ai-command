@@ -207,9 +207,9 @@ API_TAGS_METADATA: list[dict[str, Any]] = [
         ),
     },
     {
-        "name": "Kingdee Mock",
+        "name": "Kingdee",
         "description": (
-            "**金蝶 ERP Mock 集成**\n\n开发环境 Mock API:\n- 模拟金蝶 ERP 接口\n- 财务数据同步模拟"
+            "**金蝶 ERP 集成**\n\n通过配置的金蝶 HTTP 网关对接真实业务系统:\n- 库存查询\n- 薪资同步\n- 缺少凭据时生产环境 fail-closed"
         ),
     },
     {

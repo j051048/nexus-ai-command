@@ -31,36 +31,36 @@ function parseEnv(file) {
 
 const env = { ...parseEnv(envFile), ...process.env };
 const checks = [];
-const firstLaunchEnabled = [
+const customerLaunchEnabled = [
   "approval",
-  "billing",
-  "crm",
-  "documents",
-  "finance",
-  "knowledge",
-  "projects",
-  "reports",
-  "sales",
-  "work_orders",
-];
-const firstLaunchDisabled = [
   "assets",
   "battlecards",
+  "billing",
   "certificates",
+  "crm",
   "custom_dashboard",
-  "dev_tools",
+  "documents",
+  "finance",
   "form_designer",
   "hr",
   "import",
   "inventory",
+  "knowledge",
   "oa",
   "plugins",
+  "projects",
   "report_builder",
+  "reports",
+  "sales",
   "soul_document",
   "tender",
   "training",
   "vmd",
   "workflow_designer",
+  "work_orders",
+];
+const customerLaunchDisabled = [
+  "dev_tools",
 ];
 
 function addCheck(name, ok, severity, hint) {
@@ -119,18 +119,18 @@ addCheck("CORS_ORIGINS locked down", hasRealValue("CORS_ORIGINS") && !env.CORS_O
 addCheck("AI fallback configured", hasAnyRealValue(["AI_FALLBACK_API_KEY", "AI_FALLBACK_BASE_URL"]), "warning", "Fallback provider improves resilience");
 addCheck("Sentry configured", hasRealValue("SENTRY_DSN"), "warning", "Needed for production exception triage");
 addCheck("Langfuse configured", env.LANGFUSE_ENABLED !== "true" || hasAnyRealValue(["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]), "warning", "If enabled, configure Langfuse keys");
-addCheck("module flags configured", hasRealValue("VITE_ENABLED_MODULES") || hasRealValue("VITE_DISABLED_MODULES"), "warning", "Gate beta modules before first launch");
+addCheck("module flags configured", hasRealValue("VITE_ENABLED_MODULES") || hasRealValue("VITE_DISABLED_MODULES"), "warning", "Declare launch modules explicitly");
 addCheck(
-  "first launch enabled modules are scoped",
-  containsAll(csvSet("VITE_ENABLED_MODULES"), firstLaunchEnabled),
+  "customer launch modules enabled",
+  containsAll(csvSet("VITE_ENABLED_MODULES"), customerLaunchEnabled),
   "critical",
-  `VITE_ENABLED_MODULES should include only validated first-launch modules: ${firstLaunchEnabled.join(",")}`,
+  `VITE_ENABLED_MODULES must include customer-facing modules: ${customerLaunchEnabled.join(",")}`,
 );
 addCheck(
-  "beta modules disabled",
-  containsAll(csvSet("VITE_DISABLED_MODULES"), firstLaunchDisabled),
+  "developer tools disabled",
+  containsAll(csvSet("VITE_DISABLED_MODULES"), customerLaunchDisabled),
   "critical",
-  `Disable beta modules before first launch: ${firstLaunchDisabled.join(",")}`,
+  `Disable non-customer developer modules: ${customerLaunchDisabled.join(",")}`,
 );
 addCheck("monthly cost cap <= 1500", Number(env.TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT || 999999) <= 1500, "warning", "Keep first launch blast radius small");
 addCheck("tenant LLM concurrency <= 5", Number(env.MAX_CONCURRENT_LLM_PER_TENANT || 999999) <= 5, "warning", "Avoid one tenant exhausting workers");

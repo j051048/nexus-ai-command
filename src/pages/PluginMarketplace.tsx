@@ -1,84 +1,140 @@
-/**
- * 插件/扩展市场
- * 浏览、安装、配置和管理组织插件
- */
-
-import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Puzzle,
-  Download,
-  Trash2,
-  Settings,
-  Database,
-  MessageCircle,
-  Mail,
-  Shield,
-  Bell,
   BarChart3,
-  Server,
-  ShieldCheck,
-  Star,
+  Bell,
   Check,
-  Search,
-  Package,
+  Database,
+  Download,
   Loader2,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { aiClient } from '@/api/aiClient';
+  Mail,
+  MessageCircle,
+  Package,
+  Puzzle,
+  Search,
+  Server,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
 
-// 类别配置
+import { aiClient } from "@/api/aiClient";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+
 const CATEGORIES = [
-  { value: 'all', label: '全部', icon: Package },
-  { value: 'erp', label: 'ERP', icon: Database },
-  { value: 'notification', label: '通知', icon: Bell },
-  { value: 'productivity', label: '生产力', icon: BarChart3 },
-  { value: 'security', label: '安全', icon: Shield },
+  { value: "all", label: "全部", icon: Package },
+  { value: "erp", label: "ERP", icon: Database },
+  { value: "notification", label: "通知", icon: Bell },
+  { value: "productivity", label: "生产力", icon: BarChart3 },
+  { value: "security", label: "安全", icon: Shield },
+  { value: "installed", label: "已安装", icon: Check },
 ];
 
-// 图标映射
 const ICON_MAP: Record<string, React.ElementType> = {
-  'database': Database,
-  'message-circle': MessageCircle,
-  'mail': Mail,
-  'shield': Shield,
-  'bell': Bell,
-  'bar-chart-3': BarChart3,
-  'server': Server,
-  'shield-check': ShieldCheck,
+  "bar-chart-3": BarChart3,
+  bell: Bell,
+  database: Database,
+  mail: Mail,
+  "message-circle": MessageCircle,
+  server: Server,
+  shield: Shield,
+  "shield-check": ShieldCheck,
 };
 
-// 分类颜色
 const CATEGORY_COLORS: Record<string, string> = {
-  erp: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  notification: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-  productivity: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-  security: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  erp: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300",
+  notification: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300",
+  productivity: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300",
+  security: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300",
 };
 
-// 分类中文名
 const CATEGORY_LABELS: Record<string, string> = {
-  erp: 'ERP',
-  notification: '通知',
-  productivity: '生产力',
-  security: '安全',
+  erp: "ERP",
+  notification: "通知",
+  productivity: "生产力",
+  security: "安全",
 };
 
-interface PluginConfigSchema {
-  [key: string]: {
+const FALLBACK_PLUGINS: Plugin[] = [
+  {
+    id: "plugin_kingdee",
+    name: "金蝶 ERP 集成",
+    description: "连接金蝶 ERP HTTP 网关，同步库存、财务和薪资数据。",
+    category: "erp",
+    version: "1.0.0",
+    icon: "database",
+    is_builtin: true,
+    author: "Nexus 官方",
+    metadata_source: "builtin",
+    connection_status: "not_installed",
+    config_schema: {
+      api_url: { type: "text", label: "API 地址", required: true, placeholder: "https://kingdee.example.com/api" },
+      api_key: { type: "password", label: "API 密钥", required: true },
+    },
+  },
+  {
+    id: "plugin_wecom_bot",
+    name: "企业微信机器人",
+    description: "通过企业微信群机器人发送通知和日报。",
+    category: "notification",
+    version: "1.0.0",
+    icon: "message-circle",
+    is_builtin: true,
+    author: "Nexus 官方",
+    metadata_source: "builtin",
+    connection_status: "not_installed",
+    config_schema: {
+      webhook_url: { type: "text", label: "Webhook 地址", required: true, placeholder: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx" },
+    },
+  },
+  {
+    id: "plugin_email_digest",
+    name: "邮件日报摘要",
+    description: "按计划向指定收件人发送工作摘要邮件。",
+    category: "productivity",
+    version: "1.0.0",
+    icon: "mail",
+    is_builtin: true,
+    author: "Nexus 官方",
+    metadata_source: "builtin",
+    connection_status: "not_installed",
+    config_schema: {
+      recipients: { type: "text", label: "收件人", required: true, placeholder: "多个邮箱用逗号分隔" },
+      send_time: { type: "text", label: "发送时间", required: false, placeholder: "18:00" },
+    },
+  },
+  {
+    id: "plugin_data_backup",
+    name: "数据自动备份",
+    description: "定期导出组织数据到配置的备份存储。",
+    category: "security",
+    version: "1.0.0",
+    icon: "shield",
+    is_builtin: true,
+    author: "Nexus 官方",
+    metadata_source: "builtin",
+    connection_status: "not_installed",
+    config_schema: {},
+  },
+];
+
+type PluginConfigSchema = Record<
+  string,
+  {
     type: string;
     label: string;
     required: boolean;
     placeholder?: string;
-  };
-}
+  }
+>;
 
 interface Plugin {
   id: string;
@@ -89,204 +145,85 @@ interface Plugin {
   icon: string;
   is_builtin: boolean;
   author: string;
-  downloads: number;
-  rating: number;
+  downloads?: number;
+  rating?: number | null;
+  metadata_source?: string;
+  connection_status?: "not_installed" | "needs_configuration" | "configured" | "ready";
   config_schema: PluginConfigSchema;
   installed?: boolean;
   config?: Record<string, string>;
   is_active?: boolean;
-  installed_at?: string;
+  updated_at?: string;
 }
 
-// 内置插件数据（前端降级使用）
-const BUILTIN_PLUGINS: Plugin[] = [
-  {
-    id: 'plugin_kingdee',
-    name: '金蝶 ERP 集成',
-    description: '连接金蝶 ERP 系统，同步进销存和财务数据',
-    category: 'erp',
-    version: '1.0.0',
-    icon: 'database',
-    is_builtin: true,
-    author: 'Nexus 官方',
-    downloads: 1280,
-    rating: 4.5,
-    config_schema: {
-      api_url: { type: 'text', label: 'API 地址', required: true, placeholder: 'https://your-kingdee-instance.com/api' },
-      api_key: { type: 'password', label: 'API 密钥', required: true, placeholder: '输入 API 密钥' },
-    },
-  },
-  {
-    id: 'plugin_wecom_bot',
-    name: '企业微信机器人',
-    description: '通过企微群机器人推送通知和报告',
-    category: 'notification',
-    version: '1.0.0',
-    icon: 'message-circle',
-    is_builtin: true,
-    author: 'Nexus 官方',
-    downloads: 3560,
-    rating: 4.8,
-    config_schema: {
-      webhook_url: { type: 'text', label: 'Webhook 地址', required: true, placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx' },
-    },
-  },
-  {
-    id: 'plugin_email_digest',
-    name: '邮件日报摘要',
-    description: '每日自动发送工作摘要邮件',
-    category: 'productivity',
-    version: '1.0.0',
-    icon: 'mail',
-    is_builtin: true,
-    author: 'Nexus 官方',
-    downloads: 2100,
-    rating: 4.3,
-    config_schema: {
-      recipients: { type: 'text', label: '收件人', required: true, placeholder: '多个邮箱以逗号分隔' },
-      send_time: { type: 'text', label: '发送时间', required: false, placeholder: '18:00 (默认)' },
-    },
-  },
-  {
-    id: 'plugin_data_backup',
-    name: '数据自动备份',
-    description: '定期自动备份组织数据到指定存储',
-    category: 'security',
-    version: '1.0.0',
-    icon: 'shield',
-    is_builtin: true,
-    author: 'Nexus 官方',
-    downloads: 980,
-    rating: 4.6,
-    config_schema: {},
-  },
-  {
-    id: 'plugin_dingtalk',
-    name: '钉钉集成',
-    description: '连接钉钉工作台，同步审批和通知',
-    category: 'notification',
-    version: '1.0.0',
-    icon: 'bell',
-    is_builtin: true,
-    author: 'Nexus 官方',
-    downloads: 2800,
-    rating: 4.4,
-    config_schema: {
-      app_key: { type: 'text', label: 'AppKey', required: true, placeholder: '钉钉应用 AppKey' },
-      app_secret: { type: 'password', label: 'AppSecret', required: true, placeholder: '钉钉应用 AppSecret' },
-    },
-  },
-  {
-    id: 'plugin_ai_report',
-    name: 'AI 智能报表',
-    description: '自动生成周报、月报和数据分析报告',
-    category: 'productivity',
-    version: '1.0.0',
-    icon: 'bar-chart-3',
-    is_builtin: true,
-    author: 'Nexus 官方',
-    downloads: 1750,
-    rating: 4.7,
-    config_schema: {
-      report_type: { type: 'text', label: '报表类型', required: false, placeholder: 'weekly/monthly' },
-    },
-  },
-  {
-    id: 'plugin_yonyou',
-    name: '用友 U8 集成',
-    description: '对接用友 U8 财务与供应链管理系统',
-    category: 'erp',
-    version: '1.0.0',
-    icon: 'server',
-    is_builtin: true,
-    author: 'Nexus 官方',
-    downloads: 890,
-    rating: 4.2,
-    config_schema: {
-      server_url: { type: 'text', label: '服务器地址', required: true, placeholder: 'https://u8-server.example.com' },
-      token: { type: 'password', label: '访问令牌', required: true, placeholder: '输入访问令牌' },
-    },
-  },
-  {
-    id: 'plugin_compliance_check',
-    name: '合规审查助手',
-    description: '自动检查文档和流程的合规性',
-    category: 'security',
-    version: '1.0.0',
-    icon: 'shield-check',
-    is_builtin: true,
-    author: 'Nexus 官方',
-    downloads: 670,
-    rating: 4.1,
-    config_schema: {},
-  },
-];
+interface PluginListResponse {
+  success: boolean;
+  data: { plugins: Plugin[] };
+}
 
 export function PluginMarketplace() {
-  const [plugins, setPlugins] = useState<Plugin[]>(BUILTIN_PLUGINS);
-  const [installedSet, setInstalledSet] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState('all');
-  const [search, setSearch] = useState('');
+  const [plugins, setPlugins] = useState<Plugin[]>(FALLBACK_PLUGINS);
+  const [activeTab, setActiveTab] = useState("all");
+  const [search, setSearch] = useState("");
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedPlugin, setSelectedPlugin] = useState<Plugin | null>(null);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
 
-  // Load installed plugins from backend on mount
+  const loadPlugins = async () => {
+    setLoading(true);
+    try {
+      const res = await aiClient.fetch<PluginListResponse>("api/plugins");
+      setPlugins(res.data?.plugins?.length ? res.data.plugins : FALLBACK_PLUGINS);
+    } catch {
+      setPlugins(FALLBACK_PLUGINS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await aiClient.fetch<{ success: boolean; data: { plugins: Array<{ plugin_id: string; is_active: boolean; config: Record<string, string> }> } }>('api/plugins/installed');
-        const installed = res.data?.plugins || [];
-        const installedIds = new Set(installed.map((p: { plugin_id: string }) => p.plugin_id));
-        setInstalledSet(installedIds);
-        setPlugins((prev) =>
-          prev.map((p) => {
-            const match = installed.find((i: { plugin_id: string }) => i.plugin_id === p.id);
-            return match ? { ...p, installed: true, is_active: match.is_active, config: match.config } : p;
-          })
-        );
-      } catch {
-        // Fallback: use local state only
-      }
-    })();
+    void loadPlugins();
   }, []);
 
-  // 筛选插件
-  const filteredPlugins = plugins.filter((p) => {
-    const matchCategory = activeTab === 'all' || activeTab === 'installed' || p.category === activeTab;
-    const matchSearch = !search || p.name.includes(search) || p.description.includes(search);
-    const matchInstalled = activeTab !== 'installed' || installedSet.has(p.id);
-    return matchCategory && matchSearch && matchInstalled;
-  });
+  const installedCount = useMemo(() => plugins.filter((plugin) => plugin.installed).length, [plugins]);
+
+  const filteredPlugins = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return plugins.filter((plugin) => {
+      const matchCategory = activeTab === "all" || activeTab === "installed" || plugin.category === activeTab;
+      const matchInstalled = activeTab !== "installed" || plugin.installed;
+      const matchSearch =
+        !keyword ||
+        plugin.name.toLowerCase().includes(keyword) ||
+        plugin.description.toLowerCase().includes(keyword) ||
+        plugin.category.toLowerCase().includes(keyword);
+      return matchCategory && matchInstalled && matchSearch;
+    });
+  }, [activeTab, plugins, search]);
 
   const handleInstall = (plugin: Plugin) => {
-    const schema = plugin.config_schema || {};
-    const hasConfig = Object.keys(schema).length > 0;
-
-    if (hasConfig) {
+    if (Object.keys(plugin.config_schema || {}).length > 0) {
       setSelectedPlugin(plugin);
       setConfigValues(plugin.config || {});
       setConfigDialogOpen(true);
-    } else {
-      doInstall(plugin, {});
+      return;
     }
+    void doInstall(plugin, {});
   };
 
   const doInstall = async (plugin: Plugin, config: Record<string, string>) => {
     setInstalling(plugin.id);
     try {
       await aiClient.fetch(`api/plugins/${plugin.id}/install`, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({ config }),
       });
-      setInstalledSet((prev) => new Set([...prev, plugin.id]));
-      setPlugins((prev) =>
-        prev.map((p) => (p.id === plugin.id ? { ...p, installed: true, config, is_active: true } : p))
-      );
-      toast.success(`${plugin.name} 安装成功`);
+      await loadPlugins();
+      toast.success(`${plugin.name} 已安装`);
     } catch (err) {
-      toast.error(`安装失败: ${(err as Error)?.message || '未知错误'}`);
+      toast.error(`安装失败：${(err as Error)?.message || "未知错误"}`);
     } finally {
       setInstalling(null);
       setConfigDialogOpen(false);
@@ -296,20 +233,11 @@ export function PluginMarketplace() {
   const handleUninstall = async (plugin: Plugin) => {
     setInstalling(plugin.id);
     try {
-      await aiClient.fetch(`api/plugins/${plugin.id}/uninstall`, {
-        method: 'POST',
-      });
-      setInstalledSet((prev) => {
-        const next = new Set(prev);
-        next.delete(plugin.id);
-        return next;
-      });
-      setPlugins((prev) =>
-        prev.map((p) => (p.id === plugin.id ? { ...p, installed: false, config: {}, is_active: false } : p))
-      );
+      await aiClient.fetch(`api/plugins/${plugin.id}/uninstall`, { method: "POST" });
+      await loadPlugins();
       toast.success(`${plugin.name} 已卸载`);
     } catch (err) {
-      toast.error(`卸载失败: ${(err as Error)?.message || '未知错误'}`);
+      toast.error(`卸载失败：${(err as Error)?.message || "未知错误"}`);
     } finally {
       setInstalling(null);
     }
@@ -317,32 +245,31 @@ export function PluginMarketplace() {
 
   const handleConfigSave = async () => {
     if (!selectedPlugin) return;
-    const schema = selectedPlugin.config_schema || {};
-    for (const [key, field] of Object.entries(schema)) {
-      if (field.required && !configValues[key]) {
-        toast.error(`请填写 ${field.label}`);
+    for (const [key, field] of Object.entries(selectedPlugin.config_schema || {})) {
+      if (field.required && !configValues[key]?.trim()) {
+        toast.error(`请填写${field.label}`);
         return;
       }
     }
-    if (installedSet.has(selectedPlugin.id)) {
-      // 更新配置 via API
-      try {
-        await aiClient.fetch(`api/plugins/${selectedPlugin.id}/config`, {
-          method: 'PUT',
-          body: JSON.stringify({ config: { ...configValues } }),
-        });
-        setPlugins((prev) =>
-          prev.map((p) =>
-            p.id === selectedPlugin.id ? { ...p, config: { ...configValues } } : p
-          )
-        );
-        setConfigDialogOpen(false);
-        toast.success('配置已更新');
-      } catch (err) {
-        toast.error(`配置更新失败: ${(err as Error)?.message || '未知错误'}`);
-      }
-    } else {
-      doInstall(selectedPlugin, { ...configValues });
+
+    if (!selectedPlugin.installed) {
+      await doInstall(selectedPlugin, { ...configValues });
+      return;
+    }
+
+    setInstalling(selectedPlugin.id);
+    try {
+      await aiClient.fetch(`api/plugins/${selectedPlugin.id}/config`, {
+        method: "PUT",
+        body: JSON.stringify({ config: { ...configValues } }),
+      });
+      await loadPlugins();
+      setConfigDialogOpen(false);
+      toast.success("配置已更新");
+    } catch (err) {
+      toast.error(`配置更新失败：${(err as Error)?.message || "未知错误"}`);
+    } finally {
+      setInstalling(null);
     }
   };
 
@@ -352,90 +279,69 @@ export function PluginMarketplace() {
     setConfigDialogOpen(true);
   };
 
-  const renderStars = (rating: number) => {
-    const full = Math.floor(rating);
-    const half = rating - full >= 0.5;
-    return (
-      <span className="flex items-center gap-0.5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Star
-            key={i}
-            className={cn(
-              'h-3 w-3',
-              i < full
-                ? 'fill-yellow-400 text-yellow-400'
-                : i === full && half
-                  ? 'fill-yellow-400/50 text-yellow-400'
-                  : 'text-gray-300 dark:text-gray-600'
-            )}
-          />
-        ))}
-        <span className="ml-1 text-xs text-muted-foreground">{rating}</span>
-      </span>
-    );
+  const statusLabel = (plugin: Plugin) => {
+    if (!plugin.installed) return "未安装";
+    if (plugin.connection_status === "configured") return "已配置";
+    if (plugin.connection_status === "ready") return "可用";
+    return "待配置";
   };
 
   const PluginCard = ({ plugin }: { plugin: Plugin }) => {
     const IconComp = ICON_MAP[plugin.icon] || Package;
-    const isInstalled = installedSet.has(plugin.id);
     const isLoading = installing === plugin.id;
 
     return (
-      <Card className="relative group hover:shadow-md transition-shadow">
+      <Card className="relative transition-shadow hover:shadow-md">
         <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                'p-2.5 rounded-lg',
-                CATEGORY_COLORS[plugin.category] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-              )}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className={cn("rounded-lg border p-2.5", CATEGORY_COLORS[plugin.category] || "bg-muted")}>
                 <IconComp className="h-5 w-5" />
               </div>
-              <div>
-                <CardTitle className="text-sm font-semibold">{plugin.name}</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">{plugin.author}</p>
+              <div className="min-w-0">
+                <CardTitle className="truncate text-sm font-semibold">{plugin.name}</CardTitle>
+                <p className="mt-0.5 text-xs text-muted-foreground">{plugin.author}</p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px]">
-              v{plugin.version}
+            <Badge variant={plugin.installed ? "default" : "outline"} className="shrink-0 text-[10px]">
+              {statusLabel(plugin)}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 space-y-3">
-          <CardDescription className="text-xs leading-relaxed line-clamp-2">
+        <CardContent className="space-y-3 pt-0">
+          <CardDescription className="line-clamp-2 min-h-9 text-xs leading-relaxed">
             {plugin.description}
           </CardDescription>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {renderStars(plugin.rating)}
-              <span className="text-xs text-muted-foreground">
-                <Download className="inline h-3 w-3 mr-0.5" />
-                {plugin.downloads}
-              </span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="outline" className={cn("text-[10px]", CATEGORY_COLORS[plugin.category])}>
+                {CATEGORY_LABELS[plugin.category] || plugin.category}
+              </Badge>
+              <span>v{plugin.version}</span>
             </div>
-            <Badge className={cn('text-[10px]', CATEGORY_COLORS[plugin.category])}>
-              {CATEGORY_LABELS[plugin.category] || plugin.category}
-            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {plugin.metadata_source === "builtin" ? "官方内置" : "市场插件"}
+            </span>
           </div>
 
           <div className="flex items-center gap-2 pt-1">
-            {isInstalled ? (
+            {plugin.installed ? (
               <>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="flex-1 text-xs h-8"
+                  className="h-8 flex-1 text-xs"
                   onClick={() => openConfig(plugin)}
                   disabled={Object.keys(plugin.config_schema || {}).length === 0}
                 >
-                  <Settings className="h-3 w-3 mr-1" />
+                  <Settings className="mr-1 h-3 w-3" />
                   配置
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-xs h-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                  className="h-8 text-xs text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
                   onClick={() => handleUninstall(plugin)}
                   disabled={isLoading}
                 >
@@ -443,55 +349,31 @@ export function PluginMarketplace() {
                 </Button>
               </>
             ) : (
-              <Button
-                size="sm"
-                className="flex-1 text-xs h-8"
-                onClick={() => handleInstall(plugin)}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <Download className="h-3 w-3 mr-1" />
-                )}
+              <Button size="sm" className="h-8 flex-1 text-xs" onClick={() => handleInstall(plugin)} disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
                 安装
               </Button>
             )}
           </div>
-
-          {isInstalled && (
-            <div className="absolute top-2 right-2">
-              <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                <Check className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-medium">已安装</span>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     );
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
-      {/* 页面标题 */}
+    <div className="mx-auto max-w-[1400px] space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-bold">
           <Puzzle className="h-6 w-6 text-primary" />
           插件市场
         </h1>
-        <p className="text-muted-foreground mt-1">
-          浏览和安装插件，扩展系统功能
-        </p>
+        <p className="mt-1 text-muted-foreground">安装并配置企业集成，扩展首发模块能力。</p>
       </div>
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Package className="h-5 w-5 text-primary" />
-            </div>
+          <CardContent className="flex items-center gap-3 p-4">
+            <Package className="h-5 w-5 text-primary" />
             <div>
               <p className="text-2xl font-bold">{plugins.length}</p>
               <p className="text-xs text-muted-foreground">可用插件</p>
@@ -499,124 +381,101 @@ export function PluginMarketplace() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900">
-              <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
+          <CardContent className="flex items-center gap-3 p-4">
+            <Check className="h-5 w-5 text-emerald-600" />
             <div>
-              <p className="text-2xl font-bold">{installedSet.size}</p>
+              <p className="text-2xl font-bold">{installedCount}</p>
               <p className="text-xs text-muted-foreground">已安装</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
-              <Star className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
+          <CardContent className="flex items-center gap-3 p-4">
+            <ShieldCheck className="h-5 w-5 text-amber-600" />
             <div>
-              <p className="text-2xl font-bold">
-                {(plugins.reduce((acc, p) => acc + p.rating, 0) / plugins.length).toFixed(1)}
-              </p>
-              <p className="text-xs text-muted-foreground">平均评分</p>
+              <p className="text-2xl font-bold">0</p>
+              <p className="text-xs text-muted-foreground">伪造下载/评分指标</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 搜索和分类 */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="搜索插件..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="搜索插件..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="pl-9"
+        />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          {CATEGORIES.map((cat) => (
-            <TabsTrigger key={cat.value} value={cat.value} className="gap-1.5">
-              <cat.icon className="h-3.5 w-3.5" />
-              {cat.label}
+        <TabsList className="flex h-auto flex-wrap justify-start">
+          {CATEGORIES.map((category) => (
+            <TabsTrigger key={category.value} value={category.value} className="gap-1.5">
+              <category.icon className="h-3.5 w-3.5" />
+              {category.label}
+              {category.value === "installed" ? `(${installedCount})` : ""}
             </TabsTrigger>
           ))}
-          <TabsTrigger value="installed" className="gap-1.5">
-            <Check className="h-3.5 w-3.5" />
-            已安装 ({installedSet.size})
-          </TabsTrigger>
         </TabsList>
-
-        {/* 插件网格 - 所有 tab 共用同一个渲染 */}
-        <div className="mt-6">
-          {filteredPlugins.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>
-                {activeTab === 'installed' ? '暂无已安装的插件' : '没有找到匹配的插件'}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredPlugins.map((plugin) => (
-                <PluginCard key={plugin.id} plugin={plugin} />
-              ))}
-            </div>
-          )}
-        </div>
       </Tabs>
 
-      {/* 配置弹窗 */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          正在加载插件...
+        </div>
+      ) : filteredPlugins.length === 0 ? (
+        <div className="py-16 text-center text-muted-foreground">
+          <Package className="mx-auto mb-3 h-12 w-12 opacity-30" />
+          <p>{activeTab === "installed" ? "暂无已安装插件" : "没有找到匹配的插件"}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredPlugins.map((plugin) => (
+            <PluginCard key={plugin.id} plugin={plugin} />
+          ))}
+        </div>
+      )}
+
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
-              {selectedPlugin ? (installedSet.has(selectedPlugin.id) ? '编辑配置' : '安装配置') : '插件配置'}
+              {selectedPlugin?.installed ? "编辑配置" : "安装配置"}
             </DialogTitle>
-            <DialogDescription>
-              {selectedPlugin?.name} - {selectedPlugin?.description}
-            </DialogDescription>
+            <DialogDescription>{selectedPlugin?.description}</DialogDescription>
           </DialogHeader>
 
-          {selectedPlugin && (
-            <div className="space-y-4 py-2">
-              {Object.entries(selectedPlugin.config_schema || {}).map(([key, field]) => (
+          <div className="space-y-4 py-2">
+            {selectedPlugin &&
+              Object.entries(selectedPlugin.config_schema || {}).map(([key, field]) => (
                 <div key={key} className="space-y-1.5">
-                  <Label className="text-sm">
+                  <Label htmlFor={key}>
                     {field.label}
-                    {field.required && <span className="text-red-500 ml-0.5">*</span>}
+                    {field.required && <span className="ml-1 text-red-500">*</span>}
                   </Label>
                   <Input
-                    type={field.type === 'password' ? 'password' : 'text'}
+                    id={key}
+                    type={field.type === "password" ? "password" : "text"}
                     placeholder={field.placeholder}
-                    value={configValues[key] || ''}
-                    onChange={(e) =>
-                      setConfigValues((prev) => ({ ...prev, [key]: e.target.value }))
-                    }
+                    value={configValues[key] || ""}
+                    onChange={(event) => setConfigValues((prev) => ({ ...prev, [key]: event.target.value }))}
                   />
                 </div>
               ))}
-
-              {Object.keys(selectedPlugin.config_schema || {}).length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  此插件无需配置
-                </p>
-              )}
-            </div>
-          )}
+          </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleConfigSave} disabled={installing !== null}>
-              {installing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-              {selectedPlugin && installedSet.has(selectedPlugin.id) ? '保存配置' : '确认安装'}
+            <Button onClick={handleConfigSave} disabled={!!installing}>
+              {installing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              {selectedPlugin?.installed ? "保存配置" : "安装"}
             </Button>
           </DialogFooter>
         </DialogContent>
