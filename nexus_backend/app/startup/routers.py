@@ -181,6 +181,7 @@ def register_routers(app: FastAPI) -> None:
     # ── 8. IM / Integration ───────────────────────────────────────────────
     from app.routers import (
         ai_assistant,
+        enterprise_sso,
         gdpr,
         im_callbacks,
         im_chat,
@@ -188,7 +189,6 @@ def register_routers(app: FastAPI) -> None:
         im_settings,
         kingdee,
         oauth,
-        enterprise_sso,
         plugins,
         push,
         webhooks,

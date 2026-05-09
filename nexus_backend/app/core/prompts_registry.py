@@ -541,3 +541,46 @@ _yaml_tools = _load_yaml_prompts("tool_prompts.yaml")
 if _yaml_tools:
     TOOL_PROMPTS.update(_yaml_tools)
     logger.info(f"Loaded {len(_yaml_tools)} tool prompts from YAML")
+
+
+def get_prompt_manifest() -> dict:
+    """Return a non-secret manifest for frontend drift checks and ops UI."""
+    import hashlib
+    from datetime import UTC, datetime
+
+    def _hash(text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+    system = {
+        key: {
+            "sha256": _hash(value),
+            "chars": len(value),
+            "source": "backend_registry",
+        }
+        for key, value in SYSTEM_PROMPTS.items()
+    }
+    tools = {
+        key: {
+            "sha256": _hash(value),
+            "chars": len(value),
+            "source": "backend_registry",
+        }
+        for key, value in TOOL_PROMPTS.items()
+    }
+    manifest_hash = _hash(
+        "\n".join(
+            [f"system:{k}:{v['sha256']}" for k, v in sorted(system.items())]
+            + [f"tool:{k}:{v['sha256']}" for k, v in sorted(tools.items())]
+        )
+    )
+    return {
+        "source": "nexus_backend.app.core.prompts_registry",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "manifest_hash": manifest_hash,
+        "system_prompts": system,
+        "tool_prompts": tools,
+        "frontend_policy": {
+            "direct_mode": "minimal_read_only_fallback",
+            "mirror_backend_prompts": False,
+        },
+    }

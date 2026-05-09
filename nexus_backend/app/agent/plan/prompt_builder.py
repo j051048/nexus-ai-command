@@ -52,6 +52,8 @@ async def inject_system_prompts(
     # Task decomposition hints
     _inject_task_decomposition(lc_msgs, state, complexity, iteration)
 
+    _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity)
+
     return lc_msgs
 
 
@@ -311,6 +313,7 @@ def _inject_slot_context(lc_msgs, state):
 
 async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
     try:
+        from app.agent.context_ledger import ContextLedger
         from app.agent.context_engine import context_engine
 
         # Dynamic budget: adjust based on selected model's context window
@@ -319,7 +322,7 @@ async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
             complexity.model_tier if hasattr(complexity, "model_tier") else "balanced"
         )
         _ctx_window = (_resolved.get(_tier_key) or {}).get("context_window")
-        context_engine.adjust_budget_for_model(_ctx_window)
+        ledger = ContextLedger(request_id=state.get("trace_id") or state.get("run_id"))
 
         messages = state.get("messages", [])
         engine_ctx = await context_engine.build_context(
@@ -327,8 +330,11 @@ async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
             org_id=agent_config.org_id,
             query=state.get("intent_summary")
             or (messages[-1].content if messages else ""),
+            context_window=_ctx_window,
+            context_ledger=ledger,
             session_id=agent_config.session_id,
         )
+        state["context_ledger"] = ledger.to_dict()
         if engine_ctx:
             lc_msgs.insert(
                 1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
@@ -401,3 +407,30 @@ def _inject_task_decomposition(lc_msgs, state, complexity, iteration):
 
             if isinstance(lc_msgs[-1], _HM):
                 lc_msgs[-1] = _HM(content=lc_msgs[-1].content + decomp_hint)
+
+
+def _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity):
+    """Attach a compact prompt snapshot to state for trace/eval gates."""
+    try:
+        from app.agent.prompt_snapshot import build_prompt_snapshot
+
+        _resolved = agent_config.resolved_configs or {}
+        _tier_key = (
+            complexity.model_tier if hasattr(complexity, "model_tier") else "balanced"
+        )
+        _ctx_window = (_resolved.get(_tier_key) or {}).get("context_window")
+        prompt_version = (
+            state.get("prompt_version")
+            or getattr(agent_config, "agent_code", None)
+            or "runtime"
+        )
+        snapshot = build_prompt_snapshot(
+            lc_msgs,
+            prompt_version=str(prompt_version),
+            max_total_tokens=_ctx_window,
+        )
+        state["prompt_snapshot"] = snapshot.to_dict()
+        if snapshot.warnings:
+            logger.warning("[PromptSnapshot] warnings=%s", snapshot.warnings[:5])
+    except Exception as e:
+        logger.debug("[PromptBuilder] prompt snapshot skipped: %s", e)

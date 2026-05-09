@@ -103,6 +103,35 @@ async def get_checkpoint_history(
 # ── Dynamic path endpoints (must be LAST) ──
 
 
+@router.post("/eval-cases/promote-failures")
+async def promote_failures_to_eval_cases(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Promote recent production failures into pending eval cases."""
+    try:
+        org_id = getattr(request.state, "org_id", None)
+        db = getattr(request.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database unavailable")
+        from app.services.eval_case_promotion_service import (
+            eval_case_promotion_service,
+        )
+
+        rows = await eval_case_promotion_service.promote_recent_failures(
+            db=db,
+            org_id=org_id,
+            limit=limit,
+        )
+        return api_success(data={"promoted": len(rows), "cases": rows})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Replay] promote failures error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Failed to promote failures")
+
+
 @router.get("/{thread_id}")
 async def get_replay_steps(
     thread_id: str,

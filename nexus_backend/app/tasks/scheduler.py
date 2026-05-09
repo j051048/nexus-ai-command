@@ -182,9 +182,9 @@ def mine_sales_leads():
 
                 llm_sem = asyncio.Semaphore(SCHEDULER_LLM_CONCURRENCY)
 
-                async def _process_lead(lead: dict) -> int:
+                async def _process_lead(lead: dict, _sem=llm_sem) -> int:
                     try:
-                        async with llm_sem:
+                        async with _sem:
                             suggestion = await AIService.call_llm(
                                 f"Lead: {lead.get('company_name', '')}, status: {lead.get('status', '')}, last_update: {lead.get('updated_at', '')}",
                                 "You are a sales advisor. This lead has not been followed up for over 7 days. Give 1-2 concise follow-up suggestions.",

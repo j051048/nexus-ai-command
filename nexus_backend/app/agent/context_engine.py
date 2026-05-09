@@ -51,12 +51,16 @@ class ContextEngine:
         self._providers: list[ContextProvider] = []
         self._total_budget = total_budget
 
-    def adjust_budget_for_model(self, context_window: int | None) -> None:
-        """Dynamically adjust token budget based on the selected model's context window."""
+    def _budget_for_model(self, context_window: int | None) -> int:
+        """Return a request-scoped token budget for a model context window."""
         if not context_window or context_window <= 0:
-            return
+            return self._total_budget
         new_budget = int(context_window * self._BUDGET_RATIO)
-        self._total_budget = max(self._MIN_BUDGET, min(new_budget, self._MAX_BUDGET))
+        return max(self._MIN_BUDGET, min(new_budget, self._MAX_BUDGET))
+
+    def adjust_budget_for_model(self, context_window: int | None) -> int:
+        """Compatibility helper that no longer mutates the singleton budget."""
+        return self._budget_for_model(context_window)
 
     # -- 注册 ----------------------------------------------------------------
 
@@ -90,6 +94,8 @@ class ContextEngine:
         user_id: str,
         org_id: str | None,
         query: str,
+        context_window: int | None = None,
+        context_ledger=None,
         **kwargs: Any,
     ) -> str:
         """按优先级并行获取所有上下文，在 token 预算内拼接。"""
@@ -97,6 +103,10 @@ class ContextEngine:
             return ""
 
         sorted_providers = sorted(self._providers, key=lambda p: p.priority)
+        total_budget = self._budget_for_model(context_window)
+        if context_ledger is not None:
+            context_ledger.total_budget = total_budget
+            context_ledger.model_context_window = context_window
 
         # 并行获取（异常在 _safe_get 内部已处理）
         async def _safe_get(prov: ContextProvider) -> tuple[ContextProvider, str]:
@@ -122,30 +132,80 @@ class ContextEngine:
 
         for provider, text in results:
             if not text:
+                if context_ledger is not None:
+                    from app.agent.context_ledger import ContextLedgerEntry
+
+                    context_ledger.add(
+                        ContextLedgerEntry(
+                            provider=provider.name,
+                            priority=provider.priority,
+                            tokens_estimated=0,
+                            included=False,
+                            truncated_reason="empty",
+                        )
+                    )
                 continue
 
             text_tokens = self._estimate_tokens(text)
             provider_budget = provider.max_tokens()
+            original_text = text
+            truncated_reason = None
 
             # 如果该片段超出 provider 自身限额，先截断
             if text_tokens > provider_budget:
                 max_chars = provider_budget * 3
                 text = text[:max_chars] + "..."
                 text_tokens = provider_budget
+                truncated_reason = "provider_budget"
 
             # 检查总预算
-            if used_tokens + text_tokens > self._total_budget:
-                remaining = self._total_budget - used_tokens
+            if used_tokens + text_tokens > total_budget:
+                remaining = total_budget - used_tokens
                 if remaining > 50:
                     text = text[: remaining * 3] + "..."
                     parts.append(f"[{provider.name}]\n{text}")
+                    used_tokens += remaining
+                    if context_ledger is not None:
+                        from app.agent.context_ledger import (
+                            ContextLedgerEntry,
+                            estimate_pii_level,
+                        )
+
+                        context_ledger.add(
+                            ContextLedgerEntry(
+                                provider=provider.name,
+                                priority=provider.priority,
+                                tokens_estimated=remaining,
+                                included=True,
+                                pii_level=estimate_pii_level(text),
+                                truncated_reason="total_budget",
+                                notes={"sample": text[:160]},
+                            )
+                        )
                 break
 
             parts.append(f"[{provider.name}]\n{text}")
             used_tokens += text_tokens
+            if context_ledger is not None:
+                from app.agent.context_ledger import (
+                    ContextLedgerEntry,
+                    estimate_pii_level,
+                )
+
+                context_ledger.add(
+                    ContextLedgerEntry(
+                        provider=provider.name,
+                        priority=provider.priority,
+                        tokens_estimated=text_tokens,
+                        included=True,
+                        pii_level=estimate_pii_level(original_text),
+                        truncated_reason=truncated_reason,
+                        notes={"sample": original_text[:160]},
+                    )
+                )
 
         logger.info(
-            f"[ContextEngine] Built context: {len(parts)} providers, ~{used_tokens}/{self._total_budget} tokens"
+            f"[ContextEngine] Built context: {len(parts)} providers, ~{used_tokens}/{total_budget} tokens"
         )
         return "\n\n".join(parts)
 

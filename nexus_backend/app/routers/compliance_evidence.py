@@ -1,7 +1,7 @@
 """Compliance evidence collection endpoints."""
 
-from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
 from app.core.errors import api_success

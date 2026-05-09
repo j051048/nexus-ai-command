@@ -1,0 +1,42 @@
+test_cases:
+  - id: replay_crm_query_happy_path
+    description: "CRM query should route, plan, execute the CRM tool, and respond."
+    cassette:
+      total_tokens: 1800
+      total_duration_ms: 3200
+      final_response: "当前共有 3 条高优先级线索，已按成交概率排序。"
+      steps:
+        - node_type: router
+          output_data:
+            intent: crm_query
+        - node_type: plan
+          output_data:
+            plan: query leads
+        - node_type: execute
+          tool_calls:
+            - name: list_sales_leads
+        - node_type: respond
+    expectations:
+      expected_nodes: [router, plan, execute, respond]
+      expected_tools: [list_sales_leads]
+      final_contains: ["高优先级线索"]
+      max_tokens: 4000
+      max_duration_ms: 10000
+
+  - id: replay_casual_chat_no_tools
+    description: "Casual chat should not call business tools."
+    cassette:
+      total_tokens: 220
+      total_duration_ms: 600
+      final_response: "早，有什么事？"
+      steps:
+        - node_type: router
+          output_data:
+            intent: casual_chat
+        - node_type: respond
+    expectations:
+      expected_nodes: [router, respond]
+      forbidden_tools: [list_sales_leads, approve_request, create_customer]
+      final_contains: ["早"]
+      max_tokens: 800
+      max_duration_ms: 3000

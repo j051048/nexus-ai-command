@@ -28,6 +28,14 @@ _sse_connections: dict[str, int] = defaultdict(int)
 _sse_lock = asyncio.Lock()
 
 
+@router.get("/chat/prompts/manifest")
+async def get_prompt_manifest_endpoint():
+    """Expose prompt hashes/metadata without returning prompt bodies."""
+    from app.core.prompts_registry import get_prompt_manifest
+
+    return api_success(data=get_prompt_manifest())
+
+
 async def _error_stream(msg: str):
     import json
 
