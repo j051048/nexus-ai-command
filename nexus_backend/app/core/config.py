@@ -138,6 +138,30 @@ class Settings(BaseSettings):
         default="",
         description="Redis Cluster hosts, comma-separated (e.g. 'node1:6379,node2:6379,node3:6379'). Empty = not using Cluster.",
     )
+    CELERY_MONITORED_QUEUES: str = Field(
+        default="default,agent_tools,agent_tools_high_risk,webhooks,sensors",
+        description="Comma-separated Celery queue names monitored for backlog alerts.",
+    )
+    CELERY_QUEUE_DEPTH_WARNING: int = Field(
+        default=100,
+        description="Queue depth that should raise a warning in deployment health.",
+    )
+    CELERY_QUEUE_DEPTH_CRITICAL: int = Field(
+        default=1000,
+        description="Queue depth that marks deployment health as not ready.",
+    )
+    IDEMPOTENCY_TTL_SECONDS: int = Field(
+        default=86400,
+        description="Distributed idempotency response cache TTL in seconds.",
+    )
+    IDEMPOTENCY_MEMORY_FALLBACK_MAX: int = Field(
+        default=1000,
+        description="Max process-local idempotency fallback entries if Redis is unavailable.",
+    )
+    IDEMPOTENCY_MEMORY_FALLBACK_TTL_SECONDS: int = Field(
+        default=3600,
+        description="TTL for process-local idempotency fallback entries.",
+    )
 
     # Observability
     SENTRY_DSN: str = Field(default="", description="Sentry DSN for error tracking")

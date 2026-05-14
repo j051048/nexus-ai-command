@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any
 
 import arxiv
@@ -47,24 +48,37 @@ class CrawlerService:
     @staticmethod
     async def analyze_and_push_lead(paper: dict[str, Any]):
         """
-        Mock vector match and push to Supabase.
-        In production, this would use vector_service to match SKU.
+        Push a lead candidate to Supabase only when lead routing is configured.
         """
-        # 1. Mock Match Score (random high score for demo)
-        match_score = 0.92
+        try:
+            match_score = float(os.getenv("CRAWLER_DEFAULT_MATCH_SCORE", "0"))
+        except ValueError:
+            match_score = 0.0
+        target_user_id = os.getenv("CRAWLER_LEAD_TARGET_USER_ID", "")
+
+        if not target_user_id:
+            logger.warning(
+                "Scholar-Hunter lead push skipped: CRAWLER_LEAD_TARGET_USER_ID is not configured"
+            )
+            return {"pushed": False, "reason": "target_user_not_configured"}
 
         if match_score > 0.85:
             logger.info(f"High potential lead found: {paper['title']}")
 
             # 2. Insert into DB (notifications table)
             try:
-                content = f"发现高潜学术线索！\n课题：《{paper['title'][:30]}...》\n匹配度：92%\n建议跟进：该实验室可能需要采购高精度光谱仪。"
+                content = (
+                    "发现高潜学术线索：\n"
+                    f"课题：{paper['title'][:80]}\n"
+                    f"匹配度：{match_score:.0%}\n"
+                    "建议跟进：请销售或市场人员复核论文摘要后再创建正式商机。"
+                )
 
                 await (
                     supabase.table("notifications")
                     .insert(
                         {
-                            "user_id": "nexus-user-1",  # Demo ID or fetch dynamic
+                            "user_id": target_user_id,
                             "title": "学术获客",
                             "content": content,
                             "type": "lead",  # Custom type for frontend mapping
@@ -77,6 +91,9 @@ class CrawlerService:
 
             except Exception as e:
                 logger.error(f"Failed to push lead: {e}")
+                return {"pushed": False, "reason": "db_error"}
+
+        return {"pushed": match_score > 0.85, "score": match_score}
 
 
 crawler_service = CrawlerService()

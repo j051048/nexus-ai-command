@@ -14,6 +14,7 @@ Flow:
 
 import json
 import logging
+import os
 import time
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -22,8 +23,8 @@ from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
-# Idempotency key TTL (24 hours)
-IDEMPOTENCY_TTL = 86400
+# Idempotency key TTL (24 hours by default)
+IDEMPOTENCY_TTL = int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "86400"))
 
 # Only apply to write methods
 _WRITE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
@@ -40,10 +41,28 @@ _PROTECTED_PREFIXES = (
 )
 
 _memory_cache: dict[str, tuple[float, dict]] = {}
-_MAX_MEMORY_CACHE_ITEMS = 1000
+_MAX_MEMORY_CACHE_ITEMS = int(os.getenv("IDEMPOTENCY_MEMORY_FALLBACK_MAX", "1000"))
+_MEMORY_FALLBACK_TTL = int(
+    os.getenv("IDEMPOTENCY_MEMORY_FALLBACK_TTL_SECONDS", "3600")
+)
+
+
+def _prune_memory_cache(now: float | None = None) -> None:
+    """Remove expired entries and keep the process-local fallback bounded."""
+    now = now or time.time()
+    expired_keys = [
+        key for key, (expires_at, _) in _memory_cache.items() if expires_at < now
+    ]
+    for key in expired_keys:
+        _memory_cache.pop(key, None)
+
+    while len(_memory_cache) > _MAX_MEMORY_CACHE_ITEMS:
+        oldest_key = next(iter(_memory_cache))
+        _memory_cache.pop(oldest_key, None)
 
 
 def _memory_get(cache_key: str) -> dict | None:
+    _prune_memory_cache()
     item = _memory_cache.get(cache_key)
     if not item:
         return None
@@ -55,7 +74,8 @@ def _memory_get(cache_key: str) -> dict | None:
 
 
 def _memory_set(cache_key: str, data: dict, ttl: int) -> None:
-    if len(_memory_cache) >= _MAX_MEMORY_CACHE_ITEMS:
+    _prune_memory_cache()
+    while len(_memory_cache) >= _MAX_MEMORY_CACHE_ITEMS:
         oldest_key = next(iter(_memory_cache))
         _memory_cache.pop(oldest_key, None)
     _memory_cache[cache_key] = (time.time() + ttl, data)
@@ -135,7 +155,10 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     content=cached_data["body"],
                     status_code=cached_data["status_code"],
                     media_type=cached_data.get("media_type", "application/json"),
-                    headers={"X-Idempotency-Replayed": "true", "X-Idempotency-Store": "memory"},
+                    headers={
+                        "X-Idempotency-Replayed": "true",
+                        "X-Idempotency-Store": "memory",
+                    },
                 )
 
         # Execute the actual request
@@ -147,9 +170,9 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             200 <= response.status_code < 300
             and response.media_type != "text/event-stream"
         ):
+            body = b""
             try:
                 # Read response body
-                body = b""
                 async for chunk in response.body_iterator:
                     body += chunk if isinstance(chunk, bytes) else chunk.encode()
 
@@ -160,7 +183,15 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 }
 
                 if use_memory_fallback or cache_service is None:
-                    _memory_set(cache_key, cache_data, ttl=min(IDEMPOTENCY_TTL, 3600))
+                    _memory_set(
+                        cache_key,
+                        cache_data,
+                        ttl=min(IDEMPOTENCY_TTL, _MEMORY_FALLBACK_TTL),
+                    )
+                    logger.warning(
+                        "Idempotency cached in process-local memory fallback: %s",
+                        cache_key,
+                    )
                 else:
                     await cache_service.set(cache_key, cache_data, ttl=IDEMPOTENCY_TTL)
                 logger.debug("Idempotency cached: %s", cache_key)

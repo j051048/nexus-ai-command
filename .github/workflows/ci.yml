@@ -181,6 +181,10 @@ jobs:
       - name: Compile backend modules
         run: python -m compileall app tests
 
+      - name: Run static RLS coverage scanner
+        working-directory: ${{ github.workspace }}
+        run: python scripts/scan_rls_coverage.py
+
       - name: Run architecture and security guardrails
         run: pytest tests/unit/test_architecture_guards.py tests/security/test_prompt_firewall_indirect_injection.py -q
 

@@ -97,10 +97,12 @@ function StepImportData({
   onChoose,
   choice,
   onQuickStart,
+  demoDataEnabled,
 }: {
   onChoose: (choice: 'import' | 'demo' | 'skip') => void;
   choice: string;
   onQuickStart?: () => void;
+  demoDataEnabled: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -110,7 +112,7 @@ function StepImportData({
         </div>
         <h2 className="text-2xl font-bold">初始化您的数据</h2>
         <p className="text-muted-foreground">
-          导入现有数据或使用演示数据快速体验。
+          导入现有数据，或稍后在系统中继续配置。
         </p>
       </div>
 
@@ -133,23 +135,25 @@ function StepImportData({
           </CardContent>
         </Card>
 
-        <Card
-          className={`cursor-pointer transition-all hover:border-primary ${
-            choice === 'demo' ? 'border-primary bg-primary/5' : ''
-          }`}
-          onClick={() => onChoose('demo')}
-        >
-          <CardContent className="flex items-center gap-4 p-4">
-            <Sparkles className="w-10 h-10 text-muted-foreground" />
-            <div className="flex-1">
-              <h3 className="font-semibold">生成演示数据</h3>
-              <p className="text-sm text-muted-foreground">
-                自动生成示例数据，快速体验系统功能
-              </p>
-            </div>
-            {choice === 'demo' && <Check className="w-5 h-5 text-primary" />}
-          </CardContent>
-        </Card>
+        {demoDataEnabled && (
+          <Card
+            className={`cursor-pointer transition-all hover:border-primary ${
+              choice === 'demo' ? 'border-primary bg-primary/5' : ''
+            }`}
+            onClick={() => onChoose('demo')}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <Sparkles className="w-10 h-10 text-muted-foreground" />
+              <div className="flex-1">
+                <h3 className="font-semibold">生成演示数据</h3>
+                <p className="text-sm text-muted-foreground">
+                  自动生成示例数据，快速体验系统功能
+                </p>
+              </div>
+              {choice === 'demo' && <Check className="w-5 h-5 text-primary" />}
+            </CardContent>
+          </Card>
+        )}
 
         <Card
           className={`cursor-pointer transition-all hover:border-primary ${
@@ -171,7 +175,7 @@ function StepImportData({
       </div>
 
       {/* 一键体验快捷通道 */}
-      {onQuickStart && (
+      {demoDataEnabled && onQuickStart && (
         <button
           onClick={onQuickStart}
           className="w-full mt-4 py-3 px-4 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-bold text-sm shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 transition-all"
@@ -356,6 +360,7 @@ export function OnboardingWizard() {
 
   // Step 2 state
   const [dataChoice, setDataChoice] = useState<'import' | 'demo' | 'skip' | ''>('');
+  const demoDataEnabled = import.meta.env.VITE_ENABLE_DEMO_DATA === 'true';
 
   // Step 3 state
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
@@ -418,9 +423,14 @@ export function OnboardingWizard() {
 
   // 一键体验：自动选 demo + 直接跳到对话步骤
   const handleQuickStart = useCallback(async () => {
+    if (!demoDataEnabled) {
+      await saveStepData('data_choice', { choice: 'skip' });
+      setCurrentStep(TOTAL_STEPS - 1);
+      return;
+    }
     await saveStepData('data_choice', { choice: 'demo' });
     setCurrentStep(TOTAL_STEPS - 1);
-  }, [saveStepData, setCurrentStep]);
+  }, [demoDataEnabled, saveStepData, setCurrentStep]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -454,7 +464,12 @@ export function OnboardingWizard() {
             <StepCompanyInfo data={companyInfo} onChange={setCompanyInfo} />
           )}
           {currentStep === 1 && (
-            <StepImportData choice={dataChoice} onChoose={setDataChoice} onQuickStart={handleQuickStart} />
+            <StepImportData
+              choice={dataChoice}
+              onChoose={setDataChoice}
+              onQuickStart={handleQuickStart}
+              demoDataEnabled={demoDataEnabled}
+            />
           )}
           {currentStep === 2 && (
             <StepInviteTeam emails={inviteEmails} onEmailsChange={setInviteEmails} />

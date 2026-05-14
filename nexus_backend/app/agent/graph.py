@@ -143,7 +143,7 @@ def _after_plan(state: AgentState) -> str:
       - If tool calls are pending → execute
       - SIMPLE queries skip reflection → respond directly
       - MODERATE with no tools (direct text answer) → respond directly
-      - Mutation fast-path: all tools succeeded & irreversible → respond directly
+      - Safe mutation fast-path: reversible tool mutations only → respond directly
       - Otherwise → reflect (validates the direct answer)
     """
     if state.get("error"):
@@ -169,10 +169,10 @@ def _after_plan(state: AgentState) -> str:
         state
     ):
         return "respond"
-    # Fast-path: mutation-only tools with all-success → skip reflect+critic
+    # Fast-path: reversible mutation-only tools with all-success → skip reflect+critic
     if _is_mutation_fast_path(state):
         logger.info(
-            "[Graph] Mutation fast-path: all tools succeeded & irreversible, skipping reflect+critic"
+            "[Graph] Reversible mutation fast-path: all tools succeeded, skipping reflect+critic"
         )
         return "respond"
     return "reflect"
@@ -305,14 +305,6 @@ def _after_execute(state: AgentState) -> str:
     completed = get_completed_tools(state)
     if completed and all(tc.status == "success" for tc in completed):
         if _has_irreversible_tool(state):
-            # G1 exception: if user already confirmed (system_confirmed=True),
-            # skip critic review — user intent is clear, avoid SLO timeout
-            config = state.get("config")
-            if config and config.system_confirmed:
-                logger.info(
-                    "[Graph] Irreversible tool succeeded + user confirmed → fast synthesize (skip reflect)"
-                )
-                return "synthesize"
             logger.info(
                 "[Graph] All tools succeeded but irreversible tool detected → reflect (G1: Critic review required)"
             )
@@ -452,6 +444,10 @@ def _after_reflect(state: AgentState) -> str:
         logger.warning(
             "[Graph] Needs replanning but max iterations reached, responding anyway"
         )
+
+    if _has_irreversible_tool(state):
+        logger.info("[Graph] Irreversible tool detected after reflect → critic")
+        return "critic"
 
     # P1-5: Route COMPLEX/CRITICAL through critic, but only when reflect
     # skipped its LLM layers (i.e., tools were involved). When reflect

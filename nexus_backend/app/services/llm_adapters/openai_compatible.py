@@ -117,6 +117,62 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
             "call_cost": call_cost,
         }
 
+    def _estimate_stream_usage(
+        self,
+        request: ChatRequest,
+        accumulated_content: str,
+        accumulated_tool_calls: list[dict] | None = None,
+    ) -> dict:
+        """Estimate final stream usage when the provider omits usage metadata."""
+        try:
+            from app.services.token_service import token_counter
+
+            output_text = accumulated_content or ""
+            if accumulated_tool_calls:
+                output_text += json.dumps(accumulated_tool_calls, ensure_ascii=False)
+
+            input_tokens = token_counter.estimate_prompt_tokens(
+                system_prompt=request.system_prompt or "",
+                messages=request.messages,
+                tools=request.tools,
+                model=self.config.model_code,
+            )
+            output_tokens = token_counter.count_tokens(
+                output_text, self.config.model_code
+            )
+            if output_tokens == 0 and request.max_tokens:
+                output_tokens = max(1, min(request.max_tokens, 1024))
+            call_cost = token_counter.estimate_cost(
+                input_tokens, output_tokens, self.config.model_code
+            )
+            return {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+                "call_cost": call_cost,
+                "estimated": True,
+            }
+        except Exception:
+            input_chars = len(request.system_prompt or "") + sum(
+                len(str(message.get("content") or "")) for message in request.messages
+            )
+            if request.tools:
+                input_chars += sum(len(str(tool)) for tool in request.tools)
+            output_chars = len(accumulated_content or "")
+            if accumulated_tool_calls:
+                output_chars += len(
+                    json.dumps(accumulated_tool_calls, ensure_ascii=False)
+                )
+            input_tokens = max(1, input_chars // 4)
+            output_tokens = max(1, output_chars // 4)
+            return {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+                "call_cost": 0.0,
+                "estimated": True,
+            }
+
     def _parse_tool_calls(self, choice: dict) -> list[dict] | None:
         """Extract tool_calls from the API response choice."""
         message = choice.get("message", {})
@@ -326,6 +382,20 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                         if chunk_data.get("usage"):
                             usage_data = chunk_data["usage"]
 
+                        usage = (
+                            self._parse_usage(usage_data)
+                            if usage_data
+                            else (
+                                self._estimate_stream_usage(
+                                    request,
+                                    accumulated_content,
+                                    accumulated_tool_calls,
+                                )
+                                if chunk_finish
+                                else self._parse_usage(None)
+                            )
+                        )
+
                         # Yield partial response
                         exec_time_ms = int((time.monotonic() - start_time) * 1000)
                         yield ChatResponse(
@@ -337,7 +407,7 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                                 if accumulated_tool_calls
                                 else None
                             ),
-                            usage=self._parse_usage(usage_data if usage_data else None),
+                            usage=usage,
                             exec_time_ms=exec_time_ms,
                             finish_reason=chunk_finish or "",
                         )

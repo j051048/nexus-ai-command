@@ -63,14 +63,29 @@ def _estimate_chat_usage(
     model_code: str,
     system_prompt: str,
     messages: list[dict],
+    tools: list[dict] | None = None,
     output_text: str = "",
     max_tokens: int | None = None,
 ) -> dict:
-    input_chars = len(system_prompt or "") + sum(
-        len(str(message.get("content") or "")) for message in messages
-    )
-    input_tokens = max(1, input_chars // 4)
-    output_tokens = max(1, len(output_text or "") // 4) if output_text else 0
+    try:
+        from app.services.token_service import token_counter
+
+        input_tokens = token_counter.estimate_prompt_tokens(
+            system_prompt=system_prompt or "",
+            messages=messages,
+            tools=tools,
+            model=model_code,
+        )
+        output_tokens = token_counter.count_tokens(output_text or "", model_code)
+    except Exception:
+        input_chars = len(system_prompt or "") + sum(
+            len(str(message.get("content") or "")) for message in messages
+        )
+        if tools:
+            input_chars += sum(len(str(tool)) for tool in tools)
+        input_tokens = max(1, input_chars // 4)
+        output_tokens = max(1, len(output_text or "") // 4) if output_text else 0
+
     if output_tokens == 0 and max_tokens:
         output_tokens = max(1, min(max_tokens, 1024))
     return {
@@ -438,6 +453,7 @@ class ChatDispatchMixin:
                     model_code=model_code,
                     system_prompt=system_prompt,
                     messages=messages,
+                    tools=tools if config.supports_tools else None,
                     output_text=response.content,
                     max_tokens=chat_request.max_tokens,
                 )
@@ -647,6 +663,7 @@ class ChatDispatchMixin:
                     model_code=model_code,
                     system_prompt=system_prompt,
                     messages=messages,
+                    tools=tools if config.supports_tools else None,
                     output_text="".join(streamed_content_parts),
                     max_tokens=chat_request.max_tokens,
                 )

@@ -1,5 +1,21 @@
 -- P0-3: Performance Advisors 修复 — 为未索引的外键添加索引
 -- 按高频查询表优先排序
+CREATE TABLE IF NOT EXISTS public.user_token_usage (
+  id bigserial PRIMARY KEY,
+  user_id uuid NOT NULL,
+  org_id uuid,
+  date date NOT NULL DEFAULT CURRENT_DATE,
+  total_tokens bigint NOT NULL DEFAULT 0,
+  estimated_cost_usd numeric(12,6) NOT NULL DEFAULT 0,
+  request_count integer NOT NULL DEFAULT 0,
+  department_id uuid,
+  project_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, date)
+);
+
+ALTER TABLE public.user_token_usage ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
 -- 高频业务表

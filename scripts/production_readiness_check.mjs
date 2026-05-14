@@ -132,15 +132,21 @@ addCheck(
   "critical",
   `Disable non-customer developer modules: ${customerLaunchDisabled.join(",")}`,
 );
+addCheck("demo data disabled", env.VITE_ENABLE_DEMO_DATA !== "true", "critical", "Disable demo-data entrypoints for production launch");
 addCheck("monthly cost cap <= 1500", Number(env.TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT || 999999) <= 1500, "warning", "Keep first launch blast radius small");
 addCheck("tenant LLM concurrency <= 5", Number(env.MAX_CONCURRENT_LLM_PER_TENANT || 999999) <= 5, "warning", "Avoid one tenant exhausting workers");
 
 const requiredFiles = [
+  "Dockerfile",
   "supabase/migrations/20260508_launch_readiness_feature_flags.sql",
+  "supabase/migrations/20260514_p0_document_embeddings_vector_index.sql",
+  "supabase/migrations/20260514_p0_tenant_rls_policy_backfill.sql",
   "docs/PRODUCTION_LAUNCH_CHECKLIST.md",
   "docs/RUNBOOK_SMALL_COMPANY.md",
   "scripts/backup_supabase.sh",
   "scripts/backup_supabase.ps1",
+  "src/config/customerLaunchModules.ts",
+  "e2e/top10-critical-flows.spec.ts",
 ];
 for (const file of requiredFiles) {
   addCheck(`file: ${file}`, existsSync(path.join(root, file)), "critical", "Required launch asset is missing");
@@ -149,6 +155,32 @@ for (const file of requiredFiles) {
 const migrationDir = path.join(root, "supabase", "migrations");
 const migrations = existsSync(migrationDir) ? readdirSync(migrationDir).filter((name) => name.endsWith(".sql")) : [];
 addCheck("Supabase migrations present", migrations.length >= 1, "critical", "Run DB migrations before launch");
+
+const launchMetadataPath = path.join(root, "src/config/customerLaunchModules.ts");
+const launchMetadata = existsSync(launchMetadataPath) ? readFileSync(launchMetadataPath, "utf8") : "";
+for (const module of customerLaunchEnabled) {
+  addCheck(
+    `launch metadata: ${module}`,
+    launchMetadata.includes(`flag: "${module}"`) &&
+      launchMetadata.includes("owner:") &&
+      launchMetadata.includes("smokePath:"),
+    "critical",
+    `Add owner and smokePath for ${module} in src/config/customerLaunchModules.ts`,
+  );
+}
+
+const top10Smoke = existsSync(path.join(root, "e2e/top10-critical-flows.spec.ts"))
+  ? readFileSync(path.join(root, "e2e/top10-critical-flows.spec.ts"), "utf8")
+  : "";
+const goldenSmokePaths = ["/login", "/crm", "/approval", "/documents", "/knowledge", "/vmd", "/plugins", "/reports", "/finance", "/workflows"];
+for (const routePath of goldenSmokePaths) {
+  addCheck(
+    `golden smoke route: ${routePath}`,
+    top10Smoke.includes(routePath),
+    "critical",
+    `Top 10 E2E smoke test must cover ${routePath}`,
+  );
+}
 
 const criticalFailed = checks.filter((check) => !check.ok && check.severity === "critical");
 const warnings = checks.filter((check) => !check.ok && check.severity === "warning");

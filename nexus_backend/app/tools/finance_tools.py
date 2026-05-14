@@ -373,7 +373,7 @@ class BudgetQueryTool(BaseTool):
         {"input": {"category": "travel"}, "output_summary": "返回差旅类预算使用情况"},
     ]
     related_tools = ["create_expense_claim", "query_expense_status"]
-    gotchas = "预算管理功能尚在建设中，当前返回占位提示信息。"
+    gotchas = "预算查询依赖 finance_budgets 数据表；若未配置预算数据，会返回明确的数据配置提示。"
 
     parameters = {
         "type": "object",
@@ -406,9 +406,7 @@ class BudgetQueryTool(BaseTool):
         if not user_res.data:
             return "❌ 无法获取用户信息"
 
-        return (
-            "📊 暂无预算数据。\n\n💡 预算管理功能正在建设中，请联系管理员配置部门预算。"
-        )
+        return "📊 当前没有可查询的预算数据。\n\n请管理员在财务模块配置部门预算或导入 finance_budgets 数据。"
 
 
 class SalaryQueryTool(BaseTool):

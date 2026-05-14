@@ -1,37 +1,46 @@
 import React from "react";
-import { Route, Navigate } from "react-router-dom";
-import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
+import { Navigate, Route } from "react-router-dom";
+import { ModuleRouteBoundary } from "@/components/common/ModuleRouteBoundary";
 import {
-  EmployeeDashboard,
-  BossDashboard,
   ApprovalCenter,
-  SalesPipeline,
-  ProjectManagement,
-  ProjectDetail,
+  BossDashboard,
+  EmployeeDashboard,
   ExceptionsPage,
-  RewardsWallet,
-  SalesTargetManager,
-  TargetDashboard,
   InboxPage,
   ProfileCenter,
+  ProjectDetail,
+  ProjectManagement,
+  RewardsWallet,
+  SalesPipeline,
+  SalesTargetManager,
+  TargetDashboard,
 } from "./lazyImports";
 
-export function coreRoutes(AdminRoute: React.ComponentType<{ children: React.ReactNode; allowedRoles?: string[] }>) {
+function routeBoundary(moduleName: string, child: React.ReactNode) {
+  return <ModuleRouteBoundary moduleName={moduleName}>{child}</ModuleRouteBoundary>;
+}
+
+export function coreRoutes(
+  _AdminRoute: React.ComponentType<{
+    children: React.ReactNode;
+    allowedRoles?: string[];
+  }>,
+) {
   return (
     <>
       <Route index element={<Navigate to="/dashboard" replace />} />
-      <Route path="dashboard" element={<ModuleErrorBoundary moduleName="仪表盘"><EmployeeDashboard /></ModuleErrorBoundary>} />
-      <Route path="boss-dashboard" element={<ModuleErrorBoundary moduleName="管理驾驶舱"><BossDashboard /></ModuleErrorBoundary>} />
-      <Route path="inbox" element={<ModuleErrorBoundary moduleName="待办中心"><InboxPage /></ModuleErrorBoundary>} />
-      <Route path="approval" element={<ModuleErrorBoundary moduleName="审批中心"><ApprovalCenter /></ModuleErrorBoundary>} />
-      <Route path="sales" element={<ModuleErrorBoundary moduleName="销售管道"><SalesPipeline /></ModuleErrorBoundary>} />
-      <Route path="projects" element={<ModuleErrorBoundary moduleName="项目管理"><ProjectManagement /></ModuleErrorBoundary>} />
-      <Route path="projects/:id" element={<ModuleErrorBoundary moduleName="项目详情"><ProjectDetail /></ModuleErrorBoundary>} />
-      <Route path="exceptions" element={<ModuleErrorBoundary moduleName="异常管理"><ExceptionsPage /></ModuleErrorBoundary>} />
-      <Route path="rewards" element={<ModuleErrorBoundary moduleName="奖励钱包"><RewardsWallet /></ModuleErrorBoundary>} />
-      <Route path="targets" element={<ModuleErrorBoundary moduleName="销售目标"><SalesTargetManager /></ModuleErrorBoundary>} />
-      <Route path="target-dashboard" element={<ModuleErrorBoundary moduleName="目标仪表盘"><TargetDashboard /></ModuleErrorBoundary>} />
-      <Route path="personal-settings" element={<ModuleErrorBoundary moduleName="个人中心"><ProfileCenter /></ModuleErrorBoundary>} />
+      <Route path="dashboard" element={routeBoundary("仪表盘", <EmployeeDashboard />)} />
+      <Route path="boss-dashboard" element={routeBoundary("管理驾驶舱", <BossDashboard />)} />
+      <Route path="inbox" element={routeBoundary("待办中心", <InboxPage />)} />
+      <Route path="approval" element={routeBoundary("审批中心", <ApprovalCenter />)} />
+      <Route path="sales" element={routeBoundary("销售管道", <SalesPipeline />)} />
+      <Route path="projects" element={routeBoundary("项目管理", <ProjectManagement />)} />
+      <Route path="projects/:id" element={routeBoundary("项目详情", <ProjectDetail />)} />
+      <Route path="exceptions" element={routeBoundary("异常管理", <ExceptionsPage />)} />
+      <Route path="rewards" element={routeBoundary("奖励钱包", <RewardsWallet />)} />
+      <Route path="targets" element={routeBoundary("销售目标", <SalesTargetManager />)} />
+      <Route path="target-dashboard" element={routeBoundary("目标仪表盘", <TargetDashboard />)} />
+      <Route path="personal-settings" element={routeBoundary("个人中心", <ProfileCenter />)} />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import React from "react";
 import { Route } from "react-router-dom";
-import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
+import { ModuleRouteBoundary } from "@/components/common/ModuleRouteBoundary";
 import { ModuleGate } from "./ModuleGate";
 import {
   VMDAgentConfig,
@@ -14,7 +14,7 @@ import {
 function vmdElement(moduleName: string, child: React.ReactNode) {
   return (
     <ModuleGate flag="vmd">
-      <ModuleErrorBoundary moduleName={moduleName}>{child}</ModuleErrorBoundary>
+      <ModuleRouteBoundary moduleName={moduleName}>{child}</ModuleRouteBoundary>
     </ModuleGate>
   );
 }

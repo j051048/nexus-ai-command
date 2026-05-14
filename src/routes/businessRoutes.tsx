@@ -1,6 +1,6 @@
 import React from "react";
 import { Route } from "react-router-dom";
-import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
+import { ModuleRouteBoundary } from "@/components/common/ModuleRouteBoundary";
 import type { ModuleFlag } from "@/config/featureFlags";
 import { ModuleGate } from "./ModuleGate";
 import {
@@ -19,7 +19,7 @@ import {
 function guarded(flag: ModuleFlag, moduleName: string, child: React.ReactNode) {
   return (
     <ModuleGate flag={flag}>
-      <ModuleErrorBoundary moduleName={moduleName}>{child}</ModuleErrorBoundary>
+      <ModuleRouteBoundary moduleName={moduleName}>{child}</ModuleRouteBoundary>
     </ModuleGate>
   );
 }

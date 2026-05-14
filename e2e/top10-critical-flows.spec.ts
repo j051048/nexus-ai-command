@@ -79,56 +79,62 @@ async function openCriticalRoute(page: Page, path: string) {
   expect(body).not.toContain('Application error');
 }
 
-test.describe('Top 10 critical business flows', () => {
+test.describe('Top 10 customer launch smoke flows', () => {
   test.beforeEach(async ({ page }) => {
     await setupCriticalMocks(page);
-    await mockLoggedInState(page, 'boss');
   });
 
-  test('@critical dashboard shell loads after auth', async ({ page }) => {
-    await openCriticalRoute(page, '/');
-  });
-
-  test('@critical chat SSE endpoint is reachable from shell', async ({ page }) => {
-    await page.route('**/api/chat', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body: 'data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n',
-      });
-    });
-    await openCriticalRoute(page, '/');
+  test('@critical login page accepts first-launch credentials', async ({ page }) => {
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
+    const body = await page.textContent('body');
+    expect(body).toBeTruthy();
+    expect(body).not.toContain('Something went wrong');
+    expect(body).not.toContain('Application error');
   });
 
   test('@critical CRM customer workspace loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
     await openCriticalRoute(page, '/crm');
   });
 
-  test('@critical sales pipeline workspace loads', async ({ page }) => {
-    await openCriticalRoute(page, '/sales');
-  });
-
   test('@critical approval center loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
     await openCriticalRoute(page, '/approval');
   });
 
-  test('@critical workflow designer list loads', async ({ page }) => {
-    await openCriticalRoute(page, '/workflows');
+  test('@critical documents workspace loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/documents');
   });
 
   test('@critical knowledge graph workspace loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
     await openCriticalRoute(page, '/knowledge');
   });
 
+  test('@critical VMD workspace loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/vmd');
+  });
+
+  test('@critical plugin marketplace install workspace loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/plugins');
+  });
+
+  test('@critical reports dashboard loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/reports');
+  });
+
   test('@critical finance center loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
     await openCriticalRoute(page, '/finance');
   });
 
-  test('@critical Agent Run observability loads', async ({ page }) => {
-    await openCriticalRoute(page, '/agent-runs');
-  });
-
-  test('@critical Tool governance and RAG eval loads', async ({ page }) => {
-    await openCriticalRoute(page, '/tools/governance');
+  test('@critical workflow designer list loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/workflows');
   });
 });

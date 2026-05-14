@@ -34,7 +34,7 @@ class AttendanceQueryTool(BaseTool):
         },
     ]
     related_tools = ["query_team_attendance", "get_employee_profile"]
-    gotchas = "非管理者只能查自己的考勤，不能通过 employee_name 查他人。考勤系统暂未接入，当前返回占位提示。"
+    gotchas = "非管理者只能查自己的考勤，不能通过 employee_name 查他人。若未配置考勤数据源，会返回明确的集成配置提示。"
 
     parameters = {
         "type": "object",
@@ -78,9 +78,9 @@ class AttendanceQueryTool(BaseTool):
             return self.format_result(data=None, summary="您没有权限查询他人的考勤记录")
 
         return self.format_result(
-            data={"status": "not_available"},
-            summary="考勤查询功能暂未开通，考勤系统正在建设中",
-            actions=[],
+            data={"status": "integration_required", "integration": "attendance"},
+            summary="考勤数据源未配置。请管理员先接入考勤系统或导入 hr_attendance 数据后再查询。",
+            actions=[{"label": "配置考勤数据源", "route": "/company-settings"}],
         )
 
 
@@ -99,7 +99,7 @@ class TeamAttendanceTool(BaseTool):
         },
     ]
     related_tools = ["query_attendance", "get_team_insight"]
-    gotchas = "仅管理者及以上角色可用。考勤系统暂未接入，当前返回占位提示。"
+    gotchas = "仅管理者及以上角色可用。若未配置考勤数据源，会返回明确的集成配置提示。"
 
     parameters = {
         "type": "object",
@@ -131,9 +131,9 @@ class TeamAttendanceTool(BaseTool):
             return self.format_result(data=None, summary="您没有权限查看团队考勤")
 
         return self.format_result(
-            data={"status": "not_available"},
-            summary="团队考勤管理功能暂未开通，考勤系统接入后将支持团队出勤分析、异常提醒等功能",
-            actions=[],
+            data={"status": "integration_required", "integration": "attendance"},
+            summary="团队考勤数据源未配置。接入考勤系统或导入 hr_attendance 数据后即可生成团队出勤分析。",
+            actions=[{"label": "配置考勤数据源", "route": "/company-settings"}],
         )
 
 
@@ -487,7 +487,7 @@ class RecruitmentTool(BaseTool):
         },
     ]
     related_tools = ["get_employee_profile", "create_employee"]
-    gotchas = "parse_resume 必须提供 resume_text，会调用大模型分析。候选人管理功能暂未完全开通。"
+    gotchas = "parse_resume 必须提供 resume_text，会调用大模型分析。候选人列表依赖 hr_candidates 数据表。"
 
     parameters = {
         "type": "object",
@@ -523,22 +523,39 @@ class RecruitmentTool(BaseTool):
         action = args.get("action", "view_candidates")
 
         if action == "view_candidates":
-            return "👥 招聘管理功能暂未开通。\n\n该功能正在建设中，接入后将支持候选人管理、面试安排等。"
+            client = _get_client(config)
+            org_id = config.get("org_id") if config else None
+            query = client.table("hr_candidates").select("*").limit(20)
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            try:
+                res = await query.execute()
+            except Exception as e:
+                return safe_tool_error(e, "候选人查询")
+            candidates = res.data or []
+            if not candidates:
+                return "当前组织暂无候选人数据。可先在 HR 模块录入候选人，或使用 parse_resume 解析简历后入库。"
+            lines = ["👥 候选人列表"]
+            for item in candidates[:10]:
+                lines.append(
+                    f"- {item.get('name') or item.get('candidate_name') or '未命名'}"
+                    f" / {item.get('status', 'unknown')}"
+                )
+            return "\n".join(lines)
 
         elif action == "schedule_interview":
             candidate = args.get("candidate_name", "候选人")
             interview_time = args.get("interview_time", "明天下午3点")
 
-            return f"""✅ 面试已安排
+            return f"""✅ 已生成面试安排草稿
 
-**面试详情**
+**面试草稿**
 - 候选人: {candidate}
 - 时间: {interview_time}
-- 地点: 会议室302
-- 面试官: 您 + HR
+- 地点: 待选择
+- 面试官: 待指定
 
-📧 已发送面试邀请邮件给候选人
-📅 已添加到您的日程
+尚未发送邮件或写入日程。请连接日历/邮件集成后再确认发送。
 """
 
         elif action == "parse_resume":

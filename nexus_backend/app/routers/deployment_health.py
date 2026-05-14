@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.dependencies import require_role
 from app.core.errors import api_success
+from app.core.celery_queue_monitor import collect_celery_queue_health
 
 router = APIRouter(prefix="/api/system/deployment-health", tags=["System"])
 require_deploy_admin = require_role(["admin", "founder", "boss"])
@@ -89,8 +90,9 @@ async def get_deployment_health(_role: str = Depends(require_deploy_admin)):
         _check_number_max("TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT", 80),
         _check_number_max("TOKEN_BUDGET_MAX_COST_PER_MONTH_PER_TENANT", 1500),
     ]
+    optional.append(await collect_celery_queue_health())
     for check in optional:
-        check["severity"] = "warning"
+        check.setdefault("severity", "warning")
 
     production = os.getenv("ENV", "development").lower() in {"production", "prod"}
     if production:

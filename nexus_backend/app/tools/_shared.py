@@ -77,9 +77,7 @@ def safe_tool_error(e: Exception, action: str) -> str:
     # PostgREST / PostgreSQL: relation "xxx" does not exist
     if "does not exist" in err_str and ("relation" in err_str or "table" in err_str):
         _logger.warning(f"Tool '{action}' hit missing table: {e}")
-        return (
-            f"ℹ️ {action}功能暂未启用（相关数据表尚未创建）。如需使用请联系管理员开通。"
-        )
+        return f"ℹ️ {action}所需数据表未配置。请管理员先执行数据库迁移或完成对应系统集成。"
 
     _logger.error(f"Tool error during {action}: {e}", exc_info=True)
     if _IS_PRODUCTION:

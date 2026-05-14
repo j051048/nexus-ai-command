@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate, Route } from "react-router-dom";
-import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
+import { ModuleRouteBoundary } from "@/components/common/ModuleRouteBoundary";
 import type { ModuleFlag } from "@/config/featureFlags";
 import { ModuleGate } from "./ModuleGate";
 import {
@@ -48,7 +48,7 @@ type AdminRouteComponent = React.ComponentType<{
 function moduleBoundary(flag: ModuleFlag, moduleName: string, child: React.ReactNode) {
   return (
     <ModuleGate flag={flag}>
-      <ModuleErrorBoundary moduleName={moduleName}>{child}</ModuleErrorBoundary>
+      <ModuleRouteBoundary moduleName={moduleName}>{child}</ModuleRouteBoundary>
     </ModuleGate>
   );
 }
@@ -63,7 +63,7 @@ function adminModule(
   return (
     <ModuleGate flag={flag}>
       <AdminRoute allowedRoles={allowedRoles}>
-        <ModuleErrorBoundary moduleName={moduleName}>{child}</ModuleErrorBoundary>
+        <ModuleRouteBoundary moduleName={moduleName}>{child}</ModuleRouteBoundary>
       </AdminRoute>
     </ModuleGate>
   );
@@ -89,7 +89,7 @@ export function adminRoutes(AdminRoute: AdminRouteComponent) {
       <Route path="form-designer/:id" element={adminModule(AdminRoute, "form_designer", "Form Designer", <FormDesigner />, managerRoles)} />
 
       <Route path="custom-dashboard" element={moduleBoundary("custom_dashboard", "Custom Dashboard", <CustomDashboard />)} />
-      <Route path="notification-center" element={<ModuleErrorBoundary moduleName="Notification Center"><NotificationCenter /></ModuleErrorBoundary>} />
+      <Route path="notification-center" element={<ModuleRouteBoundary moduleName="Notification Center"><NotificationCenter /></ModuleRouteBoundary>} />
       <Route path="reports" element={adminModule(AdminRoute, "reports", "Reports", <ReportsPage />, managerRoles)} />
       <Route path="report-builder" element={adminModule(AdminRoute, "report_builder", "Report Builder", <ReportBuilderPage />, managerRoles)} />
       <Route path="payments" element={adminModule(AdminRoute, "billing", "Payments", <PaymentPage />, managerRoles)} />
@@ -97,26 +97,26 @@ export function adminRoutes(AdminRoute: AdminRouteComponent) {
       <Route path="billing/success" element={<CheckoutSuccessPage />} />
       <Route path="billing/canceled" element={<CheckoutCancelPage />} />
 
-      <Route path="settings" element={<AdminRoute><ModuleErrorBoundary moduleName="AI Settings"><AISettingsPanel /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="settings" element={<AdminRoute><ModuleRouteBoundary moduleName="AI Settings"><AISettingsPanel /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="employees" element={<Navigate to="/org-chart" replace />} />
       <Route path="departments" element={<Navigate to="/org-chart" replace />} />
-      <Route path="audit" element={<AdminRoute><ModuleErrorBoundary moduleName="Audit"><AuditPanel /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="super-admin" element={<AdminRoute><ModuleErrorBoundary moduleName="Super Admin"><SuperAdminDashboard /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="api-keys" element={<AdminRoute><ModuleErrorBoundary moduleName="API Keys"><APIKeysPage /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="company-settings" element={<AdminRoute><ModuleErrorBoundary moduleName="Company Settings"><CompanySettingsPage /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="audit" element={<AdminRoute><ModuleRouteBoundary moduleName="Audit"><AuditPanel /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="super-admin" element={<AdminRoute><ModuleRouteBoundary moduleName="Super Admin"><SuperAdminDashboard /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="api-keys" element={<AdminRoute><ModuleRouteBoundary moduleName="API Keys"><APIKeysPage /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="company-settings" element={<AdminRoute><ModuleRouteBoundary moduleName="Company Settings"><CompanySettingsPage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="soul-document" element={adminModule(AdminRoute, "soul_document", "Soul Document", <SoulDocumentPage />)} />
-      <Route path="org-chart" element={<AdminRoute><ModuleErrorBoundary moduleName="Org Chart"><OrgChartPage /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="org-chart" element={<AdminRoute><ModuleRouteBoundary moduleName="Org Chart"><OrgChartPage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="plugins" element={adminModule(AdminRoute, "plugins", "Plugin Marketplace", <PluginMarketplace />)} />
-      <Route path="llm/models" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM Models"><LLMModelManagement /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="llm/costs" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM Costs"><LLMCostDashboard /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="agent-runs" element={<AdminRoute allowedRoles={adminRoles}><ModuleErrorBoundary moduleName="Agent Runs"><AgentRunsPage /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="tools/governance" element={<AdminRoute allowedRoles={adminRoles}><ModuleErrorBoundary moduleName="Tool Governance"><ToolGovernancePage /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="ai-roi" element={<AdminRoute allowedRoles={managerRoles}><ModuleErrorBoundary moduleName="AI ROI"><AiRoiDashboard /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="llm/models" element={<AdminRoute><ModuleRouteBoundary moduleName="LLM Models"><LLMModelManagement /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="llm/costs" element={<AdminRoute><ModuleRouteBoundary moduleName="LLM Costs"><LLMCostDashboard /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="agent-runs" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Agent Runs"><AgentRunsPage /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="tools/governance" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Tool Governance"><ToolGovernancePage /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="ai-roi" element={<AdminRoute allowedRoles={managerRoles}><ModuleRouteBoundary moduleName="AI ROI"><AiRoiDashboard /></ModuleRouteBoundary></AdminRoute>} />
 
       <Route path="dev/animations" element={<ModuleGate flag="dev_tools"><AnimationShowcase /></ModuleGate>} />
-      <Route path="agent-debug" element={<ModuleGate flag="dev_tools"><AdminRoute><ModuleErrorBoundary moduleName="Agent Debug"><AgentDebugPanel /></ModuleErrorBoundary></AdminRoute></ModuleGate>} />
-      <Route path="scheduled-tasks" element={<AdminRoute><ModuleErrorBoundary moduleName="Scheduled Tasks"><ScheduledTasks /></ModuleErrorBoundary></AdminRoute>} />
-      <Route path="admin/intent-rules" element={<AdminRoute><ModuleErrorBoundary moduleName="Intent Rules"><IntentRulesPage /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="agent-debug" element={<ModuleGate flag="dev_tools"><AdminRoute><ModuleRouteBoundary moduleName="Agent Debug"><AgentDebugPanel /></ModuleRouteBoundary></AdminRoute></ModuleGate>} />
+      <Route path="scheduled-tasks" element={<AdminRoute><ModuleRouteBoundary moduleName="Scheduled Tasks"><ScheduledTasks /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="admin/intent-rules" element={<AdminRoute><ModuleRouteBoundary moduleName="Intent Rules"><IntentRulesPage /></ModuleRouteBoundary></AdminRoute>} />
     </>
   );
 }

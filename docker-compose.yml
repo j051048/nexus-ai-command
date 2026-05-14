@@ -8,9 +8,11 @@ services:
       - redis-data:/data
 
   backend:
-    image: python:3.11-slim
-    working_dir: /app/nexus_backend
-    command: sh -c "pip install -e . && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000"
     env_file:
       - .env
     environment:
@@ -20,15 +22,15 @@ services:
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-4}
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
     depends_on:
       - redis
 
   celery-worker:
-    image: python:3.11-slim
-    working_dir: /app/nexus_backend
-    command: sh -c "pip install -e . && celery -A app.core.celery_app.celery_app worker --loglevel=INFO --concurrency=$${CELERY_WORKER_CONCURRENCY:-4}"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: sh -c "celery -A app.core.celery_app.celery_app worker --loglevel=INFO --concurrency=$${CELERY_WORKER_CONCURRENCY:-4}"
     env_file:
       - .env
     environment:
@@ -36,23 +38,21 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-4}
-    volumes:
-      - .:/app
     depends_on:
       - redis
 
   celery-beat:
-    image: python:3.11-slim
-    working_dir: /app/nexus_backend
-    command: sh -c "pip install -e . && celery -A app.core.celery_app.celery_app beat --loglevel=INFO"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: sh -c "celery -A app.core.celery_app.celery_app beat --loglevel=INFO"
     env_file:
       - .env
     environment:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
-    volumes:
-      - .:/app
     depends_on:
       - redis
 

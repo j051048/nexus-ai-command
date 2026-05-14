@@ -568,10 +568,10 @@ class VectorService:
 
     def _search_mock(self, query: str) -> str:
         """
-        Mock data fallback.
+        Development data fallback.
         WARNING: Only used in development. Production should never reach here.
         """
-        mock_data = [
+        fallback_data = [
             {
                 "content": "主要销售流程: 线索 -> 初步沟通 -> 需求分析 -> 方案报价 -> 合同签订",
                 "tags": ["流程", "销售"],
@@ -587,17 +587,17 @@ class VectorService:
         ]
 
         results = []
-        for item in mock_data:
+        for item in fallback_data:
             if (
                 any(k in query.lower() for k in [t.lower() for t in item["tags"]])
                 or query.lower() in item["content"].lower()
             ):
-                results.append(f"{item['content']} [来源: 模拟数据]")
+                results.append(f"{item['content']} [来源: 开发回退数据]")
 
         return (
-            "为您检索到以下相关知识 (Mock):\n- " + "\n- ".join(results)
+            "为您检索到以下相关知识（开发回退）:\n- " + "\n- ".join(results)
             if results
-            else "知识库中未找到相关信息 (Mock)."
+            else "知识库中未找到相关信息（开发回退）。"
         )
 
     async def embed_text(

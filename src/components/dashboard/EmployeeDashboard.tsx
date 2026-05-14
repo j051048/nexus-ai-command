@@ -54,7 +54,7 @@ const SectionSkeleton = ({ className }: { className?: string }) => (
   </div>
 );
 
-const mockRankings: { rank: number; name: string; score: number; bonus: number; trend: 'up' | 'down' | 'stable'; isCurrentUser: boolean }[] = [];
+const fallbackRankings: { rank: number; name: string; score: number; bonus: number; trend: 'up' | 'down' | 'stable'; isCurrentUser: boolean }[] = [];
 
 const defaultPerformanceMetrics: { name: string; value: number; target: number; unit: string; status: 'good' | 'warning' | 'excellent' }[] = [];
 
@@ -86,13 +86,14 @@ export function EmployeeDashboard() {
   const { data: leaderboardData } = useLeaderboard(5);
   const { data: salesMetrics } = useSalesMetrics(1); // Last month
   const seedDemoData = useSeedDemoData();
+  const demoDataEnabled = import.meta.env.VITE_ENABLE_DEMO_DATA === 'true';
 
-  // Use real rankings or fallback to mock
+  // Use real rankings or an empty fallback while data is loading.
   const rankings = useMemo(() => {
     if (leaderboardData && leaderboardData.length > 0) {
       return leaderboardData;
     }
-    return mockRankings;
+    return fallbackRankings;
   }, [leaderboardData]);
 
   // Calculate performance metrics from real data
@@ -186,7 +187,7 @@ export function EmployeeDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          {!hasRealData && (
+          {demoDataEnabled && !hasRealData && (
             <Button
               variant="outline"
               size="sm"

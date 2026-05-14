@@ -307,7 +307,7 @@ export function EmployeeDetail({
                         <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mb-2">
                             <Plus className="w-5 h-5" />
                         </div>
-                        <p className="text-sm font-medium">新建项目 (暂未开放)</p>
+                        <p className="text-sm font-medium">新建项目</p>
                     </div>
                 </div>
             </div>

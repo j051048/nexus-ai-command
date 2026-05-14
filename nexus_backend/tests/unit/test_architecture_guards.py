@@ -232,3 +232,164 @@ def test_router_registration_is_domain_split():
     assert "def register_crm_sales_routes" in groups
     assert "def register_finance_routes" in groups
     assert "def register_optional_routes" in groups
+
+
+def test_p0_production_container_is_build_time_installed():
+    dockerfile = read("Dockerfile")
+    compose = read("docker-compose.yml")
+    assert "COPY nexus_backend/requirements.txt" in dockerfile
+    assert "pip install --no-cache-dir" in dockerfile
+    assert "USER appuser" in dockerfile
+    assert "pip install -e ." not in compose
+    assert "dockerfile: Dockerfile" in compose
+
+
+def test_p0_vector_index_and_rls_policy_scanner_are_enforced():
+    vector_migration = read(
+        "supabase/migrations/20260514_p0_document_embeddings_vector_index.sql"
+    )
+    rls_migration = read(
+        "supabase/migrations/20260514_p0_tenant_rls_policy_backfill.sql"
+    )
+    scanner = read("scripts/scan_rls_coverage.py")
+    ci = read(".github/workflows/ci.yml")
+    assert "USING hnsw (embedding vector_cosine_ops)" in vector_migration
+    assert "USING ivfflat (embedding vector_cosine_ops)" in vector_migration
+    assert "current_tenant_id_text" in rls_migration
+    assert "SECURITY DEFINER" in rls_migration
+    assert "CREATE POLICY p0_chat_messages_tenant_isolation" in rls_migration
+    assert "MISSING_POLICY" in scanner
+    assert "_collect_policy_tables" in scanner
+    assert "Run static RLS coverage scanner" in ci
+
+
+def test_p0_audit_logs_are_immutable():
+    audit = read("supabase/migrations/20260419_p1_audit_logs_immutable.sql")
+    assert "prevent_audit_log_mutation" in audit
+    assert "BEFORE UPDATE OR DELETE ON public.audit_logs" in audit
+    assert "audit_logs_immutable" in audit
+
+
+def test_p0_celery_queue_backlog_alert_is_wired():
+    monitor = read("nexus_backend/app/core/celery_queue_monitor.py")
+    metrics = read("nexus_backend/app/core/metrics.py")
+    deploy = read("nexus_backend/app/routers/deployment_health.py")
+    env_example = read(".env.production.example")
+    assert "CELERY_QUEUE_DEPTH_WARNING" in monitor
+    assert "CELERY_QUEUE_DEPTH_CRITICAL" in monitor
+    assert "observe_celery_queue_depth" in monitor
+    assert "celery_queue_depth" in metrics
+    assert "collect_celery_queue_health" in deploy
+    assert "CELERY_MONITORED_QUEUES" in env_example
+
+
+def test_p0_irreversible_tools_always_reach_critic():
+    graph = read("nexus_backend/app/agent/graph.py")
+    critic = read("nexus_backend/app/agent/node_reflect.py")
+    assert "Irreversible tool succeeded + user confirmed" not in graph
+    assert "return \"synthesize\"" not in graph.split("if _has_irreversible_tool(state):", 1)[1].split("logger.info(f\"[Graph] All tools succeeded", 1)[0]
+    assert "Irreversible tool detected after reflect" in graph
+    assert "and not has_irreversible_tool(state)" in critic
+
+
+def test_p0_customer_launch_modules_have_owner_and_smoke_coverage():
+    metadata = read("src/config/customerLaunchModules.ts")
+    readiness = read("scripts/production_readiness_check.mjs")
+    smoke = read("e2e/top10-critical-flows.spec.ts")
+    flags = read("src/config/featureFlags.ts")
+
+    enabled_section = flags.split("CUSTOMER_LAUNCH_ENABLED_MODULES", 1)[1].split("];", 1)[0]
+    modules = [
+        line.split('"')[1]
+        for line in enabled_section.splitlines()
+        if '"' in line
+    ]
+    for module in modules:
+        assert f'flag: "{module}"' in metadata
+    assert "owner:" in metadata
+    assert "smokePath:" in metadata
+    for route in [
+        "/login",
+        "/crm",
+        "/approval",
+        "/documents",
+        "/knowledge",
+        "/vmd",
+        "/plugins",
+        "/reports",
+        "/finance",
+        "/workflows",
+    ]:
+        assert route in smoke
+    assert "launch metadata:" in readiness
+    assert "golden smoke route:" in readiness
+
+
+def test_p0_customer_visible_placeholder_language_is_removed():
+    files = [
+        "nexus_backend/app/tools/hr_tools.py",
+        "nexus_backend/app/tools/finance_tools.py",
+        "nexus_backend/app/tools/_shared.py",
+        "nexus_backend/app/services/crawler_service.py",
+        "nexus_backend/app/services/vector_service.py",
+        "src/components/dashboard/EmployeeDashboard.tsx",
+        "src/components/onboarding/OnboardingWizard.tsx",
+        "src/components/admin/EmployeeDetail.tsx",
+    ]
+    forbidden = [
+        "暂未开通",
+        "暂未启用",
+        "占位提示",
+        "nexus-user-1",
+        "已发送面试邀请",
+        "已添加到您的日程",
+        "暂未开放",
+        "(Mock)",
+        "模拟数据",
+    ]
+    for file in files:
+        content = read(file)
+        for token in forbidden:
+            assert token not in content, f"{token} should not appear in {file}"
+    assert "VITE_ENABLE_DEMO_DATA=false" in read(".env.production.example")
+
+
+def test_p1_idempotency_has_bounded_memory_fallback():
+    middleware = read("nexus_backend/app/core/idempotency_middleware.py")
+    config = read("nexus_backend/app/core/config.py")
+    env_example = read(".env.production.example")
+
+    assert "IDEMPOTENCY_TTL_SECONDS" in middleware
+    assert "IDEMPOTENCY_MEMORY_FALLBACK_MAX" in middleware
+    assert "IDEMPOTENCY_MEMORY_FALLBACK_TTL_SECONDS" in middleware
+    assert "def _prune_memory_cache" in middleware
+    assert "X-Idempotency-Store" in middleware
+    assert "process-local memory fallback" in middleware
+    assert "IDEMPOTENCY_MEMORY_FALLBACK_MAX" in config
+    assert "IDEMPOTENCY_MEMORY_FALLBACK_TTL_SECONDS" in env_example
+
+
+def test_p1_streaming_usage_fallback_uses_token_counter():
+    adapter = read("nexus_backend/app/services/llm_adapters/openai_compatible.py")
+    gateway = read("nexus_backend/app/services/llm_gateway/chat_dispatch.py")
+
+    assert "def _estimate_stream_usage" in adapter
+    assert "token_counter.estimate_prompt_tokens" in adapter
+    assert '"estimated": True' in adapter
+    assert "usage = (" in adapter
+    assert "tools=tools if config.supports_tools else None" in gateway
+    assert "from app.services.token_service import token_counter" in gateway
+
+
+def test_p1_route_level_suspense_and_error_boundaries_are_wired():
+    boundary = read("src/components/common/ModuleRouteBoundary.tsx")
+    core_routes = read("src/routes/coreRoutes.tsx")
+    business_routes = read("src/routes/businessRoutes.tsx")
+    admin_routes = read("src/routes/adminRoutes.tsx")
+    vmd_routes = read("src/routes/vmdRoutes.tsx")
+
+    assert "Suspense" in boundary
+    assert "ModuleErrorBoundary" in boundary
+    assert "ModuleRouteSkeleton" in boundary
+    for route_file in [core_routes, business_routes, admin_routes, vmd_routes]:
+        assert "ModuleRouteBoundary" in route_file

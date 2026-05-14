@@ -64,6 +64,11 @@ try:
         "Total agent executions",
         ["complexity", "status"],
     )
+    CELERY_QUEUE_DEPTH = Gauge(
+        "celery_queue_depth",
+        "Pending Celery tasks by queue",
+        ["queue"],
+    )
 
     _prom_available = True
     logger.info("[Metrics] prometheus_client initialized")
@@ -103,6 +108,14 @@ def observe_http_request(
     else:
         _mem_counters[f"http_requests_total|{method}|{normalized}|{status}"] += 1
         _hist_add(f"http_request_duration_seconds|{method}|{normalized}", duration_s)
+
+
+def observe_celery_queue_depth(queue: str, depth: int) -> None:
+    """Record current Celery queue depth."""
+    if _prom_available:
+        CELERY_QUEUE_DEPTH.labels(queue=queue).set(depth)
+    else:
+        _mem_gauges[f'celery_queue_depth{{queue="{queue}"}}'] = float(depth)
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +194,7 @@ def _format_labels(metric_name: str, label_values: list[str]) -> str:
         "llm_requests_total": ["model", "status"],
         "llm_request_duration_seconds": ["model"],
         "agent_executions_total": ["complexity", "status"],
+        "celery_queue_depth": ["queue"],
     }
     names = label_map.get(metric_name, [f"l{i}" for i in range(len(label_values))])
     pairs = [f'{n}="{v}"' for n, v in zip(names, label_values, strict=False)]

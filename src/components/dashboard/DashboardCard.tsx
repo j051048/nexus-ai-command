@@ -23,7 +23,7 @@ import {
 import { CHART_COLORS } from '@/lib/chartColors';
 import { EmptyState } from '@/components/common/EmptyState';
 
-// ─── Mock 数据 ──────────────────────────────────────────────
+// Empty defaults keep cards stable before live data arrives.
 
 const COLORS = CHART_COLORS;
 

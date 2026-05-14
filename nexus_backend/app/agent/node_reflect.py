@@ -26,6 +26,7 @@ from app.agent.node_helpers import (
     sanitize_output,
     scan_content,
 )
+from app.agent.safety_guards import has_irreversible_tool
 
 
 def _normalize_number(text: str) -> float | None:
@@ -851,8 +852,9 @@ async def critic_node(state: AgentState) -> dict:
     config: AgentConfig = state["config"]
     complexity = state.get("complexity", QueryComplexity.MODERATE)
 
-    # Skip critic for simple/moderate queries — not worth the extra LLM call
-    if complexity in (QueryComplexity.SIMPLE, QueryComplexity.MODERATE):
+    # Skip critic for simple/moderate queries unless high-risk irreversible
+    # tools were used. Irreversible operations must always be reviewed.
+    if complexity in (QueryComplexity.SIMPLE, QueryComplexity.MODERATE) and not has_irreversible_tool(state):
         return {
             "critic_passed": True,
             "critic_feedback": "",

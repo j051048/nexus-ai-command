@@ -100,9 +100,7 @@ class PerformanceService:
     ):
         """Persist score update to Supabase"""
         if not supabase:
-            logger.info(
-                f"[Mock DB] Updated score for {user_id}: +{delta} -> {new_total}"
-            )
+            logger.info("Database unavailable; skipped score update for %s", user_id)
             return
 
         try:

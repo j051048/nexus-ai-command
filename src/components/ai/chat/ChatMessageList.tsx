@@ -18,13 +18,13 @@ import type { AgentTrace } from '@/hooks/useAgentTrace';
 import type { OrchestrationTrace } from '@/hooks/useOrchestrationTrace';
 import { aiClient } from '@/api/aiClient';
 import { ConfirmationCard } from './ConfirmationCard';
-import FormBuilder from '../genui/FormBuilder';
 
 import { CapabilityCards } from './CapabilityCards';
 import { WorkflowStepper } from './WorkflowStepper';
 import { getActivePath, linkMessagesSequentially, getBranchInfo } from '@/lib/messageTree';
 
 const VIRTUAL_THRESHOLD = 30;
+const FormBuilder = React.lazy(() => import('../genui/FormBuilder'));
 
 interface ChatMessageListProps {
   messages: AIMessage[];
