@@ -141,12 +141,22 @@ const requiredFiles = [
   "supabase/migrations/20260508_launch_readiness_feature_flags.sql",
   "supabase/migrations/20260514_p0_document_embeddings_vector_index.sql",
   "supabase/migrations/20260514_p0_tenant_rls_policy_backfill.sql",
+  "supabase/migrations/20260514_p2_cost_report_rpc.sql",
   "docs/PRODUCTION_LAUNCH_CHECKLIST.md",
   "docs/RUNBOOK_SMALL_COMPANY.md",
+  "docs/SOC2_CONTROLS.md",
+  "docs/TOOL_DEVELOPMENT_GUIDE.md",
   "scripts/backup_supabase.sh",
   "scripts/backup_supabase.ps1",
+  "scripts/release_quality_gate.py",
+  "scripts/check_bundle_budget.mjs",
+  "scripts/collect_release_evidence.py",
   "src/config/customerLaunchModules.ts",
   "e2e/top10-critical-flows.spec.ts",
+  "nexus_backend/app/routers/enterprise_sso.py",
+  "nexus_backend/app/routers/compliance.py",
+  "nexus_backend/app/core/api_key_middleware.py",
+  "nexus_backend/app/core/tool_rbac.py",
 ];
 for (const file of requiredFiles) {
   addCheck(`file: ${file}`, existsSync(path.join(root, file)), "critical", "Required launch asset is missing");

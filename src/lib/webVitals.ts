@@ -1,29 +1,73 @@
 /**
- * Core Web Vitals reporting — sends CLS, INP, LCP, FCP, TTFB to Sentry.
- * Only active in production builds.
+ * Core Web Vitals reporting — sends CLS, INP, LCP, FCP, TTFB to Sentry
+ * with rating-based severity and optional custom endpoint.
+ *
+ * P0 Audit fix: Added rating classification, console dev logging,
+ * and custom endpoint support via VITE_VITALS_ENDPOINT.
  */
-import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals';
+import type { Metric } from 'web-vitals';
+
+const IS_PROD = import.meta.env.PROD;
+const REPORT_ENDPOINT = import.meta.env.VITE_VITALS_ENDPOINT || '';
+
+function reportMetric(metric: Metric): void {
+  const payload = {
+    name: metric.name,
+    value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),
+    rating: metric.rating,
+    id: metric.id,
+    url: window.location.pathname,
+  };
+
+  // Dev: rich console output with color-coded rating
+  if (!IS_PROD) {
+    const color = metric.rating === 'good' ? '#0CCE6B'
+      : metric.rating === 'needs-improvement' ? '#FFA400' : '#FF4E42';
+    console.log(
+      `%c[WebVitals] ${metric.name}: ${payload.value} (${metric.rating})`,
+      `color: ${color}; font-weight: bold;`
+    );
+    return;
+  }
+
+  // Sentry integration
+  try {
+    import('@sentry/react').then((Sentry) => {
+      Sentry.setMeasurement(metric.name, metric.value, metric.name === 'CLS' ? '' : 'millisecond');
+      // Tag poor metrics for Sentry alerting
+      if (metric.rating === 'poor') {
+        Sentry.setTag(`webvitals.${metric.name}`, 'poor');
+      }
+    }).catch(() => {});
+  } catch {
+    // Sentry not available
+  }
+
+  // Custom endpoint (if configured)
+  if (REPORT_ENDPOINT) {
+    const body = JSON.stringify(payload);
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(REPORT_ENDPOINT, body);
+    } else {
+      fetch(REPORT_ENDPOINT, {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+      }).catch(() => {});
+    }
+  }
+}
 
 export function reportWebVitals() {
-  if (import.meta.env.MODE !== 'production') return;
-
-  try {
-    // Dynamically import Sentry to avoid bundling issues if not configured
-    import('@sentry/react').then((Sentry) => {
-      const report = ({ name, value, id }: { name: string; value: number; id: string }) => {
-        // Use Sentry's custom measurement API
-        Sentry.setMeasurement(name, value, name === 'CLS' ? '' : 'millisecond');
-      };
-
-      onCLS(report);
-      onINP(report);
-      onLCP(report);
-      onFCP(report);
-      onTTFB(report);
-    }).catch(() => {
-      // Sentry not available — silently skip
-    });
-  } catch {
-    // web-vitals or Sentry not available
-  }
+  // Dynamic import to avoid blocking first paint
+  import('web-vitals').then(({ onCLS, onINP, onLCP, onFCP, onTTFB }) => {
+    onCLS(reportMetric);
+    onINP(reportMetric);
+    onLCP(reportMetric);
+    onFCP(reportMetric);
+    onTTFB(reportMetric);
+  }).catch(() => {
+    // web-vitals not available — silently skip
+  });
 }

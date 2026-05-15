@@ -1,6 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import { toast } from 'sonner';
 
+import { supabase } from '@/integrations/supabase/client';
+
 import { getApiBaseUrl } from './apiConfig';
 
 const httpClient: AxiosInstance = axios.create({
@@ -12,7 +14,6 @@ const httpClient: AxiosInstance = axios.create({
 httpClient.interceptors.request.use(
   async (config) => {
     try {
-      const { supabase } = await import('@/integrations/supabase/client');
       const {
         data: { session },
       } = await supabase.auth.getSession();

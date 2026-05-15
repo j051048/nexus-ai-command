@@ -114,6 +114,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
 
+      - name: Check bundle budget
+        run: npm run check:bundle
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -184,6 +187,10 @@ jobs:
       - name: Run static RLS coverage scanner
         working-directory: ${{ github.workspace }}
         run: python scripts/scan_rls_coverage.py
+
+      - name: Run P0-P2 release quality gate
+        working-directory: ${{ github.workspace }}
+        run: python scripts/release_quality_gate.py
 
       - name: Run architecture and security guardrails
         run: pytest tests/unit/test_architecture_guards.py tests/security/test_prompt_firewall_indirect_injection.py -q

@@ -393,3 +393,110 @@ def test_p1_route_level_suspense_and_error_boundaries_are_wired():
     assert "ModuleRouteSkeleton" in boundary
     for route_file in [core_routes, business_routes, admin_routes, vmd_routes]:
         assert "ModuleRouteBoundary" in route_file
+
+
+def test_p2_cost_report_rpc_and_daily_usage_migration_are_managed():
+    migration = read("supabase/migrations/20260514_p2_cost_report_rpc.sql")
+    early_table = read("supabase/migrations/20260405_p03_performance_indexes.sql")
+    token_service = read("nexus_backend/app/services/token_service.py")
+
+    assert "CREATE TABLE IF NOT EXISTS public.user_token_usage" in migration
+    assert "CREATE TABLE IF NOT EXISTS public.user_token_usage" in early_table
+    assert "CREATE OR REPLACE FUNCTION public.upsert_daily_token_usage" in migration
+    assert "CREATE OR REPLACE FUNCTION public.get_cost_report" in migration
+    assert "SECURITY DEFINER" in migration
+    assert "SET search_path = public" in migration
+    assert "upsert_daily_token_usage" in token_service
+    assert "get_cost_report" in token_service
+
+
+def test_p2_tool_development_guide_defines_required_governance_metadata():
+    guide = read("docs/TOOL_DEVELOPMENT_GUIDE.md")
+    registry = read("nexus_backend/app/tools/registry.py")
+
+    for token in [
+        "required_role",
+        "risk",
+        "owner",
+        "timeout_s",
+        "idempotent",
+        "side_effect",
+        "is_irreversible=True",
+        "Tool RAG",
+    ]:
+        assert token in guide
+        if token != "is_irreversible=True" and token != "Tool RAG":
+            assert token in registry
+
+
+def test_p2_wbs_validation_is_blocking_by_contract():
+    wbs = read("nexus_backend/app/agent/nodes_wbs.py")
+
+    assert "Blocking: any warning prevents orchestration" in wbs
+    assert "WBS validation failed" in wbs
+    assert "raise ValueError(\"WBS validation failed:" in wbs
+
+
+def test_p2_chat_formbuilder_is_lazy_only():
+    chat = read("src/components/ai/chat/ChatMessageList.tsx")
+    genui = read("src/components/ai/GenUIContainer.tsx")
+
+    assert "const FormBuilder = React.lazy" in chat
+    assert "import FormBuilder from '../genui/FormBuilder'" not in chat
+    assert "FormBuilder: lazyWithRetry" in genui
+
+
+def test_p0_p2_release_quality_gate_is_wired():
+    gate = read("scripts/release_quality_gate.py")
+    readiness = read("scripts/production_readiness_check.mjs")
+    ci = read(".github/workflows/ci.yml")
+    soc2 = read("docs/SOC2_CONTROLS.md")
+
+    for token in [
+        "P0",
+        "P1",
+        "P2",
+        "SOC2_CONTROLS.md",
+        "enterprise_sso",
+        "api_key_middleware",
+        "tool_rbac",
+        "test_fuzz_api.py",
+    ]:
+        assert token in gate
+    assert "Run P0-P2 release quality gate" in ci
+    assert "python scripts/release_quality_gate.py" in ci
+    assert "scripts/release_quality_gate.py" in readiness
+    assert "docs/SOC2_CONTROLS.md" in readiness
+    assert "20260514_p2_cost_report_rpc.sql" in readiness
+    assert "CC6" in soc2
+    assert "CC7" in soc2
+
+
+def test_p3_p6_sustained_quality_controls_are_wired():
+    http_client = read("src/lib/httpClient.ts")
+    bundle = read("scripts/check_bundle_budget.mjs")
+    package = read("package.json")
+    ci = read(".github/workflows/ci.yml")
+    doctor = read("scripts/private_deploy_doctor.py")
+    evidence = read("scripts/collect_release_evidence.py")
+    gate = read("scripts/release_quality_gate.py")
+    readiness = read("scripts/production_readiness_check.mjs")
+
+    assert "import { supabase }" in http_client
+    assert "await import('@/integrations/supabase/client')" not in http_client
+    assert "maxJsChunkBytes" in bundle
+    assert "vendor-jspdf-" in bundle
+    assert "vendor-html2canvas-" in bundle
+    assert '"check:bundle"' in package
+    assert "Check bundle budget" in ci
+    assert "npm run check:bundle" in ci
+    assert "--env" in doctor
+    assert "PRIVATE_DEPLOYMENT" in doctor
+    assert "CORS_ORIGINS" in doctor
+    assert "release-evidence.json" in evidence
+    assert "sha256" in evidence
+    assert "<redacted>" in evidence
+    for level in ["P3", "P4", "P5", "P6"]:
+        assert level in gate
+    assert "scripts/check_bundle_budget.mjs" in readiness
+    assert "scripts/collect_release_evidence.py" in readiness

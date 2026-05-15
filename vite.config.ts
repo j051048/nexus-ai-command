@@ -117,6 +117,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    emptyOutDir: true,
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {

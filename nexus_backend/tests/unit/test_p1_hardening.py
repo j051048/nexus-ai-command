@@ -34,6 +34,27 @@ def test_tool_rbac_allows_safe_read_all_tool_for_non_privileged_role():
     assert reason == ""
 
 
+@pytest.mark.parametrize(
+    ("tool_name", "user_role", "required_role", "expected"),
+    [
+        ("create_customer", "viewer", "all", False),
+        ("approve_payment", "employee", "finance", False),
+        ("create_invoice", "finance", "finance", True),
+        ("change_salary", "manager", "all", False),
+        ("delete_customer", "admin", "admin", True),
+    ],
+)
+def test_tool_rbac_core_permission_matrix(tool_name, user_role, required_role, expected):
+    allowed, reason = check_tool_access(
+        tool_name=tool_name,
+        user_role=user_role,
+        tool_required_role=required_role,
+    )
+    assert allowed is expected
+    if not expected:
+        assert reason
+
+
 def test_enterprise_sso_state_rejects_tamper():
     service = EnterpriseSSOService(state_secret="secret")
     state = service.sign_state({"org_id": "org-1", "provider_code": "okta"})

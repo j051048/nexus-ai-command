@@ -45,7 +45,8 @@ _KNOWN_AGENT_CODES = {
 def _validate_wbs(wbs: dict) -> list[str]:
     """
     #14: Validate WBS structure quality. Returns list of warning strings.
-    Non-blocking: warnings are logged but never prevent execution.
+    Blocking: any warning prevents orchestration because invalid dependencies
+    can execute tasks in the wrong order or skip required review.
     """
     warnings = []
     sub_tasks = wbs.get("sub_tasks", [])
@@ -259,7 +260,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
 
         task_count = len(wbs_structure["sub_tasks"])
 
-        # #14: WBS quality validation (non-blocking)
+        # #14: WBS quality validation (blocking)
         wbs_warnings = _validate_wbs(wbs_structure)
         if wbs_warnings:
             logger.warning(f"[WBS] Validation warnings: {wbs_warnings}")

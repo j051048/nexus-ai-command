@@ -65,18 +65,53 @@ class LLMGatewayService(ModelResolutionMixin, ChatDispatchMixin, CallLoggingMixi
 llm_gateway = LLMGatewayService()
 
 
-def get_llm(org_id: str = None, model: str = None, **kwargs):
+def get_llm(org_id: str = None, model: str = None, model_tier: str = None, **kwargs):
     """
-    Temporary helper to provide a LangChain-compatible LLM instance
-    for routers (like ai_assistant.py) that expect .ainvoke().
+    Provide a LangChain-compatible LLM instance with multi-tenant isolation.
+
+    When *org_id* is supplied, attempts to load the tenant-specific API key
+    and base URL from the ``llm_model_config`` table via the gateway cache.
+    Falls back to global settings only when tenant config is unavailable.
+
+    Args:
+        org_id: Tenant organization ID for config resolution.
+        model: Explicit model code (e.g. ``gpt-4o-mini``).
+        model_tier: Shorthand tier — ``"mini"`` maps to ``gpt-4o-mini``,
+                    ``"power"`` maps to ``gpt-4o``.  Ignored when *model*
+                    is explicitly provided.
+        **kwargs: Passed through to ``ChatOpenAI`` (e.g. ``temperature``,
+                  ``timeout``, ``streaming``).
     """
     from langchain_openai import ChatOpenAI
 
     from app.core.config import settings
 
+    # Resolve model_tier shorthand
+    _TIER_MAP = {"mini": "gpt-4o-mini", "economy": "gpt-4o-mini",
+                 "balanced": "gpt-4o", "power": "gpt-4o",
+                 "flagship": "gpt-4-turbo"}
+    resolved_model = model or _TIER_MAP.get(model_tier or "", None) or "gpt-4o-mini"
+
+    # Attempt tenant-specific config resolution (best-effort, sync-safe)
+    api_key = settings.OPENAI_API_KEY
+    base_url = settings.AI_BASE_URL
+
+    if org_id:
+        try:
+            cache_key = f"{org_id}:{resolved_model}"
+            cached = llm_gateway._model_cache.get(cache_key)
+            if cached:
+                config_obj, _loaded_at = cached
+                if time.time() - _loaded_at < llm_gateway._CACHE_TTL:
+                    api_key = config_obj.api_key or api_key
+                    base_url = config_obj.api_base_url or base_url
+                    resolved_model = config_obj.model_id or resolved_model
+        except Exception:
+            pass  # Fall through to global defaults
+
     return ChatOpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        base_url=settings.AI_BASE_URL,
-        model=model or "gpt-4o-mini",
+        api_key=api_key,
+        base_url=base_url,
+        model=resolved_model,
         **kwargs
     )
