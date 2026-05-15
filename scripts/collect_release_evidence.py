@@ -27,6 +27,7 @@ EVIDENCE_FILES = [
     "scripts/scan_rls_coverage.py",
     "scripts/customer_acceptance_gate.py",
     "scripts/generate_customer_handoff.py",
+    "e2e/customer-business-acceptance.spec.ts",
     "docs/PRODUCTION_LAUNCH_CHECKLIST.md",
     "docs/RUNBOOK_SMALL_COMPANY.md",
     "docs/CUSTOMER_ACCEPTANCE_CRITERIA.md",

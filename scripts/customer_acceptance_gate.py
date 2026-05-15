@@ -58,6 +58,7 @@ def main() -> int:
     feature_flags = read("src/config/featureFlags.ts")
     readiness = read("src/config/customerLaunchModules.ts")
     smoke = read("e2e/top10-critical-flows.spec.ts")
+    business_acceptance = read("e2e/customer-business-acceptance.spec.ts")
     env_example = read(".env.production.example")
 
     print("Customer acceptance gate: small_company launch profile")
@@ -93,6 +94,23 @@ def main() -> int:
             print(f"FAIL safety {name}")
         else:
             print(f"OK safety {name}")
+
+    business_tokens = [
+        "login reaches the dashboard",
+        "CRM can create a customer",
+        "approval can be submitted",
+        "document upload appears",
+        "project can be created",
+        "HR employee and OA announcement",
+        "AI chat sends a message",
+        "employee role is blocked",
+    ]
+    missing_business = [token for token in business_tokens if token not in business_acceptance]
+    if missing_business:
+        failures.append(f"business acceptance suite missing: {', '.join(missing_business)}")
+        print("FAIL business acceptance E2E")
+    else:
+        print("OK business acceptance E2E")
 
     if failures:
         print("")

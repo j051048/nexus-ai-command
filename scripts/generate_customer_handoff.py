@@ -54,6 +54,8 @@ def build_report() -> str:
         "node scripts/production_readiness_check.mjs --env .env.production",
         "npm run build",
         "npm run check:bundle",
+        "npm run test:e2e -- e2e/top10-critical-flows.spec.ts --project=chromium",
+        "npm run test:e2e -- e2e/customer-business-acceptance.spec.ts --project=chromium",
         "```",
         "",
         "## Evidence",

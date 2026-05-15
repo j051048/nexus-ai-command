@@ -25,9 +25,10 @@ Required modules:
 
 1. Each required module has a frontend route and a smoke path in `src/config/customerLaunchModules.ts`.
 2. Each required module is covered by `e2e/top10-critical-flows.spec.ts` or a module-specific E2E suite.
-3. AI write operations must pass through Tool RBAC, idempotency, audit logging, and HITL confirmation for irreversible actions.
-4. Deployment evidence must include release quality gate output, RLS scanner output, production readiness output, bundle budget output, and release evidence manifest.
-5. Customer handoff must include enabled modules, deployment health checks, backup/restore instructions, and known optional integrations.
+3. The first-launch business loop is covered by `e2e/customer-business-acceptance.spec.ts`: login, CRM, approval, documents, projects, HR/OA, AI chat, and role blocking.
+4. AI write operations must pass through Tool RBAC, idempotency, audit logging, and HITL confirmation for irreversible actions.
+5. Deployment evidence must include release quality gate output, RLS scanner output, production readiness output, bundle budget output, and release evidence manifest.
+6. Customer handoff must include enabled modules, deployment health checks, backup/restore instructions, and known optional integrations.
 
 ## Exit Criteria
 
@@ -36,3 +37,4 @@ Required modules:
 - `node scripts/production_readiness_check.mjs --env .env.production` passes with customer secrets configured.
 - `npm run build` and `npm run check:bundle` pass.
 - Top critical Playwright smoke suite passes for the customer module set.
+- Customer business acceptance suite passes: `npm run test:e2e -- e2e/customer-business-acceptance.spec.ts --project=chromium`.

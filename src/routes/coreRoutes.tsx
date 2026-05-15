@@ -21,7 +21,7 @@ function routeBoundary(moduleName: string, child: React.ReactNode) {
 }
 
 export function coreRoutes(
-  _AdminRoute: React.ComponentType<{
+  AdminRoute: React.ComponentType<{
     children: React.ReactNode;
     allowedRoles?: string[];
   }>,
@@ -29,6 +29,14 @@ export function coreRoutes(
   return (
     <>
       <Route index element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="boss-dashboard"
+        element={
+          <AdminRoute allowedRoles={["boss", "founder"]}>
+            {routeBoundary("Boss Dashboard", <BossDashboard />)}
+          </AdminRoute>
+        }
+      />
       <Route path="dashboard" element={routeBoundary("仪表盘", <EmployeeDashboard />)} />
       <Route path="boss-dashboard" element={routeBoundary("管理驾驶舱", <BossDashboard />)} />
       <Route path="inbox" element={routeBoundary("待办中心", <InboxPage />)} />

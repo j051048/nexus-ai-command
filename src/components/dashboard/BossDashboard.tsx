@@ -17,11 +17,13 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Navigate } from 'react-router-dom';
 
 import { lazyWithRetry } from '@/lib/lazyPreload';
 import { AlertWidget } from './AlertWidget';
 import { AIActivityStats } from './AIActivityStats';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
+import { useAuth } from '@/components/auth/AuthContext';
 
 const TeamPerformanceChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.TeamPerformanceChart })));
 const RevenueChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.RevenueChart })));
@@ -39,6 +41,7 @@ const SectionSkeleton = ({ className }: { className?: string }) => (
 
 export function BossDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+  const { user, role, loading } = useAuth();
   const { pendingApprovals, updateStatus } = useApprovals();
 
   const handleApprove = async (id: string) => {
@@ -77,6 +80,11 @@ export function BossDashboard() {
   }, [leaderboardData]);
 
   const hasRealData = leaderboardData && leaderboardData.length > 0;
+
+  if (!loading && !user) return <Navigate to="/login" replace />;
+  if (!loading && role && !['boss', 'founder'].includes(role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="space-y-8 pb-12">

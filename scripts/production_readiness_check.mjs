@@ -144,6 +144,7 @@ const requiredFiles = [
   "scripts/generate_customer_handoff.py",
   "src/config/customerLaunchModules.ts",
   "e2e/top10-critical-flows.spec.ts",
+  "e2e/customer-business-acceptance.spec.ts",
   "nexus_backend/app/routers/enterprise_sso.py",
   "nexus_backend/app/routers/compliance.py",
   "nexus_backend/app/core/api_key_middleware.py",
@@ -180,6 +181,27 @@ for (const routePath of goldenSmokePaths) {
     top10Smoke.includes(routePath),
     "critical",
     `Top 10 E2E smoke test must cover ${routePath}`,
+  );
+}
+
+const businessAcceptance = existsSync(path.join(root, "e2e/customer-business-acceptance.spec.ts"))
+  ? readFileSync(path.join(root, "e2e/customer-business-acceptance.spec.ts"), "utf8")
+  : "";
+const businessFlows = [
+  "CRM can create a customer",
+  "approval can be submitted",
+  "document upload appears",
+  "project can be created",
+  "HR employee and OA announcement",
+  "AI chat sends a message",
+  "employee role is blocked",
+];
+for (const flow of businessFlows) {
+  addCheck(
+    `business acceptance flow: ${flow}`,
+    businessAcceptance.includes(flow),
+    "critical",
+    `Customer business acceptance E2E must cover: ${flow}`,
   );
 }
 

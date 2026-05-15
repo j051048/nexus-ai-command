@@ -90,8 +90,9 @@ CHECKS = [
     GateCheck("P2", "SLO dashboard route", "src/routes/adminRoutes.tsx", ('path="slo"', "SLODashboard")),
     GateCheck("P0", "small-company launch profile", "src/config/featureFlags.ts", ("SMALL_COMPANY_LAUNCH_MODULES", "VITE_LAUNCH_PROFILE", "EXTENDED_LAUNCH_MODULES")),
     GateCheck("P0", "customer acceptance gate", "scripts/customer_acceptance_gate.py", ("SMALL_COMPANY_MODULES", "Tool RBAC", "Irreversible HITL")),
+    GateCheck("P0", "customer business acceptance E2E", "e2e/customer-business-acceptance.spec.ts", ("CRM can create a customer", "AI chat sends a message", "employee role is blocked")),
     GateCheck("P1", "customer handoff generator", "scripts/generate_customer_handoff.py", ("customer-handoff.md", "Required Acceptance Commands", "small_company")),
-    GateCheck("P1", "customer acceptance criteria", "docs/CUSTOMER_ACCEPTANCE_CRITERIA.md", ("Default Launch Profile", "Acceptance Rules", "Exit Criteria")),
+    GateCheck("P1", "customer acceptance criteria", "docs/CUSTOMER_ACCEPTANCE_CRITERIA.md", ("Default Launch Profile", "Acceptance Rules", "customer-business-acceptance.spec.ts")),
 ]
 
 
