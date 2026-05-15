@@ -191,23 +191,134 @@ def _after_slot_verify(state: AgentState) -> str:
     return "execute"
 
 
+def _handle_loop_escape(state: AgentState, iteration: int) -> str | None:
+    """Handle loop detection: first attempt → strategy reset; second → circuit break.
+
+    Returns a routing decision string, or None if no loop detected.
+    """
+    if not _detect_loop(state):
+        return None
+
+    if not state.get("_loop_escape_attempted"):
+        logger.warning(
+            f"[Graph] Loop detected after {iteration} iterations, "
+            f"attempting strategy reset (escape chance)"
+        )
+        state["_loop_escape_attempted"] = True
+        state["reflection_guidance"] = (
+            "⚠️ 检测到工具调用循环。你之前的方案陷入了重复，请：\n"
+            "1. 分析为什么之前的工具调用没有取得进展\n"
+            "2. 尝试完全不同的方法或工具\n"
+            "3. 如果任务无法通过工具完成，直接基于已有信息生成回答"
+        )
+        return "plan"
+
+    # Second loop: real circuit break
+    logger.warning(
+        f"[Graph] Loop persists after strategy reset (iter={iteration}), forcing circuit break"
+    )
+    state["circuit_break_reason"] = "loop_detected"
+    _log_loop_failure(state, iteration)
+    return None  # Fall through to synthesis/plan
+
+
+def _log_loop_failure(state: AgentState, iteration: int) -> None:
+    """Persist loop failure to analytics (fire-and-forget)."""
+    try:
+        from app.services.failure_log_service import failure_log_service
+
+        config = state.get("config")
+        user_message = ""
+        for msg in reversed(state.get("messages", [])):
+            if hasattr(msg, "type") and msg.type == "human":
+                user_message = msg.content
+                break
+        _t = asyncio.create_task(
+            failure_log_service.log_failure(
+                org_id=getattr(config, "org_id", None) if config else None,
+                user_id=getattr(config, "user_id", None) if config else None,
+                user_message=user_message or "loop detected",
+                intent_summary=state.get("intent_summary"),
+                complexity=(
+                    state.get("complexity", "").value
+                    if state.get("complexity")
+                    else None
+                ),
+                error_type="loop",
+                error_detail=f"Loop after {iteration} iterations",
+                severity="medium",
+            )
+        )
+        _background_tasks.add(_t)
+        _t.add_done_callback(_background_tasks.discard)
+    except Exception as e:
+        logger.warning("[Graph] Failed to log loop-detected failure: %s", e)
+
+
+def _check_fast_synthesis(state: AgentState) -> str | None:
+    """Check if all tools succeeded → fast synthesize (saves ~60% tokens).
+
+    G1: irreversible tools MUST go through reflect→critic, never fast synthesize.
+    Returns routing decision or None.
+    """
+    completed = get_completed_tools(state)
+    if not completed or not all(tc.status == "success" for tc in completed):
+        return None
+
+    if _has_irreversible_tool(state):
+        logger.info(
+            "[Graph] All tools succeeded but irreversible tool detected → reflect (G1: Critic review required)"
+        )
+        return "reflect"
+
+    complexity = state.get("complexity")
+    logger.info(f"[Graph] All tools succeeded + {complexity} → fast synthesize")
+    return "synthesize"
+
+
+def _build_failed_tool_guidance(state: AgentState) -> None:
+    """When some tools failed, build structured error guidance for replanning."""
+    completed = get_completed_tools(state)
+    failed_tools = [
+        tc
+        for tc in completed
+        if (getattr(tc, "status", None) or tc.get("status")) == "error"
+    ]
+    if not failed_tools:
+        return
+
+    lines = ["以下工具执行失败，请根据错误类型调整策略："]
+    for ft in failed_tools[:5]:
+        name = getattr(ft, "tool_name", None) or ft.get("tool_name", "unknown")
+        result = (getattr(ft, "result", "") or ft.get("result", "") or "")[:300]
+        err_type = getattr(ft, "error_type", None) or ft.get(
+            "error_type", "unknown"
+        )
+        if err_type == "param_error":
+            lines.append(f"- {name} [参数错误]: {result}")
+            lines.append("  -> 检查参数格式和必填字段，修正后重试")
+        elif err_type == "fatal":
+            lines.append(f"- {name} [不可恢复]: {result}")
+            lines.append("  -> 此工具无法完成目标，换用其他工具或改变方案")
+        else:
+            lines.append(f"- {name} [临时故障]: {result}")
+            lines.append("  -> 网络/服务问题，可直接重试")
+    state["reflection_guidance"] = "\n".join(lines)
+
+
 def _after_execute(state: AgentState) -> str:
     """
-    After execution:
-      - If error occurred → error
-      - If confirmation pending (tool blocked by HITL gate) → respond (stop graph)
-      - If loop detected (same tools called repeatedly) → reflect to finalize
-      - SIMPLE/MODERATE with all tools successful → synthesize (lightweight, 1 LLM call)
-      - Otherwise → plan (full second-pass with bind_tools for potential follow-up)
-      - Guard: if iteration limit reached → reflect to finalize.
-
-    P2 Enhancement: Rich observation logging for debugging and model awareness.
+    After execution — orchestrates sub-checks in order:
+      1. Error check
+      2. HITL confirmation gate
+      3. Iteration cap guard
+      4. Loop detection + escape
+      5. Fast synthesis (all tools OK)
+      6. Failed tool guidance → replan
     """
     if state.get("error"):
         return "error"
 
-    # HITL: When tools are blocked for confirmation, stop the graph immediately
-    # so the stream layer can emit SSE confirmation events to the frontend.
     if state.get("confirmation_pending"):
         logger.info("[Graph] Confirmation pending, routing to respond (HITL gate)")
         return "respond"
@@ -216,12 +327,12 @@ def _after_execute(state: AgentState) -> str:
     max_iter = config.max_iterations if config else 5
     iteration = state.get("iteration", 0)
 
-    # P2: Rich observation layer — log comprehensive state for debugging
+    # Observation logging
     completed = get_completed_tools(state)
     tool_summary = (
         ", ".join(
             f"{tc.tool_name}={'ok' if tc.status == 'success' else tc.status}"
-            for tc in completed[-5:]  # last 5 tools
+            for tc in completed[-5:]
         )
         if completed
         else "none"
@@ -241,101 +352,18 @@ def _after_execute(state: AgentState) -> str:
         state["circuit_break_reason"] = "max_iterations"
         return "reflect"
 
-    # P2: Loop detection — prevent infinite plan→execute→plan cycles
-    if _detect_loop(state):
-        if not state.get("_loop_escape_attempted"):
-            # First loop: inject strategy-reset guidance, give LLM one chance to try differently
-            logger.warning(
-                f"[Graph] Loop detected after {iteration} iterations, "
-                f"attempting strategy reset (escape chance)"
-            )
-            state["_loop_escape_attempted"] = True
-            state["reflection_guidance"] = (
-                "⚠️ 检测到工具调用循环。你之前的方案陷入了重复，请：\n"
-                "1. 分析为什么之前的工具调用没有取得进展\n"
-                "2. 尝试完全不同的方法或工具\n"
-                "3. 如果任务无法通过工具完成，直接基于已有信息生成回答"
-            )
-            return "plan"
+    # Loop detection
+    loop_result = _handle_loop_escape(state, iteration)
+    if loop_result:
+        return loop_result
 
-        # Second loop: real circuit break
-        logger.warning(
-            f"[Graph] Loop persists after strategy reset (iter={iteration}), forcing circuit break"
-        )
-        # Set structured circuit break reason for frontend event
-        state["circuit_break_reason"] = "loop_detected"
-        # Persist loop failure for analytics
-        try:
-            from app.services.failure_log_service import failure_log_service
+    # Fast synthesis check
+    synth_result = _check_fast_synthesis(state)
+    if synth_result:
+        return synth_result
 
-            config = state.get("config")
-            user_message = ""
-            for msg in reversed(state.get("messages", [])):
-                if hasattr(msg, "type") and msg.type == "human":
-                    user_message = msg.content
-                    break
-            _t = asyncio.create_task(
-                failure_log_service.log_failure(
-                    org_id=getattr(config, "org_id", None) if config else None,
-                    user_id=getattr(config, "user_id", None) if config else None,
-                    user_message=user_message or "loop detected",
-                    intent_summary=state.get("intent_summary"),
-                    complexity=(
-                        state.get("complexity", "").value
-                        if state.get("complexity")
-                        else None
-                    ),
-                    error_type="loop",
-                    error_detail=f"Loop after {iteration} iterations",
-                    severity="medium",
-                )
-            )
-            _background_tasks.add(_t)
-            _t.add_done_callback(_background_tasks.discard)
-        except Exception as e:
-            logger.warning("[Graph] Failed to log loop-detected failure: %s", e)
-
-    # Fast synthesis: when all tools succeeded, use lightweight synthesize_node
-    # instead of full plan second-pass. Saves ~60% tokens.
-    # - SIMPLE/MODERATE: skip reflect+critic entirely
-    # - COMPLEX/CRITICAL: embed critic self-evaluation in synthesis prompt,
-    #   eliminating separate critic_node LLM call (3→2 LLM calls)
-    # G1: irreversible tools MUST go through reflect→critic, never fast synthesize
-    complexity = state.get("complexity")
-    completed = get_completed_tools(state)
-    if completed and all(tc.status == "success" for tc in completed):
-        if _has_irreversible_tool(state):
-            logger.info(
-                "[Graph] All tools succeeded but irreversible tool detected → reflect (G1: Critic review required)"
-            )
-            return "reflect"
-        logger.info(f"[Graph] All tools succeeded + {complexity} → fast synthesize")
-        return "synthesize"
-
-    # Some tools failed → back to plan with structured error guidance
-    failed_tools = [
-        tc
-        for tc in completed
-        if (getattr(tc, "status", None) or tc.get("status")) == "error"
-    ]
-    if failed_tools:
-        lines = ["以下工具执行失败，请根据错误类型调整策略："]
-        for ft in failed_tools[:5]:
-            name = getattr(ft, "tool_name", None) or ft.get("tool_name", "unknown")
-            result = (getattr(ft, "result", "") or ft.get("result", "") or "")[:300]
-            err_type = getattr(ft, "error_type", None) or ft.get(
-                "error_type", "unknown"
-            )
-            if err_type == "param_error":
-                lines.append(f"- {name} [参数错误]: {result}")
-                lines.append("  -> 检查参数格式和必填字段，修正后重试")
-            elif err_type == "fatal":
-                lines.append(f"- {name} [不可恢复]: {result}")
-                lines.append("  -> 此工具无法完成目标，换用其他工具或改变方案")
-            else:
-                lines.append(f"- {name} [临时故障]: {result}")
-                lines.append("  -> 网络/服务问题，可直接重试")
-        state["reflection_guidance"] = "\n".join(lines)
+    # Build guidance for failed tools before replanning
+    _build_failed_tool_guidance(state)
 
     return "plan"
 

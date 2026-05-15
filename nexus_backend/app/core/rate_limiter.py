@@ -70,11 +70,18 @@ if REDIS_URL:
     except Exception as e:
         logger.warning(f"[RateLimiter] Redis connection failed: {e}", exc_info=True)
 elif settings.ENV == "production":
-    logger.critical(
+    # P0 安全加固：生产环境必须配置 Redis，否则多副本部署下内存限流形同虚设
+    _msg = (
         "[RateLimiter] REDIS_URL not set in production! "
         "Rate limiting will NOT share across workers. "
         "Set REDIS_URL env var for proper distributed rate limiting."
     )
+    logger.critical(_msg)
+    if not os.getenv("ALLOW_MEMORY_RATE_LIMIT", ""):
+        raise RuntimeError(
+            f"{_msg} "
+            "Set ALLOW_MEMORY_RATE_LIMIT=1 to bypass this check (NOT recommended)."
+        )
 
 
 def _extract_client_ip(request: Request) -> str:
