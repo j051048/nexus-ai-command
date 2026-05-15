@@ -69,6 +69,12 @@ try:
         "Pending Celery tasks by queue",
         ["queue"],
     )
+    WEB_VITALS_VALUE = Histogram(
+        "web_vitals_value",
+        "Frontend Core Web Vitals values",
+        ["name", "rating", "path"],
+        buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 1000, 2500, 5000),
+    )
 
     _prom_available = True
     logger.info("[Metrics] prometheus_client initialized")
@@ -116,6 +122,35 @@ def observe_celery_queue_depth(queue: str, depth: int) -> None:
         CELERY_QUEUE_DEPTH.labels(queue=queue).set(depth)
     else:
         _mem_gauges[f'celery_queue_depth{{queue="{queue}"}}'] = float(depth)
+
+
+_web_vitals_latest: dict[str, dict] = {}
+
+
+def observe_web_vital(name: str, value: float, rating: str, path: str = "") -> None:
+    """Record a frontend Core Web Vital metric."""
+    normalized_path = _normalize_path(path or "/")
+    metric_name = name.upper()
+    rating = rating or "unknown"
+    _web_vitals_latest[metric_name] = {
+        "name": metric_name,
+        "value": value,
+        "rating": rating,
+        "path": normalized_path,
+    }
+    if _prom_available:
+        WEB_VITALS_VALUE.labels(
+            name=metric_name,
+            rating=rating,
+            path=normalized_path,
+        ).observe(value)
+    else:
+        _hist_add(f"web_vitals_value|{metric_name}|{rating}|{normalized_path}", value)
+
+
+def get_web_vitals_snapshot() -> dict[str, dict]:
+    """Return latest in-process Core Web Vitals values by metric name."""
+    return dict(_web_vitals_latest)
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +230,7 @@ def _format_labels(metric_name: str, label_values: list[str]) -> str:
         "llm_request_duration_seconds": ["model"],
         "agent_executions_total": ["complexity", "status"],
         "celery_queue_depth": ["queue"],
+        "web_vitals_value": ["name", "rating", "path"],
     }
     names = label_map.get(metric_name, [f"l{i}" for i in range(len(label_values))])
     pairs = [f'{n}="{v}"' for n, v in zip(names, label_values, strict=False)]

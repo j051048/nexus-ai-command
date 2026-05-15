@@ -181,10 +181,13 @@ def test_first_launch_saas_guards_are_enforced():
     readiness = read("scripts/production_readiness_check.mjs")
     env_example = read(".env.production.example")
 
-    default_enabled = flags.split("const DEFAULT_ENABLED", 1)[1].split("]);", 1)[0]
-    assert '"workflow_designer"' in default_enabled
-    assert '"oa"' in default_enabled
-    assert '"dev_tools"' not in default_enabled
+    small_profile = flags.split("SMALL_COMPANY_LAUNCH_MODULES", 1)[1].split("];", 1)[0]
+    assert '"workflow_designer"' in small_profile
+    assert '"oa"' in small_profile
+    assert '"crm"' in small_profile
+    assert '"dev_tools"' not in small_profile
+    assert "EXTENDED_LAUNCH_MODULES" in flags
+    assert "VITE_LAUNCH_PROFILE" in flags
     assert "CUSTOMER_LAUNCH_ENABLED_MODULES" in flags
     assert "CUSTOMER_LAUNCH_DISABLED_MODULES" in flags
     assert "PAYMENT_ENABLE_WECHAT_SANDBOX" in payment_service
@@ -193,7 +196,9 @@ def test_first_launch_saas_guards_are_enforced():
     assert "/methods" in payments_router
     assert "首发生产环境仅开放对公转账" in payment_page
     assert "customer launch modules enabled" in readiness
+    assert "small-company launch profile" in readiness
     assert "developer tools disabled" in readiness
+    assert "VITE_LAUNCH_PROFILE=small_company" in env_example
     assert "workflow_designer" in env_example
     assert "oa" in env_example
     assert "VITE_DISABLED_MODULES=dev_tools" in env_example
@@ -298,7 +303,7 @@ def test_p0_customer_launch_modules_have_owner_and_smoke_coverage():
     smoke = read("e2e/top10-critical-flows.spec.ts")
     flags = read("src/config/featureFlags.ts")
 
-    enabled_section = flags.split("CUSTOMER_LAUNCH_ENABLED_MODULES", 1)[1].split("];", 1)[0]
+    enabled_section = flags.split("SMALL_COMPANY_LAUNCH_MODULES", 1)[1].split("];", 1)[0]
     modules = [
         line.split('"')[1]
         for line in enabled_section.splitlines()
@@ -323,6 +328,28 @@ def test_p0_customer_launch_modules_have_owner_and_smoke_coverage():
         assert route in smoke
     assert "launch metadata:" in readiness
     assert "golden smoke route:" in readiness
+
+
+def test_customer_acceptance_and_handoff_gates_are_wired():
+    acceptance = read("scripts/customer_acceptance_gate.py")
+    handoff = read("scripts/generate_customer_handoff.py")
+    criteria = read("docs/CUSTOMER_ACCEPTANCE_CRITERIA.md")
+    readiness = read("scripts/production_readiness_check.mjs")
+    release_gate = read("scripts/release_quality_gate.py")
+    evidence = read("scripts/collect_release_evidence.py")
+
+    assert "SMALL_COMPANY_MODULES" in acceptance
+    assert "Tool RBAC" in acceptance
+    assert "Irreversible HITL" in acceptance
+    assert "customer-handoff.md" in handoff
+    assert "Required Acceptance Commands" in handoff
+    assert "Default Launch Profile" in criteria
+    assert "Acceptance Rules" in criteria
+    assert "scripts/customer_acceptance_gate.py" in readiness
+    assert "scripts/generate_customer_handoff.py" in readiness
+    assert "customer acceptance gate" in release_gate
+    assert "customer handoff generator" in release_gate
+    assert "CUSTOMER_ACCEPTANCE_CRITERIA.md" in evidence
 
 
 def test_p0_customer_visible_placeholder_language_is_removed():
@@ -500,3 +527,50 @@ def test_p3_p6_sustained_quality_controls_are_wired():
         assert level in gate
     assert "scripts/check_bundle_budget.mjs" in readiness
     assert "scripts/collect_release_evidence.py" in readiness
+
+
+def test_opus_p0_p2_recommendations_are_wired():
+    stream = read("nexus_backend/app/agent/stream.py")
+    lifecycle = read("nexus_backend/app/agent/stream_lifecycle.py")
+    gateway = read("nexus_backend/app/services/llm_gateway/__init__.py")
+    prompt_firewall = read("nexus_backend/app/core/prompt_firewall.py")
+    main = read("nexus_backend/app/main.py")
+    metrics_router = read("nexus_backend/app/routers/metrics.py")
+    metrics_core = read("nexus_backend/app/core/metrics.py")
+    web_vitals = read("src/lib/webVitals.ts")
+    app = read("src/App.tsx")
+    theme = read("src/contexts/ThemeContext.tsx")
+    main_tsx = read("src/main.tsx")
+    lazy_imports = read("src/routes/lazyImports.ts")
+    admin_routes = read("src/routes/adminRoutes.tsx")
+    pgbouncer = read("docs/PRIVATE_DEPLOYMENT_PGBOUNCER.md")
+
+    assert "from app.agent.stream_lifecycle import" in stream
+    assert "emit_error_and_cleanup" in stream
+    assert "cleanup_on_disconnect" in stream
+    assert "filter_think_content" in stream
+    assert "agent_trace_service.end_trace" in lifecycle
+
+    get_llm_body = gateway.split("def get_llm(", 1)[1]
+    assert "requires resolved_config" in get_llm_body
+    assert "settings.OPENAI_API_KEY" not in get_llm_body
+    assert "settings.AI_BASE_URL" not in get_llm_body
+    assert "resolve_model_config" in prompt_firewall
+
+    assert '"/health/live"' in main
+    assert '"/health/ready"' in main
+    assert "Kubernetes readiness probe" in main
+    assert "/api/metrics/web-vitals" in web_vitals
+    assert "observe_web_vital" in metrics_router
+    assert '"/slo"' in metrics_router
+    assert "WEB_VITALS_VALUE" in metrics_core
+
+    assert "React.StrictMode" in main_tsx
+    assert "<ThemeProvider>" not in app
+    assert "createContext" not in theme
+    assert "useEnhancedTheme" in theme
+
+    assert "SLODashboard" in lazy_imports
+    assert 'path="slo"' in admin_routes
+    assert "SUPABASE_DB_POOLER_URL" in pgbouncer
+    assert "pool_mode" in pgbouncer

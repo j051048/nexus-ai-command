@@ -33,31 +33,17 @@ const env = { ...parseEnv(envFile), ...process.env };
 const checks = [];
 const customerLaunchEnabled = [
   "approval",
-  "assets",
-  "battlecards",
-  "billing",
-  "certificates",
   "crm",
-  "custom_dashboard",
   "documents",
   "finance",
-  "form_designer",
   "hr",
-  "import",
-  "inventory",
   "knowledge",
   "oa",
   "plugins",
   "projects",
-  "report_builder",
   "reports",
-  "sales",
-  "soul_document",
-  "tender",
-  "training",
   "vmd",
   "workflow_designer",
-  "work_orders",
 ];
 const customerLaunchDisabled = [
   "dev_tools",
@@ -120,6 +106,7 @@ addCheck("AI fallback configured", hasAnyRealValue(["AI_FALLBACK_API_KEY", "AI_F
 addCheck("Sentry configured", hasRealValue("SENTRY_DSN"), "warning", "Needed for production exception triage");
 addCheck("Langfuse configured", env.LANGFUSE_ENABLED !== "true" || hasAnyRealValue(["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]), "warning", "If enabled, configure Langfuse keys");
 addCheck("module flags configured", hasRealValue("VITE_ENABLED_MODULES") || hasRealValue("VITE_DISABLED_MODULES"), "warning", "Declare launch modules explicitly");
+addCheck("small-company launch profile", env.VITE_LAUNCH_PROFILE === "small_company", "critical", "First production rollout must use VITE_LAUNCH_PROFILE=small_company");
 addCheck(
   "customer launch modules enabled",
   containsAll(csvSet("VITE_ENABLED_MODULES"), customerLaunchEnabled),
@@ -144,6 +131,8 @@ const requiredFiles = [
   "supabase/migrations/20260514_p2_cost_report_rpc.sql",
   "docs/PRODUCTION_LAUNCH_CHECKLIST.md",
   "docs/RUNBOOK_SMALL_COMPANY.md",
+  "docs/CUSTOMER_ACCEPTANCE_CRITERIA.md",
+  "docs/PRIVATE_DEPLOYMENT_PGBOUNCER.md",
   "docs/SOC2_CONTROLS.md",
   "docs/TOOL_DEVELOPMENT_GUIDE.md",
   "scripts/backup_supabase.sh",
@@ -151,6 +140,8 @@ const requiredFiles = [
   "scripts/release_quality_gate.py",
   "scripts/check_bundle_budget.mjs",
   "scripts/collect_release_evidence.py",
+  "scripts/customer_acceptance_gate.py",
+  "scripts/generate_customer_handoff.py",
   "src/config/customerLaunchModules.ts",
   "e2e/top10-critical-flows.spec.ts",
   "nexus_backend/app/routers/enterprise_sso.py",

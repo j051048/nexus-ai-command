@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 from app.core.database import supabase
 from app.services.llm_gateway import get_llm
+from app.services.llm_helpers import resolve_model_config
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,13 @@ async def check_expense_anomaly(
 
         # 3. AI 深度分析
         if warnings:
-            llm = get_llm(org_id=org_id)
+            resolved = await resolve_model_config(
+                org_id=org_id,
+                scene_code="workflow_monitor",
+                agent_code="expense_anomaly",
+                complexity_tier="balanced",
+            )
+            llm = get_llm(resolved_config=resolved)
             prompt = f"""分析以下报销异常:
 用户: {user_id}
 本次报销: {amount}元 ({expense_type})

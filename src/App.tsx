@@ -5,7 +5,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthContext";
 import { GlobalCommandBar } from "@/components/layout/GlobalCommandBar";
 import { EnhancedThemeProvider } from "@/contexts/EnhancedThemeContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
 import { I18nProvider } from "@/lib/i18n";
 import { PageContextProvider } from "@/hooks/usePageContext";
 import { LoginPage } from "@/components/auth/LoginPage";
@@ -132,7 +131,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <I18nProvider>
     <EnhancedThemeProvider>
-    <ThemeProvider>
     <TooltipProvider>
       <Sonner position="top-right" expand={false} richColors closeButton />
       <BrowserRouter>
@@ -161,7 +159,6 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
-    </ThemeProvider>
     </EnhancedThemeProvider>
     </I18nProvider>
   </QueryClientProvider>

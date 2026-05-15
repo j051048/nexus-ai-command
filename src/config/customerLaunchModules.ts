@@ -1,4 +1,5 @@
 import type { ModuleFlag } from "./featureFlags";
+import { CUSTOMER_LAUNCH_ENABLED_MODULES } from "./featureFlags";
 
 export type CustomerLaunchModuleReadiness = {
   flag: ModuleFlag;
@@ -7,7 +8,7 @@ export type CustomerLaunchModuleReadiness = {
   smokeFlow: string;
 };
 
-export const CUSTOMER_LAUNCH_MODULE_READINESS: CustomerLaunchModuleReadiness[] = [
+export const ALL_CUSTOMER_LAUNCH_MODULE_READINESS: CustomerLaunchModuleReadiness[] = [
   { flag: "approval", owner: "workflow", smokePath: "/approval", smokeFlow: "submit-and-review-approval" },
   { flag: "assets", owner: "ops", smokePath: "/assets", smokeFlow: "asset-list-loads" },
   { flag: "battlecards", owner: "sales", smokePath: "/battlecards", smokeFlow: "battlecard-library-loads" },
@@ -35,6 +36,10 @@ export const CUSTOMER_LAUNCH_MODULE_READINESS: CustomerLaunchModuleReadiness[] =
   { flag: "workflow_designer", owner: "workflow", smokePath: "/workflows", smokeFlow: "workflow-list-loads" },
   { flag: "work_orders", owner: "support", smokePath: "/work-orders", smokeFlow: "work-order-list-loads" },
 ];
+
+export const CUSTOMER_LAUNCH_MODULE_READINESS = ALL_CUSTOMER_LAUNCH_MODULE_READINESS.filter(
+  (module) => CUSTOMER_LAUNCH_ENABLED_MODULES.includes(module.flag),
+);
 
 export const CUSTOMER_LAUNCH_SMOKE_PATHS = CUSTOMER_LAUNCH_MODULE_READINESS.map(
   (module) => module.smokePath,

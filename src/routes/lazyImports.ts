@@ -74,6 +74,7 @@ export const LLMCostDashboard = lazyWithRetry(() => import("@/pages/LLMCostDashb
 export const SoulDocumentPage = lazyWithRetry(() => import("@/pages/SoulDocumentPage"));
 export const AgentRunsPage = lazyWithRetry(() => import("@/pages/AgentRunsPage"));
 export const ToolGovernancePage = lazyWithRetry(() => import("@/pages/ToolGovernancePage"));
+export const SLODashboard = lazyWithRetry(() => import("@/pages/SLODashboard"));
 
 // VMD
 export const VMDCenter = lazyWithRetry(() => import("@/pages/VMDCenter"));

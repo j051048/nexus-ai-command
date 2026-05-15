@@ -79,7 +79,7 @@ async function openCriticalRoute(page: Page, path: string) {
   expect(body).not.toContain('Application error');
 }
 
-test.describe('Top 10 customer launch smoke flows', () => {
+test.describe('Customer launch smoke flows', () => {
   test.beforeEach(async ({ page }) => {
     await setupCriticalMocks(page);
   });
@@ -131,6 +131,21 @@ test.describe('Top 10 customer launch smoke flows', () => {
   test('@critical finance center loads', async ({ page }) => {
     await mockLoggedInState(page, 'boss');
     await openCriticalRoute(page, '/finance');
+  });
+
+  test('@critical HR center loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/hr');
+  });
+
+  test('@critical OA center loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/oa');
+  });
+
+  test('@critical project workspace loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/projects');
   });
 
   test('@critical workflow designer list loads', async ({ page }) => {

@@ -27,36 +27,22 @@ export type ModuleFlag =
   | "workflow_designer"
   | "work_orders";
 
-const DEFAULT_ENABLED: Set<ModuleFlag> = new Set([
+export const SMALL_COMPANY_LAUNCH_MODULES: ModuleFlag[] = [
   "approval",
-  "assets",
-  "battlecards",
-  "billing",
-  "certificates",
   "crm",
-  "custom_dashboard",
   "documents",
   "finance",
-  "form_designer",
   "hr",
-  "import",
-  "inventory",
   "knowledge",
   "oa",
   "plugins",
   "projects",
-  "report_builder",
   "reports",
-  "sales",
-  "soul_document",
-  "tender",
-  "training",
   "vmd",
   "workflow_designer",
-  "work_orders",
-]);
+];
 
-export const CUSTOMER_LAUNCH_ENABLED_MODULES: ModuleFlag[] = [
+export const EXTENDED_LAUNCH_MODULES: ModuleFlag[] = [
   "approval",
   "assets",
   "battlecards",
@@ -84,10 +70,17 @@ export const CUSTOMER_LAUNCH_ENABLED_MODULES: ModuleFlag[] = [
   "workflow_designer",
   "work_orders",
 ];
+
+const launchProfile = String(import.meta.env.VITE_LAUNCH_PROFILE || "small_company").toLowerCase();
+
+export const CUSTOMER_LAUNCH_ENABLED_MODULES: ModuleFlag[] =
+  launchProfile === "extended" ? EXTENDED_LAUNCH_MODULES : SMALL_COMPANY_LAUNCH_MODULES;
 
 export const CUSTOMER_LAUNCH_DISABLED_MODULES: ModuleFlag[] = [
   "dev_tools",
 ];
+
+const DEFAULT_ENABLED: Set<ModuleFlag> = new Set(CUSTOMER_LAUNCH_ENABLED_MODULES);
 
 function parseList(value: unknown): Set<string> {
   if (typeof value !== "string" || value.trim() === "") return new Set();

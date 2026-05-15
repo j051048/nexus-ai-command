@@ -65,13 +65,20 @@ class LLMGatewayService(ModelResolutionMixin, ChatDispatchMixin, CallLoggingMixi
 llm_gateway = LLMGatewayService()
 
 
-def get_llm(org_id: str = None, model: str = None, model_tier: str = None, **kwargs):
+def get_llm(
+    org_id: str = None,
+    model: str = None,
+    model_tier: str = None,
+    resolved_config: dict | None = None,
+    **kwargs,
+):
     """
     Provide a LangChain-compatible LLM instance with multi-tenant isolation.
 
-    When *org_id* is supplied, attempts to load the tenant-specific API key
-    and base URL from the ``llm_model_config`` table via the gateway cache.
-    Falls back to global settings only when tenant config is unavailable.
+    This compatibility helper is intentionally fail-closed. It only creates
+    a LangChain client from a config already resolved by the LLM Gateway, or
+    from the gateway's short-lived model cache. It must not read global API
+    keys directly because that can bypass tenant routing and schedule rules.
 
     Args:
         org_id: Tenant organization ID for config resolution.
@@ -79,12 +86,11 @@ def get_llm(org_id: str = None, model: str = None, model_tier: str = None, **kwa
         model_tier: Shorthand tier — ``"mini"`` maps to ``gpt-4o-mini``,
                     ``"power"`` maps to ``gpt-4o``.  Ignored when *model*
                     is explicitly provided.
+        resolved_config: Dict returned by ``resolve_model_config``.
         **kwargs: Passed through to ``ChatOpenAI`` (e.g. ``temperature``,
                   ``timeout``, ``streaming``).
     """
-    from langchain_openai import ChatOpenAI
-
-    from app.core.config import settings
+    from app.services.llm_helpers import get_langchain_llm_sync
 
     # Resolve model_tier shorthand
     _TIER_MAP = {"mini": "gpt-4o-mini", "economy": "gpt-4o-mini",
@@ -92,26 +98,36 @@ def get_llm(org_id: str = None, model: str = None, model_tier: str = None, **kwa
                  "flagship": "gpt-4-turbo"}
     resolved_model = model or _TIER_MAP.get(model_tier or "", None) or "gpt-4o-mini"
 
-    # Attempt tenant-specific config resolution (best-effort, sync-safe)
-    api_key = settings.OPENAI_API_KEY
-    base_url = settings.AI_BASE_URL
+    if resolved_config:
+        return get_langchain_llm_sync(
+            api_key=resolved_config["api_key"],
+            base_url=resolved_config["base_url"],
+            model=resolved_config.get("model") or resolved_model,
+            temperature=resolved_config.get("temperature", kwargs.pop("temperature", 0.7)),
+            streaming=kwargs.pop("streaming", False),
+            timeout=resolved_config.get("timeout", kwargs.pop("timeout", 60.0)),
+            **kwargs,
+        )
 
     if org_id:
-        try:
-            cache_key = f"{org_id}:{resolved_model}"
-            cached = llm_gateway._model_cache.get(cache_key)
-            if cached:
-                config_obj, _loaded_at = cached
-                if time.time() - _loaded_at < llm_gateway._CACHE_TTL:
-                    api_key = config_obj.api_key or api_key
-                    base_url = config_obj.api_base_url or base_url
-                    resolved_model = config_obj.model_id or resolved_model
-        except Exception:
-            pass  # Fall through to global defaults
+        cache_key = f"{org_id}:{resolved_model}"
+        cached = llm_gateway._model_cache.get(cache_key)
+        if cached:
+            config_obj, _loaded_at = cached
+            import time
 
-    return ChatOpenAI(
-        api_key=api_key,
-        base_url=base_url,
-        model=resolved_model,
-        **kwargs
+            if time.time() - _loaded_at < llm_gateway._CACHE_TTL:
+                return get_langchain_llm_sync(
+                    api_key=config_obj.api_key,
+                    base_url=config_obj.api_base_url,
+                    model=config_obj.model_id or config_obj.model_code,
+                    temperature=config_obj.default_temperature,
+                    streaming=kwargs.pop("streaming", False),
+                    timeout=getattr(config_obj, "timeout_ms", 60000) / 1000,
+                    **kwargs,
+                )
+
+    raise RuntimeError(
+        "get_llm requires resolved_config or a warm tenant model cache. "
+        "Use await resolve_model_config(...) before creating LangChain clients."
     )

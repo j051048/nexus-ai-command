@@ -81,6 +81,17 @@ CHECKS = [
     GateCheck("P4", "bundle budget wired to CI", ".github/workflows/ci.yml", ("Check bundle budget", "npm run check:bundle")),
     GateCheck("P5", "private deployment doctor", "scripts/private_deploy_doctor.py", ("--env", "PRIVATE_DEPLOYMENT", "CORS_ORIGINS")),
     GateCheck("P6", "release evidence collector", "scripts/collect_release_evidence.py", ("release-evidence.json", "sha256", "<redacted>")),
+    GateCheck("P1", "private PgBouncer guidance", "docs/PRIVATE_DEPLOYMENT_PGBOUNCER.md", ("pool_mode", "SUPABASE_DB_POOLER_URL", "/health/ready")),
+    GateCheck("P0", "stream lifecycle split", "nexus_backend/app/agent/stream.py", ("stream_lifecycle", "emit_error_and_cleanup", "cleanup_on_disconnect")),
+    GateCheck("P0", "gateway get_llm fail-closed", "nexus_backend/app/services/llm_gateway/__init__.py", ("requires resolved_config", "Use await resolve_model_config")),
+    GateCheck("P1", "standard health probes", "nexus_backend/app/main.py", ('"/health/live"', '"/health/ready"')),
+    GateCheck("P1", "web vitals backend route", "nexus_backend/app/routers/metrics.py", ("/web-vitals", "/slo")),
+    GateCheck("P2", "single theme context adapter", "src/contexts/ThemeContext.tsx", ("useEnhancedTheme", "return <>{children}</>")),
+    GateCheck("P2", "SLO dashboard route", "src/routes/adminRoutes.tsx", ('path="slo"', "SLODashboard")),
+    GateCheck("P0", "small-company launch profile", "src/config/featureFlags.ts", ("SMALL_COMPANY_LAUNCH_MODULES", "VITE_LAUNCH_PROFILE", "EXTENDED_LAUNCH_MODULES")),
+    GateCheck("P0", "customer acceptance gate", "scripts/customer_acceptance_gate.py", ("SMALL_COMPANY_MODULES", "Tool RBAC", "Irreversible HITL")),
+    GateCheck("P1", "customer handoff generator", "scripts/generate_customer_handoff.py", ("customer-handoff.md", "Required Acceptance Commands", "small_company")),
+    GateCheck("P1", "customer acceptance criteria", "docs/CUSTOMER_ACCEPTANCE_CRITERIA.md", ("Default Launch Profile", "Acceptance Rules", "Exit Criteria")),
 ]
 
 

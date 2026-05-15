@@ -5,6 +5,7 @@ P0-1: 解析"帮我报销昨天去广德的机票1926元"
 import logging
 
 from app.services.llm_gateway import get_llm
+from app.services.llm_helpers import resolve_model_config
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,13 @@ logger = logging.getLogger(__name__)
 async def parse_voice_intent(text: str, user_id: str, org_id: str):
     """AI解析语音意图并提取结构化数据"""
     try:
-        llm = get_llm(org_id=org_id)
+        resolved = await resolve_model_config(
+            org_id=org_id,
+            scene_code="voice",
+            agent_code="intent_parser",
+            complexity_tier="economy",
+        )
+        llm = get_llm(resolved_config=resolved)
 
         prompt = f"""解析用户语音申请,提取结构化数据:
 "{text}"

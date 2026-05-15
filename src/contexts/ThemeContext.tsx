@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useMemo, useCallback, ReactNode } from 'react';
+import { useMemo, useCallback, ReactNode } from 'react';
 import { useEnhancedTheme } from './EnhancedThemeContext';
 
 type Theme = 'dark' | 'light';
@@ -10,24 +10,8 @@ interface ThemeContextType {
   setTheme: (theme: Theme) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { resolvedMode, toggleMode, setMode } = useEnhancedTheme();
-
-  const setTheme = useCallback((theme: Theme) => setMode(theme), [setMode]);
-
-  const value = useMemo<ThemeContextType>(() => ({
-    theme: resolvedMode,
-    toggleTheme: toggleMode,
-    setTheme,
-  }), [resolvedMode, toggleMode, setTheme]);
-
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <>{children}</>;
 }
 
 // Safe fallback when ThemeProvider is missing (e.g. stale service worker cache,
@@ -40,6 +24,11 @@ const _FALLBACK: ThemeContextType = {
 };
 
 export function useTheme() {
-  const context = useContext(ThemeContext);
-  return context ?? _FALLBACK;
+  const { resolvedMode, toggleMode, setMode } = useEnhancedTheme();
+  const setTheme = useCallback((theme: Theme) => setMode(theme), [setMode]);
+  return useMemo<ThemeContextType>(() => ({
+    theme: resolvedMode,
+    toggleTheme: toggleMode,
+    setTheme,
+  }), [resolvedMode, toggleMode, setTheme]) ?? _FALLBACK;
 }

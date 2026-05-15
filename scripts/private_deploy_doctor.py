@@ -34,11 +34,15 @@ REQUIRED_FILES = [
     "Dockerfile",
     "docker-compose.yml",
     ".env.production.example",
+    "docs/CUSTOMER_ACCEPTANCE_CRITERIA.md",
+    "docs/PRIVATE_DEPLOYMENT_PGBOUNCER.md",
     "scripts/backup_supabase.sh",
     "scripts/backup_supabase.ps1",
     "scripts/release_quality_gate.py",
     "scripts/check_bundle_budget.mjs",
     "scripts/collect_release_evidence.py",
+    "scripts/customer_acceptance_gate.py",
+    "scripts/generate_customer_handoff.py",
 ]
 
 

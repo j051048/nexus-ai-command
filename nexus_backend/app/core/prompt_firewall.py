@@ -429,8 +429,15 @@ class PromptFirewall:
             import json as _json
 
             from app.services.llm_gateway import get_llm
+            from app.services.llm_helpers import resolve_model_config
 
-            llm = get_llm(org_id=None, model_tier="mini")
+            resolved = await resolve_model_config(
+                org_id=context.get("org_id") if context else None,
+                scene_code="security",
+                agent_code="prompt_firewall",
+                complexity_tier="economy",
+            )
+            llm = get_llm(resolved_config=resolved)
             rules_triggered = ", ".join(v.rule_name for v in violations[:5])
 
             prompt = (

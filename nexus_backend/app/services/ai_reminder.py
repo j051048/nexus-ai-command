@@ -7,6 +7,7 @@ import logging
 
 from app.core.database import supabase
 from app.services.llm_gateway import get_llm
+from app.services.llm_helpers import resolve_model_config
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,13 @@ async def generate_reminder_strategy(request_id: str, org_id: str):
         avg_time = "2小时"  # 简化计算
         pending_count = 5  # 简化计算
 
-        llm = get_llm(org_id=org_id)
+        resolved = await resolve_model_config(
+            org_id=org_id,
+            scene_code="approval",
+            agent_code="reminder_strategy",
+            complexity_tier="balanced",
+        )
+        llm = get_llm(resolved_config=resolved)
         prompt = f"""该审批已超时,审批人: {approver_id}
 
 分析:

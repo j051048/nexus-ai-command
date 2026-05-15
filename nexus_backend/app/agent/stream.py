@@ -50,6 +50,11 @@ from app.agent.state import (
     ThinkingStep,
 )
 from app.agent.stream_checks import run_pre_checks
+from app.agent.stream_lifecycle import (
+    cleanup_on_disconnect,
+    emit_error_and_cleanup,
+    filter_think_content,
+)
 from app.agent.think_tags import extract_clean_content, strip_think_tags
 from app.core.config import settings
 from app.core.database import supabase
@@ -158,7 +163,7 @@ async def run_agent_stream(**kwargs) -> AsyncGenerator[str, None]:
         return
     except Exception as e:
         logger.error(f"[Stream] Global agent failure: {e}", exc_info=True)
-        async for evt in _emit_error_and_cleanup(
+        async for evt in emit_error_and_cleanup(
             all_thinking_steps, tracer, _trace_id, e
         ):
             yield evt
@@ -716,7 +721,7 @@ async def _run_agent_stream_impl(
                     # we can stream plan tokens directly for instant UX.
                     if _is_mutation_fast_path(accumulated_state):
                         # Also filter think tags for plan streaming
-                        plan_filtered = _filter_think_content(content)
+                        plan_filtered = filter_think_content(content)
                         if plan_filtered:
                             yield _sse_content(plan_filtered)
                             _streamed_chars += len(plan_filtered)
@@ -895,7 +900,7 @@ async def _run_agent_stream_impl(
 
     except asyncio.CancelledError:
         duration_ms = int((time.time() - start_time) * 1000)
-        await _cleanup_on_disconnect(
+        await cleanup_on_disconnect(
             _throttle_ctx,
             _trace_id,
             tracer,
@@ -904,7 +909,7 @@ async def _run_agent_stream_impl(
         return
 
     except GeneratorExit:
-        await _cleanup_on_disconnect(
+        await cleanup_on_disconnect(
             _throttle_ctx,
             _trace_id,
             log_msg=f"[Stream] Generator closed (user={user_id})",
@@ -974,7 +979,7 @@ async def _run_agent_stream_impl(
                             continue
                         if content and node_name == "respond":
                             # Filter <think> tags in retry path too
-                            filtered = _filter_think_content(content)
+                            filtered = filter_think_content(content)
                             if filtered:
                                 yield _sse_content(filtered)
                                 _streamed_chars += len(filtered)
@@ -982,7 +987,7 @@ async def _run_agent_stream_impl(
                             streamed_plan_text += filtered or ""
                         elif content and node_name == "plan":
                             if _is_mutation_fast_path(accumulated_state):
-                                plan_filtered = _filter_think_content(content)
+                                plan_filtered = filter_think_content(content)
                                 if plan_filtered:
                                     yield _sse_content(plan_filtered)
                                     _streamed_chars += len(plan_filtered)
@@ -1079,14 +1084,14 @@ async def _run_agent_stream_impl(
                     f"[Stream] Retry with fresh thread also failed: {retry_err}",
                     exc_info=True,
                 )
-                async for chunk in _emit_error_and_cleanup(
+                async for chunk in emit_error_and_cleanup(
                     all_thinking_steps, tracer, _trace_id, retry_err
                 ):
                     yield chunk
                 return
         else:
             logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
-            async for chunk in _emit_error_and_cleanup(
+            async for chunk in emit_error_and_cleanup(
                 all_thinking_steps, tracer, _trace_id, e
             ):
                 yield chunk

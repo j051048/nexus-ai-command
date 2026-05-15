@@ -195,6 +195,38 @@ def create_app() -> FastAPI:
             return {"status": "error", "detail": "Gateway unreachable"}
 
     # G6: Health check — O(1) cached return via background refresh
+    @application.get("/health/live")
+    async def health_live():
+        """Kubernetes liveness probe: process is alive, no downstream I/O."""
+        return UTF8JSONResponse(
+            status_code=200,
+            content={
+                "status": "alive",
+                "version": settings.VERSION,
+                "environment": settings.ENV,
+            },
+        )
+
+    @application.get("/health/ready")
+    async def health_ready():
+        """Kubernetes readiness probe: cached dependency readiness, O(1)."""
+        from app.core.health_cache import health_cache
+
+        cached = health_cache.get_cached_health()
+        checks = cached.get("checks", {})
+        ready = cached.get("status") == "healthy"
+        ready = ready and checks.get("database") == "connected"
+        ready = ready and checks.get("cache") == "connected"
+        return UTF8JSONResponse(
+            status_code=200 if ready else 503,
+            content={
+                "status": "ready" if ready else "not_ready",
+                "version": settings.VERSION,
+                "environment": settings.ENV,
+                "checks": checks,
+            },
+        )
+
     @application.get("/health")
     async def health_check():
         """

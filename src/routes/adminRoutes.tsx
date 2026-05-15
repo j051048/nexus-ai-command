@@ -33,6 +33,7 @@ import {
   ReportsPage,
   ScheduledTasks,
   SoulDocumentPage,
+  SLODashboard,
   SuperAdminDashboard,
   ToolGovernancePage,
   WorkflowDesigner,
@@ -110,6 +111,7 @@ export function adminRoutes(AdminRoute: AdminRouteComponent) {
       <Route path="llm/models" element={<AdminRoute><ModuleRouteBoundary moduleName="LLM Models"><LLMModelManagement /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="llm/costs" element={<AdminRoute><ModuleRouteBoundary moduleName="LLM Costs"><LLMCostDashboard /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="agent-runs" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Agent Runs"><AgentRunsPage /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="slo" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="SLO Dashboard"><SLODashboard /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="tools/governance" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Tool Governance"><ToolGovernancePage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="ai-roi" element={<AdminRoute allowedRoles={managerRoles}><ModuleRouteBoundary moduleName="AI ROI"><AiRoiDashboard /></ModuleRouteBoundary></AdminRoute>} />
 
