@@ -52,7 +52,7 @@ DROP POLICY IF EXISTS p0_vmd_task_audit_record_tenant_isolation ON public.vmd_ta
 CREATE POLICY p0_vmd_task_audit_record_tenant_isolation ON public.vmd_task_audit_record FOR ALL USING (tenant_id::text = public.current_tenant_id_text()) WITH CHECK (tenant_id::text = public.current_tenant_id_text());
 
 DROP POLICY IF EXISTS p0_agent_eval_cases_tenant_isolation ON public.agent_eval_cases;
-CREATE POLICY p0_agent_eval_cases_tenant_isolation ON public.agent_eval_cases FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
+CREATE POLICY p0_agent_eval_cases_tenant_isolation ON public.agent_eval_cases FOR ALL USING (org_id::text = public.current_tenant_id_text()) WITH CHECK (org_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_agent_failure_logs_tenant_isolation ON public.agent_failure_logs;
 CREATE POLICY p0_agent_failure_logs_tenant_isolation ON public.agent_failure_logs FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_ai_roi_daily_tenant_isolation ON public.ai_roi_daily;
@@ -85,8 +85,7 @@ DROP POLICY IF EXISTS p0_competitors_tenant_isolation ON public.competitors;
 CREATE POLICY p0_competitors_tenant_isolation ON public.competitors FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_compliance_check_log_tenant_isolation ON public.compliance_check_log;
 CREATE POLICY p0_compliance_check_log_tenant_isolation ON public.compliance_check_log FOR ALL USING (tenant_id::text = public.current_tenant_id_text()) WITH CHECK (tenant_id::text = public.current_tenant_id_text());
-DROP POLICY IF EXISTS p0_compliance_evidence_events_tenant_isolation ON public.compliance_evidence_events;
-CREATE POLICY p0_compliance_evidence_events_tenant_isolation ON public.compliance_evidence_events FOR ALL USING (org_id::text = public.current_tenant_id_text()) WITH CHECK (org_id::text = public.current_tenant_id_text());
+
 DROP POLICY IF EXISTS p0_compliance_rule_tenant_isolation ON public.compliance_rule;
 CREATE POLICY p0_compliance_rule_tenant_isolation ON public.compliance_rule FOR ALL USING (tenant_id::text = public.current_tenant_id_text()) WITH CHECK (tenant_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_contracts_tenant_isolation ON public.contracts;
@@ -97,8 +96,7 @@ DROP POLICY IF EXISTS p0_conversation_memories_tenant_isolation ON public.conver
 CREATE POLICY p0_conversation_memories_tenant_isolation ON public.conversation_memories FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_dashboard_configs_tenant_isolation ON public.dashboard_configs;
 CREATE POLICY p0_dashboard_configs_tenant_isolation ON public.dashboard_configs FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
-DROP POLICY IF EXISTS p0_enterprise_sso_login_events_tenant_isolation ON public.enterprise_sso_login_events;
-CREATE POLICY p0_enterprise_sso_login_events_tenant_isolation ON public.enterprise_sso_login_events FOR ALL USING (org_id::text = public.current_tenant_id_text()) WITH CHECK (org_id::text = public.current_tenant_id_text());
+
 DROP POLICY IF EXISTS p0_file_uploads_tenant_isolation ON public.file_uploads;
 CREATE POLICY p0_file_uploads_tenant_isolation ON public.file_uploads FOR ALL USING (org_id::text = public.current_tenant_id_text()) WITH CHECK (org_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_finance_budgets_tenant_isolation ON public.finance_budgets;
@@ -112,9 +110,9 @@ CREATE POLICY p0_hr_employees_tenant_isolation ON public.hr_employees FOR ALL US
 DROP POLICY IF EXISTS p0_hr_job_positions_tenant_isolation ON public.hr_job_positions;
 CREATE POLICY p0_hr_job_positions_tenant_isolation ON public.hr_job_positions FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_hr_performance_reviews_tenant_isolation ON public.hr_performance_reviews;
-CREATE POLICY p0_hr_performance_reviews_tenant_isolation ON public.hr_performance_reviews FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
+CREATE POLICY p0_hr_performance_reviews_tenant_isolation ON public.hr_performance_reviews FOR ALL USING (org_id::text = public.current_tenant_id_text()) WITH CHECK (org_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_hr_salary_records_tenant_isolation ON public.hr_salary_records;
-CREATE POLICY p0_hr_salary_records_tenant_isolation ON public.hr_salary_records FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
+CREATE POLICY p0_hr_salary_records_tenant_isolation ON public.hr_salary_records FOR ALL USING (org_id::text = public.current_tenant_id_text()) WITH CHECK (org_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_installed_plugins_tenant_isolation ON public.installed_plugins;
 CREATE POLICY p0_installed_plugins_tenant_isolation ON public.installed_plugins FOR ALL USING (organization_id::text = public.current_tenant_id_text()) WITH CHECK (organization_id::text = public.current_tenant_id_text());
 DROP POLICY IF EXISTS p0_integration_config_tenant_isolation ON public.integration_config;
