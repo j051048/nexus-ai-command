@@ -11,7 +11,7 @@ import logging
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from app.core.dependencies import require_role
+from app.core.dependencies import require_platform_super_admin
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.super_admin_service import super_admin_service
 
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/admin", tags=["SuperAdmin"])
 # the service-role client in SuperAdminService. Keep this dependency strictly
 # limited to the dedicated platform role; tenant founders/bosses must use
 # tenant-scoped organization endpoints instead.
-require_super_admin = require_role(["super_admin"])
+require_super_admin = require_platform_super_admin()
 
 
 # ============== Request Models ==============

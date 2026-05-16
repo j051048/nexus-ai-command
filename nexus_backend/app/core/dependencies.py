@@ -92,6 +92,43 @@ async def _get_user_role(user_id: str) -> str | None:
     return "employee"
 
 
+async def _is_platform_super_admin(user_id: str) -> bool:
+    """Return whether the user has platform-level super-admin privileges.
+
+    Some production accounts keep their tenant role as ``boss`` while a separate
+    Supabase RPC/table flag grants platform super-admin access. This mirrors the
+    frontend AuthContext check and avoids granting cross-tenant access to every
+    tenant boss.
+    """
+    role = await _get_user_role(user_id)
+    if role == "super_admin":
+        return True
+
+    from app.core.database import supabase
+
+    if not supabase:
+        return False
+
+    try:
+        rpc_result = await supabase.rpc("is_super_admin", {"_user_id": user_id}).execute()
+        if bool(rpc_result.data):
+            return True
+    except Exception as exc:
+        logger.warning("Failed to evaluate is_super_admin RPC: %s", exc)
+
+    try:
+        user_result = (
+            await supabase.table("users")
+            .select("is_super_admin")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        return bool((user_result.data or {}).get("is_super_admin"))
+    except Exception:
+        return False
+
+
 def require_role(allowed_roles: list[str]):
     """
     Dependency factory for role-based access control.
@@ -115,6 +152,26 @@ def require_role(allowed_roles: list[str]):
         return user_id
 
     return role_checker
+
+
+def require_platform_super_admin():
+    """Require platform-level super-admin access.
+
+    Use this for endpoints that bypass tenant RLS or operate across tenants.
+    """
+
+    async def super_admin_checker(user_id: str = Depends(get_current_user_id)) -> str:
+        if await _is_platform_super_admin(user_id):
+            return user_id
+
+        role = await _get_user_role(user_id)
+        raise api_error(
+            ErrorCode.AUTH_ROLE_REQUIRED,
+            message="需要平台超级管理员权限",
+            details={"required_roles": ["super_admin"], "user_role": role},
+        )
+
+    return super_admin_checker
 
 
 def require_admin(user_id: str = Depends(get_current_user_id)) -> str:

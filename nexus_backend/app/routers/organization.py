@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
-from app.core.dependencies import require_role
+from app.core.dependencies import require_platform_super_admin, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import StandardResponse
 from app.services.approval_chain import approval_chain_service
@@ -509,7 +509,7 @@ async def _write_super_admin_audit(
 @router.get("/admin/pending-bosses", response_model=StandardResponse)
 async def admin_list_pending_bosses(
     req: Request,
-    user_id: str = Depends(require_role(["super_admin"])),
+    user_id: str = Depends(require_platform_super_admin()),
 ):
     """列出待审批的Boss申请"""
     from app.core.database import supabase
@@ -552,7 +552,7 @@ async def admin_list_pending_bosses(
 @router.get("/admin/organizations", response_model=StandardResponse)
 async def admin_list_organizations(
     req: Request,
-    user_id: str = Depends(require_role(["super_admin"])),
+    user_id: str = Depends(require_platform_super_admin()),
 ):
     """列出所有组织"""
     from app.core.database import supabase
@@ -591,7 +591,7 @@ async def admin_list_organizations(
 async def admin_approve_boss(
     target_user_id: str,
     req: Request,
-    user_id: str = Depends(require_role(["super_admin"])),
+    user_id: str = Depends(require_platform_super_admin()),
 ):
     """批准Boss申请"""
     from app.core.database import supabase
@@ -613,7 +613,7 @@ async def admin_approve_boss(
 async def admin_reject_boss(
     target_user_id: str,
     req: Request,
-    user_id: str = Depends(require_role(["super_admin"])),
+    user_id: str = Depends(require_platform_super_admin()),
 ):
     """拒绝Boss申请"""
     from app.core.database import supabase
@@ -635,7 +635,7 @@ async def admin_reject_boss(
 async def admin_delete_organization(
     org_id: str,
     req: Request,
-    user_id: str = Depends(require_role(["super_admin"])),
+    user_id: str = Depends(require_platform_super_admin()),
 ):
     """删除组织"""
     from app.core.database import supabase
