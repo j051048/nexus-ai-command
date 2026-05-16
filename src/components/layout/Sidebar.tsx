@@ -52,6 +52,7 @@ import {
   ListTodo,
   Bot as BotIcon,
   ShieldCheck,
+  Shield,
   Cpu,
   Brain,
   Bug,
@@ -71,6 +72,7 @@ import {
   Search,
   Sparkles,
   Activity,
+  Server,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -222,6 +224,9 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Building2 size={18} />, label: "公司设置", href: "company-settings", roles: ["boss", "founder"], group: "管理" },
   { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "管理" },
   { icon: <Activity size={18} />, label: "Agent Runs", href: "agent-runs", roles: ["boss", "founder"], group: "管理" },
+  { icon: <Server size={18} />, label: "上线交付", href: "deployment-readiness", roles: ["boss", "founder"], group: "管理" },
+  { icon: <BarChart3 size={18} />, label: "客户成功", href: "customer-success", roles: ["boss", "founder", "manager"], group: "管理" },
+  { icon: <Shield size={18} />, label: "权限矩阵", href: "permissions-matrix", roles: ["boss", "founder"], group: "管理" },
   { icon: <ShieldCheck size={18} />, label: "Tool 治理", href: "tools/governance", roles: ["boss", "founder"], group: "管理" },
   { icon: <Brain size={18} />, label: "意图规则", href: "admin/intent-rules", roles: ["boss", "founder"], group: "管理" },
   { icon: <Settings size={18} />, label: "系统设置", href: "settings", roles: ["boss", "founder"], group: "管理" },

@@ -54,7 +54,7 @@ interface MenuItem {
 
 export default function MobileProfilePage() {
   const { user } = useUser();
-  const { role, signOut } = useAuth();
+  const { role, signOut, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
 
   const isBoss = role === 'boss';
@@ -184,7 +184,7 @@ export default function MobileProfilePage() {
         icon: Crown,
         iconColor: 'text-yellow-600',
         iconBg: 'bg-yellow-50 dark:bg-yellow-900/20',
-        path: '/super-admin',
+        path: '/admin',
         bossOnly: true,
       },
       {
@@ -213,8 +213,11 @@ export default function MobileProfilePage() {
 
   // 过滤 bossOnly 项
   const visibleItems = useMemo(
-    () => menuItems.filter((item) => !item.bossOnly || isBoss),
-    [menuItems, isBoss]
+    () => menuItems.filter((item) => {
+      if (item.id === 'super-admin') return isSuperAdmin;
+      return !item.bossOnly || isBoss;
+    }),
+    [menuItems, isBoss, isSuperAdmin]
   );
 
   /** 头像首字母 fallback */

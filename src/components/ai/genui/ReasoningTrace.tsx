@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Brain, Wrench, Sparkles, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
+import { Brain, Wrench, Sparkles, MessageSquare, ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ThinkingStep } from '../ThinkingChain';
 
@@ -44,6 +44,7 @@ export function ReasoningTrace({ thinkingSteps }: ReasoningTraceProps) {
     steps.length > 1
       ? steps[steps.length - 1].timestamp - steps[0].timestamp
       : steps[0].duration_ms || 0;
+  const toolSteps = steps.filter((step) => step.tool_name);
 
   return (
     <div className="border-t border-border/50 bg-muted/30">
@@ -71,6 +72,20 @@ export function ReasoningTrace({ thinkingSteps }: ReasoningTraceProps) {
             className="overflow-hidden"
           >
             <div className="px-3 pb-2 space-y-1">
+              <div className="mb-2 rounded-md border border-border/60 bg-background/70 p-2 text-[11px] text-muted-foreground">
+                <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
+                  <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                  AI 操作透明度
+                </div>
+                <div>
+                  已展示工具调用摘要、耗时和阶段。隐藏模型内部推理文本；涉及写入或高风险工具时由后端 HITL/RBAC 守卫确认。
+                </div>
+                {toolSteps.length > 0 && (
+                  <div className="mt-1">
+                    本次调用工具：{toolSteps.map((step) => step.tool_name).filter(Boolean).join('、')}
+                  </div>
+                )}
+              </div>
               {steps.map((step, i) => {
                 const Icon = phaseIcons[step.phase] || Brain;
                 const color = phaseColors[step.phase] || 'text-muted-foreground';

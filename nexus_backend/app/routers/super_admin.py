@@ -20,7 +20,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["SuperAdmin"])
 
 # super_admin 角色依赖
-require_super_admin = require_role(["super_admin", "founder", "boss"])
+# Platform super-admin endpoints intentionally bypass tenant-scoped RLS through
+# the service-role client in SuperAdminService. Keep this dependency strictly
+# limited to the dedicated platform role; tenant founders/bosses must use
+# tenant-scoped organization endpoints instead.
+require_super_admin = require_role(["super_admin"])
 
 
 # ============== Request Models ==============
@@ -102,7 +106,9 @@ async def suspend_organization(
 ):
     """暂停组织"""
     try:
-        success = await super_admin_service.suspend_organization(org_id, body.reason)
+        success = await super_admin_service.suspend_organization(
+            org_id, body.reason, admin_user_id=user_id
+        )
         if success:
             return api_success(
                 data={"org_id": org_id, "status": "suspended"}, message="组织已暂停"
@@ -122,7 +128,9 @@ async def unsuspend_organization(
 ):
     """恢复组织"""
     try:
-        success = await super_admin_service.unsuspend_organization(org_id)
+        success = await super_admin_service.unsuspend_organization(
+            org_id, admin_user_id=user_id
+        )
         if success:
             return api_success(
                 data={"org_id": org_id, "status": "active"}, message="组织已恢复"

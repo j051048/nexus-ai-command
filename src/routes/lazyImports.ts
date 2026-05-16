@@ -75,6 +75,8 @@ export const SoulDocumentPage = lazyWithRetry(() => import("@/pages/SoulDocument
 export const AgentRunsPage = lazyWithRetry(() => import("@/pages/AgentRunsPage"));
 export const ToolGovernancePage = lazyWithRetry(() => import("@/pages/ToolGovernancePage"));
 export const SLODashboard = lazyWithRetry(() => import("@/pages/SLODashboard"));
+export const DeploymentReadinessPage = lazyWithRetry(() => import("@/pages/DeploymentReadinessPage"));
+export const PermissionMatrixPage = lazyWithRetry(() => import("@/pages/PermissionMatrixPage"));
 
 // VMD
 export const VMDCenter = lazyWithRetry(() => import("@/pages/VMDCenter"));
@@ -92,3 +94,4 @@ export const AnimationShowcase = lazyWithRetry(() => import("@/pages/AnimationSh
 
 // ROI
 export const AiRoiDashboard = lazyWithRetry(() => import("@/pages/AiRoiDashboard"));
+export const CustomerSuccessPage = lazyWithRetry(() => import("@/pages/CustomerSuccessPage"));

@@ -18,6 +18,8 @@ import {
   CheckoutSuccessPage,
   CompanySettingsPage,
   CustomDashboard,
+  DeploymentReadinessPage,
+  CustomerSuccessPage,
   FinanceCenter,
   FormDesigner,
   HRCenter,
@@ -28,13 +30,13 @@ import {
   OACenter,
   OrgChartPage,
   PaymentPage,
+  PermissionMatrixPage,
   PluginMarketplace,
   ReportBuilderPage,
   ReportsPage,
   ScheduledTasks,
   SoulDocumentPage,
   SLODashboard,
-  SuperAdminDashboard,
   ToolGovernancePage,
   WorkflowDesigner,
   WorkflowList,
@@ -102,7 +104,7 @@ export function adminRoutes(AdminRoute: AdminRouteComponent) {
       <Route path="employees" element={<Navigate to="/org-chart" replace />} />
       <Route path="departments" element={<Navigate to="/org-chart" replace />} />
       <Route path="audit" element={<AdminRoute><ModuleRouteBoundary moduleName="Audit"><AuditPanel /></ModuleRouteBoundary></AdminRoute>} />
-      <Route path="super-admin" element={<AdminRoute><ModuleRouteBoundary moduleName="Super Admin"><SuperAdminDashboard /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="super-admin" element={<Navigate to="/admin" replace />} />
       <Route path="api-keys" element={<AdminRoute><ModuleRouteBoundary moduleName="API Keys"><APIKeysPage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="company-settings" element={<AdminRoute><ModuleRouteBoundary moduleName="Company Settings"><CompanySettingsPage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="soul-document" element={adminModule(AdminRoute, "soul_document", "Soul Document", <SoulDocumentPage />)} />
@@ -112,8 +114,11 @@ export function adminRoutes(AdminRoute: AdminRouteComponent) {
       <Route path="llm/costs" element={<AdminRoute><ModuleRouteBoundary moduleName="LLM Costs"><LLMCostDashboard /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="agent-runs" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Agent Runs"><AgentRunsPage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="slo" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="SLO Dashboard"><SLODashboard /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="deployment-readiness" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Deployment Readiness"><DeploymentReadinessPage /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="permissions-matrix" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Permission Matrix"><PermissionMatrixPage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="tools/governance" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Tool Governance"><ToolGovernancePage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="ai-roi" element={<AdminRoute allowedRoles={managerRoles}><ModuleRouteBoundary moduleName="AI ROI"><AiRoiDashboard /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="customer-success" element={<AdminRoute allowedRoles={managerRoles}><ModuleRouteBoundary moduleName="Customer Success"><CustomerSuccessPage /></ModuleRouteBoundary></AdminRoute>} />
 
       <Route path="dev/animations" element={<ModuleGate flag="dev_tools"><AnimationShowcase /></ModuleGate>} />
       <Route path="agent-debug" element={<ModuleGate flag="dev_tools"><AdminRoute><ModuleRouteBoundary moduleName="Agent Debug"><AgentDebugPanel /></ModuleRouteBoundary></AdminRoute></ModuleGate>} />

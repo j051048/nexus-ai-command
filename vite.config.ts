@@ -119,6 +119,19 @@ export default defineConfig(({ mode }) => ({
   build: {
     emptyOutDir: true,
     chunkSizeWarningLimit: 500,
+    modulePreload: {
+      resolveDependencies(_url, deps) {
+        const deferUntilRouteUse = [
+          "vendor-jspdf-",
+          "vendor-html2canvas-",
+          "vendor-charts-",
+          "vendor-markdown-",
+          "vendor-syntax-core-",
+          "vendor-syntax-styles-",
+        ];
+        return deps.filter((dep) => !deferUntilRouteUse.some((prefix) => dep.includes(prefix)));
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {

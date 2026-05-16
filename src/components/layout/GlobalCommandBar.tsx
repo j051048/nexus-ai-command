@@ -49,6 +49,7 @@ import {
   Fingerprint,
   PlusCircle,
   Activity,
+  Server,
 } from 'lucide-react';
 import { aiClient } from '@/api/aiClient';
 import { pinyin } from 'pinyin-pro';
@@ -191,6 +192,9 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '模型管理', path: '/llm/models', icon: Settings, keywords: ['模型', 'llm', 'model', 'ai模型'], group: '系统管理' },
   { label: 'LLM 成本', path: '/llm/costs', icon: DollarSign, keywords: ['llm成本', '模型费用', 'token'], group: '系统管理' },
   { label: 'Agent Run 管理台', path: '/agent-runs', icon: Activity, keywords: ['agent run', 'trace', '运行观测', '重放'], group: '系统管理' },
+  { label: '上线交付中心', path: '/deployment-readiness', icon: Server, keywords: ['上线', '部署', '交付', 'health', 'readiness', 'handoff'], group: '系统管理' },
+  { label: '客户成功看板', path: '/customer-success', icon: BarChart3, keywords: ['客户成功', '验收', 'roi', '活跃', '交付价值'], group: '系统管理' },
+  { label: '权限与 AI 安全矩阵', path: '/permissions-matrix', icon: Shield, keywords: ['权限', '角色', 'rbac', '安全', 'ai边界'], group: '系统管理' },
   { label: 'Tool 治理清单', path: '/tools/governance', icon: Shield, keywords: ['tool治理', '工具治理', 'tool rag', '召回评估'], group: '系统管理' },
   { label: '数据导入', path: '/import', icon: Upload, keywords: ['导入', 'import', 'csv', 'excel'], group: '系统管理' },
   { label: '插件市场', path: '/plugins', icon: Plug, keywords: ['插件', 'plugin', '扩展'], group: '系统管理' },

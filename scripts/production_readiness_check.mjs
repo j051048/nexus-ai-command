@@ -154,6 +154,10 @@ const requiredFiles = [
   ".github/workflows/ci.yml",
   ".github/workflows/nightly-agent-quality.yml",
   "src/config/customerLaunchModules.ts",
+  "src/components/product/LaunchChecklistPanel.tsx",
+  "src/pages/CustomerSuccessPage.tsx",
+  "src/pages/DeploymentReadinessPage.tsx",
+  "src/pages/PermissionMatrixPage.tsx",
   "e2e/top10-critical-flows.spec.ts",
   "e2e/customer-business-acceptance.spec.ts",
   "nexus_backend/tests/k6/small_company.js",
@@ -214,6 +218,36 @@ for (const flow of businessFlows) {
     businessAcceptance.includes(flow),
     "critical",
     `Customer business acceptance E2E must cover: ${flow}`,
+  );
+}
+
+const productReadinessFiles = {
+  "first-week checklist": {
+    file: "src/components/product/LaunchChecklistPanel.tsx",
+    tokens: ["首周落地任务", "nexus:first-week-launch-checklist"],
+  },
+  "customer success dashboard": {
+    file: "src/pages/CustomerSuccessPage.tsx",
+    tokens: ["客户成功看板", "首周激活目标"],
+  },
+  "permission safety matrix": {
+    file: "src/pages/PermissionMatrixPage.tsx",
+    tokens: ["权限与 AI 安全矩阵", "Tool RBAC"],
+  },
+  "deployment product acceptance": {
+    file: "src/pages/DeploymentReadinessPage.tsx",
+    tokens: ["产品验收口径", "员工能从工作台完成客户、审批、文档和 AI 问答首周任务"],
+  },
+};
+
+for (const [name, check] of Object.entries(productReadinessFiles)) {
+  const fullPath = path.join(root, check.file);
+  const body = existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
+  addCheck(
+    `product readiness: ${name}`,
+    check.tokens.every((token) => body.includes(token)),
+    "critical",
+    `${check.file} must include customer-facing readiness copy`,
   );
 }
 

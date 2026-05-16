@@ -4,6 +4,8 @@ Provides endpoints for managing organizational hierarchy and approval chains.
 """
 
 import logging
+import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -478,10 +480,36 @@ async def toggle_invite_code(
 # ============== Admin Endpoints ==============
 
 
+async def _write_super_admin_audit(
+    client,
+    action: str,
+    admin_user_id: str,
+    organization_id: str | None,
+    details: dict,
+) -> None:
+    try:
+        await (
+            client.table("audit_logs")
+            .insert(
+                {
+                    "id": str(uuid.uuid4()),
+                    "action": action,
+                    "user_id": admin_user_id,
+                    "organization_id": organization_id,
+                    "details": details,
+                    "created_at": datetime.now(UTC).isoformat(),
+                }
+            )
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning("Failed to write super admin audit log: %s", exc)
+
+
 @router.get("/admin/pending-bosses", response_model=StandardResponse)
 async def admin_list_pending_bosses(
     req: Request,
-    user_id: str = Depends(require_role(["boss", "founder"])),
+    user_id: str = Depends(require_role(["super_admin"])),
 ):
     """列出待审批的Boss申请"""
     from app.core.database import supabase
@@ -524,7 +552,7 @@ async def admin_list_pending_bosses(
 @router.get("/admin/organizations", response_model=StandardResponse)
 async def admin_list_organizations(
     req: Request,
-    user_id: str = Depends(require_role(["boss", "founder"])),
+    user_id: str = Depends(require_role(["super_admin"])),
 ):
     """列出所有组织"""
     from app.core.database import supabase
@@ -563,7 +591,7 @@ async def admin_list_organizations(
 async def admin_approve_boss(
     target_user_id: str,
     req: Request,
-    user_id: str = Depends(require_role(["boss", "founder"])),
+    user_id: str = Depends(require_role(["super_admin"])),
 ):
     """批准Boss申请"""
     from app.core.database import supabase
@@ -571,6 +599,13 @@ async def admin_approve_boss(
     await supabase.table("users").update({"approval_status": "approved"}).eq(
         "id", target_user_id
     ).execute()
+    await _write_super_admin_audit(
+        supabase,
+        "admin_approve_boss",
+        user_id,
+        None,
+        {"target_user_id": target_user_id},
+    )
     return api_success({}, message="已批准")
 
 
@@ -578,7 +613,7 @@ async def admin_approve_boss(
 async def admin_reject_boss(
     target_user_id: str,
     req: Request,
-    user_id: str = Depends(require_role(["boss", "founder"])),
+    user_id: str = Depends(require_role(["super_admin"])),
 ):
     """拒绝Boss申请"""
     from app.core.database import supabase
@@ -586,6 +621,13 @@ async def admin_reject_boss(
     await supabase.table("users").update(
         {"approval_status": "rejected", "role": "employee"}
     ).eq("id", target_user_id).execute()
+    await _write_super_admin_audit(
+        supabase,
+        "admin_reject_boss",
+        user_id,
+        None,
+        {"target_user_id": target_user_id},
+    )
     return api_success({}, message="已拒绝")
 
 
@@ -593,12 +635,19 @@ async def admin_reject_boss(
 async def admin_delete_organization(
     org_id: str,
     req: Request,
-    user_id: str = Depends(require_role(["boss", "founder"])),
+    user_id: str = Depends(require_role(["super_admin"])),
 ):
     """删除组织"""
     from app.core.database import supabase
 
     await supabase.table("organizations").delete().eq("id", org_id).execute()
+    await _write_super_admin_audit(
+        supabase,
+        "admin_delete_organization",
+        user_id,
+        org_id,
+        {},
+    )
     return api_success({}, message="组织已删除")
 
 

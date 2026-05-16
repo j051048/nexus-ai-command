@@ -24,6 +24,7 @@ import { AlertWidget } from './AlertWidget';
 import { AIActivityStats } from './AIActivityStats';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
 import { useAuth } from '@/components/auth/AuthContext';
+import { LaunchChecklistPanel } from '@/components/product/LaunchChecklistPanel';
 
 const TeamPerformanceChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.TeamPerformanceChart })));
 const RevenueChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.RevenueChart })));
@@ -90,6 +91,7 @@ export function BossDashboard() {
     <div className="space-y-8 pb-12">
       {/* AI Quick Actions */}
       <AIQuickActions pageType="dashboard" />
+      <LaunchChecklistPanel role={role || 'boss'} compact />
 
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-[2.5rem] glass-premium p-8 sm:p-12 mb-8 animate-fade-slide-up">

@@ -41,7 +41,7 @@ const TAB_CONFIG: Record<Exclude<TabId, 'ai'>, TabConfig> = {
     matchPaths: [
       '/profile', '/settings', '/rewards', '/payments',
       '/api-keys', '/audit', '/plugins', '/training',
-      '/custom-dashboard', '/super-admin',
+      '/custom-dashboard', '/admin',
     ],
   },
 };
@@ -83,7 +83,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/plugins': '插件市场',
   '/training': '培训中心',
   '/custom-dashboard': '自定义看板',
-  '/super-admin': '超管面板',
+  '/admin': '超管面板',
   '/vmd': '虚拟市场部',
   '/vmd/tasks': 'VMD 任务中心',
   '/vmd/agents': 'Agent 配置',

@@ -29,6 +29,7 @@ export function coreRoutes(
   return (
     <>
       <Route index element={<Navigate to="/dashboard" replace />} />
+      <Route path="dashboard" element={routeBoundary("Dashboard", <EmployeeDashboard />)} />
       <Route
         path="boss-dashboard"
         element={
@@ -37,18 +38,16 @@ export function coreRoutes(
           </AdminRoute>
         }
       />
-      <Route path="dashboard" element={routeBoundary("仪表盘", <EmployeeDashboard />)} />
-      <Route path="boss-dashboard" element={routeBoundary("管理驾驶舱", <BossDashboard />)} />
-      <Route path="inbox" element={routeBoundary("待办中心", <InboxPage />)} />
-      <Route path="approval" element={routeBoundary("审批中心", <ApprovalCenter />)} />
-      <Route path="sales" element={routeBoundary("销售管道", <SalesPipeline />)} />
-      <Route path="projects" element={routeBoundary("项目管理", <ProjectManagement />)} />
-      <Route path="projects/:id" element={routeBoundary("项目详情", <ProjectDetail />)} />
-      <Route path="exceptions" element={routeBoundary("异常管理", <ExceptionsPage />)} />
-      <Route path="rewards" element={routeBoundary("奖励钱包", <RewardsWallet />)} />
-      <Route path="targets" element={routeBoundary("销售目标", <SalesTargetManager />)} />
-      <Route path="target-dashboard" element={routeBoundary("目标仪表盘", <TargetDashboard />)} />
-      <Route path="personal-settings" element={routeBoundary("个人中心", <ProfileCenter />)} />
+      <Route path="inbox" element={routeBoundary("Inbox", <InboxPage />)} />
+      <Route path="approval" element={routeBoundary("Approval Center", <ApprovalCenter />)} />
+      <Route path="sales" element={routeBoundary("Sales Pipeline", <SalesPipeline />)} />
+      <Route path="projects" element={routeBoundary("Projects", <ProjectManagement />)} />
+      <Route path="projects/:id" element={routeBoundary("Project Detail", <ProjectDetail />)} />
+      <Route path="exceptions" element={routeBoundary("Exceptions", <ExceptionsPage />)} />
+      <Route path="rewards" element={routeBoundary("Rewards", <RewardsWallet />)} />
+      <Route path="targets" element={routeBoundary("Sales Targets", <SalesTargetManager />)} />
+      <Route path="target-dashboard" element={routeBoundary("Target Dashboard", <TargetDashboard />)} />
+      <Route path="personal-settings" element={routeBoundary("Profile", <ProfileCenter />)} />
     </>
   );
 }
