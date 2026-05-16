@@ -9,6 +9,7 @@ Provides reusable dependency injection functions for:
 """
 
 import logging
+import os
 
 from fastapi import Depends, HTTPException, Request
 
@@ -16,6 +17,7 @@ from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error
 
 logger = logging.getLogger(__name__)
+DEFAULT_PLATFORM_SUPER_ADMIN_EMAIL = "j051048@gmail.com"
 
 
 async def get_db(request: Request):
@@ -109,6 +111,15 @@ async def _is_platform_super_admin(user_id: str) -> bool:
     if not supabase:
         return False
 
+    allowed_emails = {
+        item.strip().lower()
+        for item in os.getenv(
+            "PLATFORM_SUPER_ADMIN_EMAILS",
+            DEFAULT_PLATFORM_SUPER_ADMIN_EMAIL,
+        ).split(",")
+        if item.strip()
+    }
+
     try:
         rpc_result = await supabase.rpc("is_super_admin", {"_user_id": user_id}).execute()
         if bool(rpc_result.data):
@@ -119,12 +130,16 @@ async def _is_platform_super_admin(user_id: str) -> bool:
     try:
         user_result = (
             await supabase.table("users")
-            .select("is_super_admin")
+            .select("email, is_super_admin")
             .eq("id", user_id)
             .maybe_single()
             .execute()
         )
-        return bool((user_result.data or {}).get("is_super_admin"))
+        user_data = user_result.data or {}
+        if bool(user_data.get("is_super_admin")):
+            return True
+        email = str(user_data.get("email") or "").strip().lower()
+        return bool(email and email in allowed_emails)
     except Exception:
         return False
 

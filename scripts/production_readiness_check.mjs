@@ -108,6 +108,12 @@ addCheck("VITE_SUPABASE_URL", hasRealValue("VITE_SUPABASE_URL"), "critical", "Fr
 addCheck("VITE_SUPABASE_PUBLISHABLE_KEY", hasRealValue("VITE_SUPABASE_PUBLISHABLE_KEY"), "critical", "Frontend Supabase anon key is required");
 
 addCheck("CORS_ORIGINS locked down", hasRealValue("CORS_ORIGINS") && !env.CORS_ORIGINS.includes("*"), "warning", "Use explicit app domains");
+addCheck(
+  "platform super admin allowlist",
+  hasRealValue("PLATFORM_SUPER_ADMIN_EMAILS") && !env.PLATFORM_SUPER_ADMIN_EMAILS.includes("*"),
+  "critical",
+  "Set PLATFORM_SUPER_ADMIN_EMAILS to the explicit platform owner email(s)",
+);
 addCheck("AI fallback configured", hasAnyRealValue(["AI_FALLBACK_API_KEY", "AI_FALLBACK_BASE_URL"]), "warning", "Fallback provider improves resilience");
 addCheck("Sentry configured", hasRealValue("SENTRY_DSN"), "warning", "Needed for production exception triage");
 addCheck("Langfuse configured", env.LANGFUSE_ENABLED !== "true" || hasAnyRealValue(["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]), "warning", "If enabled, configure Langfuse keys");
