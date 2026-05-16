@@ -27,14 +27,18 @@ Required modules:
 2. Each required module is covered by `e2e/top10-critical-flows.spec.ts` or a module-specific E2E suite.
 3. The first-launch business loop is covered by `e2e/customer-business-acceptance.spec.ts`: login, CRM, approval, documents, projects, HR/OA, AI chat, and role blocking.
 4. AI write operations must pass through Tool RBAC, idempotency, audit logging, and HITL confirmation for irreversible actions.
-5. Deployment evidence must include release quality gate output, RLS scanner output, production readiness output, bundle budget output, and release evidence manifest.
-6. Customer handoff must include enabled modules, deployment health checks, backup/restore instructions, and known optional integrations.
+5. Deployment evidence must include release quality gate output, RLS scanner output, production readiness output, live health-check output, bundle budget output, release evidence manifest, and SOC2 evidence manifest.
+6. Customer handoff must include enabled modules, deployment health checks, backup/restore instructions, Agent replay posture, and known optional integrations.
+7. A 20-50 person pilot load run should pass `nexus_backend/tests/k6/small_company.js` before customer sign-off.
 
 ## Exit Criteria
 
 - `python scripts/customer_acceptance_gate.py` passes.
 - `python scripts/release_quality_gate.py` passes.
 - `node scripts/production_readiness_check.mjs --env .env.production` passes with customer secrets configured.
+- `node scripts/production_health_check.mjs --base-url https://YOUR-BACKEND-DOMAIN` passes after deployment.
+- `python scripts/collect_soc2_evidence.py` passes and writes `dist/soc2-evidence.json`.
+- `python scripts/agent_replay_nightly.py` passes in static mode or promotes failures when replay credentials are configured.
 - `npm run build` and `npm run check:bundle` pass.
 - Top critical Playwright smoke suite passes for the customer module set.
 - Customer business acceptance suite passes: `npm run test:e2e -- e2e/customer-business-acceptance.spec.ts --project=chromium`.

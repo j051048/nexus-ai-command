@@ -48,6 +48,7 @@ def run_check(check: GateCheck) -> tuple[bool, str]:
 CHECKS = [
     # P0: production survivability and launch blast-radius controls.
     GateCheck("P0", "production readiness script", "scripts/production_readiness_check.mjs", ("developer tools disabled", "golden smoke route:")),
+    GateCheck("P0", "production health checker", "scripts/production_health_check.mjs", ("/health/live", "/health/ready", "HEALTH_CHECK_TOKEN")),
     GateCheck("P0", "static RLS coverage scanner", "scripts/scan_rls_coverage.py", ("MISSING_POLICY", "_collect_policy_tables")),
     GateCheck("P0", "containerized backend build", "Dockerfile", ("COPY nexus_backend/requirements.txt", "USER appuser")),
     GateCheck("P0", "local deployment composition", "docker-compose.yml", ("celery-worker", "redis")),
@@ -82,7 +83,13 @@ CHECKS = [
     GateCheck("P5", "private deployment doctor", "scripts/private_deploy_doctor.py", ("--env", "PRIVATE_DEPLOYMENT", "CORS_ORIGINS")),
     GateCheck("P6", "release evidence collector", "scripts/collect_release_evidence.py", ("release-evidence.json", "sha256", "<redacted>")),
     GateCheck("P1", "private PgBouncer guidance", "docs/PRIVATE_DEPLOYMENT_PGBOUNCER.md", ("pool_mode", "SUPABASE_DB_POOLER_URL", "/health/ready")),
-    GateCheck("P0", "stream lifecycle split", "nexus_backend/app/agent/stream.py", ("stream_lifecycle", "emit_error_and_cleanup", "cleanup_on_disconnect")),
+    GateCheck("P1", "small-company load profile", "nexus_backend/tests/k6/small_company.js", ("small_company_20_50_users", "p(95)<900")),
+    GateCheck("P1", "nightly agent replay runner", "scripts/agent_replay_nightly.py", ("AGENT_REPLAY_BASE_URL", "promote-failures")),
+    GateCheck("P1", "nightly agent quality workflow", ".github/workflows/nightly-agent-quality.yml", ("schedule:", "agent_replay_nightly.py")),
+    GateCheck("P1", "SOC2 evidence collector", "scripts/collect_soc2_evidence.py", ("CC6_logical_access", "CC7_security_monitoring")),
+    GateCheck("P1", "rate limiter production fail-closed", "nexus_backend/app/core/rate_limiter.py", ("_redis_is_required", "backend_unavailable")),
+    GateCheck("P0", "stream lifecycle split", "nexus_backend/app/agent/stream.py", ("stream_lifecycle", "emit_error_and_cleanup", "cleanup_on_disconnect", "ThinkTagTracker")),
+    GateCheck("P1", "stream event helpers", "nexus_backend/app/agent/stream_events.py", ("process_stream_event", "ThinkTagTracker")),
     GateCheck("P0", "gateway get_llm fail-closed", "nexus_backend/app/services/llm_gateway/__init__.py", ("requires resolved_config", "Use await resolve_model_config")),
     GateCheck("P1", "standard health probes", "nexus_backend/app/main.py", ('"/health/live"', '"/health/ready"')),
     GateCheck("P1", "web vitals backend route", "nexus_backend/app/routers/metrics.py", ("/web-vitals", "/slo")),

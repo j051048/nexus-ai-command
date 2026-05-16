@@ -41,8 +41,12 @@ REQUIRED_FILES = [
     "scripts/release_quality_gate.py",
     "scripts/check_bundle_budget.mjs",
     "scripts/collect_release_evidence.py",
+    "scripts/collect_soc2_evidence.py",
+    "scripts/production_health_check.mjs",
+    "scripts/agent_replay_nightly.py",
     "scripts/customer_acceptance_gate.py",
     "scripts/generate_customer_handoff.py",
+    "nexus_backend/tests/k6/small_company.js",
 ]
 
 

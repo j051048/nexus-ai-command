@@ -32,9 +32,12 @@ For each production or private deployment, store these artifacts in the customer
 3. `python scripts/scan_rls_coverage.py` output.
 4. `python scripts/release_quality_gate.py` output.
 5. `node scripts/production_readiness_check.mjs --env .env.production` output with secrets redacted.
-6. Audit export sample from `/api/compliance/audit/export`.
-7. SSO smoke test result when enterprise SSO is enabled.
-8. Backup and restore drill result for the customer database.
+6. `node scripts/production_health_check.mjs --base-url <backend-url>` output.
+7. `python scripts/collect_soc2_evidence.py` output and `dist/soc2-evidence.json`.
+8. Audit export sample from `/api/compliance/audit/export`.
+9. SSO smoke test result when enterprise SSO is enabled.
+10. Backup and restore drill result for the customer database.
+11. Small-company k6 result from `nexus_backend/tests/k6/small_company.js`.
 
 ## Open Auditor Follow-Ups
 

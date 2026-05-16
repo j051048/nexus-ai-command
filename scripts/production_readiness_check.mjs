@@ -92,6 +92,12 @@ addCheck(
   "Configure SUPABASE_JWT_SECRET or JWT_SECRET",
 );
 addCheck("REDIS_URL", hasRealValue("REDIS_URL"), "critical", "Redis is required for rate limits, Celery, token budgets");
+addCheck(
+  "distributed rate limiting",
+  String(env.ALLOW_MEMORY_RATE_LIMIT || "").toLowerCase() !== "1",
+  "warning",
+  "Only set ALLOW_MEMORY_RATE_LIMIT=1 for explicitly approved private single-node deployments",
+);
 addCheck("OPENAI_API_KEY", hasRealValue("OPENAI_API_KEY"), "critical", "Configure a primary model provider key");
 addCheck("AI_BASE_URL", hasRealValue("AI_BASE_URL"), "critical", "Configure an OpenAI-compatible base URL");
 addCheck("LANGGRAPH_CHECKPOINTER=postgres", env.LANGGRAPH_CHECKPOINTER === "postgres", "critical", "Use durable Agent state");
@@ -140,11 +146,17 @@ const requiredFiles = [
   "scripts/release_quality_gate.py",
   "scripts/check_bundle_budget.mjs",
   "scripts/collect_release_evidence.py",
+  "scripts/production_health_check.mjs",
+  "scripts/collect_soc2_evidence.py",
+  "scripts/agent_replay_nightly.py",
   "scripts/customer_acceptance_gate.py",
   "scripts/generate_customer_handoff.py",
+  ".github/workflows/ci.yml",
+  ".github/workflows/nightly-agent-quality.yml",
   "src/config/customerLaunchModules.ts",
   "e2e/top10-critical-flows.spec.ts",
   "e2e/customer-business-acceptance.spec.ts",
+  "nexus_backend/tests/k6/small_company.js",
   "nexus_backend/app/routers/enterprise_sso.py",
   "nexus_backend/app/routers/compliance.py",
   "nexus_backend/app/core/api_key_middleware.py",

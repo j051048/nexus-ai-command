@@ -50,6 +50,7 @@ from app.agent.state import (
     ThinkingStep,
 )
 from app.agent.stream_checks import run_pre_checks
+from app.agent.stream_events import ThinkTagTracker
 from app.agent.stream_lifecycle import (
     cleanup_on_disconnect,
     emit_error_and_cleanup,
@@ -646,7 +647,7 @@ async def _run_agent_stream_impl(
         # Track whether we're inside a <think>...</think> block during streaming.
         # Reasoning models (step-3.5-flash, DeepSeek-R1, QwQ, etc.) emit these
         # tags which must be suppressed before reaching the frontend.
-        _inside_think = False
+        _think_tracker = ThinkTagTracker()
 
         # ── Tenant-level concurrency throttle (fair-share) ──
         _throttle_ctx = tenant_throttle.acquire(org_id or "default")
@@ -687,29 +688,8 @@ async def _run_agent_stream_impl(
                     continue
 
                 if content and node_name == "respond":
-                    # --- Filter reasoning model <think> tags ---
-                    # Handle <think>...</think> that may span multiple chunks
-                    emit = content
-                    if _inside_think:
-                        # We're inside a think block, suppress until </think>
-                        if "</think>" in content:
-                            _inside_think = False
-                            emit = content.split("</think>", 1)[1].lstrip("\n")
-                        else:
-                            emit = ""
-                    elif "<think>" in content:
-                        # Think block starts in this chunk
-                        before = content.split("<think>", 1)[0]
-                        remainder = content.split("<think>", 1)[1]
-                        if "</think>" in remainder:
-                            # Complete <think>...</think> in one chunk
-                            after = remainder.split("</think>", 1)[1].lstrip("\n")
-                            emit = before + after
-                        else:
-                            # Think block continues into next chunks
-                            _inside_think = True
-                            emit = before
-
+                    # Handle <think>...</think> blocks that may span chunks.
+                    emit = _think_tracker.filter(content)
                     if emit:
                         yield _sse_content(emit)
                         _streamed_chars += len(emit)
@@ -948,6 +928,7 @@ async def _run_agent_stream_impl(
                 all_thinking_steps = []
                 streamed_plan_content = False
                 streamed_plan_text = ""
+                _retry_think_tracker = ThinkTagTracker()
                 _streamed_chars = 0
                 _budget_breached = False
 
@@ -978,8 +959,8 @@ async def _run_agent_stream_impl(
                         if chunk_kwargs.get("reasoning_content"):
                             continue
                         if content and node_name == "respond":
-                            # Filter <think> tags in retry path too
-                            filtered = filter_think_content(content)
+                            # Filter <think> tags in retry path too, including split tags.
+                            filtered = _retry_think_tracker.filter(content)
                             if filtered:
                                 yield _sse_content(filtered)
                                 _streamed_chars += len(filtered)

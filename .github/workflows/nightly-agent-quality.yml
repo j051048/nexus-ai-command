@@ -1,0 +1,46 @@
+name: Nightly Agent Quality
+
+on:
+  schedule:
+    - cron: "30 18 * * *"
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  replay-and-release-evidence:
+    name: Agent Replay and Release Evidence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run replay harness
+        run: python scripts/agent_replay_nightly.py
+        env:
+          AGENT_REPLAY_BASE_URL: ${{ secrets.AGENT_REPLAY_BASE_URL }}
+          AGENT_REPLAY_TOKEN: ${{ secrets.AGENT_REPLAY_TOKEN }}
+
+      - name: Static release gates
+        run: |
+          python scripts/customer_acceptance_gate.py
+          python scripts/release_quality_gate.py
+          python scripts/collect_release_evidence.py
+          python scripts/collect_soc2_evidence.py
+
+      - name: Upload nightly evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-agent-quality-evidence
+          path: |
+            dist/release-evidence.json
+            dist/soc2-evidence.json
+          retention-days: 30

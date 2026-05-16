@@ -34,6 +34,18 @@ def evidence_summary() -> str:
     return f"Release evidence manifest present: {present}/{total} files captured."
 
 
+def soc2_summary() -> str:
+    evidence_path = ROOT / "dist" / "soc2-evidence.json"
+    if not evidence_path.exists():
+        return "SOC2 evidence manifest has not been generated yet."
+    data = json.loads(evidence_path.read_text(encoding="utf-8"))
+    summary = data.get("summary", {})
+    return (
+        "SOC2 evidence controls ready: "
+        f"{summary.get('controls_ready', 0)}/{summary.get('controls_total', 0)}."
+    )
+
+
 def build_report() -> str:
     modules = module_list()
     lines = [
@@ -52,6 +64,9 @@ def build_report() -> str:
         "python scripts/customer_acceptance_gate.py",
         "python scripts/release_quality_gate.py",
         "node scripts/production_readiness_check.mjs --env .env.production",
+        "node scripts/production_health_check.mjs --base-url https://YOUR-BACKEND-DOMAIN",
+        "python scripts/collect_soc2_evidence.py",
+        "python scripts/agent_replay_nightly.py",
         "npm run build",
         "npm run check:bundle",
         "npm run test:e2e -- e2e/top10-critical-flows.spec.ts --project=chromium",
@@ -61,7 +76,9 @@ def build_report() -> str:
         "## Evidence",
         "",
         f"- {evidence_summary()}",
+        f"- {soc2_summary()}",
         "- RLS scanner must report zero missing RLS and zero missing tenant policies.",
+        "- Small-company k6 profile should meet p95 < 900ms before customer sign-off.",
         "- Backup and restore drill result must be attached by the deployment engineer.",
         "",
         "## Customer Operating Scope",

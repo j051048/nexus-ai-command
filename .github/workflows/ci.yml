@@ -192,6 +192,16 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: python scripts/release_quality_gate.py
 
+      - name: Run customer acceptance static gate
+        working-directory: ${{ github.workspace }}
+        run: python scripts/customer_acceptance_gate.py
+
+      - name: Collect release and SOC2 evidence manifests
+        working-directory: ${{ github.workspace }}
+        run: |
+          python scripts/collect_release_evidence.py
+          python scripts/collect_soc2_evidence.py
+
       - name: Run architecture and security guardrails
         run: pytest tests/unit/test_architecture_guards.py tests/security/test_prompt_firewall_indirect_injection.py -q
 
@@ -442,6 +452,13 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
           E2E_MODE: smoke
 
+      - name: Run customer business acceptance smoke
+        run: npx playwright test e2e/customer-business-acceptance.spec.ts --project=chromium --timeout=45000
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
+          E2E_MODE: smoke
+
       - name: Upload smoke test results
         uses: actions/upload-artifact@v4
         if: always()
@@ -547,12 +564,18 @@ jobs:
         continue-on-error: true
         run: k6 run --env BASE_URL=http://localhost:8000 tests/k6/baseline.js
 
+      - name: Run small-company pilot load profile
+        continue-on-error: true
+        run: k6 run --env BASE_URL=http://localhost:8000 tests/k6/small_company.js
+
       - name: Upload k6 artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: k6-baseline-result
-          path: nexus_backend/baseline_result.json
+          path: |
+            nexus_backend/baseline_result.json
+            nexus_backend/small_company_result.json
           retention-days: 7
 
   # ============== Summary Job ==============

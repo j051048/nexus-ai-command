@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "npx playwright test",
     "check:prod": "node scripts/production_readiness_check.mjs",
+    "check:health": "node scripts/production_health_check.mjs",
     "check:bundle": "node scripts/check_bundle_budget.mjs",
     "analyze": "vite build --mode analyze"
   },

@@ -57,6 +57,36 @@ SENSITIVE_ENDPOINT_LIMITS: dict[str, int] = {
 REDIS_URL = os.getenv("REDIS_URL")
 redis_client = None
 
+
+def _env_flag(name: str, default: str = "") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
+_IS_PRODUCTION = settings.ENV == "production"
+_ALLOW_MEMORY_RATE_LIMIT = _env_flag("ALLOW_MEMORY_RATE_LIMIT")
+
+
+def _redis_is_required() -> bool:
+    """Production SaaS rate limits must be shared across workers.
+
+    Private single-node deployments can explicitly opt in to local memory
+    fallback with ALLOW_MEMORY_RATE_LIMIT=1. That exception is intentionally
+    noisy so handoff evidence can show the blast-radius decision.
+    """
+
+    return _IS_PRODUCTION and not _ALLOW_MEMORY_RATE_LIMIT
+
+
+def _rate_limit_backend_unavailable_meta(limit: int, window: int = 60) -> dict:
+    return {
+        "remaining": 0,
+        "limit": limit,
+        "reset": int(time.time()) + window,
+        "retry_after": min(window, 60),
+        "backend_unavailable": True,
+    }
+
+
 if REDIS_URL:
     try:
         import redis.asyncio as aioredis
@@ -64,12 +94,27 @@ if REDIS_URL:
         redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
         logger.info("[RateLimiter] Redis backend enabled for distributed rate limiting")
     except ImportError:
-        logger.warning(
-            "[RateLimiter] redis package not installed, falling back to in-memory"
-        )
+        message = "[RateLimiter] redis package not installed"
+        if _redis_is_required():
+            logger.critical("%s; production rate limiting cannot start", message)
+            raise RuntimeError(
+                f"{message}. Install redis or set ALLOW_MEMORY_RATE_LIMIT=1 only "
+                "for a private single-node deployment."
+            )
+        logger.warning("%s, falling back to in-memory", message)
     except Exception as e:
+        if _redis_is_required():
+            logger.critical(
+                "[RateLimiter] Redis connection failed in production: %s",
+                e,
+                exc_info=True,
+            )
+            raise RuntimeError(
+                "Redis connection failed in production. Fix REDIS_URL or set "
+                "ALLOW_MEMORY_RATE_LIMIT=1 only for a private single-node deployment."
+            ) from e
         logger.warning(f"[RateLimiter] Redis connection failed: {e}", exc_info=True)
-elif settings.ENV == "production":
+elif _IS_PRODUCTION:
     # P0 安全加固：生产环境必须配置 Redis，否则多副本部署下内存限流形同虚设
     _msg = (
         "[RateLimiter] REDIS_URL not set in production! "
@@ -77,7 +122,7 @@ elif settings.ENV == "production":
         "Set REDIS_URL env var for proper distributed rate limiting."
     )
     logger.critical(_msg)
-    if not os.getenv("ALLOW_MEMORY_RATE_LIMIT", ""):
+    if not _ALLOW_MEMORY_RATE_LIMIT:
         raise RuntimeError(
             f"{_msg} "
             "Set ALLOW_MEMORY_RATE_LIMIT=1 to bypass this check (NOT recommended)."
@@ -126,6 +171,12 @@ class SlidingWindowRateLimiter:
         """
         if redis_client:
             return await self._check_redis(key)
+        if _redis_is_required():
+            logger.error(
+                "[RateLimiter] Redis backend unavailable; fail-closed for sliding window key=%s",
+                key,
+            )
+            return False, _rate_limit_backend_unavailable_meta(self.rate, self.window)
         return self._check_memory(key)
 
     async def _check_redis(self, key: str) -> tuple[bool, dict]:
@@ -171,6 +222,8 @@ class SlidingWindowRateLimiter:
 
         except Exception as e:
             logger.error(f"[RateLimiter] Redis sliding window error: {e}")
+            if _redis_is_required():
+                return False, _rate_limit_backend_unavailable_meta(self.rate, self.window)
             return self._check_memory(key)
 
     def _check_memory(self, key: str) -> tuple[bool, dict]:
@@ -258,8 +311,13 @@ class RateLimiter:
         # Use Redis if available
         if redis_client:
             return await self._check_redis(key)
-        else:
-            return self._check_memory(key)
+        if _redis_is_required():
+            logger.error(
+                "[RateLimiter] Redis backend unavailable; fail-closed for token bucket key=%s",
+                key,
+            )
+            return False, _rate_limit_backend_unavailable_meta(self.rate)
+        return self._check_memory(key)
 
     async def _check_redis(self, key: str) -> tuple[bool, dict]:
         """Redis-backed rate limiting (distributed)"""
@@ -307,8 +365,10 @@ class RateLimiter:
             }
 
         except Exception as e:
-            logger.error(f"[RateLimiter] Redis error: {e}, falling back to in-memory")
-            # P0 Fix: Fail-closed — fallback to in-memory instead of allowing all
+            logger.error(f"[RateLimiter] Redis error: {e}")
+            if _redis_is_required():
+                return False, _rate_limit_backend_unavailable_meta(self.rate)
+            # Private/dev fallback remains bounded; production already returned above.
             return self._check_memory(key)
 
     def _check_memory(self, key: str) -> tuple[bool, dict]:
