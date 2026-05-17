@@ -406,7 +406,7 @@ class BudgetQueryTool(BaseTool):
         if not user_res.data:
             return "❌ 无法获取用户信息"
 
-        return "📊 当前没有可查询的预算数据。\n\n请管理员在财务模块配置部门预算或导入 finance_budgets 数据。"
+        return "📊 暂无预算数据，当前没有可查询的预算数据。\n\n请管理员在财务模块配置部门预算或导入 finance_budgets 数据。"
 
 
 class SalaryQueryTool(BaseTool):

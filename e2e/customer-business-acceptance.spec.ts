@@ -82,8 +82,23 @@ function fakeJwt(role: Role): string {
   ].join('.');
 }
 
+function getSupabaseAuthStorageKeys(): string[] {
+  const keys = new Set<string>(['sb-hztpazmuejgbtixihcgj-auth-token']);
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  if (url) {
+    try {
+      const projectRef = new URL(url).hostname.split('.')[0];
+      if (projectRef) keys.add(`sb-${projectRef}-auth-token`);
+    } catch {
+      // Keep the stable fallback key above.
+    }
+  }
+  return [...keys];
+}
+
 async function installRoleSession(page: Page, role: Role) {
-  await page.addInitScript((sessionRole) => {
+  const storageKeys = getSupabaseAuthStorageKeys();
+  await page.addInitScript(({ sessionRole, keys }) => {
     const now = Math.floor(Date.now() / 1000);
     const encode = (value: unknown) =>
       btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -101,26 +116,24 @@ async function installRoleSession(page: Page, role: Role) {
       }),
       'fake-signature',
     ].join('.');
-    window.localStorage.setItem(
-      'sb-hztpazmuejgbtixihcgj-auth-token',
-      JSON.stringify({
-        access_token: token,
-        token_type: 'bearer',
-        expires_in: 3600,
-        expires_at: now + 3600,
-        refresh_token: 'fake-refresh',
-        user: {
-          id: 'test-user-id',
-          aud: 'authenticated',
-          email: `${sessionRole}@nexus-ai.com`,
-          role: 'authenticated',
-          user_metadata: { role: sessionRole, name: `E2E ${sessionRole}` },
-          app_metadata: { provider: 'email', role: sessionRole },
-        },
-      }),
-    );
+    const session = JSON.stringify({
+      access_token: token,
+      token_type: 'bearer',
+      expires_in: 3600,
+      expires_at: now + 3600,
+      refresh_token: 'fake-refresh',
+      user: {
+        id: 'test-user-id',
+        aud: 'authenticated',
+        email: `${sessionRole}@nexus-ai.com`,
+        role: 'authenticated',
+        user_metadata: { role: sessionRole, name: `E2E ${sessionRole}` },
+        app_metadata: { provider: 'email', role: sessionRole },
+      },
+    });
+    keys.forEach((key) => window.localStorage.setItem(key, session));
     window.localStorage.setItem('hasSeenTour', 'true');
-  }, role);
+  }, { sessionRole: role, keys: storageKeys });
 }
 
 async function setupAcceptanceMocks(page: Page, role: Role = 'boss') {

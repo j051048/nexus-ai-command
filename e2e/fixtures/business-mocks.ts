@@ -48,6 +48,20 @@ function createFakeJwt(role = 'boss') {
   ].join('.');
 }
 
+function getSupabaseAuthStorageKeys(): string[] {
+  const keys = new Set<string>(['sb-hztpazmuejgbtixihcgj-auth-token']);
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  if (url) {
+    try {
+      const projectRef = new URL(url).hostname.split('.')[0];
+      if (projectRef) keys.add(`sb-${projectRef}-auth-token`);
+    } catch {
+      // Keep the stable fallback key above.
+    }
+  }
+  return [...keys];
+}
+
 export async function setupBusinessMocks(page: Page) {
   // 1. 拦截 Auth token 请求（login + refresh）
   await page.route('**/auth/v1/token*', async (route) => {
@@ -165,19 +179,22 @@ export async function setupBusinessMocks(page: Page) {
  * Supabase JS v2 使用 sb-{project-ref}-auth-token 作为 storage key
  * access_token 必须是可解码的 JWT 格式，否则 Supabase 会认为 session 无效
  */
-export async function mockLoggedInState(page: Page, _role?: string) {
-  await page.addInitScript(() => {
+export async function mockLoggedInState(page: Page, role = 'boss') {
+  const storageKeys = getSupabaseAuthStorageKeys();
+  await page.addInitScript(({ sessionRole, keys }) => {
     // 构造一个可解码的 fake JWT（Supabase JS v2 会 base64 decode 来检查 exp）
     const now = Math.floor(Date.now() / 1000);
     const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const payload = btoa(JSON.stringify({
       sub: 'test-user-id',
-      email: 'test-admin@nexus-ai.com',
+      email: `${sessionRole}@nexus-ai.com`,
       role: 'authenticated',
       aud: 'authenticated',
       exp: now + 3600,
-      iat: now
+      iat: now,
+      app_metadata: { provider: 'email', role: sessionRole },
+      user_metadata: { role: sessionRole, name: `E2E ${sessionRole}` },
     })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const fakeJwt = `${header}.${payload}.fake-signature`;
 
@@ -190,20 +207,18 @@ export async function mockLoggedInState(page: Page, _role?: string) {
       user: {
         id: 'test-user-id',
         aud: 'authenticated',
-        email: 'test-admin@nexus-ai.com',
+        email: `${sessionRole}@nexus-ai.com`,
         role: 'authenticated',
-        user_metadata: { role: 'boss', name: 'E2E Admin' },
-        app_metadata: { provider: 'email' }
+        user_metadata: { role: sessionRole, name: `E2E ${sessionRole}` },
+        app_metadata: { provider: 'email', role: sessionRole }
       }
     };
     // Supabase JS v2 storage key format
-    window.localStorage.setItem(
-      'sb-hztpazmuejgbtixihcgj-auth-token',
-      JSON.stringify(mockSession)
-    );
+    const serialized = JSON.stringify(mockSession);
+    keys.forEach((key) => window.localStorage.setItem(key, serialized));
     // Disable ProductTour Joyride overlay
     window.localStorage.setItem('hasSeenTour', 'true');
-  });
+  }, { sessionRole: role, keys: storageKeys });
 }
 
 /**
