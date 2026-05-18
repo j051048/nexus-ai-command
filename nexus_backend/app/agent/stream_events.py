@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 def _filter_think_content(content: str) -> str:
     """Remove <think>...</think> blocks from a single chunk (complete blocks only)."""
     import re
+
     return re.sub(r"<think>.*?</think>\n?", "", content, flags=re.DOTALL)
 
 
@@ -106,29 +107,54 @@ async def process_stream_event(
         if content and node_name == "respond":
             emit = think_tracker.filter(content)
             if emit:
-                yield (_sse_content_fn(emit), streamed_chars + len(emit),
-                       budget_breached, True, streamed_plan_text + (emit or ""))
+                yield (
+                    _sse_content_fn(emit),
+                    streamed_chars + len(emit),
+                    budget_breached,
+                    True,
+                    streamed_plan_text + (emit or ""),
+                )
                 streamed_chars += len(emit)
                 streamed_plan_content = True
             else:
-                yield (None, streamed_chars, budget_breached,
-                       streamed_plan_content, streamed_plan_text + (emit or ""))
+                yield (
+                    None,
+                    streamed_chars,
+                    budget_breached,
+                    streamed_plan_content,
+                    streamed_plan_text + (emit or ""),
+                )
             streamed_plan_text += emit or ""
 
         elif content and node_name == "plan":
             if _is_mutation_fast_path_fn(accumulated_state):
                 plan_filtered = _filter_think_content(content)
                 if plan_filtered:
-                    yield (_sse_content_fn(plan_filtered), streamed_chars + len(plan_filtered),
-                           budget_breached, True, streamed_plan_text + content)
+                    yield (
+                        _sse_content_fn(plan_filtered),
+                        streamed_chars + len(plan_filtered),
+                        budget_breached,
+                        True,
+                        streamed_plan_text + content,
+                    )
                     streamed_chars += len(plan_filtered)
                     streamed_plan_content = True
                 else:
-                    yield (None, streamed_chars, budget_breached,
-                           streamed_plan_content, streamed_plan_text + content)
+                    yield (
+                        None,
+                        streamed_chars,
+                        budget_breached,
+                        streamed_plan_content,
+                        streamed_plan_text + content,
+                    )
             else:
-                yield (None, streamed_chars, budget_breached,
-                       streamed_plan_content, streamed_plan_text + content)
+                yield (
+                    None,
+                    streamed_chars,
+                    budget_breached,
+                    streamed_plan_content,
+                    streamed_plan_text + content,
+                )
             streamed_plan_text += content
 
         # Mid-flight budget check
@@ -136,18 +162,35 @@ async def process_stream_event(
             budget_breached = True
             logger.warning(
                 "[Stream] Output token budget breached: ~%d tokens (chars=%d, limit=%d) user=%s session=%s",
-                streamed_chars // 3, streamed_chars, output_token_budget, user_id, session_id,
+                streamed_chars // 3,
+                streamed_chars,
+                output_token_budget,
+                user_id,
+                session_id,
             )
-            yield (_sse_data_fn({
-                "budget_breaker": {
-                    "reason": "output_token_limit",
-                    "estimated_tokens": streamed_chars // 3,
-                    "limit": output_token_budget,
-                    "message": "回复已达到输出 token 上限，已自动截断。",
-                }
-            }), streamed_chars, True, streamed_plan_content, streamed_plan_text)
-            yield (_sse_content_fn("\n\n⚠️ 回复已达到输出上限，已自动截断。"),
-                   streamed_chars, True, streamed_plan_content, streamed_plan_text)
+            yield (
+                _sse_data_fn(
+                    {
+                        "budget_breaker": {
+                            "reason": "output_token_limit",
+                            "estimated_tokens": streamed_chars // 3,
+                            "limit": output_token_budget,
+                            "message": "回复已达到输出 token 上限，已自动截断。",
+                        }
+                    }
+                ),
+                streamed_chars,
+                True,
+                streamed_plan_content,
+                streamed_plan_text,
+            )
+            yield (
+                _sse_content_fn("\n\n⚠️ 回复已达到输出上限，已自动截断。"),
+                streamed_chars,
+                True,
+                streamed_plan_content,
+                streamed_plan_text,
+            )
 
     # ── B. State Updates ──
     elif kind == "on_chain_end":
@@ -169,26 +212,56 @@ async def process_stream_event(
                             if getattr(step, "tool_name", None) == "__orch_meta":
                                 try:
                                     _orch_data = json.loads(step.content)
-                                    yield (_sse_data_fn({"orchestration": _orch_data}),
-                                           streamed_chars, budget_breached,
-                                           streamed_plan_content, streamed_plan_text)
+                                    yield (
+                                        _sse_data_fn({"orchestration": _orch_data}),
+                                        streamed_chars,
+                                        budget_breached,
+                                        streamed_plan_content,
+                                        streamed_plan_text,
+                                    )
                                 except Exception:
-                                    yield (_sse_thinking_fn(step), streamed_chars,
-                                           budget_breached, streamed_plan_content, streamed_plan_text)
+                                    yield (
+                                        _sse_thinking_fn(step),
+                                        streamed_chars,
+                                        budget_breached,
+                                        streamed_plan_content,
+                                        streamed_plan_text,
+                                    )
                             else:
-                                yield (_sse_thinking_fn(step), streamed_chars,
-                                       budget_breached, streamed_plan_content, streamed_plan_text)
+                                yield (
+                                    _sse_thinking_fn(step),
+                                    streamed_chars,
+                                    budget_breached,
+                                    streamed_plan_content,
+                                    streamed_plan_text,
+                                )
 
                 elif key == "completed_tool_calls" and isinstance(value, list):
                     existing = accumulated_state.get("completed_tool_calls", [])
                     accumulated_state["completed_tool_calls"] = existing + value
                     for rec in value:
                         if hasattr(rec, "tool_name"):
-                            yield (_sse_tool_progress_fn(rec.tool_name, rec.status or "success", rec.duration_ms),
-                                   streamed_chars, budget_breached, streamed_plan_content, streamed_plan_text)
+                            yield (
+                                _sse_tool_progress_fn(
+                                    rec.tool_name,
+                                    rec.status or "success",
+                                    rec.duration_ms,
+                                ),
+                                streamed_chars,
+                                budget_breached,
+                                streamed_plan_content,
+                                streamed_plan_text,
+                            )
                             if rec.status == "success" and rec.result:
-                                yield (_sse_tool_result_fn(rec.tool_name, rec.result, rec.status),
-                                       streamed_chars, budget_breached, streamed_plan_content, streamed_plan_text)
+                                yield (
+                                    _sse_tool_result_fn(
+                                        rec.tool_name, rec.result, rec.status
+                                    ),
+                                    streamed_chars,
+                                    budget_breached,
+                                    streamed_plan_content,
+                                    streamed_plan_text,
+                                )
                 else:
                     accumulated_state[key] = value
 
@@ -205,13 +278,28 @@ async def process_stream_event(
                     agent_phase_cls.RESPONDING: "正在生成回复...",
                 }
                 if phase == agent_phase_cls.REFLECTING and iteration >= 2:
-                    yield (_sse_status_fn(f"正在深度验证... (第{iteration}轮)"),
-                           streamed_chars, budget_breached, streamed_plan_content, streamed_plan_text)
+                    yield (
+                        _sse_status_fn(f"正在深度验证... (第{iteration}轮)"),
+                        streamed_chars,
+                        budget_breached,
+                        streamed_plan_content,
+                        streamed_plan_text,
+                    )
                 elif phase == agent_phase_cls.PLANNING and iteration >= 3:
-                    yield (_sse_status_fn(f"正在重新规划... (第{iteration}轮)"),
-                           streamed_chars, budget_breached, streamed_plan_content, streamed_plan_text)
+                    yield (
+                        _sse_status_fn(f"正在重新规划... (第{iteration}轮)"),
+                        streamed_chars,
+                        budget_breached,
+                        streamed_plan_content,
+                        streamed_plan_text,
+                    )
                 else:
                     status_text = status_map.get(phase)
                     if status_text:
-                        yield (_sse_status_fn(status_text), streamed_chars,
-                               budget_breached, streamed_plan_content, streamed_plan_text)
+                        yield (
+                            _sse_status_fn(status_text),
+                            streamed_chars,
+                            budget_breached,
+                            streamed_plan_content,
+                            streamed_plan_text,
+                        )

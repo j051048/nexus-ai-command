@@ -698,9 +698,7 @@ def _install_clean_runtime_prompts() -> None:
 请根据输入内容完成该工具的结构化分析。只输出与任务相关的结果；没有证据时说明无法确认。
 禁止编造客户、金额、人员、日期或合同条款。
 """
-    TOOL_PROMPTS = {
-        key: _generic_tool_prompt for key in list(TOOL_PROMPTS.keys())
-    } | {
+    TOOL_PROMPTS = {key: _generic_tool_prompt for key in list(TOOL_PROMPTS.keys())} | {
         "tender_analysis": """
 你是投标分析专家。请从招标/投标片段中提取硬性要求、风险等级、证据原文和建议。
 只基于输入片段分析，不得把客户要求误认为我方能力。

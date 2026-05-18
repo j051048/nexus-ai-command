@@ -254,7 +254,7 @@ class PromptFirewall:
         """Pre-compile regex banks."""
 
         def _build(
-            raw: list[tuple[str, str, RiskLevel]]
+            raw: list[tuple[str, str, RiskLevel]],
         ) -> list[tuple[re.Pattern, str, RiskLevel]]:
             out = []
             for pat_str, name, level in raw:
@@ -339,6 +339,8 @@ class PromptFirewall:
         if (
             self._config.enable_llm_judge
             and _RISK_ORDER[aggregate_risk] >= _RISK_ORDER[RiskLevel.MEDIUM]
+            and _RISK_ORDER[aggregate_risk] < _RISK_ORDER[RiskLevel.CRITICAL]
+            and self._should_run_llm_judge(violations)
         ):
             llm_verdict = await self._llm_judge(text, violations, user_id, context)
             if llm_verdict is not None:
@@ -406,6 +408,12 @@ class PromptFirewall:
         )
 
     # -- LLM-as-Judge secondary detection ------------------------------------
+
+    @staticmethod
+    def _should_run_llm_judge(violations: list[FirewallViolation]) -> bool:
+        """Only semantic prompt-attack detections need the slower LLM judge path."""
+        llm_judge_layers = {"jailbreak", "injection", "role_reversal"}
+        return any(v.layer in llm_judge_layers for v in violations)
 
     async def _llm_judge(
         self,

@@ -93,9 +93,13 @@ def get_llm(
     from app.services.llm_helpers import get_langchain_llm_sync
 
     # Resolve model_tier shorthand
-    _TIER_MAP = {"mini": "gpt-4o-mini", "economy": "gpt-4o-mini",
-                 "balanced": "gpt-4o", "power": "gpt-4o",
-                 "flagship": "gpt-4-turbo"}
+    _TIER_MAP = {
+        "mini": "gpt-4o-mini",
+        "economy": "gpt-4o-mini",
+        "balanced": "gpt-4o",
+        "power": "gpt-4o",
+        "flagship": "gpt-4-turbo",
+    }
     resolved_model = model or _TIER_MAP.get(model_tier or "") or "gpt-4o-mini"
 
     if resolved_config:
@@ -103,7 +107,9 @@ def get_llm(
             api_key=resolved_config["api_key"],
             base_url=resolved_config["base_url"],
             model=resolved_config.get("model") or resolved_model,
-            temperature=resolved_config.get("temperature", kwargs.pop("temperature", 0.7)),
+            temperature=resolved_config.get(
+                "temperature", kwargs.pop("temperature", 0.7)
+            ),
             streaming=kwargs.pop("streaming", False),
             timeout=resolved_config.get("timeout", kwargs.pop("timeout", 60.0)),
             **kwargs,

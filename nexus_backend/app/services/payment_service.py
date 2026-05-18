@@ -64,9 +64,13 @@ class PaymentService:
         if payment_method == "bank_transfer":
             return True
         if payment_method == "wechat_pay":
-            return (not _env_is_production()) and _enabled_flag("PAYMENT_ENABLE_WECHAT_SANDBOX")
+            return (not _env_is_production()) and _enabled_flag(
+                "PAYMENT_ENABLE_WECHAT_SANDBOX"
+            )
         if payment_method == "alipay":
-            return (not _env_is_production()) and _enabled_flag("PAYMENT_ENABLE_ALIPAY_SANDBOX")
+            return (not _env_is_production()) and _enabled_flag(
+                "PAYMENT_ENABLE_ALIPAY_SANDBOX"
+            )
         return False
 
     def get_payment_methods(self) -> list[dict[str, Any]]:
@@ -87,7 +91,9 @@ class PaymentService:
         if payment_method not in self.PAYMENT_METHODS:
             raise ValueError(f"不支持的支付方式: {payment_method}")
         if not self.is_method_available(payment_method):
-            raise ValueError(f"{self.PAYMENT_METHODS[payment_method]['name']}尚未在当前环境启用")
+            raise ValueError(
+                f"{self.PAYMENT_METHODS[payment_method]['name']}尚未在当前环境启用"
+            )
         if plan_id not in PLAN_PRICING:
             raise ValueError(f"未知订阅计划: {plan_id}")
         if amount <= 0:
@@ -134,7 +140,12 @@ class PaymentService:
                 logger.warning("Failed to persist payment order: %s", exc)
 
         self._orders_cache[order_no] = order
-        logger.info("Payment order created: %s method=%s amount=%s", order_no, payment_method, amount)
+        logger.info(
+            "Payment order created: %s method=%s amount=%s",
+            order_no,
+            payment_method,
+            amount,
+        )
 
         payment_info: dict[str, Any] = {}
         if payment_method == "bank_transfer":
@@ -144,16 +155,24 @@ class PaymentService:
 
         return {**order, "payment_info": payment_info}
 
-    async def handle_payment_callback(self, platform: str, callback_data: dict[str, Any], db=None) -> dict[str, Any]:
+    async def handle_payment_callback(
+        self, platform: str, callback_data: dict[str, Any], db=None
+    ) -> dict[str, Any]:
         """Reject unimplemented domestic payment callbacks in production."""
         if platform not in {"wechat", "alipay"}:
             return {"success": False, "message": f"未知支付平台: {platform}"}
         if _env_is_production():
-            logger.warning("Rejected %s callback because provider is not enabled in production", platform)
+            logger.warning(
+                "Rejected %s callback because provider is not enabled in production",
+                platform,
+            )
             return {"success": False, "message": "该支付渠道尚未在生产环境启用"}
 
         order_no = callback_data.get("out_trade_no", "")
-        success = callback_data.get("trade_state") == "SUCCESS" or callback_data.get("trade_status") == "TRADE_SUCCESS"
+        success = (
+            callback_data.get("trade_state") == "SUCCESS"
+            or callback_data.get("trade_status") == "TRADE_SUCCESS"
+        )
         if success and order_no:
             if order_no in self._orders_cache:
                 self._orders_cache[order_no]["status"] = "paid"
@@ -163,7 +182,9 @@ class PaymentService:
                 try:
                     await (
                         db.table("payment_orders")
-                        .update({"status": "paid", "paid_at": datetime.now(UTC).isoformat()})
+                        .update(
+                            {"status": "paid", "paid_at": datetime.now(UTC).isoformat()}
+                        )
                         .eq("order_no", order_no)
                         .execute()
                     )
@@ -179,7 +200,13 @@ class PaymentService:
 
         if db:
             try:
-                res = await db.table("payment_orders").select("*").eq("id", order_id).maybe_single().execute()
+                res = (
+                    await db.table("payment_orders")
+                    .select("*")
+                    .eq("id", order_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if res.data:
                     return res.data
             except Exception as exc:  # pragma: no cover - external DB failure path
@@ -187,7 +214,9 @@ class PaymentService:
 
         return {"error": "订单不存在", "order_id": order_id}
 
-    async def list_orders(self, org_id: str, page: int = 1, page_size: int = 20, db=None) -> dict[str, Any]:
+    async def list_orders(
+        self, org_id: str, page: int = 1, page_size: int = 20, db=None
+    ) -> dict[str, Any]:
         orders: list[dict[str, Any]] = []
         total = 0
         if db:
@@ -208,7 +237,9 @@ class PaymentService:
 
         return {"orders": orders, "total": total, "page": page, "page_size": page_size}
 
-    async def generate_invoice_request(self, order_id: str, invoice_info: dict[str, Any], db=None) -> dict[str, Any]:
+    async def generate_invoice_request(
+        self, order_id: str, invoice_info: dict[str, Any], db=None
+    ) -> dict[str, Any]:
         for field in ["company_name", "tax_number"]:
             if not invoice_info.get(field):
                 raise ValueError(f"发票信息缺少必填字段: {field}")
@@ -224,7 +255,9 @@ class PaymentService:
             try:
                 await (
                     db.table("payment_orders")
-                    .update({"invoice_status": "requested", "invoice_info": invoice_info})
+                    .update(
+                        {"invoice_status": "requested", "invoice_info": invoice_info}
+                    )
                     .eq("id", order_id)
                     .execute()
                 )

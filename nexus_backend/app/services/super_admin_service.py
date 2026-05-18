@@ -50,7 +50,11 @@ class SuperAdminService:
             query = query.eq("status", status)
             count_query = count_query.eq("status", status)
 
-        result = await query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        result = (
+            await query.order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
         count_result = await count_query.execute()
         total = count_result.count
         if total is None:
@@ -96,7 +100,9 @@ class SuperAdminService:
             .gte("date", thirty_days_ago)
             .execute()
         )
-        ai_calls_30d = sum(row.get("request_count", 0) for row in (usage_result.data or []))
+        ai_calls_30d = sum(
+            row.get("request_count", 0) for row in (usage_result.data or [])
+        )
 
         subscription = await self._maybe_first(
             client.table("subscriptions").select("*").eq("org_id", org_id).limit(1)
@@ -174,8 +180,16 @@ class SuperAdminService:
     async def get_platform_stats(self) -> dict[str, Any]:
         client = self._get_global_client()
 
-        org_result = await client.table("organizations").select("id, status", count="exact").execute()
-        user_result = await client.table("users").select("id, last_active_at", count="exact").execute()
+        org_result = (
+            await client.table("organizations")
+            .select("id, status", count="exact")
+            .execute()
+        )
+        user_result = (
+            await client.table("users")
+            .select("id, last_active_at", count="exact")
+            .execute()
+        )
 
         thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         usage_result = (
@@ -192,7 +206,9 @@ class SuperAdminService:
             if not last_active:
                 continue
             try:
-                active_at = datetime.fromisoformat(str(last_active).replace("Z", "+00:00"))
+                active_at = datetime.fromisoformat(
+                    str(last_active).replace("Z", "+00:00")
+                )
                 if active_at >= thirty_days_ago:
                     monthly_active_users += 1
             except ValueError:
@@ -200,11 +216,19 @@ class SuperAdminService:
 
         orgs = org_result.data or []
         return {
-            "total_organizations": org_result.count if org_result.count is not None else len(orgs),
-            "active_organizations": sum(1 for org in orgs if org.get("status") == "active"),
-            "total_users": user_result.count if user_result.count is not None else len(users),
+            "total_organizations": (
+                org_result.count if org_result.count is not None else len(orgs)
+            ),
+            "active_organizations": sum(
+                1 for org in orgs if org.get("status") == "active"
+            ),
+            "total_users": (
+                user_result.count if user_result.count is not None else len(users)
+            ),
             "monthly_active_users": monthly_active_users,
-            "total_ai_calls_30d": sum(row.get("request_count", 0) for row in (usage_result.data or [])),
+            "total_ai_calls_30d": sum(
+                row.get("request_count", 0) for row in (usage_result.data or [])
+            ),
             "updated_at": datetime.now(UTC).isoformat(),
         }
 
@@ -230,7 +254,11 @@ class SuperAdminService:
             from app.core.config import settings
 
             services["ai"] = {
-                "status": "healthy" if getattr(settings, "OPENAI_API_KEY", None) else "unconfigured",
+                "status": (
+                    "healthy"
+                    if getattr(settings, "OPENAI_API_KEY", None)
+                    else "unconfigured"
+                ),
                 "provider": getattr(settings, "AI_PROVIDER", "openai"),
             }
         except Exception as exc:
@@ -239,7 +267,10 @@ class SuperAdminService:
         overall = "healthy"
         if any(service["status"] == "unhealthy" for service in services.values()):
             overall = "unhealthy"
-        elif any(service["status"] in {"degraded", "unconfigured"} for service in services.values()):
+        elif any(
+            service["status"] in {"degraded", "unconfigured"}
+            for service in services.values()
+        ):
             overall = "degraded"
 
         return {
@@ -269,7 +300,11 @@ class SuperAdminService:
         if filters.get("date_to"):
             query = query.lte("created_at", filters["date_to"])
 
-        result = await query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        result = (
+            await query.order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
         return result.data or []
 
     async def admin_change_plan(
@@ -281,8 +316,12 @@ class SuperAdminService:
             raise ValueError("A reason is required for plan changes")
 
         client = self._get_global_client()
-        await client.table("organizations").update({"tier": plan, "plan": plan}).eq("id", org_id).execute()
-        await client.table("subscriptions").upsert({"org_id": org_id, "plan": plan, "status": "active"}).execute()
+        await client.table("organizations").update({"tier": plan, "plan": plan}).eq(
+            "id", org_id
+        ).execute()
+        await client.table("subscriptions").upsert(
+            {"org_id": org_id, "plan": plan, "status": "active"}
+        ).execute()
         await self._write_audit_log(
             client,
             "admin_change_plan",
@@ -301,7 +340,11 @@ class SuperAdminService:
             raise ValueError("A reason is required for quota changes")
 
         client = self._get_global_client()
-        payload = {**quotas, "org_id": org_id, "updated_at": datetime.now(UTC).isoformat()}
+        payload = {
+            **quotas,
+            "org_id": org_id,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
         await client.table("tenant_quotas").upsert(payload).execute()
         await self._write_audit_log(
             client,

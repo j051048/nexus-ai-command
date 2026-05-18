@@ -5,7 +5,10 @@ import secrets
 from fastapi import APIRouter, Form, HTTPException, Query
 
 from app.core.errors import api_success
-from app.services.enterprise_sso_service import EnterpriseSSOError, enterprise_sso_service
+from app.services.enterprise_sso_service import (
+    EnterpriseSSOError,
+    enterprise_sso_service,
+)
 
 router = APIRouter(prefix="/api/enterprise-sso", tags=["Enterprise SSO"])
 

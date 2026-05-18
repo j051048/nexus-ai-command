@@ -223,7 +223,9 @@ class SlidingWindowRateLimiter:
         except Exception as e:
             logger.error(f"[RateLimiter] Redis sliding window error: {e}")
             if _redis_is_required():
-                return False, _rate_limit_backend_unavailable_meta(self.rate, self.window)
+                return False, _rate_limit_backend_unavailable_meta(
+                    self.rate, self.window
+                )
             return self._check_memory(key)
 
     def _check_memory(self, key: str) -> tuple[bool, dict]:

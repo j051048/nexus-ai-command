@@ -667,7 +667,9 @@ class ChatDispatchMixin:
                     output_text="".join(streamed_content_parts),
                     max_tokens=chat_request.max_tokens,
                 )
-                total_input_tokens = total_input_tokens or estimated_usage["input_tokens"]
+                total_input_tokens = (
+                    total_input_tokens or estimated_usage["input_tokens"]
+                )
                 total_output_tokens = (
                     total_output_tokens or estimated_usage["output_tokens"]
                 )

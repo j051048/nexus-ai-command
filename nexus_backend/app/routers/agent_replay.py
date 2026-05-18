@@ -203,10 +203,7 @@ async def update_eval_case(
             patch["labelled_by"] = user_id
             patch["labelled_at"] = datetime.now(UTC).isoformat()
         result = (
-            await db.table("agent_eval_cases")
-            .update(patch)
-            .eq("id", case_id)
-            .execute()
+            await db.table("agent_eval_cases").update(patch).eq("id", case_id).execute()
         )
         return api_success(data={"case": (result.data or [None])[0]})
     except HTTPException:

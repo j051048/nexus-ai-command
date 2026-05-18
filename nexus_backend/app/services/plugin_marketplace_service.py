@@ -49,7 +49,12 @@ class PluginMarketplaceService:
             "metadata_source": "builtin",
             "requires_connection_test": True,
             "config_schema": {
-                "api_url": _field("text", "API 地址", required=True, placeholder="https://kingdee.example.com/api"),
+                "api_url": _field(
+                    "text",
+                    "API 地址",
+                    required=True,
+                    placeholder="https://kingdee.example.com/api",
+                ),
                 "api_key": _field("password", "API 密钥", required=True),
             },
         },
@@ -67,7 +72,12 @@ class PluginMarketplaceService:
             "metadata_source": "builtin",
             "requires_connection_test": True,
             "config_schema": {
-                "webhook_url": _field("text", "Webhook 地址", required=True, placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"),
+                "webhook_url": _field(
+                    "text",
+                    "Webhook 地址",
+                    required=True,
+                    placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",
+                ),
             },
         },
         {
@@ -83,7 +93,9 @@ class PluginMarketplaceService:
             "rating": None,
             "metadata_source": "builtin",
             "config_schema": {
-                "recipients": _field("text", "收件人", required=True, placeholder="多个邮箱用逗号分隔"),
+                "recipients": _field(
+                    "text", "收件人", required=True, placeholder="多个邮箱用逗号分隔"
+                ),
                 "send_time": _field("text", "发送时间", placeholder="18:00"),
             },
         },
@@ -132,7 +144,9 @@ class PluginMarketplaceService:
             "rating": None,
             "metadata_source": "builtin",
             "config_schema": {
-                "report_type": _field("text", "默认报表类型", placeholder="weekly/monthly"),
+                "report_type": _field(
+                    "text", "默认报表类型", placeholder="weekly/monthly"
+                ),
             },
         },
         {
@@ -149,7 +163,12 @@ class PluginMarketplaceService:
             "metadata_source": "builtin",
             "requires_connection_test": True,
             "config_schema": {
-                "server_url": _field("text", "服务地址", required=True, placeholder="https://u8.example.com"),
+                "server_url": _field(
+                    "text",
+                    "服务地址",
+                    required=True,
+                    placeholder="https://u8.example.com",
+                ),
                 "token": _field("password", "访问令牌", required=True),
             },
         },
@@ -273,7 +292,9 @@ class PluginMarketplaceService:
             "connection_status": "configured",
         }
 
-    async def get_installed_plugins(self, org_id: str, db: Any = None) -> list[dict[str, Any]]:
+    async def get_installed_plugins(
+        self, org_id: str, db: Any = None
+    ) -> list[dict[str, Any]]:
         installed: list[dict[str, Any]] = []
         if not db:
             return installed
@@ -321,9 +342,15 @@ class PluginMarketplaceService:
             if field_def.get("required") and not value:
                 raise ValueError(f"缺少必填配置: {field_def.get('label', key)}")
             if value:
-                if key.endswith("_url") or key in {"api_url", "server_url", "webhook_url"}:
+                if key.endswith("_url") or key in {
+                    "api_url",
+                    "server_url",
+                    "webhook_url",
+                }:
                     if not str(value).startswith(("https://", "http://")):
-                        raise ValueError(f"{field_def.get('label', key)} 必须是 http(s) 地址")
+                        raise ValueError(
+                            f"{field_def.get('label', key)} 必须是 http(s) 地址"
+                        )
                 cleaned[key] = value
         return cleaned
 

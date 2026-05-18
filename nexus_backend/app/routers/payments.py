@@ -40,7 +40,10 @@ async def create_order(req: Request, user_id: str = Depends(get_current_user_id)
         amount = body.get("amount")
 
         if not plan_id or not payment_method:
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "plan_id 和 payment_method 为必填字段")
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD,
+                "plan_id 和 payment_method 为必填字段",
+            )
         if not amount or float(amount) <= 0:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "金额必须大于 0")
 
@@ -90,13 +93,19 @@ async def list_orders(
 
 
 @router.get("/orders/{order_id}")
-async def get_order(order_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+async def get_order(
+    order_id: str, req: Request, user_id: str = Depends(get_current_user_id)
+):
     """Get payment order details."""
     try:
-        order = await payment_service.get_order_status(order_id, db=getattr(req.state, "db", None))
+        order = await payment_service.get_order_status(
+            order_id, db=getattr(req.state, "db", None)
+        )
         if order.get("error"):
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, order["error"])
-        if str(order.get("organization_id", getattr(req.state, "org_id", ""))) != _get_org_id(req):
+        if str(
+            order.get("organization_id", getattr(req.state, "org_id", ""))
+        ) != _get_org_id(req):
             raise api_error(ErrorCode.FORBIDDEN, "无权访问该订单")
         return api_success(data={"order": order})
     except Exception as exc:
@@ -161,7 +170,10 @@ async def request_invoice(req: Request, user_id: str = Depends(get_current_user_
         order_id = body.get("order_id")
         invoice_info = body.get("invoice_info")
         if not order_id or not invoice_info:
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "order_id 和 invoice_info 为必填字段")
+            raise api_error(
+                ErrorCode.VALIDATION_MISSING_FIELD,
+                "order_id 和 invoice_info 为必填字段",
+            )
 
         result = await payment_service.generate_invoice_request(
             str(order_id),

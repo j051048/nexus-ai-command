@@ -38,7 +38,10 @@ def _required_setting(*names: str) -> str:
 
 
 def _endpoint_url(path_template_env: str, default_path: str, **params: str) -> str:
-    base_url = _required_setting("KINGDEE_BASE_URL", "KINGDEE_K3CLOUD_BASE_URL").rstrip("/") + "/"
+    base_url = (
+        _required_setting("KINGDEE_BASE_URL", "KINGDEE_K3CLOUD_BASE_URL").rstrip("/")
+        + "/"
+    )
     path_template = os.getenv(path_template_env, default_path).lstrip("/")
     path = path_template.format(**params)
     return urljoin(base_url, path)

@@ -73,7 +73,11 @@ class AgentReplayHarness:
         max_tokens = expectations.get("max_tokens")
         if max_tokens is not None:
             actual = trace_data.get("total_tokens") or 0
-            add("token_budget", actual <= max_tokens, {"max": max_tokens, "actual": actual})
+            add(
+                "token_budget",
+                actual <= max_tokens,
+                {"max": max_tokens, "actual": actual},
+            )
 
         max_duration_ms = expectations.get("max_duration_ms")
         if max_duration_ms is not None:

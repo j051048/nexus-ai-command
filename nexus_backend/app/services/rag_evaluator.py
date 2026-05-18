@@ -215,17 +215,19 @@ class RAGEvaluator:
 
             keywords = [str(k).lower() for k in result.get("expected_keywords") or []]
             if keywords:
-                top5_text = "\n".join(str(i.get("text") or i) for i in items[:5]).lower()
+                top5_text = "\n".join(
+                    str(i.get("text") or i) for i in items[:5]
+                ).lower()
                 keyword_recall_at_5.append(
                     sum(1 for kw in keywords if kw in top5_text) / len(keywords)
                 )
 
         metrics: dict[str, Any] = {
-            "keyword_recall_at_5": round(
-                sum(keyword_recall_at_5) / len(keyword_recall_at_5), 4
-            )
-            if keyword_recall_at_5
-            else 0,
+            "keyword_recall_at_5": (
+                round(sum(keyword_recall_at_5) / len(keyword_recall_at_5), 4)
+                if keyword_recall_at_5
+                else 0
+            ),
         }
         if total_with_ids:
             metrics.update(

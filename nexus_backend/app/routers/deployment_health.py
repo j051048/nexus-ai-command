@@ -68,7 +68,9 @@ async def get_deployment_health(_role: str = Depends(require_deploy_admin)):
     checks = [
         _check_url("SUPABASE_URL"),
         _check_env("SUPABASE_SERVICE_KEY", secret=True),
-        _check_any_env("JWT_SECRET", ["SUPABASE_JWT_SECRET", "JWT_SECRET"], secret=True),
+        _check_any_env(
+            "JWT_SECRET", ["SUPABASE_JWT_SECRET", "JWT_SECRET"], secret=True
+        ),
         _check_env("REDIS_URL", secret=True),
         _check_env("OPENAI_API_KEY", secret=True),
         _check_url("AI_BASE_URL"),

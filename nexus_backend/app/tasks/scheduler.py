@@ -151,7 +151,9 @@ def push_daily_briefing(self):
                             logger.error(f"Briefing failed for user {user['id']}: {e}")
                             return 0
 
-                    sent_for_org = sum(await asyncio.gather(*[_send_one(u) for u in users]))
+                    sent_for_org = sum(
+                        await asyncio.gather(*[_send_one(u) for u in users])
+                    )
                 except Exception as e:
                     logger.error(f"Daily briefing failed for org {org_id}: {e}")
                 return sent_for_org

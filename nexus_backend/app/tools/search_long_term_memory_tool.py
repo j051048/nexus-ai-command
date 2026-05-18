@@ -159,4 +159,6 @@ class SearchLongTermMemoryTool(BaseTool):
 
         except Exception as e:
             logger.warning(f"[SearchMemoryTool] Error searching memory: {e}")
-            return self.format_result(data={}, summary=safe_tool_error(e, "⚠️ 记忆检索"))
+            return self.format_result(
+                data={}, summary=safe_tool_error(e, "⚠️ 记忆检索")
+            )

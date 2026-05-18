@@ -159,7 +159,9 @@ async def get_agent_quality_trends(
     client = _db(request)
     runs_result = (
         await client.table("agent_runs")
-        .select("status, input_tokens, output_tokens, cost_usd, duration_ms, started_at")
+        .select(
+            "status, input_tokens, output_tokens, cost_usd, duration_ms, started_at"
+        )
         .gte("started_at", since)
         .execute()
     )
@@ -173,8 +175,7 @@ async def get_agent_quality_trends(
     eval_cases = eval_result.data or []
     failures = [r for r in runs if r.get("status") in {"failed", "error"}]
     total_tokens = sum(
-        int(r.get("input_tokens") or 0) + int(r.get("output_tokens") or 0)
-        for r in runs
+        int(r.get("input_tokens") or 0) + int(r.get("output_tokens") or 0) for r in runs
     )
     return api_success(
         data={
@@ -182,12 +183,14 @@ async def get_agent_quality_trends(
             "run_count": len(runs),
             "failure_rate": round(len(failures) / len(runs), 4) if runs else 0,
             "total_tokens": total_tokens,
-            "total_cost_usd": round(sum(float(r.get("cost_usd") or 0) for r in runs), 6),
-            "avg_duration_ms": round(
-                sum(int(r.get("duration_ms") or 0) for r in runs) / len(runs)
-            )
-            if runs
-            else 0,
+            "total_cost_usd": round(
+                sum(float(r.get("cost_usd") or 0) for r in runs), 6
+            ),
+            "avg_duration_ms": (
+                round(sum(int(r.get("duration_ms") or 0) for r in runs) / len(runs))
+                if runs
+                else 0
+            ),
             "eval_cases": {
                 "total": len(eval_cases),
                 "pending_label": sum(

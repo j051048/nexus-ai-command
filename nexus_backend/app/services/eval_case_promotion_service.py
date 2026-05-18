@@ -99,9 +99,12 @@ class EvalCasePromotionService:
         org_id: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
-        query = db.table("agent_failure_logs").select("*").order(
-            "created_at", desc=True
-        ).limit(limit)
+        query = (
+            db.table("agent_failure_logs")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         result = await query.execute()
@@ -111,10 +114,14 @@ class EvalCasePromotionService:
         if not rows:
             return []
 
-        inserted = await db.table("agent_eval_cases").upsert(
-            rows,
-            on_conflict="source_type,source_ref",
-        ).execute()
+        inserted = (
+            await db.table("agent_eval_cases")
+            .upsert(
+                rows,
+                on_conflict="source_type,source_ref",
+            )
+            .execute()
+        )
         return inserted.data or rows
 
 

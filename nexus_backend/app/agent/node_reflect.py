@@ -854,7 +854,10 @@ async def critic_node(state: AgentState) -> dict:
 
     # Skip critic for simple/moderate queries unless high-risk irreversible
     # tools were used. Irreversible operations must always be reviewed.
-    if complexity in (QueryComplexity.SIMPLE, QueryComplexity.MODERATE) and not has_irreversible_tool(state):
+    if complexity in (
+        QueryComplexity.SIMPLE,
+        QueryComplexity.MODERATE,
+    ) and not has_irreversible_tool(state):
         return {
             "critic_passed": True,
             "critic_feedback": "",
@@ -998,9 +1001,7 @@ async def critic_node(state: AgentState) -> dict:
         parsed = _json.loads(json_match.group())
         result = CriticResult(**parsed)
         weighted_score = (
-            result.completeness * 0.4
-            + result.relevance * 0.3
-            + result.accuracy * 0.3
+            result.completeness * 0.4 + result.relevance * 0.3 + result.accuracy * 0.3
         )
         result.passed = bool(
             result.passed and weighted_score >= 0.7 and result.accuracy >= 0.6

@@ -42,9 +42,7 @@ _PROTECTED_PREFIXES = (
 
 _memory_cache: dict[str, tuple[float, dict]] = {}
 _MAX_MEMORY_CACHE_ITEMS = int(os.getenv("IDEMPOTENCY_MEMORY_FALLBACK_MAX", "1000"))
-_MEMORY_FALLBACK_TTL = int(
-    os.getenv("IDEMPOTENCY_MEMORY_FALLBACK_TTL_SECONDS", "3600")
-)
+_MEMORY_FALLBACK_TTL = int(os.getenv("IDEMPOTENCY_MEMORY_FALLBACK_TTL_SECONDS", "3600"))
 
 
 def _prune_memory_cache(now: float | None = None) -> None:

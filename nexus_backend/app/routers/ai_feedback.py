@@ -38,12 +38,14 @@ async def _record_feedback(body: AIFeedbackIn, request: Request, user_id: str):
         "message_index": body.message_index,
         "rating": body.rating,
         "comment": (body.comment or "")[:2000] if body.comment else None,
-        "ai_response_snippet": (body.ai_response_snippet or "")[:1000]
-        if body.ai_response_snippet
-        else None,
-        "query_snippet": (body.query_snippet or "")[:1000]
-        if body.query_snippet
-        else None,
+        "ai_response_snippet": (
+            (body.ai_response_snippet or "")[:1000]
+            if body.ai_response_snippet
+            else None
+        ),
+        "query_snippet": (
+            (body.query_snippet or "")[:1000] if body.query_snippet else None
+        ),
         "metadata": body.metadata or {},
     }
     result = await db.table("ai_feedback").insert(row).execute()

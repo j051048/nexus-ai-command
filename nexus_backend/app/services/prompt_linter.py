@@ -29,7 +29,9 @@ class PromptLinter:
     PLACEHOLDER_RE = re.compile(r"\{[a-zA-Z_][a-zA-Z0-9_]*\}")
     CONFLICT_PAIRS = (("必须", "不要"), ("始终", "禁止"), ("always", "never"))
 
-    def lint_text(self, text: str, *, location: str = "prompt") -> list[PromptLintIssue]:
+    def lint_text(
+        self, text: str, *, location: str = "prompt"
+    ) -> list[PromptLintIssue]:
         issues: list[PromptLintIssue] = []
         if any(marker in text for marker in MOJIBAKE_MARKERS):
             issues.append(

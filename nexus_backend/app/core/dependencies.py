@@ -121,7 +121,9 @@ async def _is_platform_super_admin(user_id: str) -> bool:
     }
 
     try:
-        rpc_result = await supabase.rpc("is_super_admin", {"_user_id": user_id}).execute()
+        rpc_result = await supabase.rpc(
+            "is_super_admin", {"_user_id": user_id}
+        ).execute()
         if bool(rpc_result.data):
             return True
     except Exception as exc:

@@ -50,7 +50,12 @@ class EnterpriseSSOService:
     """OIDC/SAML bootstrap with signed state and strict callback checks."""
 
     def __init__(self, state_secret: str | None = None):
-        self.state_secret = state_secret or os.getenv("SSO_STATE_SECRET") or os.getenv("JWT_SECRET") or "dev-only-sso-state"
+        self.state_secret = (
+            state_secret
+            or os.getenv("SSO_STATE_SECRET")
+            or os.getenv("JWT_SECRET")
+            or "dev-only-sso-state"
+        )
         self.state_ttl_seconds = int(os.getenv("SSO_STATE_TTL_SECONDS", "600"))
 
     def build_oidc_login_url(
@@ -116,7 +121,9 @@ class EnterpriseSSOService:
         if not id_token:
             raise EnterpriseSSOError("OIDC provider did not return id_token")
 
-        claims = self.verify_oidc_id_token(provider, id_token, nonce=state_payload.get("nonce"))
+        claims = self.verify_oidc_id_token(
+            provider, id_token, nonce=state_payload.get("nonce")
+        )
         return {
             "org_id": state_payload["org_id"],
             "provider_code": provider.provider_code,
@@ -133,7 +140,9 @@ class EnterpriseSSOService:
         nonce: str | None = None,
     ) -> dict[str, Any]:
         if provider.jwks_url:
-            signing_key = PyJWKClient(provider.jwks_url, cache_keys=True, lifespan=600).get_signing_key_from_jwt(id_token)
+            signing_key = PyJWKClient(
+                provider.jwks_url, cache_keys=True, lifespan=600
+            ).get_signing_key_from_jwt(id_token)
             claims = jwt.decode(
                 id_token,
                 signing_key.key,
@@ -144,10 +153,16 @@ class EnterpriseSSOService:
             )
         else:
             if os.getenv("SSO_ALLOW_UNVERIFIED_OIDC", "false").lower() != "true":
-                raise EnterpriseSSOError("OIDC JWKS URL is required unless SSO_ALLOW_UNVERIFIED_OIDC=true")
+                raise EnterpriseSSOError(
+                    "OIDC JWKS URL is required unless SSO_ALLOW_UNVERIFIED_OIDC=true"
+                )
             claims = jwt.decode(
                 id_token,
-                options={"verify_signature": False, "verify_aud": False, "verify_exp": True},
+                options={
+                    "verify_signature": False,
+                    "verify_aud": False,
+                    "verify_exp": True,
+                },
             )
             if provider.issuer and claims.get("iss") != provider.issuer:
                 raise EnterpriseSSOError("OIDC issuer mismatch")
@@ -161,8 +176,13 @@ class EnterpriseSSOService:
     def parse_saml_response(self, saml_response_b64: str) -> dict[str, Any]:
         xml_bytes = base64.b64decode(saml_response_b64)
         root = ET.fromstring(xml_bytes)
-        has_signature = root.find(".//{http://www.w3.org/2000/09/xmldsig#}Signature") is not None
-        if not has_signature and os.getenv("SSO_ALLOW_UNSIGNED_SAML", "false").lower() != "true":
+        has_signature = (
+            root.find(".//{http://www.w3.org/2000/09/xmldsig#}Signature") is not None
+        )
+        if (
+            not has_signature
+            and os.getenv("SSO_ALLOW_UNSIGNED_SAML", "false").lower() != "true"
+        ):
             raise EnterpriseSSOError("Unsigned SAML response rejected")
 
         ns = {
@@ -187,8 +207,12 @@ class EnterpriseSSOService:
 
     def sign_state(self, payload: dict[str, Any]) -> str:
         body = {**payload, "iat": int(time.time())}
-        raw = self._b64(json.dumps(body, separators=(",", ":"), sort_keys=True).encode())
-        signature = hmac.new(self.state_secret.encode(), raw.encode(), hashlib.sha256).digest()
+        raw = self._b64(
+            json.dumps(body, separators=(",", ":"), sort_keys=True).encode()
+        )
+        signature = hmac.new(
+            self.state_secret.encode(), raw.encode(), hashlib.sha256
+        ).digest()
         return f"{raw}.{self._b64(signature)}"
 
     def verify_state(self, state: str) -> dict[str, Any]:
@@ -197,7 +221,9 @@ class EnterpriseSSOService:
         except ValueError:
             raise EnterpriseSSOError("Invalid SSO state format")
 
-        expected = self._b64(hmac.new(self.state_secret.encode(), raw.encode(), hashlib.sha256).digest())
+        expected = self._b64(
+            hmac.new(self.state_secret.encode(), raw.encode(), hashlib.sha256).digest()
+        )
         if not hmac.compare_digest(sig, expected):
             raise EnterpriseSSOError("Invalid SSO state signature")
 
@@ -216,7 +242,9 @@ class EnterpriseSSOService:
         }
         missing = [key for key, value in required.items() if not value]
         if missing:
-            raise EnterpriseSSOError(f"OIDC provider {provider_code} missing settings: {', '.join(missing)}")
+            raise EnterpriseSSOError(
+                f"OIDC provider {provider_code} missing settings: {', '.join(missing)}"
+            )
         return OIDCProviderConfig(
             provider_code=provider_code,
             authorization_endpoint=str(required["authorization_endpoint"]),

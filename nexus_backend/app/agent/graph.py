@@ -291,9 +291,7 @@ def _build_failed_tool_guidance(state: AgentState) -> None:
     for ft in failed_tools[:5]:
         name = getattr(ft, "tool_name", None) or ft.get("tool_name", "unknown")
         result = (getattr(ft, "result", "") or ft.get("result", "") or "")[:300]
-        err_type = getattr(ft, "error_type", None) or ft.get(
-            "error_type", "unknown"
-        )
+        err_type = getattr(ft, "error_type", None) or ft.get("error_type", "unknown")
         if err_type == "param_error":
             lines.append(f"- {name} [参数错误]: {result}")
             lines.append("  -> 检查参数格式和必填字段，修正后重试")

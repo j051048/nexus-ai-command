@@ -56,7 +56,15 @@ def register_ai_routes(app: FastAPI) -> None:
 
 
 def register_crm_sales_routes(app: FastAPI) -> None:
-    from app.routers import competitors, crm, dashboard, incentive, performance, sales, sales_leads
+    from app.routers import (
+        competitors,
+        crm,
+        dashboard,
+        incentive,
+        performance,
+        sales,
+        sales_leads,
+    )
 
     for router in [
         crm.router,
@@ -71,7 +79,14 @@ def register_crm_sales_routes(app: FastAPI) -> None:
 
 
 def register_workflow_routes(app: FastAPI) -> None:
-    from app.routers import approval, form_schemas, oa, projects, workflow_templates, workflows
+    from app.routers import (
+        approval,
+        form_schemas,
+        oa,
+        projects,
+        workflow_templates,
+        workflows,
+    )
     from app.routers import approval_flows as approval_flows_router
     from app.routers import attendance as attendance_router
     from app.routers import expenses as expenses_router
@@ -91,7 +106,14 @@ def register_workflow_routes(app: FastAPI) -> None:
 
 
 def register_document_routes(app: FastAPI) -> None:
-    from app.routers import documents, import_data, qa_pairs, report_engine, reports, training
+    from app.routers import (
+        documents,
+        import_data,
+        qa_pairs,
+        report_engine,
+        reports,
+        training,
+    )
 
     for router in [
         documents.router,
@@ -105,7 +127,15 @@ def register_document_routes(app: FastAPI) -> None:
 
 
 def register_organization_routes(app: FastAPI) -> None:
-    from app.routers import hr, notifications, onboarding, organization, permissions, profile, users
+    from app.routers import (
+        hr,
+        notifications,
+        onboarding,
+        organization,
+        permissions,
+        profile,
+        users,
+    )
     from app.routers import notification_preferences as notification_preferences_router
     from app.routers import org_structure as org_structure_router
 
