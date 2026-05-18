@@ -96,7 +96,7 @@ def get_llm(
     _TIER_MAP = {"mini": "gpt-4o-mini", "economy": "gpt-4o-mini",
                  "balanced": "gpt-4o", "power": "gpt-4o",
                  "flagship": "gpt-4-turbo"}
-    resolved_model = model or _TIER_MAP.get(model_tier or "", None) or "gpt-4o-mini"
+    resolved_model = model or _TIER_MAP.get(model_tier or "") or "gpt-4o-mini"
 
     if resolved_config:
         return get_langchain_llm_sync(

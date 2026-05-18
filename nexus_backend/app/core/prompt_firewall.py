@@ -340,7 +340,7 @@ class PromptFirewall:
             self._config.enable_llm_judge
             and _RISK_ORDER[aggregate_risk] >= _RISK_ORDER[RiskLevel.MEDIUM]
         ):
-            llm_verdict = await self._llm_judge(text, violations, user_id)
+            llm_verdict = await self._llm_judge(text, violations, user_id, context)
             if llm_verdict is not None:
                 if llm_verdict["escalate"]:
                     # LLM confirms it's a real attack — escalate to CRITICAL
@@ -412,6 +412,7 @@ class PromptFirewall:
         text: str,
         violations: list,
         user_id: str,
+        context: dict[str, Any] | None = None,
     ) -> dict | None:
         """
         P0: LLM-based secondary analysis for ambiguous prompt injection cases.

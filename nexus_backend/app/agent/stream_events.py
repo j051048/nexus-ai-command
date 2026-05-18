@@ -1,6 +1,5 @@
 """
 Stream Event Processing — Extracted from stream.py to eliminate code duplication.
-
 P0 Audit Fix: The main event loop and retry path in stream.py shared ~200 lines
 of near-identical event handling code. This module extracts the common logic into
 reusable async generators, following DRY principle.
@@ -11,7 +10,7 @@ Usage in stream.py:
 
 import json
 import logging
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +72,8 @@ async def process_stream_event(
     _sse_status_fn,
     _sse_tool_progress_fn,
     _sse_tool_result_fn,
-    ThinkingStep_cls,
-    AgentPhase_cls,
+    thinking_step_cls,
+    agent_phase_cls,
     user_id: str = "",
     session_id: str = "",
 ) -> AsyncIterator[tuple[str, int, bool, bool, str]]:
@@ -165,7 +164,7 @@ async def process_stream_event(
 
                 elif key == "thinking_steps" and isinstance(value, list):
                     for step in value:
-                        if isinstance(step, ThinkingStep_cls):
+                        if isinstance(step, thinking_step_cls):
                             all_thinking_steps.append(step)
                             if getattr(step, "tool_name", None) == "__orch_meta":
                                 try:
@@ -198,17 +197,17 @@ async def process_stream_event(
             if phase:
                 iteration = accumulated_state.get("iteration", 0)
                 status_map = {
-                    AgentPhase_cls.ROUTING: "正在分析意图...",
-                    AgentPhase_cls.PLANNING: "正在规划...",
-                    AgentPhase_cls.EXECUTING: "正在执行工具...",
-                    AgentPhase_cls.REFLECTING: "正在验证结果...",
-                    AgentPhase_cls.CRITIQUING: "正在质量评审...",
-                    AgentPhase_cls.RESPONDING: "正在生成回复...",
+                    agent_phase_cls.ROUTING: "正在分析意图...",
+                    agent_phase_cls.PLANNING: "正在规划...",
+                    agent_phase_cls.EXECUTING: "正在执行工具...",
+                    agent_phase_cls.REFLECTING: "正在验证结果...",
+                    agent_phase_cls.CRITIQUING: "正在质量评审...",
+                    agent_phase_cls.RESPONDING: "正在生成回复...",
                 }
-                if phase == AgentPhase_cls.REFLECTING and iteration >= 2:
+                if phase == agent_phase_cls.REFLECTING and iteration >= 2:
                     yield (_sse_status_fn(f"正在深度验证... (第{iteration}轮)"),
                            streamed_chars, budget_breached, streamed_plan_content, streamed_plan_text)
-                elif phase == AgentPhase_cls.PLANNING and iteration >= 3:
+                elif phase == agent_phase_cls.PLANNING and iteration >= 3:
                     yield (_sse_status_fn(f"正在重新规划... (第{iteration}轮)"),
                            streamed_chars, budget_breached, streamed_plan_content, streamed_plan_text)
                 else:

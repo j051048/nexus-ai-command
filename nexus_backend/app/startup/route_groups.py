@@ -10,10 +10,21 @@ logger = get_logger(__name__)
 
 
 def register_ai_routes(app: FastAPI) -> None:
-    from app.routers import agent_observability, ai_feedback, analysis, audio, batch, charts, chat, export, files
-    from app.routers import memories, metrics
+    from app.routers import (
+        agent_observability,
+        ai_feedback,
+        analysis,
+        audio,
+        batch,
+        business_context,
+        charts,
+        chat,
+        export,
+        files,
+        memories,
+        metrics,
+    )
     from app.routers import agent_proactive as agent_proactive_router
-    from app.routers import business_context
     from app.routers import chat_upload as chat_upload_router
     from app.routers import saved_prompts as saved_prompts_router
     from app.routers import scheduled_tasks as scheduled_tasks_router
@@ -144,8 +155,21 @@ def register_asset_routes(app: FastAPI) -> None:
 
 
 def register_integration_routes(app: FastAPI) -> None:
-    from app.routers import ai_assistant, enterprise_sso, gdpr, im_callbacks, im_chat, im_oauth, im_settings
-    from app.routers import kingdee, oauth, plugins, push, webhooks, workflow_analytics
+    from app.routers import (
+        ai_assistant,
+        enterprise_sso,
+        gdpr,
+        im_callbacks,
+        im_chat,
+        im_oauth,
+        im_settings,
+        kingdee,
+        oauth,
+        plugins,
+        push,
+        webhooks,
+        workflow_analytics,
+    )
     from app.routers import mcp as mcp_router
     from app.routers import robot as robot_router
 
@@ -171,8 +195,16 @@ def register_integration_routes(app: FastAPI) -> None:
 
 
 def register_system_routes(app: FastAPI) -> None:
-    from app.routers import api_docs, api_keys, backups, compliance, compliance_evidence, data_transfer
-    from app.routers import deployment_health, super_admin
+    from app.routers import (
+        api_docs,
+        api_keys,
+        backups,
+        compliance,
+        compliance_evidence,
+        data_transfer,
+        deployment_health,
+        super_admin,
+    )
     from app.routers import dsar as dsar_router
     from app.routers import intent_rules as intent_rules_router
     from app.routers import system as system_router

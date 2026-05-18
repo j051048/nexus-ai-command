@@ -105,6 +105,10 @@ def main() -> int:
             ok = os.getenv(name, "") == "postgres"
         if name in {"ENCRYPTION_KEY", "HEALTH_CHECK_TOKEN"}:
             ok = ok and len(os.getenv(name, "")) >= 24
+            if not ok and not production and not private_deployment:
+                print(f"WARN required-for-production {name}")
+                warnings.append(name)
+                continue
         status = "OK" if ok else "FAIL"
         print(f"{status} required {name}")
         if not ok:

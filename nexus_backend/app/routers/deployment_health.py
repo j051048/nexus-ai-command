@@ -7,9 +7,9 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends
 
+from app.core.celery_queue_monitor import collect_celery_queue_health
 from app.core.dependencies import require_role
 from app.core.errors import api_success
-from app.core.celery_queue_monitor import collect_celery_queue_health
 
 router = APIRouter(prefix="/api/system/deployment-health", tags=["System"])
 require_deploy_admin = require_role(["admin", "founder", "boss"])

@@ -104,8 +104,8 @@ async def _kingdee_request(
 @router.get("/inventory/{item_id}")
 async def get_inventory(
     item_id: str,
-    org_id: str = Depends(get_current_org_id),
     user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
 ):
     """Query inventory from the configured Kingdee gateway."""
     url = _endpoint_url(
@@ -120,8 +120,8 @@ async def get_inventory(
 @router.post("/sync/salary")
 async def sync_salary(
     request: Request,
-    org_id: str = Depends(get_current_org_id),
     user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
 ):
     """Send salary sync payload to the configured Kingdee gateway."""
     payload = await request.json()

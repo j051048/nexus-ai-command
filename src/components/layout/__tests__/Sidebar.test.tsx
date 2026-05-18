@@ -20,9 +20,10 @@ vi.mock("lucide-react", () => {
     "Calendar","DollarSign","Clock","ChevronLeft","Upload","Building2",
     "Contact","FileSignature","BarChart3","CreditCard","Puzzle",
     "GraduationCap","ClipboardList","Key","Rocket","ListTodo",
-    "ShieldCheck","Cpu","Bug","Inbox","Wrench","Package","Award",
+    "ShieldCheck","Shield","Cpu","Bug","Inbox","Wrench","Package","Award",
     "Warehouse","Fingerprint","Workflow","FileEdit","LayoutTemplate",
     "Pin","PinOff","Star","Network","Search","Sparkles","Brain","Activity",
+    "Server",
   ];
   const out: Record<string, unknown> = {};
   for (const n of names) out[n] = stub(n);
