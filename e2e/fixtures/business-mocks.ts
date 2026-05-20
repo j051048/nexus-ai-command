@@ -90,7 +90,7 @@ export async function setupBusinessMocks(page: Page) {
   });
 
   // 3. 拦截用户 profile API
-  await page.route('**/api/users/profile*', async (route) => {
+  await page.route(/.*profile.*/, async (route) => {
     await fulfillJson(route, {
         code: 200,
         data: {
@@ -225,15 +225,19 @@ export async function mockLoggedInState(page: Page, role = 'boss') {
  * 通过表单登录获取真实的 Supabase session（配合 setupBusinessMocks 的 API 拦截）
  * 这比 localStorage 注入更可靠，因为 Supabase JS v2 会通过内部流程正确存储 session
  */
-export async function loginViaForm(page: Page) {
+export async function loginViaForm(page: Page, role = 'boss') {
+  await page.addInitScript(() => window.localStorage.setItem('hasSeenTour', 'true'));
   await page.goto('/login');
-  const bossRole = page.getByTestId('role-boss-btn');
-  if (await bossRole.isVisible().catch(() => false)) {
-    await bossRole.click();
+  const roleButton = page.getByTestId(`role-${role}-btn`);
+  if (await roleButton.isVisible().catch(() => false)) {
+    await roleButton.click();
   }
-  await page.getByTestId('login-email-input').fill('test-admin@nexus-ai.com');
+  const email = role === 'boss' ? 'test-admin@nexus-ai.com' : `${role}@nexus-ai.com`;
+  await page.getByTestId('login-email-input').fill(email);
   await page.getByTestId('login-password-input').fill('TestPass123!');
   await page.getByTestId('login-submit-btn').click();
   // 等待离开登录页
   await expect(page).not.toHaveURL(/.*\/login/, { timeout: 10000 });
+  await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('sidebar-main').getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
 }

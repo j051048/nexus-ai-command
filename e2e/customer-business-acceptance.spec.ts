@@ -1,5 +1,5 @@
 import { expect, Page, Route, test } from '@playwright/test';
-import { fulfillJson, setupBusinessMocks } from './fixtures/business-mocks';
+import { fulfillJson, loginViaForm, setupBusinessMocks } from './fixtures/business-mocks';
 
 type Role = 'boss' | 'manager' | 'employee';
 
@@ -82,60 +82,6 @@ function fakeJwt(role: Role): string {
   ].join('.');
 }
 
-function getSupabaseAuthStorageKeys(): string[] {
-  const keys = new Set<string>(['sb-hztpazmuejgbtixihcgj-auth-token']);
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  if (url) {
-    try {
-      const projectRef = new URL(url).hostname.split('.')[0];
-      if (projectRef) keys.add(`sb-${projectRef}-auth-token`);
-    } catch {
-      // Keep the stable fallback key above.
-    }
-  }
-  return [...keys];
-}
-
-async function installRoleSession(page: Page, role: Role) {
-  const storageKeys = getSupabaseAuthStorageKeys();
-  await page.addInitScript(({ sessionRole, keys }) => {
-    const now = Math.floor(Date.now() / 1000);
-    const encode = (value: unknown) =>
-      btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const token = [
-      encode({ alg: 'HS256', typ: 'JWT' }),
-      encode({
-        sub: 'test-user-id',
-        email: `${sessionRole}@nexus-ai.com`,
-        role: 'authenticated',
-        aud: 'authenticated',
-        exp: now + 3600,
-        iat: now,
-        app_metadata: { provider: 'email', role: sessionRole },
-        user_metadata: { role: sessionRole, name: `E2E ${sessionRole}` },
-      }),
-      'fake-signature',
-    ].join('.');
-    const session = JSON.stringify({
-      access_token: token,
-      token_type: 'bearer',
-      expires_in: 3600,
-      expires_at: now + 3600,
-      refresh_token: 'fake-refresh',
-      user: {
-        id: 'test-user-id',
-        aud: 'authenticated',
-        email: `${sessionRole}@nexus-ai.com`,
-        role: 'authenticated',
-        user_metadata: { role: sessionRole, name: `E2E ${sessionRole}` },
-        app_metadata: { provider: 'email', role: sessionRole },
-      },
-    });
-    keys.forEach((key) => window.localStorage.setItem(key, session));
-    window.localStorage.setItem('hasSeenTour', 'true');
-  }, { sessionRole: role, keys: storageKeys });
-}
-
 async function setupAcceptanceMocks(page: Page, role: Role = 'boss') {
   const state = makeState();
   await setupBusinessMocks(page);
@@ -144,8 +90,6 @@ async function setupAcceptanceMocks(page: Page, role: Role = 'boss') {
   await page.unroute('**/api/users/profile*').catch(() => undefined);
   await page.unroute('**/rest/v1/rpc/get_user_role*').catch(() => undefined);
   await page.unroute('**/rest/v1/rpc/is_super_admin*').catch(() => undefined);
-  await installRoleSession(page, role);
-
   await page.route('**/auth/v1/token*', (route) =>
     fulfillJson(route, {
       access_token: fakeJwt(role),
@@ -382,6 +326,8 @@ async function setupAcceptanceMocks(page: Page, role: Role = 'boss') {
   await page.route('**/api/chat/history/**', (route) =>
     fulfillJson(route, { success: true, data: { messages: [] } }),
   );
+
+  await loginViaForm(page, role);
 
   return state;
 }
