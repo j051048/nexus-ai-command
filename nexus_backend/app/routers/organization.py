@@ -11,7 +11,11 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
-from app.core.dependencies import require_platform_super_admin, require_role
+from app.core.dependencies import (
+    get_request_db,
+    require_platform_super_admin,
+    require_role,
+)
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import StandardResponse
 from app.services.approval_chain import approval_chain_service
@@ -252,7 +256,7 @@ async def get_organization_members(
     Get all members in the user's organization for the org chart management page.
     Returns: id, name, department, role, manager_id, avatar
     """
-    client = req.state.db
+    client = get_request_db(req)
 
     # Get the user's organization
     user_res = (
@@ -317,7 +321,7 @@ async def update_user_manager(
     Update the manager_id for a user (org chart management).
     Only admins/bosses should call this (enforced via frontend role guard).
     """
-    client = req.state.db
+    client = get_request_db(req)
 
     # Verify the requesting user is in the same org and has boss/admin role
     user_res = (
@@ -408,7 +412,7 @@ async def regenerate_invite_code(
     """重新生成邀请码"""
     import secrets
 
-    client = req.state.db
+    client = get_request_db(req)
 
     # 获取用户的组织ID
     user_res = (
@@ -440,7 +444,7 @@ async def toggle_invite_code(
     user_id: str = Depends(get_current_user_id),
 ):
     """切换邀请码启用状态"""
-    client = req.state.db
+    client = get_request_db(req)
 
     # 获取用户的组织ID
     user_res = (

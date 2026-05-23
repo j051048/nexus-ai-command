@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import PlainTextResponse
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.import_service import ImportService
 
@@ -69,7 +70,7 @@ async def import_employees(
         )
 
     # 获取数据库客户端（支持 RLS）
-    db_client = request.state.db
+    db_client = get_request_db(request)
     if not db_client:
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
 
@@ -124,7 +125,7 @@ async def import_customers(
         )
 
     # 获取数据库客户端（支持 RLS）
-    db_client = request.state.db
+    db_client = get_request_db(request)
     if not db_client:
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
 

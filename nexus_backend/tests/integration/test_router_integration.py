@@ -39,14 +39,21 @@ async def patched_app():
     with (
         patch("app.core.database.supabase", None),
         patch("app.services.cache_service.cache_service.init", new_callable=AsyncMock),
-        patch("app.services.cache_service.cache_service.ping", new_callable=AsyncMock, return_value=False),
+        patch(
+            "app.services.cache_service.cache_service.ping",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
         patch("app.services.event_bus.event_bus.start", new_callable=AsyncMock),
         patch("app.services.event_bus.event_bus.stop", new_callable=AsyncMock),
-        patch("app.services.audit_logger.audit_logger.force_flush", new_callable=AsyncMock),
+        patch(
+            "app.services.audit_logger.audit_logger.force_flush", new_callable=AsyncMock
+        ),
     ):
         # Trigger one health refresh so the health cache is populated
         from app.core.health_cache import health_cache
         from app.main import app  # noqa: E402 -- intentionally late import
+
         await health_cache._refresh_health()
 
         yield app
@@ -208,7 +215,10 @@ class TestChatEndpointAuth:
         """Without a Bearer token the chat endpoint must refuse the request."""
         resp = await client.post(
             "/api/chat",
-            json={"messages": [{"role": "user", "content": "hello"}], "model": "gpt-4o"},
+            json={
+                "messages": [{"role": "user", "content": "hello"}],
+                "model": "gpt-4o",
+            },
         )
         assert resp.status_code in (401, 403, 422)
 
@@ -359,7 +369,8 @@ class TestMiddlewareOrder:
     """Verify that the middleware stack is configured correctly.
 
     According to ``main.py``, the intended execution order (outermost first)
-    is:  CORS -> RateLimit -> SecurityHeaders -> RequestID -> APIKey -> TenantContext.
+    is: CORS -> UnhandledException -> Metrics -> RateLimit -> SecurityHeaders
+    -> RequestID -> APIKey -> TenantContext.
 
     In Starlette, ``app.user_middleware`` stores them in *reverse* add-order:
     the middleware that was added last (i.e., the outermost) ends up at
@@ -369,27 +380,40 @@ class TestMiddlewareOrder:
     @pytest.mark.asyncio
     async def test_rate_limit_middleware_is_outermost(self, patched_app):
         """CORSMiddleware should be at index 0 (outermost) and
-        RateLimitMiddleware should be at index 1 (second outermost).
+        UnhandledExceptionMiddleware should be at index 1, with metrics and
+        rate limiting immediately inside it.
         """
         from starlette.middleware.cors import CORSMiddleware
 
         from app.core.metrics_middleware import PrometheusMiddleware
         from app.core.rate_limiter import RateLimitMiddleware
+        from app.core.security_middleware import UnhandledExceptionMiddleware
 
         middleware_classes = [m.cls for m in patched_app.user_middleware]
-        assert RateLimitMiddleware in middleware_classes, "RateLimitMiddleware not found in user_middleware"
-        assert CORSMiddleware in middleware_classes, "CORSMiddleware not found in user_middleware"
-        # CORSMiddleware is outermost (index 0), PrometheusMiddleware is second (index 1),
-        # RateLimitMiddleware is third (index 2).
+        assert (
+            RateLimitMiddleware in middleware_classes
+        ), "RateLimitMiddleware not found in user_middleware"
+        assert (
+            CORSMiddleware in middleware_classes
+        ), "CORSMiddleware not found in user_middleware"
+        # CORSMiddleware is outermost. The exception guard wraps app middleware
+        # so unexpected route errors do not escape as noisy BaseHTTPMiddleware
+        # call_next traces.
         assert middleware_classes[0] is CORSMiddleware, (
             "CORSMiddleware should be the outermost (index 0) middleware, "
             f"but found: {middleware_classes[0].__name__}"
         )
-        assert middleware_classes[1] is PrometheusMiddleware, (
-            "PrometheusMiddleware should be at index 1, " f"but found: {middleware_classes[1].__name__}"
+        assert middleware_classes[1] is UnhandledExceptionMiddleware, (
+            "UnhandledExceptionMiddleware should be at index 1, "
+            f"but found: {middleware_classes[1].__name__}"
         )
-        assert middleware_classes[2] is RateLimitMiddleware, (
-            "RateLimitMiddleware should be at index 2, " f"but found: {middleware_classes[2].__name__}"
+        assert middleware_classes[2] is PrometheusMiddleware, (
+            "PrometheusMiddleware should be at index 2, "
+            f"but found: {middleware_classes[2].__name__}"
+        )
+        assert middleware_classes[3] is RateLimitMiddleware, (
+            "RateLimitMiddleware should be at index 3, "
+            f"but found: {middleware_classes[3].__name__}"
         )
 
     @pytest.mark.asyncio
@@ -397,10 +421,11 @@ class TestMiddlewareOrder:
         """Verify the complete middleware ordering matches the design doc.
 
         Expected execution order (outermost -> innermost):
-          CORS -> RateLimit -> SecurityHeaders -> RequestID -> APIKey -> TenantContext
+          CORS -> UnhandledException -> Metrics -> RateLimit -> SecurityHeaders
+          -> RequestID -> APIKey -> TenantContext
         Which in user_middleware (index 0 = outermost) is:
-          [0] CORS, [1] RateLimit, [2] SecurityHeaders, [3] RequestID,
-          [4] APIKey, [5] TenantContext
+          [0] CORS, [1] UnhandledException, [2] Metrics, [3] RateLimit,
+          [4] SecurityHeaders, [5] RequestID, [8] APIKey, [10] TenantContext
         """
         from starlette.middleware.cors import CORSMiddleware
 
@@ -414,11 +439,13 @@ class TestMiddlewareOrder:
             RequestIDMiddleware,
             SecurityHeadersMiddleware,
             TenantContextMiddleware,
+            UnhandledExceptionMiddleware,
         )
 
         middleware_classes = [m.cls for m in patched_app.user_middleware]
         expected_order = [
             CORSMiddleware,
+            UnhandledExceptionMiddleware,
             PrometheusMiddleware,
             RateLimitMiddleware,
             SecurityHeadersMiddleware,

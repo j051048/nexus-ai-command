@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
-from app.core.dependencies import require_role
+from app.core.dependencies import get_request_db, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import StandardResponse
 
@@ -39,9 +39,9 @@ async def list_qa_pairs(
     limit: int = 100,
 ):
     """List all QA pairs for current user"""
+    client = get_request_db(req)
     try:
         limit = min(limit, 200)
-        client = req.state.db
         query = client.table("qa_pairs").select("*").eq("user_id", user_id)
 
         if category:
@@ -64,9 +64,8 @@ async def create_qa_pair(
     payload: QAPairCreate, req: Request, user_id: str = Depends(get_current_user_id)
 ):
     """Create a new QA pair"""
+    client = get_request_db(req)
     try:
-        client = req.state.db
-
         data = {
             "question": payload.question.strip(),
             "answer": payload.answer.strip(),
@@ -93,9 +92,8 @@ async def update_qa_pair(
     user_id: str = Depends(get_current_user_id),
 ):
     """Update an existing QA pair"""
+    client = get_request_db(req)
     try:
-        client = req.state.db
-
         # Build update data
         data = {}
         if payload.question is not None:
@@ -136,9 +134,8 @@ async def delete_qa_pair(
     user_id: str = Depends(require_role(["admin", "founder", "boss"])),
 ):
     """Delete a QA pair"""
+    client = get_request_db(req)
     try:
-        client = req.state.db
-
         res = (
             await client.table("qa_pairs")
             .delete()
@@ -161,9 +158,8 @@ async def delete_qa_pair(
 @router.get("/categories", response_model=StandardResponse)
 async def list_categories(req: Request, user_id: str = Depends(get_current_user_id)):
     """Get all distinct categories for current user"""
+    client = get_request_db(req)
     try:
-        client = req.state.db
-
         res = (
             await client.table("qa_pairs")
             .select("category")

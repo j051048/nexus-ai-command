@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
 
 router = APIRouter(prefix="/api/ai/saved-prompts", tags=["Saved Prompts"])
@@ -22,7 +23,7 @@ async def list_saved_prompts(
     user_id: str = Depends(get_current_user_id),
 ):
     """列出当前用户的所有快捷指令"""
-    client = req.state.db
+    client = get_request_db(req)
     result = (
         await client.table("user_saved_prompts")
         .select("*")
@@ -41,7 +42,7 @@ async def create_saved_prompt(
     user_id: str = Depends(get_current_user_id),
 ):
     """创建快捷指令"""
-    client = req.state.db
+    client = get_request_db(req)
     result = (
         await client.table("user_saved_prompts")
         .insert(
@@ -67,7 +68,7 @@ async def delete_saved_prompt(
     user_id: str = Depends(get_current_user_id),
 ):
     """删除快捷指令（校验归属）"""
-    client = req.state.db
+    client = get_request_db(req)
     # Verify ownership
     existing = (
         await client.table("user_saved_prompts")

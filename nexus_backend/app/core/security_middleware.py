@@ -13,6 +13,7 @@ import os
 import secrets
 from urllib.parse import urlparse
 
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -209,6 +210,67 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Cache-Control"] = "public, max-age=3600"
 
         return response
+
+
+class UnhandledExceptionMiddleware:
+    """Catch unexpected downstream errors before Starlette logs middleware noise.
+
+    BaseHTTPMiddleware wraps each `call_next` layer, so one route exception can
+    produce a very long stack trace through every middleware. This ASGI-level
+    guard logs the real request context once and returns the same safe JSON
+    shape as the global exception handler.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        response_started = False
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+        except Exception as exc:
+            if response_started:
+                raise
+
+            request = Request(scope, receive=receive)
+            trace_id = (
+                getattr(request.state, "trace_id", None)
+                or request.headers.get("X-Trace-ID")
+                or request.headers.get("X-Request-ID")
+                or ""
+            )
+            logger.error(
+                "Unhandled request exception: %s | path=%s method=%s trace_id=%s",
+                exc,
+                scope.get("path", ""),
+                scope.get("method", ""),
+                trace_id,
+                exc_info=True,
+            )
+
+            error_body: dict = {
+                "code": "SYSTEM_INTERNAL_ERROR",
+                "message": "系统内部错误，请稍后重试",
+            }
+            if trace_id:
+                error_body["trace_id"] = trace_id
+
+            response = JSONResponse(
+                status_code=500,
+                content={"success": False, "error": error_body},
+            )
+            await response(scope, receive, send)
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):

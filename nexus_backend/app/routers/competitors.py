@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.competitor_service import competitor_service
 
@@ -110,8 +111,9 @@ async def list_competitors(
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
         raise api_error(ErrorCode.FORBIDDEN, "未找到组织信息")
+    db = get_request_db(req)
     try:
-        data = await competitor_service.list_competitors(org_id, db=req.state.db)
+        data = await competitor_service.list_competitors(org_id, db=db)
         return api_success(data=data)
     except Exception as e:
         logger.error(f"List competitors failed: {e}")
@@ -129,9 +131,10 @@ async def create_competitor(
     org_id = getattr(req.state, "org_id", None)
     if not org_id:
         raise api_error(ErrorCode.FORBIDDEN, "未找到组织信息")
+    db = get_request_db(req)
     try:
         data = await competitor_service.create_competitor(
-            org_id, user_id, body.model_dump(exclude_none=True), db=req.state.db
+            org_id, user_id, body.model_dump(exclude_none=True), db=db
         )
         return api_success(data=data, message="竞品创建成功")
     except ValueError:
@@ -148,10 +151,9 @@ async def get_competitor(
     user_id: str = Depends(get_current_user_id),
 ):
     """获取竞品详情（含产品和维度）"""
+    db = get_request_db(req)
     try:
-        data = await competitor_service.get_battlecard_data(
-            competitor_id, db=req.state.db
-        )
+        data = await competitor_service.get_battlecard_data(competitor_id, db=db)
         if not data:
             raise api_error(ErrorCode.NOT_FOUND, "竞品不存在")
         return api_success(data=data)
@@ -171,9 +173,10 @@ async def update_competitor(
 ):
     """更新竞品信息（需管理员权限）"""
     _check_admin(req)
+    db = get_request_db(req)
     try:
         data = await competitor_service.update_competitor(
-            competitor_id, body.model_dump(exclude_none=True), db=req.state.db
+            competitor_id, body.model_dump(exclude_none=True), db=db
         )
         return api_success(data=data, message="竞品更新成功")
     except ValueError:
@@ -191,8 +194,9 @@ async def delete_competitor(
 ):
     """删除竞品（需管理员权限）"""
     _check_admin(req)
+    db = get_request_db(req)
     try:
-        await competitor_service.delete_competitor(competitor_id, db=req.state.db)
+        await competitor_service.delete_competitor(competitor_id, db=db)
         return api_success(None, message="竞品已删除")
     except Exception as e:
         logger.error(f"Delete competitor failed: {e}")
@@ -210,8 +214,9 @@ async def list_products(
     competitor_id: str,
     user_id: str = Depends(get_current_user_id),
 ):
+    db = get_request_db(req)
     try:
-        data = await competitor_service.list_products(competitor_id, db=req.state.db)
+        data = await competitor_service.list_products(competitor_id, db=db)
         return api_success(data=data)
     except Exception as e:
         logger.error(f"List products failed: {e}")
@@ -227,9 +232,10 @@ async def create_product(
 ):
     _check_admin(req)
     org_id = getattr(req.state, "org_id", None)
+    db = get_request_db(req)
     try:
         data = await competitor_service.create_product(
-            competitor_id, org_id, body.model_dump(exclude_none=True), db=req.state.db
+            competitor_id, org_id, body.model_dump(exclude_none=True), db=db
         )
         return api_success(data=data, message="产品添加成功")
     except ValueError:
@@ -248,9 +254,10 @@ async def update_product(
     user_id: str = Depends(get_current_user_id),
 ):
     _check_admin(req)
+    db = get_request_db(req)
     try:
         data = await competitor_service.update_product(
-            product_id, body.model_dump(exclude_none=True), db=req.state.db
+            product_id, body.model_dump(exclude_none=True), db=db
         )
         return api_success(data=data, message="产品更新成功")
     except Exception as e:
@@ -266,8 +273,9 @@ async def delete_product(
     user_id: str = Depends(get_current_user_id),
 ):
     _check_admin(req)
+    db = get_request_db(req)
     try:
-        await competitor_service.delete_product(product_id, db=req.state.db)
+        await competitor_service.delete_product(product_id, db=db)
         return api_success(None, message="产品已删除")
     except Exception as e:
         logger.error(f"Delete product failed: {e}")
@@ -285,8 +293,9 @@ async def list_features(
     competitor_id: str,
     user_id: str = Depends(get_current_user_id),
 ):
+    db = get_request_db(req)
     try:
-        data = await competitor_service.list_features(competitor_id, db=req.state.db)
+        data = await competitor_service.list_features(competitor_id, db=db)
         return api_success(data=data)
     except Exception as e:
         logger.error(f"List features failed: {e}")
@@ -302,9 +311,10 @@ async def upsert_feature(
 ):
     _check_admin(req)
     org_id = getattr(req.state, "org_id", None)
+    db = get_request_db(req)
     try:
         data = await competitor_service.upsert_feature(
-            competitor_id, org_id, body.model_dump(exclude_none=True), db=req.state.db
+            competitor_id, org_id, body.model_dump(exclude_none=True), db=db
         )
         return api_success(data=data, message="对比维度保存成功")
     except ValueError:
@@ -322,8 +332,9 @@ async def delete_feature(
     user_id: str = Depends(get_current_user_id),
 ):
     _check_admin(req)
+    db = get_request_db(req)
     try:
-        await competitor_service.delete_feature(feature_id, db=req.state.db)
+        await competitor_service.delete_feature(feature_id, db=db)
         return api_success(None, message="对比维度已删除")
     except Exception as e:
         logger.error(f"Delete feature failed: {e}")
@@ -341,8 +352,9 @@ async def list_documents(
     competitor_id: str,
     user_id: str = Depends(get_current_user_id),
 ):
+    db = get_request_db(req)
     try:
-        data = await competitor_service.list_documents(competitor_id, db=req.state.db)
+        data = await competitor_service.list_documents(competitor_id, db=db)
         return api_success(data=data)
     except Exception as e:
         logger.error(f"List documents failed: {e}")
@@ -357,9 +369,10 @@ async def link_document(
     user_id: str = Depends(get_current_user_id),
 ):
     _check_admin(req)
+    db = get_request_db(req)
     try:
         await competitor_service.link_document(
-            competitor_id, body.document_id, body.doc_type or "general", db=req.state.db
+            competitor_id, body.document_id, body.doc_type or "general", db=db
         )
         return api_success(None, message="文档关联成功")
     except Exception as e:
@@ -375,10 +388,9 @@ async def unlink_document(
     user_id: str = Depends(get_current_user_id),
 ):
     _check_admin(req)
+    db = get_request_db(req)
     try:
-        await competitor_service.unlink_document(
-            competitor_id, document_id, db=req.state.db
-        )
+        await competitor_service.unlink_document(competitor_id, document_id, db=db)
         return api_success(None, message="文档关联已移除")
     except Exception as e:
         logger.error(f"Unlink document failed: {e}")

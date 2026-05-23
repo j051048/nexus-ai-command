@@ -10,6 +10,7 @@ import logging
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ async def upload_chat_image(
     data_uri = f"data:{content_type};base64,{b64_data}"
 
     # 4. Persist to chat_attachments (NOT documents table)
-    client = req.state.db
+    client = get_request_db(req)
     try:
         result = (
             await client.table("chat_attachments")

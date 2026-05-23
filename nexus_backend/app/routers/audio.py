@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, File, Request, UploadFile
 from openai import AsyncOpenAI
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,7 @@ async def _get_ai_config(req: Request, user_id: str) -> dict:
     }
 
     try:
-        client = req.state.db
+        client = get_request_db(req)
         org_id = getattr(req.state, "org_id", None)
         settings_query = client.table("ai_settings").select("*").eq("user_id", user_id)
         if org_id:
@@ -205,6 +206,7 @@ async def transcribe_audio(
         )
 
     # 3. Load user AI config
+    get_request_db(req)
     ai_config = await _get_ai_config(req, user_id)
     if not ai_config["api_key"]:
         raise api_error(

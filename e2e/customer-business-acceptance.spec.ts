@@ -1,5 +1,5 @@
 import { expect, Page, Route, test } from '@playwright/test';
-import { fulfillJson, loginViaForm, setupBusinessMocks } from './fixtures/business-mocks';
+import { fulfillJson, mockLoggedInState, setupBusinessMocks } from './fixtures/business-mocks';
 
 type Role = 'boss' | 'manager' | 'employee';
 
@@ -84,6 +84,7 @@ function fakeJwt(role: Role): string {
 
 async function setupAcceptanceMocks(page: Page, role: Role = 'boss') {
   const state = makeState();
+  await mockLoggedInState(page, role);
   await setupBusinessMocks(page);
   await page.unroute('**/auth/v1/token*').catch(() => undefined);
   await page.unroute('**/auth/v1/user*').catch(() => undefined);
@@ -532,7 +533,7 @@ test.describe('Customer business acceptance flows', () => {
 
     await page.goto('/dashboard');
     await expectHealthyPage(page);
-    const input = page.locator('textarea').first();
+    const input = page.getByTestId('chat-input');
     await expect(input).toBeVisible({ timeout: 15000 });
     await input.fill('查询本周新增客户并给出摘要');
     await input.press('Enter');

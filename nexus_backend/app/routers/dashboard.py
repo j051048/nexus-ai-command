@@ -9,6 +9,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
@@ -21,9 +22,9 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
     Boss dashboard — pending approvals, abnormal expenses, top performers.
 
     Requires authentication AND boss role.
-    Uses request.state.db for RLS-scoped access.
+    Uses get_request_db(request) for RLS-scoped access.
     """
-    client = request.state.db
+    client = get_request_db(request)
 
     if not client:
         raise api_error(
@@ -113,7 +114,7 @@ async def dashboard_alerts(
     """跨域数据一致性预警 — 返回当前存在的数据异常。"""
     from datetime import datetime, timedelta, timezone
 
-    client = request.state.db
+    client = get_request_db(request)
     if not client:
         raise api_error(
             ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
@@ -223,7 +224,7 @@ async def ai_activity_stats(
     """AI 活跃度统计 — 本周完成任务数、预估节省时间、活跃 Agent 数。"""
     from datetime import datetime, timedelta, timezone
 
-    client = request.state.db
+    client = get_request_db(request)
     if not client:
         raise api_error(
             ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
@@ -290,7 +291,7 @@ async def ai_roi_dashboard(
     """AI ROI 仪表盘 — 投资回报率、节省时间/成本、操作分布。"""
     from datetime import datetime, timedelta, timezone
 
-    client = request.state.db
+    client = get_request_db(request)
     if not client:
         raise api_error(
             ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
@@ -421,7 +422,7 @@ async def ai_roi_baselines(
     _user_id: str = Depends(get_current_user_id),
 ):
     """AI ROI 基线配置 — 各操作类别的人工耗时基线。"""
-    client = request.state.db
+    client = get_request_db(request)
     if not client:
         raise api_error(
             ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"

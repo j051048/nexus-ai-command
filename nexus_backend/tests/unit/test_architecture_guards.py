@@ -574,3 +574,32 @@ def test_opus_p0_p2_recommendations_are_wired():
     assert 'path="slo"' in admin_routes
     assert "SUPABASE_DB_POOLER_URL" in pgbouncer
     assert "pool_mode" in pgbouncer
+
+
+def test_customer_acceptance_e2e_has_stable_auth_and_chat_contracts():
+    acceptance = read("e2e/customer-business-acceptance.spec.ts")
+    sidebar = read("src/components/layout/Sidebar.tsx")
+    chat_input = read("src/components/ai/chat/ChatInputArea.tsx")
+    app = read("src/App.tsx")
+
+    assert "mockLoggedInState(page, role)" in acceptance
+    assert "setupAcceptanceMocks(page, 'employee')" in acceptance
+    assert "toHaveURL(/\\/dashboard/" in acceptance
+    assert 'data-testid="sidebar-main"' in sidebar
+    assert "<textarea" in chat_input
+    assert 'data-testid="chat-input"' in chat_input
+    assert 'return <Navigate to="/dashboard" replace />' in app
+
+
+def test_auth_and_prompt_firewall_regressions_have_direct_tests():
+    auth = read("nexus_backend/app/core/auth.py")
+    firewall = read("nexus_backend/app/core/prompt_firewall.py")
+    auth_test = read("nexus_backend/tests/unit/test_auth_org_context.py")
+    firewall_test = read("nexus_backend/tests/unit/test_prompt_firewall_fast_path.py")
+
+    assert "Missing valid authentication for tenant context" in auth
+    assert "auth_failed" in auth
+    assert "len(text) > self._config.max_input_length" in firewall
+    assert 'v.layer == "context_overflow"' in firewall
+    assert "test_missing_org_without_auth_is_401" in auth_test
+    assert "test_context_overflow_does_not_call_llm_judge" in firewall_test

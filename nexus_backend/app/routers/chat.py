@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 
 from app.core.auth import get_current_user_id
 from app.core.config import settings
-from app.core.dependencies import require_role
+from app.core.dependencies import get_request_db, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.core.pii_redactor import redact_value
 from app.core.prompt_firewall import prompt_firewall
@@ -88,7 +88,7 @@ async def chat(
 
     # 1. Identity & Profile Check
     # P0 Multi-tenancy: Use scoped client from request state
-    client = req.state.db
+    client = get_request_db(req)
     user_res = (
         await client.table("users")
         .select("id, role")
@@ -339,7 +339,7 @@ async def get_tools_metadata_endpoint(
 
     Powers frontend inline actions and tool discovery UX.
     """
-    client = req.state.db
+    client = get_request_db(req)
     user_res = (
         await client.table("users")
         .select("role")
@@ -638,8 +638,8 @@ async def get_chat_history(
     session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
 ):
     """Fetch persistent chat history for a session"""
+    client = get_request_db(req)
     try:
-        client = req.state.db
         response = (
             await client.table("chat_messages")
             .select("id,role,content,created_at,session_id")
@@ -659,7 +659,7 @@ async def get_chat_history(
 @router.get("/sessions")
 async def list_sessions(req: Request, user_id: str = Depends(get_current_user_id)):
     """List user's chat sessions"""
-    client = req.state.db
+    client = get_request_db(req)
     try:
         response = (
             await client.table("chat_messages")
@@ -694,7 +694,7 @@ async def archive_session(
     session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
 ):
     """Archive/delete a chat session"""
-    client = req.state.db
+    client = get_request_db(req)
     try:
         await client.table("chat_messages").delete().eq("user_id", user_id).eq(
             "session_id", session_id
@@ -716,7 +716,7 @@ async def compact_session(
     手动压缩会话上下文 — 将早期消息摘要化，保留最近的消息。
     减少 token 消耗，适合长对话场景。
     """
-    client = req.state.db
+    client = get_request_db(req)
     try:
         # 1. Fetch all messages in the session
         response = (
@@ -816,7 +816,7 @@ async def search_messages(
     if not q or len(q) < 2:
         return api_success(data={"messages": []})
 
-    client = req.state.db
+    client = get_request_db(req)
     try:
         # P1 Security: Escape LIKE wildcards in user input to prevent wildcard injection
         escaped_q = q.replace("%", r"\%").replace("_", r"\_")
@@ -842,7 +842,7 @@ async def toggle_star_session(
     session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
 ):
     """Toggle star/pin on a chat session"""
-    client = req.state.db
+    client = get_request_db(req)
     try:
         # Check if already starred (use a user_preferences or starred_sessions approach)
         # For simplicity, use a starred_sessions table or a JSON field

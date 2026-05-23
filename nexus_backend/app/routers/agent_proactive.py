@@ -48,7 +48,9 @@ async def create_scheduled_task(
 
 
 @router.delete("/tasks/{task_id}")
-async def stop_scheduled_task(task_id: str):
+async def stop_scheduled_task(
+    task_id: str, user_id: str = Depends(get_current_user_id)
+):
     """停止定时任务"""
     try:
         await proactive_scheduler.stop_task(task_id)
@@ -99,7 +101,9 @@ async def list_goals(user_id: str = Depends(get_current_user_id)):
 
 
 @router.put("/goals/{goal_id}/progress")
-async def update_goal_progress(goal_id: str, progress: dict):
+async def update_goal_progress(
+    goal_id: str, progress: dict, user_id: str = Depends(get_current_user_id)
+):
     """更新目标进度"""
     try:
         await goal_tracker.update_progress(goal_id, progress)
@@ -110,7 +114,7 @@ async def update_goal_progress(goal_id: str, progress: dict):
 
 
 @router.put("/goals/{goal_id}/complete")
-async def complete_goal(goal_id: str):
+async def complete_goal(goal_id: str, user_id: str = Depends(get_current_user_id)):
     """完成目标"""
     try:
         await goal_tracker.complete_goal(goal_id)

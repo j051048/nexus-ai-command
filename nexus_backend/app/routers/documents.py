@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, Up
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
-from app.core.dependencies import require_role
+from app.core.dependencies import get_request_db, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import BatchDeleteRequest, StandardResponse
 from app.services.etl_service import etl_service
@@ -33,7 +33,7 @@ async def list_documents(
     user_id: str = Depends(get_current_user_id),
 ):
     """List all documents for current user."""
-    client = req.state.db
+    client = get_request_db(req)
     try:
         result = (
             await client.table("documents")
@@ -64,7 +64,7 @@ async def batch_delete_documents(
 
     from app.core.database import supabase as global_supabase
 
-    client = req.state.db
+    client = get_request_db(req)
     count = 0
 
     try:
@@ -134,7 +134,7 @@ async def upload_documents(
     api_key = None
     base_url = None
     user_department = None
-    client = req.state.db
+    client = get_request_db(req)
     org_id = getattr(req.state, "org_id", None)
 
     # 1. Validate visibility and category parameters
@@ -294,7 +294,7 @@ async def batch_upload_documents(
     api_key = None
     base_url = None
     user_department = None
-    client = req.state.db
+    client = get_request_db(req)
     org_id = getattr(req.state, "org_id", None)
 
     if user_id:
@@ -432,7 +432,7 @@ async def update_document(
     user_id: str = Depends(get_current_user_id),
 ):
     """Update an existing document (creates new version, replaces old embeddings)"""
-    client = req.state.db
+    client = get_request_db(req)
 
     # 1. Verify document ownership
     doc_res = (
@@ -530,7 +530,7 @@ async def update_document_category(
     user_id: str = Depends(get_current_user_id),
 ):
     """手动修改文档分类"""
-    client = req.state.db
+    client = get_request_db(req)
     try:
         res = (
             await client.table("documents")

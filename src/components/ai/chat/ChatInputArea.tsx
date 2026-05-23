@@ -175,6 +175,7 @@ export const ChatInputArea = React.memo(function ChatInputArea({
 
             <div className="flex-1 relative flex items-center min-w-0">
               <textarea
+                data-testid="chat-input"
                 ref={inputRef}
                 value={input}
                 rows={1}

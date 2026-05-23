@@ -340,7 +340,7 @@ class PromptFirewall:
             self._config.enable_llm_judge
             and _RISK_ORDER[aggregate_risk] >= _RISK_ORDER[RiskLevel.MEDIUM]
             and _RISK_ORDER[aggregate_risk] < _RISK_ORDER[RiskLevel.CRITICAL]
-            and self._should_run_llm_judge(violations)
+            and self._should_run_llm_judge(text, violations)
         ):
             llm_verdict = await self._llm_judge(text, violations, user_id, context)
             if llm_verdict is not None:
@@ -409,9 +409,14 @@ class PromptFirewall:
 
     # -- LLM-as-Judge secondary detection ------------------------------------
 
-    @staticmethod
-    def _should_run_llm_judge(violations: list[FirewallViolation]) -> bool:
+    def _should_run_llm_judge(
+        self, text: str, violations: list[FirewallViolation]
+    ) -> bool:
         """Only semantic prompt-attack detections need the slower LLM judge path."""
+        if len(text) > self._config.max_input_length:
+            return False
+        if any(v.layer == "context_overflow" for v in violations):
+            return False
         llm_judge_layers = {"jailbreak", "injection", "role_reversal"}
         return any(v.layer in llm_judge_layers for v in violations)
 

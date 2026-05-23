@@ -20,6 +20,24 @@ logger = logging.getLogger(__name__)
 DEFAULT_PLATFORM_SUPER_ADMIN_EMAIL = "j051048@gmail.com"
 
 
+def get_request_db(request: Request):
+    """Return the tenant-scoped database client for the current request."""
+    db = getattr(request.state, "db", None)
+    if db is None:
+        logger.warning(
+            "Tenant DB context missing: path=%s method=%s auth_failed=%s user_id=%s",
+            request.url.path,
+            request.method,
+            getattr(request.state, "auth_failed", False),
+            getattr(request.state, "user_id", None),
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="租户上下文未建立，请重新登录",
+        )
+    return db
+
+
 async def get_db(request: Request):
     """
     Dependency to get the database client for the current request context.
@@ -37,6 +55,8 @@ async def get_db(request: Request):
         async def list_items(db=Depends(get_db)):
             result = await db.table("items").select("*").execute()
     """
+    return get_request_db(request)
+
     db = getattr(request.state, "db", None)
     if db is None:
         logger.error(

@@ -9,6 +9,7 @@ from app.core.security_middleware import (
     RequestIDMiddleware,
     SecurityHeadersMiddleware,
     TenantContextMiddleware,
+    UnhandledExceptionMiddleware,
 )
 
 
@@ -17,7 +18,7 @@ def register_middleware(app: FastAPI) -> None:
 
     P0 Security Fix: Middleware order matters - last added runs first (outermost).
     Execution order (outermost -> innermost):
-      CORS -> Metrics -> RateLimit -> SecurityHeaders -> RequestID
+      CORS -> UnhandledException -> Metrics -> RateLimit -> SecurityHeaders -> RequestID
       -> DataMasking -> CSRF -> APIKey -> Idempotency -> TenantContext
 
     CORS MUST be outermost so browser preflight (OPTIONS) is handled immediately
@@ -47,6 +48,8 @@ def register_middleware(app: FastAPI) -> None:
     app.add_middleware(RateLimitMiddleware)
     # 2nd: Prometheus HTTP metrics collection
     app.add_middleware(PrometheusMiddleware)
+    # 1.5th: collapse unexpected downstream errors into one clean JSON response
+    app.add_middleware(UnhandledExceptionMiddleware)
     # 1st (outermost): handles OPTIONS preflight immediately
     app.add_middleware(
         CORSMiddleware,

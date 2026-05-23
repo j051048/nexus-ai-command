@@ -73,7 +73,10 @@ class TestBossDashboard:
         from app.routers.dashboard import boss_dashboard
 
         client = _DashboardMockClient()
-        client.set_table("users", [{"role": "boss", "name": "Alice", "score": 100, "total_bonus": 5000}])
+        client.set_table(
+            "users",
+            [{"role": "boss", "name": "Alice", "score": 100, "total_bonus": 5000}],
+        )
         client.set_table("approval_requests", [], count=3)
 
         request = MagicMock()
@@ -103,15 +106,16 @@ class TestBossDashboard:
 
     @pytest.mark.asyncio
     async def test_no_db_connection(self):
-        """Returns error when DB is unavailable (503)."""
+        """Rejects when tenant DB context is missing."""
         from app.routers.dashboard import boss_dashboard
 
         request = MagicMock()
         request.state.db = None
+        request.state.auth_failed = True
 
         with pytest.raises(HTTPException) as exc_info:
             await boss_dashboard(request=request, user_id="test-user-123")
-        assert exc_info.value.status_code == 503
+        assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_boss_with_zero_approvals(self):
@@ -119,7 +123,9 @@ class TestBossDashboard:
         from app.routers.dashboard import boss_dashboard
 
         client = _DashboardMockClient()
-        client.set_table("users", [{"role": "boss", "name": "Bob", "score": 50, "total_bonus": 1000}])
+        client.set_table(
+            "users", [{"role": "boss", "name": "Bob", "score": 50, "total_bonus": 1000}]
+        )
         client.set_table("approval_requests", [], count=0)
 
         request = MagicMock()

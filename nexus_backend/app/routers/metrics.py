@@ -3,7 +3,7 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.agent_metrics import get_metrics
 from app.core.auth import get_current_user_id
@@ -14,6 +14,9 @@ from app.core.metrics import get_web_vitals_snapshot, observe_web_vital
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/metrics", tags=["Metrics"])
 
+_ALLOWED_WEB_VITALS = {"CLS", "FCP", "INP", "LCP", "TTFB"}
+_ALLOWED_WEB_VITAL_RATINGS = {"good", "needs-improvement", "poor", "unknown"}
+
 
 class WebVitalPayload(BaseModel):
     name: str = Field(..., max_length=24)
@@ -21,6 +24,29 @@ class WebVitalPayload(BaseModel):
     rating: str = Field(default="unknown", max_length=16)
     id: str | None = Field(default=None, max_length=128)
     path: str = Field(default="/", max_length=256)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        normalized = value.upper()
+        if normalized not in _ALLOWED_WEB_VITALS:
+            raise ValueError("unsupported web vital metric")
+        return normalized
+
+    @field_validator("rating")
+    @classmethod
+    def validate_rating(cls, value: str) -> str:
+        normalized = (value or "unknown").lower()
+        if normalized not in _ALLOWED_WEB_VITAL_RATINGS:
+            raise ValueError("unsupported web vital rating")
+        return normalized
+
+    @field_validator("path")
+    @classmethod
+    def normalize_path(cls, value: str) -> str:
+        if not value or not value.startswith("/"):
+            return "/"
+        return value.split("?", 1)[0].split("#", 1)[0] or "/"
 
 
 @router.get("")
