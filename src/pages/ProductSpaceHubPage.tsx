@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  Activity,
   BarChart3,
   Bot,
   Briefcase,
@@ -239,6 +240,13 @@ export function DataHubPage() {
       primaryHref="/reports"
       primaryLabel="查看报表"
       links={[
+        {
+          title: '行动台运营分析',
+          description: '跟踪采纳率、完成率、忽略率和高风险未闭环行动。',
+          href: '/action-analytics',
+          icon: Activity,
+          tone: 'bg-rose-500/10 text-rose-600',
+        },
         {
           title: '报表中心',
           description: '查看业务报表和关键经营指标。',

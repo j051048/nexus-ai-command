@@ -4,6 +4,7 @@ import { ModuleRouteBoundary } from "@/components/common/ModuleRouteBoundary";
 import {
   ApprovalCenter,
   AICenterPage,
+  ActionAnalyticsPage,
   BossDashboard,
   DataHubPage,
   EmployeeDashboard,
@@ -45,6 +46,7 @@ export function coreRoutes(
       <Route path="performance-dashboard" element={routeBoundary("Performance Dashboard", <EmployeeDashboard />)} />
       <Route path="workbench" element={routeBoundary("Workbench", <WorkspaceHubPage />)} />
       <Route path="data" element={routeBoundary("Data", <DataHubPage />)} />
+      <Route path="action-analytics" element={routeBoundary("Action Analytics", <ActionAnalyticsPage />)} />
       <Route path="ai-center" element={routeBoundary("AI Center", <AICenterPage />)} />
       <Route path="approval" element={routeBoundary("Approval Center", <ApprovalCenter />)} />
       <Route path="sales" element={routeBoundary("Sales Pipeline", <SalesPipeline />)} />
