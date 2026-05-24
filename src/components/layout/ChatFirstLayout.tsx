@@ -29,7 +29,12 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     const getPageTitle = useCallback(() => {
         const path = location.pathname;
         if (path.includes('boss-dashboard')) return '总控中心';
-        if (path.includes('dashboard')) return '战绩中心';
+        if (path.includes('performance-dashboard')) return '战绩看板';
+        if (path.includes('dashboard')) return '行动台';
+        if (path.includes('workbench')) return '工作台';
+        if (path.includes('ai-center')) return 'AI 中心';
+        if (path.includes('data')) return '数据';
+        if (path.includes('crm')) return 'CRM';
         if (path.includes('sales')) return '销售管道';
         if (path.includes('projects')) return '项目管理';
         if (path.includes('approval')) return '智能审批';

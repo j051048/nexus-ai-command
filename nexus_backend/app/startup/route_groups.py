@@ -129,6 +129,7 @@ def register_document_routes(app: FastAPI) -> None:
 def register_organization_routes(app: FastAPI) -> None:
     from app.routers import (
         hr,
+        inbox,
         notifications,
         onboarding,
         organization,
@@ -141,6 +142,7 @@ def register_organization_routes(app: FastAPI) -> None:
 
     for router in [
         organization.router,
+        inbox.router,
         org_structure_router.router,
         profile.router,
         permissions.router,

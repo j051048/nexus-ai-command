@@ -34,6 +34,9 @@ export const InventoryPage = lazyWithRetry(() => import("@/pages/InventoryPage")
 
 // Inbox (unified todo center)
 export const InboxPage = lazyWithRetry(() => import("@/pages/InboxPage"));
+export const WorkspaceHubPage = lazyWithRetry(() => import("@/pages/ProductSpaceHubPage").then(m => ({ default: m.WorkspaceHubPage })));
+export const DataHubPage = lazyWithRetry(() => import("@/pages/ProductSpaceHubPage").then(m => ({ default: m.DataHubPage })));
+export const AICenterPage = lazyWithRetry(() => import("@/pages/ProductSpaceHubPage").then(m => ({ default: m.AICenterPage })));
 
 // OA & Enterprise
 export const OACenter = lazyWithRetry(() => import("@/pages/OACenter"));

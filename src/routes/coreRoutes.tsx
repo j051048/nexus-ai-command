@@ -3,7 +3,9 @@ import { Navigate, Route } from "react-router-dom";
 import { ModuleRouteBoundary } from "@/components/common/ModuleRouteBoundary";
 import {
   ApprovalCenter,
+  AICenterPage,
   BossDashboard,
+  DataHubPage,
   EmployeeDashboard,
   ExceptionsPage,
   InboxPage,
@@ -14,6 +16,7 @@ import {
   SalesPipeline,
   SalesTargetManager,
   TargetDashboard,
+  WorkspaceHubPage,
 } from "./lazyImports";
 
 function routeBoundary(moduleName: string, child: React.ReactNode) {
@@ -29,7 +32,7 @@ export function coreRoutes(
   return (
     <>
       <Route index element={<Navigate to="/dashboard" replace />} />
-      <Route path="dashboard" element={routeBoundary("Dashboard", <EmployeeDashboard />)} />
+      <Route path="dashboard" element={routeBoundary("Dashboard", <InboxPage />)} />
       <Route
         path="boss-dashboard"
         element={
@@ -39,6 +42,10 @@ export function coreRoutes(
         }
       />
       <Route path="inbox" element={routeBoundary("Inbox", <InboxPage />)} />
+      <Route path="performance-dashboard" element={routeBoundary("Performance Dashboard", <EmployeeDashboard />)} />
+      <Route path="workbench" element={routeBoundary("Workbench", <WorkspaceHubPage />)} />
+      <Route path="data" element={routeBoundary("Data", <DataHubPage />)} />
+      <Route path="ai-center" element={routeBoundary("AI Center", <AICenterPage />)} />
       <Route path="approval" element={routeBoundary("Approval Center", <ApprovalCenter />)} />
       <Route path="sales" element={routeBoundary("Sales Pipeline", <SalesPipeline />)} />
       <Route path="projects" element={routeBoundary("Projects", <ProjectManagement />)} />

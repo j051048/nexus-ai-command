@@ -18,6 +18,7 @@ import { InstallPrompt } from '@/components/common/InstallPrompt';
 // Sprint 3: 移动端专属首页 + 工作台
 import MobileHomePage from '@/components/mobile/MobileHomePage';
 import MobileWorkbenchPage from '@/components/mobile/MobileWorkbenchPage';
+import InboxPage from '@/pages/InboxPage';
 
 // Sprint 4: 个人中心
 import MobileProfilePage from '@/components/mobile/MobileProfilePage';
@@ -57,6 +58,18 @@ export function MobileLayout() {
     setIsAISheetOpen(true);
   }, []);
 
+  const handleVoiceMemoPress = useCallback(() => {
+    window.dispatchEvent(
+      new CustomEvent('proactive-chat', {
+        detail: {
+          message:
+            '我刚完成一次客户拜访，请用语音速记模式帮我提取：客户名称、参会人、需求、异议、下一步动作和跟进日期。',
+        },
+      }),
+    );
+    setIsAISheetOpen(true);
+  }, []);
+
   // 监听后台 AI 主动对话事件 → 自动打开 AI 浮窗
   useEffect(() => {
     const handler = () => setIsAISheetOpen(true);
@@ -72,13 +85,18 @@ export function MobileLayout() {
   const renderContent = () => {
     const path = location.pathname;
 
-    // 首页 → 移动端专属首页
-    if (path === '/dashboard' || path === '/boss-dashboard') {
+    // 行动台是移动端默认首页，和桌面统一使用同一套行动模型。
+    if (path === '/dashboard') {
+      return <InboxPage />;
+    }
+
+    // Boss 总控仍保留移动端概览。
+    if (path === '/boss-dashboard') {
       return <MobileHomePage />;
     }
 
     // 工作台默认页 → 移动端功能卡片网格
-    if (activeTab === 'workbench' && path === '/approval') {
+    if (activeTab === 'workbench' && path === '/workbench') {
       return <MobileWorkbenchPage />;
     }
 
@@ -110,7 +128,7 @@ export function MobileLayout() {
 
       {/* AI 浮动按钮（仅在子页面时显示） */}
       {isSubPage && (
-        <MobileAIFAB onClick={handleAIPress} />
+        <MobileAIFAB onClick={handleAIPress} onLongPress={handleVoiceMemoPress} />
       )}
 
       {/* 底部 Tab 栏 */}

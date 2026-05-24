@@ -16,20 +16,17 @@ interface TabConfig {
 
 const TAB_CONFIG: Record<Exclude<TabId, 'ai'>, TabConfig> = {
   home: {
-    defaultPath: (role: string) => role === 'boss' ? '/boss-dashboard' : '/dashboard',
-    matchPaths: ['/dashboard', '/boss-dashboard', '/target-dashboard'],
+    defaultPath: '/dashboard',
+    matchPaths: ['/dashboard'],
   },
   workbench: {
-    defaultPath: '/approval',
+    defaultPath: '/workbench',
     matchPaths: [
-      '/approval', '/sales', '/crm', '/projects', '/contracts',
+      '/workbench', '/approval', '/sales', '/projects', '/contracts',
       '/exceptions', '/workflows', '/oa', '/hr', '/finance',
-      '/tender-analysis', '/battlecards', '/reports', '/employees',
+      '/tender-analysis', '/battlecards', '/employees',
       '/roles', '/departments', '/targets', '/knowledge', '/documents',
       '/import', '/form-designer', '/workflow-templates',
-      '/vmd', '/vmd/tasks', '/vmd/agents', '/vmd/clues',
-      '/vmd/compliance', '/vmd/dashboard', '/llm/models',
-      '/agent-debug', '/agent-runs', '/tools/governance',
     ],
   },
   notifications: {
@@ -40,15 +37,22 @@ const TAB_CONFIG: Record<Exclude<TabId, 'ai'>, TabConfig> = {
     defaultPath: '/profile',
     matchPaths: [
       '/profile', '/settings', '/rewards', '/payments',
-      '/api-keys', '/audit', '/plugins', '/training',
-      '/custom-dashboard', '/admin',
+      '/api-keys', '/audit', '/training', '/custom-dashboard', '/admin',
+      '/data', '/boss-dashboard', '/target-dashboard', '/reports',
+      '/report-builder', '/customer-success', '/ai-center', '/crm',
+      '/vmd', '/vmd/tasks', '/vmd/agents', '/vmd/clues',
+      '/vmd/compliance', '/vmd/dashboard', '/llm/models', '/plugins',
+      '/agent-debug', '/agent-runs', '/tools/governance',
     ],
   },
 };
 
 /** 路径 → 中文标题映射 */
 const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': '首页',
+  '/dashboard': '行动台',
+  '/workbench': '工作台',
+  '/data': '数据',
+  '/ai-center': 'AI 中心',
   '/boss-dashboard': '总控中心',
   '/approval': '工作台',
   '/sales': '销售管道',
@@ -100,7 +104,7 @@ const PAGE_TITLES: Record<string, string> = {
 const TAB_HOME_PATHS = new Set([
   '/dashboard',
   '/boss-dashboard',
-  '/approval',
+  '/workbench',
   '/notification-center',
   '/profile',
 ]);

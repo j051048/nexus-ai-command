@@ -41,6 +41,12 @@ import { usePendingApprovalsCount } from '@/hooks/useApprovals';
 import { useExceptions } from '@/hooks/useExceptions';
 import { useUnreadCount } from '@/hooks/useNotificationCenter';
 import { cn } from '@/lib/utils';
+import {
+  getModuleTier,
+  isModuleEnabled,
+  MODULE_TIER_LABELS,
+  type ModuleFlag,
+} from '@/config/featureFlags';
 
 // ── Types ──
 type Role = 'boss' | 'manager' | 'employee' | 'ai_assistant';
@@ -77,6 +83,33 @@ function trackAppUsage(path: string) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, MAX_RECENT * 2)));
 }
 
+function moduleForPath(path: string): ModuleFlag | null {
+  if (path.startsWith('/approval')) return 'approval';
+  if (path.startsWith('/crm')) return 'crm';
+  if (path.startsWith('/sales')) return 'sales';
+  if (path.startsWith('/projects')) return 'projects';
+  if (path.startsWith('/targets') || path.startsWith('/target-dashboard')) return 'reports';
+  if (path.startsWith('/reports')) return 'reports';
+  if (path.startsWith('/contracts')) return 'documents';
+  if (path.startsWith('/documents')) return 'documents';
+  if (path.startsWith('/knowledge')) return 'knowledge';
+  if (path.startsWith('/workflows') || path.startsWith('/workflow-templates')) return 'workflow_designer';
+  if (path.startsWith('/form-designer')) return 'form_designer';
+  if (path.startsWith('/tender-analysis')) return 'tender';
+  if (path.startsWith('/battlecards')) return 'battlecards';
+  if (path.startsWith('/vmd')) return 'vmd';
+  if (path.startsWith('/llm/models')) return 'vmd';
+  if (path.startsWith('/oa')) return 'oa';
+  if (path.startsWith('/hr') || path.startsWith('/employees') || path.startsWith('/departments')) return 'hr';
+  if (path.startsWith('/finance')) return 'finance';
+  if (path.startsWith('/work-orders')) return 'work_orders';
+  if (path.startsWith('/assets')) return 'assets';
+  if (path.startsWith('/certificates')) return 'certificates';
+  if (path.startsWith('/inventory')) return 'inventory';
+  if (path.startsWith('/import')) return 'import';
+  return null;
+}
+
 // ── Component ──
 export default function MobileWorkbenchPage() {
   const { role } = useAuth();
@@ -95,7 +128,7 @@ export default function MobileWorkbenchPage() {
   // ── Groups ──
   const groups: WorkbenchGroup[] = [
     {
-      title: '待处理',
+      title: '核心行动',
       items: [
         {
           label: '待办中心',
@@ -119,7 +152,7 @@ export default function MobileWorkbenchPage() {
       ],
     },
     {
-      title: '销售工具',
+      title: '核心销售',
       items: [
         { label: '销售管道', path: '/sales', icon: TrendingUp },
         { label: 'CRM 客户', path: '/crm', icon: Contact },
@@ -128,7 +161,7 @@ export default function MobileWorkbenchPage() {
       ],
     },
     {
-      title: '管理中心',
+      title: '经营管理',
       items: [
         { label: '项目管理', path: '/projects', icon: Briefcase },
         { label: '目标管理', path: '/targets', icon: Target },
@@ -155,7 +188,7 @@ export default function MobileWorkbenchPage() {
       ],
     },
     {
-      title: '办公协同',
+      title: '外部系统 / 低频入口',
       items: [
         { label: 'OA 办公', path: '/oa', icon: Calendar },
         { label: '考勤打卡', path: '/oa?tab=attendance', icon: Fingerprint },
@@ -190,7 +223,7 @@ export default function MobileWorkbenchPage() {
       ],
     },
     {
-      title: '智能营销 (VMD)',
+      title: '行业专业场景',
       items: [
         { label: 'VMD 中心', path: '/vmd', icon: Megaphone },
         { label: '任务中心', path: '/vmd/tasks', icon: ListTodo },
@@ -212,7 +245,7 @@ export default function MobileWorkbenchPage() {
       ],
     },
     {
-      title: '更多工具',
+      title: '平台扩展',
       items: [
         {
           label: '数据导入',
@@ -231,6 +264,8 @@ export default function MobileWorkbenchPage() {
 
   // ── Role filter ──
   function isVisible(item: WorkbenchItem): boolean {
+    const moduleFlag = moduleForPath(item.path);
+    if (moduleFlag && !isModuleEnabled(moduleFlag)) return false;
     if (!item.visibleTo) return true;
     return item.visibleTo.includes(currentRole);
   }
@@ -297,6 +332,9 @@ export default function MobileWorkbenchPage() {
           <div className="grid grid-cols-4 gap-3">
             {recentItems.map((item) => {
               const Icon = item.icon;
+              const moduleFlag = moduleForPath(item.path);
+              const tier = moduleFlag ? getModuleTier(moduleFlag) : null;
+              const isLowFrequency = tier === 'integration';
               return (
                 <button
                   key={`recent-${item.path}`}
@@ -312,6 +350,11 @@ export default function MobileWorkbenchPage() {
                   <span className="text-xs leading-tight text-foreground/70">
                     {item.label}
                   </span>
+                  {isLowFrequency && (
+                    <span className="text-[10px] leading-none text-muted-foreground">
+                      集成
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -332,6 +375,8 @@ export default function MobileWorkbenchPage() {
             <div className="grid grid-cols-4 gap-3">
               {visibleItems.map((item) => {
                 const Icon = item.icon;
+                const moduleFlag = moduleForPath(item.path);
+                const tier = moduleFlag ? getModuleTier(moduleFlag) : null;
                 const showBadge =
                   item.badge !== undefined && item.badge !== null && item.badge > 0;
 
@@ -361,6 +406,11 @@ export default function MobileWorkbenchPage() {
                     <span className="text-xs leading-tight text-foreground/70">
                       {item.label}
                     </span>
+                    {tier && tier !== 'core' && (
+                      <span className="text-[10px] leading-none text-muted-foreground">
+                        {MODULE_TIER_LABELS[tier]}
+                      </span>
+                    )}
                   </button>
                 );
               })}

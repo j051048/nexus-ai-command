@@ -14,6 +14,7 @@ import { QuotaDisplay } from './QuotaDisplay';
 import { ChatSuggestions } from './ChatSuggestions';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { useChatPanel } from './useChatPanel';
+import { ProactiveCopilotPanel } from '@/components/ai/ProactiveCopilotPanel';
 
 interface EnhancedAIChatPanelProps {
   isExpanded: boolean;
@@ -125,8 +126,12 @@ export function EnhancedAIChatPanel({
           <div className={cn(
             'flex flex-col flex-1 min-h-0',
             variant === 'overlay' && chat.isFullscreen ? 'h-[calc(100dvh-4rem)]' : '',
-            variant === 'overlay' && !chat.isFullscreen ? 'h-[calc(85dvh-4rem)] md:h-[436px]' : ''
+              variant === 'overlay' && !chat.isFullscreen ? 'h-[calc(85dvh-4rem)] md:h-[436px]' : ''
           )}>
+            {variant === 'embedded' && chat.messages.length === 0 && !chat.isAiTyping && (
+              <ProactiveCopilotPanel onSendMessage={chat.handleSend} />
+            )}
+
             <ChatMessageList
               messages={chat.messages}
               setMessages={chat.setMessages}

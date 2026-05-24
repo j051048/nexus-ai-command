@@ -1,14 +1,18 @@
 import type { ModuleFlag } from "./featureFlags";
-import { CUSTOMER_LAUNCH_ENABLED_MODULES } from "./featureFlags";
+import { CUSTOMER_LAUNCH_ENABLED_MODULES, getModuleTier } from "./featureFlags";
 
-export type CustomerLaunchModuleReadiness = {
+type CustomerLaunchModuleBase = {
   flag: ModuleFlag;
   owner: string;
   smokePath: string;
   smokeFlow: string;
 };
 
-export const ALL_CUSTOMER_LAUNCH_MODULE_READINESS: CustomerLaunchModuleReadiness[] = [
+export type CustomerLaunchModuleReadiness = CustomerLaunchModuleBase & {
+  tier: ReturnType<typeof getModuleTier>;
+};
+
+export const ALL_CUSTOMER_LAUNCH_MODULE_READINESS: CustomerLaunchModuleBase[] = [
   { flag: "approval", owner: "workflow", smokePath: "/approval", smokeFlow: "submit-and-review-approval" },
   { flag: "assets", owner: "ops", smokePath: "/assets", smokeFlow: "asset-list-loads" },
   { flag: "battlecards", owner: "sales", smokePath: "/battlecards", smokeFlow: "battlecard-library-loads" },
@@ -39,7 +43,7 @@ export const ALL_CUSTOMER_LAUNCH_MODULE_READINESS: CustomerLaunchModuleReadiness
 
 export const CUSTOMER_LAUNCH_MODULE_READINESS = ALL_CUSTOMER_LAUNCH_MODULE_READINESS.filter(
   (module) => CUSTOMER_LAUNCH_ENABLED_MODULES.includes(module.flag),
-);
+).map((module) => ({ ...module, tier: getModuleTier(module.flag) }));
 
 export const CUSTOMER_LAUNCH_SMOKE_PATHS = CUSTOMER_LAUNCH_MODULE_READINESS.map(
   (module) => module.smokePath,

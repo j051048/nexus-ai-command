@@ -12,7 +12,6 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 import {
-  LayoutDashboard,
   Users,
   FileCheck,
   BookOpen,
@@ -132,7 +131,11 @@ export function dispatchNewChat() {
 
 const COMMAND_ITEMS: NavCommandItem[] = [
   // 核心功能
-  { label: '仪表板', path: '/dashboard', icon: LayoutDashboard, keywords: ['首页', 'home', 'dashboard'], group: '核心功能' },
+  { label: '行动台', path: '/dashboard', icon: Bell, keywords: ['首页', 'home', 'dashboard', '待办', '收件箱', '行动'], group: '核心空间' },
+  { label: 'CRM', path: '/crm', icon: Users, keywords: ['crm', '客户', '线索', '商机', '销售'], group: '核心空间' },
+  { label: '工作台', path: '/workbench', icon: Workflow, keywords: ['项目', '审批', '合同', 'oa', 'hr', '流程'], group: '核心空间' },
+  { label: '数据', path: '/data', icon: BarChart3, keywords: ['报表', '数据', '目标', 'dashboard', '经营'], group: '核心空间' },
+  { label: 'AI 中心', path: '/ai-center', icon: Sparkles, keywords: ['ai', 'agent', '知识库', '模型', '插件'], group: '核心空间' },
   { label: '领导驾驶舱', path: '/boss-dashboard', icon: Crown, keywords: ['boss', '管理', '概览'], group: '核心功能' },
   { label: '待办中心', path: '/inbox', icon: Bell, keywords: ['待办', 'inbox', '收件箱', '审批', '通知', '异常'], group: '核心功能' },
   { label: '审批中心', path: '/approval', icon: FileCheck, keywords: ['审批', 'approval', '请假', '报销'], group: '核心功能' },

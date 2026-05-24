@@ -292,7 +292,12 @@ def test_p0_irreversible_tools_always_reach_critic():
     graph = read("nexus_backend/app/agent/graph.py")
     critic = read("nexus_backend/app/agent/node_reflect.py")
     assert "Irreversible tool succeeded + user confirmed" not in graph
-    assert "return \"synthesize\"" not in graph.split("if _has_irreversible_tool(state):", 1)[1].split("logger.info(f\"[Graph] All tools succeeded", 1)[0]
+    assert (
+        'return "synthesize"'
+        not in graph.split("if _has_irreversible_tool(state):", 1)[1].split(
+            'logger.info(f"[Graph] All tools succeeded', 1
+        )[0]
+    )
     assert "Irreversible tool detected after reflect" in graph
     assert "and not has_irreversible_tool(state)" in critic
 
@@ -303,11 +308,11 @@ def test_p0_customer_launch_modules_have_owner_and_smoke_coverage():
     smoke = read("e2e/top10-critical-flows.spec.ts")
     flags = read("src/config/featureFlags.ts")
 
-    enabled_section = flags.split("SMALL_COMPANY_LAUNCH_MODULES", 1)[1].split("];", 1)[0]
+    enabled_section = flags.split("SMALL_COMPANY_LAUNCH_MODULES", 1)[1].split("];", 1)[
+        0
+    ]
     modules = [
-        line.split('"')[1]
-        for line in enabled_section.splitlines()
-        if '"' in line
+        line.split('"')[1] for line in enabled_section.splitlines() if '"' in line
     ]
     for module in modules:
         assert f'flag: "{module}"' in metadata
@@ -461,7 +466,7 @@ def test_p2_wbs_validation_is_blocking_by_contract():
 
     assert "Blocking: any warning prevents orchestration" in wbs
     assert "WBS validation failed" in wbs
-    assert "raise ValueError(\"WBS validation failed:" in wbs
+    assert 'raise ValueError("WBS validation failed:' in wbs
 
 
 def test_p2_chat_formbuilder_is_lazy_only():
@@ -603,3 +608,145 @@ def test_auth_and_prompt_firewall_regressions_have_direct_tests():
     assert 'v.layer == "context_overflow"' in firewall
     assert "test_missing_org_without_auth_is_401" in auth_test
     assert "test_context_overflow_does_not_call_llm_judge" in firewall_test
+
+
+def test_unified_action_inbox_is_wired():
+    router = read("nexus_backend/app/routers/inbox.py")
+    startup = read("nexus_backend/app/startup/route_groups.py")
+    core_routes = read("src/routes/coreRoutes.tsx")
+    hook = read("src/hooks/useInboxActions.ts")
+    inbox_page = read("src/pages/InboxPage.tsx")
+    e2e_mocks = read("e2e/fixtures/business-mocks.ts")
+
+    assert 'prefix="/api/inbox"' in router
+    assert '"/actions"' in router
+    assert "class ActionItem" in router
+    assert "class ActionCommand" in router
+    assert "class ActionEventRequest" in router
+    assert "_approval_to_action_item" in router
+    assert "_notification_to_action_item" in router
+    assert "_customer_risk_to_action_item" in router
+    assert '"/actions/{action_id}/events"' in router
+    assert "action_events" in router
+    assert "inbox.router" in startup
+    assert (
+        'path="dashboard" element={routeBoundary("Dashboard", <InboxPage />)}'
+        in core_routes
+    )
+    assert 'path="performance-dashboard"' in core_routes
+    assert "useInboxActions" in hook
+    assert "useExecuteInboxAction" in hook
+    assert "useRecordInboxActionEvent" in hook
+    assert "/api/inbox/actions" in hook
+    assert "**/api/inbox/actions**" in e2e_mocks
+    assert "/events" in e2e_mocks
+    assert "今日行动台" in inbox_page
+    assert "data?.summary.total" in inbox_page
+    assert "handleCommand" in inbox_page
+    assert "handleActionEvent" in inbox_page
+
+
+def test_navigation_is_consolidated_into_five_product_spaces():
+    sidebar = read("src/components/layout/Sidebar.tsx")
+    command_bar = read("src/components/layout/GlobalCommandBar.tsx")
+    lazy_imports = read("src/routes/lazyImports.ts")
+    core_routes = read("src/routes/coreRoutes.tsx")
+    hub_page = read("src/pages/ProductSpaceHubPage.tsx")
+
+    assert 'label: "行动台", href: "dashboard", group: "primary"' in sidebar
+    assert 'label: "CRM", href: "crm", group: "primary"' in sidebar
+    assert 'label: "工作台", href: "workbench", group: "primary"' in sidebar
+    assert 'label: "数据", href: "data", group: "primary"' in sidebar
+    assert 'label: "AI 中心", href: "ai-center", group: "primary"' in sidebar
+    assert "SPACE_MATCH_PREFIXES" in sidebar
+    assert "WorkspaceHubPage" in lazy_imports
+    assert "DataHubPage" in lazy_imports
+    assert "AICenterPage" in lazy_imports
+    assert 'path="workbench"' in core_routes
+    assert 'path="data"' in core_routes
+    assert 'path="ai-center"' in core_routes
+    assert "核心空间" in command_bar
+    assert "把日常运营收进一个空间" in hub_page
+    assert "看趋势，而不是翻模块" in hub_page
+    assert "把 Agent、知识和治理放在一起" in hub_page
+
+
+def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
+    copilot = read("src/components/ai/ProactiveCopilotPanel.tsx")
+    chat_panel = read("src/components/ai/chat/EnhancedAIChatPanel.tsx")
+    crm_page = read("src/pages/crm/CRMPage.tsx")
+    inbox_page = read("src/pages/InboxPage.tsx")
+    layout = read("src/components/layout/ChatFirstLayout.tsx")
+    mobile_nav = read("src/hooks/useMobileNavigation.ts")
+    approval_center = read("src/components/approval/ApprovalCenter.tsx")
+
+    assert "ProactiveCopilotPanel" in copilot
+    assert "useInboxActions(8)" in copilot
+    assert "routeInsights" in copilot
+    assert "chat.messages.length === 0" in chat_panel
+    assert "ProactiveCopilotPanel" in chat_panel
+    assert "CRMAIInsightLayer" in crm_page
+    assert "AI 客户摘要" in crm_page
+    assert "ActionInboxInsightStrip" in inbox_page
+    assert "AI 优先级解释" in inbox_page
+    assert "AI 证据链" in inbox_page
+    assert "risk_flags" in inbox_page
+    assert "ApprovalAIRiskPanel" in approval_center
+    assert "AI 审批风控建议" in approval_center
+    assert "return '行动台'" in layout
+    assert "'/dashboard': '行动台'" in mobile_nav
+
+
+def test_p0_p1_action_first_mobile_and_audit_contracts_are_wired():
+    migration = read("supabase/migrations/20260524_p0_action_events.sql")
+    router = read("nexus_backend/app/routers/inbox.py")
+    mobile_layout = read("src/components/layout/MobileLayout.tsx")
+    mobile_nav = read("src/hooks/useMobileNavigation.ts")
+    mobile_tab = read("src/components/mobile/MobileTabBar.tsx")
+    crm_page = read("src/pages/crm/CRMPage.tsx")
+
+    assert "CREATE TABLE IF NOT EXISTS public.action_events" in migration
+    assert "p0_action_events_tenant_isolation" in migration
+    assert "current_tenant_id_text" in migration
+    assert "risk_breakdown" in router
+    assert "evidence" in router
+    assert "risk_flags" in router
+    assert "get_current_org_id" in router
+    assert "return <InboxPage />" in mobile_layout
+    assert "path === '/workbench'" in mobile_layout
+    assert "'/workbench'" in mobile_nav
+    assert "label: '行动'" in mobile_tab
+    assert "AI 风险依据" in crm_page
+
+
+def test_p2_mobile_module_tiers_and_industry_expert_are_wired():
+    flags = read("src/config/featureFlags.ts")
+    readiness = read("src/config/customerLaunchModules.ts")
+    mobile_fab = read("src/components/mobile/MobileAIFAB.tsx")
+    mobile_layout = read("src/components/layout/MobileLayout.tsx")
+    mobile_workbench = read("src/components/mobile/MobileWorkbenchPage.tsx")
+    inbox_page = read("src/pages/InboxPage.tsx")
+    crm_page = read("src/pages/crm/CRMPage.tsx")
+    ai_center = read("src/pages/ProductSpaceHubPage.tsx")
+
+    assert "export type ModuleTier" in flags
+    assert "MODULE_TIERS" in flags
+    assert "core:" in flags
+    assert "specialized:" in flags
+    assert "integration:" in flags
+    assert "getModuleTier" in flags
+    assert "getEnabledModulesByTier" in flags
+    assert "tier: getModuleTier" in readiness
+    assert "onLongPress" in mobile_fab
+    assert "长按语音速记" in mobile_fab
+    assert "handleVoiceMemoPress" in mobile_layout
+    assert "语音速记模式" in mobile_layout
+    assert "moduleForPath" in mobile_workbench
+    assert "MODULE_TIER_LABELS" in mobile_workbench
+    assert "外部系统 / 低频入口" in mobile_workbench
+    assert "右滑采纳，左滑忽略" in inbox_page
+    assert "handleSwipeEnd" in inbox_page
+    assert "记录拜访" in crm_page
+    assert "IndustryExpertPanel" in ai_center
+    assert "科学仪器行业专家" in ai_center
+    assert "招投标评分" in ai_center

@@ -1,297 +1,505 @@
 /**
- * InboxPage - 统一待办中心
- * 聚合：审批请求 + 异常待办 + 系统通知
+ * InboxPage - unified action workspace.
+ *
+ * The page intentionally consumes `/api/inbox/actions` instead of stitching
+ * approvals, notifications, and CRM risk queries in the browser. That keeps the
+ * product centered on one action model shared by desktop, mobile, and AI copilot.
  */
 
-import { useState } from 'react';
+import { useMemo, useRef, useState, type ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 import {
-  FileCheck,
   AlertTriangle,
   Bell,
   CheckCircle2,
-  XCircle,
+  Clock,
   ExternalLink,
+  FileCheck,
   Filter,
+  Sparkles,
+  UserRoundSearch,
 } from 'lucide-react';
-import { useApprovals } from '@/hooks/useApprovals';
-import { useExceptions, type ExceptionAlert } from '@/hooks/useExceptions';
-import {
-  useNotificationCenter,
-  useMarkRead,
-  useMarkAllRead,
-  type NotificationItem,
-} from '@/hooks/useNotificationCenter';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import {
+  InboxActionCommand,
+  InboxActionItem,
+  ActionSource,
+  ActionEventType,
+  useExecuteInboxAction,
+  useInboxActions,
+  useRecordInboxActionEvent,
+} from '@/hooks/useInboxActions';
 
-type TabKey = 'all' | 'approvals' | 'exceptions' | 'notifications';
+type TabKey = 'all' | ActionSource;
+type EvidenceItem = { label: string; value: string };
 
-interface TabDef {
-  key: TabKey;
-  label: string;
-  icon: React.ElementType;
-  count: number;
+const SOURCE_META: Record<
+  ActionSource,
+  { label: string; icon: ElementType; tone: string }
+> = {
+  approval: {
+    label: '审批',
+    icon: FileCheck,
+    tone: 'text-blue-500 bg-blue-500/10',
+  },
+  notification: {
+    label: '通知',
+    icon: Bell,
+    tone: 'text-sky-500 bg-sky-500/10',
+  },
+  crm: {
+    label: '客户',
+    icon: UserRoundSearch,
+    tone: 'text-amber-500 bg-amber-500/10',
+  },
+  system: {
+    label: '系统',
+    icon: AlertTriangle,
+    tone: 'text-muted-foreground bg-muted',
+  },
+};
+
+const PRIORITY_LABEL = {
+  urgent: '紧急',
+  high: '高',
+  medium: '中',
+  low: '低',
+};
+
+const PRIORITY_CLASS = {
+  urgent: 'border-destructive/40 bg-destructive/10 text-destructive',
+  high: 'border-orange-500/40 bg-orange-500/10 text-orange-600',
+  medium: 'border-primary/30 bg-primary/10 text-primary',
+  low: 'border-muted bg-muted text-muted-foreground',
+};
+
+function formatTime(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function triggerAI(prompt: string) {
+  window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
+}
+
+function getEvidence(item: InboxActionItem): EvidenceItem[] {
+  const raw = item.metadata?.evidence;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const record = entry as Record<string, unknown>;
+      const label = String(record.label ?? '').trim();
+      const value = String(record.value ?? '').trim();
+      return label && value ? { label, value } : null;
+    })
+    .filter(Boolean) as EvidenceItem[];
+}
+
+function getRiskFlags(item: InboxActionItem): string[] {
+  const raw = item.metadata?.risk_flags;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((value) => String(value)).filter(Boolean);
+}
+
+function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
+  const urgent = items.filter((item) => item.priority === 'urgent');
+  const high = items.filter((item) => item.priority === 'high');
+  const crmRisk = items.filter((item) => item.source === 'crm');
+  const nextItem = urgent[0] || high[0] || items[0];
+
+  return (
+    <section className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-semibold">AI 优先级解释</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {items.length === 0
+                ? '当前没有待处理行动项，可以把时间用于推进高价值客户和关键项目。'
+                : `今天共有 ${items.length} 个行动项，其中 ${urgent.length} 个紧急、${high.length} 个高优先级、${crmRisk.length} 个客户风险。`}
+              {nextItem ? ` 建议先处理：${nextItem.title}` : ''}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={() =>
+              triggerAI('请解释当前行动台的优先级排序，并给我一个今天的处理顺序。')
+            }
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            解释排序
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              triggerAI('请把当前行动台整理成一份今天可以照着执行的工作计划。')
+            }
+          >
+            生成今日计划
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default function InboxPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabKey>('all');
+  const touchStartX = useRef(0);
+  const { data, isLoading, isError, refetch } = useInboxActions(50);
+  const executeAction = useExecuteInboxAction();
+  const recordActionEvent = useRecordInboxActionEvent();
 
-  // Data hooks
-  const { pendingApprovals = [], updateStatus, isLoading: approvalsLoading } = useApprovals();
-  const { data: exceptions = [], isLoading: exceptionsLoading } = useExceptions();
-  const { data: notifications = [], isLoading: notificationsLoading } = useNotificationCenter({ limit: 50 });
-  const markRead = useMarkRead();
-  const markAllRead = useMarkAllRead();
+  const items = data?.items ?? [];
+  const visibleItems = useMemo(
+    () =>
+      activeTab === 'all'
+        ? items
+        : items.filter((item) => item.source === activeTab),
+    [activeTab, items],
+  );
 
-  const unreadNotifications = notifications.filter((n: NotificationItem) => !n.is_read);
+  const sourceCounts = useMemo(() => {
+    const counts: Record<TabKey, number> = {
+      all: items.length,
+      approval: 0,
+      notification: 0,
+      crm: 0,
+      system: 0,
+    };
+    items.forEach((item) => {
+      counts[item.source] += 1;
+    });
+    return counts;
+  }, [items]);
 
-  const tabs: TabDef[] = [
-    { key: 'all', label: '全部', icon: Filter, count: pendingApprovals.length + exceptions.length + unreadNotifications.length },
-    { key: 'approvals', label: '待审批', icon: FileCheck, count: pendingApprovals.length },
-    { key: 'exceptions', label: '异常待办', icon: AlertTriangle, count: exceptions.length },
-    { key: 'notifications', label: '通知', icon: Bell, count: unreadNotifications.length },
+  const tabs: Array<{ key: TabKey; label: string; icon: ElementType }> = [
+    { key: 'all', label: '全部行动', icon: Filter },
+    { key: 'approval', label: '审批', icon: FileCheck },
+    { key: 'crm', label: '客户风险', icon: UserRoundSearch },
+    { key: 'notification', label: '通知', icon: Bell },
   ];
 
-  const isLoading = approvalsLoading || exceptionsLoading || notificationsLoading;
-
-  const handleApprove = async (id: string) => {
+  const handleCommand = async (
+    item: InboxActionItem,
+    command: InboxActionCommand,
+  ) => {
+    if (command.kind === 'navigate') {
+      recordActionEvent.mutate({
+        action: item,
+        event_type: 'viewed',
+        metadata: { command_id: command.id },
+      });
+      navigate(command.navigate_to || item.action_url || '/inbox');
+      return;
+    }
     try {
-      await updateStatus.mutateAsync({ id, status: 'approved' });
-      toast.success('审批已通过');
-    } catch {
-      toast.error('操作失败');
+      await executeAction.mutateAsync(command);
+      recordActionEvent.mutate({
+        action: item,
+        event_type: 'command_executed',
+        metadata: { command_id: command.id, command_label: command.label },
+      });
+      toast.success(`${command.label}已完成`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '操作失败';
+      toast.error(message);
     }
   };
 
-  const handleReject = async (id: string) => {
+  const handleActionEvent = async (
+    item: InboxActionItem,
+    eventType: ActionEventType,
+  ) => {
+    const labels: Partial<Record<ActionEventType, string>> = {
+      accepted: '已采纳',
+      completed: '已完成',
+      ignored: '已忽略',
+      snoozed: '已设为稍后处理',
+    };
     try {
-      await updateStatus.mutateAsync({ id, status: 'rejected' });
-      toast.success('已拒绝');
-    } catch {
-      toast.error('操作失败');
+      await recordActionEvent.mutateAsync({ action: item, event_type: eventType });
+      toast.success(labels[eventType] || '已记录');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '记录行动状态失败';
+      toast.error(message);
     }
   };
 
-  const handleMarkAllRead = async () => {
-    try {
-      await markAllRead.mutateAsync();
-      toast.success('已全部标为已读');
-    } catch {
-      toast.error('操作失败');
-    }
+  const handleSwipeEnd = (item: InboxActionItem, clientX: number) => {
+    const delta = clientX - touchStartX.current;
+    if (Math.abs(delta) < 72) return;
+    handleActionEvent(item, delta > 0 ? 'accepted' : 'ignored');
   };
-
-  const handleNotificationClick = async (notification: NotificationItem) => {
-    if (!notification.is_read) {
-      markRead.mutate([notification.id]);
-    }
-    if (notification.action_url) {
-      navigate(notification.action_url);
-    }
-  };
-
-  // Render sections
-  const showApprovals = activeTab === 'all' || activeTab === 'approvals';
-  const showExceptions = activeTab === 'all' || activeTab === 'exceptions';
-  const showNotifications = activeTab === 'all' || activeTab === 'notifications';
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">待办中心</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            聚合所有待处理事项，一站式高效处理
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
+            <Sparkles className="h-4 w-4" />
+            今日行动台
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">今天该处理什么</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            聚合审批、客户风险、通知和 AI 规则建议，按优先级帮你排好队。
           </p>
         </div>
-        {unreadNotifications.length > 0 && (
-          <Button variant="outline" size="sm" onClick={handleMarkAllRead}>
-            全部已读
-          </Button>
-        )}
-      </div>
+        <div className="grid grid-cols-3 gap-2 text-center md:min-w-[260px]">
+          <div className="rounded-lg border bg-card p-3">
+            <div className="text-xl font-bold">{data?.summary.total ?? 0}</div>
+            <div className="text-xs text-muted-foreground">待处理</div>
+          </div>
+          <div className="rounded-lg border bg-card p-3">
+            <div className="text-xl font-bold text-destructive">
+              {data?.summary.urgent ?? 0}
+            </div>
+            <div className="text-xs text-muted-foreground">紧急</div>
+          </div>
+          <div className="rounded-lg border bg-card p-3">
+            <div className="text-xl font-bold text-orange-600">
+              {data?.summary.high ?? 0}
+            </div>
+            <div className="text-xs text-muted-foreground">高优先级</div>
+          </div>
+        </div>
+      </header>
 
-      {/* Tab bar */}
-      <div className="flex gap-2 border-b pb-2">
+      {!isLoading && !isError && <ActionInboxInsightStrip items={items} />}
+
+      <nav className="flex flex-wrap gap-2 border-b pb-3">
         {tabs.map((tab) => {
           const Icon = tab.icon;
+          const active = activeTab === tab.key;
+          const count = sourceCounts[tab.key] ?? 0;
           return (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                activeTab === tab.key
-                  ? 'bg-primary/10 text-primary'
+                'flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
+                active
+                  ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
             >
               <Icon className="h-4 w-4" />
               {tab.label}
-              {tab.count > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-[10px]">
-                  {tab.count}
-                </Badge>
+              {count > 0 && (
+                <Badge variant={active ? 'secondary' : 'outline'}>{count}</Badge>
               )}
             </button>
           );
         })}
-      </div>
+      </nav>
 
-      {/* Loading */}
       {isLoading && (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-28 animate-pulse rounded-lg bg-muted" />
+          ))}
         </div>
       )}
 
-      {/* Approvals Section */}
-      {showApprovals && pendingApprovals.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <FileCheck className="h-4 w-4" />
-            待审批 ({pendingApprovals.length})
-          </h2>
-          <div className="space-y-2">
-            {pendingApprovals.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {item.type === 'leave' ? '请假申请' : item.type === 'expense' ? '报销申请' : item.type} - {item.submitter_name || '未知用户'}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {item.details ? (typeof item.details === 'string' ? item.details : JSON.stringify(item.details).slice(0, 80)) : ''}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {new Date(item.created_at).toLocaleString('zh-CN')}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 ml-4 shrink-0">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-destructive hover:text-destructive"
-                    onClick={() => handleReject(item.id)}
-                    disabled={updateStatus.isPending}
-                  >
-                    <XCircle className="h-3.5 w-3.5 mr-1" />
-                    拒绝
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-8"
-                    onClick={() => handleApprove(item.id)}
-                    disabled={updateStatus.isPending}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                    通过
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+      {isError && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-5">
+          <div className="font-medium text-destructive">行动列表加载失败</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            请稍后重试，或检查后端 `/api/inbox/actions` 是否可用。
+          </p>
+          <Button className="mt-4" variant="outline" onClick={() => refetch()}>
+            重新加载
+          </Button>
+        </div>
       )}
 
-      {/* Exceptions Section */}
-      {showExceptions && exceptions.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            异常待办 ({exceptions.length})
-          </h2>
-          <div className="space-y-2">
-            {exceptions.map((item: ExceptionAlert) => (
-              <div
+      {!isLoading && !isError && visibleItems.length > 0 && (
+        <section className="space-y-3">
+          {visibleItems.map((item) => {
+            const meta = SOURCE_META[item.source];
+            const Icon = meta.icon;
+            const time = formatTime(item.due_at || item.created_at);
+            const evidence = getEvidence(item).slice(0, 4);
+            const riskFlags = getRiskFlags(item).slice(0, 3);
+            return (
+              <article
                 key={item.id}
-                className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
-                onClick={() => navigate('/exceptions')}
+                onTouchStart={(event) => {
+                  touchStartX.current = event.touches[0]?.clientX ?? 0;
+                }}
+                onTouchEnd={(event) => {
+                  const clientX = event.changedTouches[0]?.clientX;
+                  if (typeof clientX === 'number') handleSwipeEnd(item, clientX);
+                }}
+                className="rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-accent/30"
               >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <span
+                <div className="flex gap-4">
+                  <div
                     className={cn(
-                      'w-2 h-2 rounded-full shrink-0',
-                      item.severity === 'high' && 'bg-destructive',
-                      item.severity === 'medium' && 'bg-warning',
-                      item.severity === 'low' && 'bg-muted-foreground',
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                      meta.tone,
                     )}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{item.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                  >
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{meta.label}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={PRIORITY_CLASS[item.priority]}
+                      >
+                        {PRIORITY_LABEL[item.priority]}
+                      </Badge>
+                      {time && (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          {time}
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="mt-2 text-base font-semibold leading-snug">
+                      {item.title}
+                    </h2>
+                    {item.description && (
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                        {item.description}
+                      </p>
+                    )}
+                    {item.reason && (
+                      <p className="mt-2 text-xs text-primary">{item.reason}</p>
+                    )}
+                    {(evidence.length > 0 || riskFlags.length > 0) && (
+                      <div className="mt-3 grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs md:grid-cols-2">
+                        {evidence.length > 0 && (
+                          <div className="space-y-1.5">
+                            <div className="font-medium text-foreground">AI 证据链</div>
+                            {evidence.map((entry) => (
+                              <div key={`${item.id}-${entry.label}`} className="flex gap-2">
+                                <span className="shrink-0 text-muted-foreground">
+                                  {entry.label}:
+                                </span>
+                                <span className="min-w-0 truncate text-foreground">
+                                  {entry.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {riskFlags.length > 0 && (
+                          <div className="space-y-1.5">
+                            <div className="font-medium text-foreground">风险提示</div>
+                            {riskFlags.map((flag) => (
+                              <div key={`${item.id}-${flag}`} className="flex gap-2">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                                <span className="text-muted-foreground">{flag}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-                <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
-      {/* Notifications Section */}
-      {showNotifications && notifications.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            通知 ({unreadNotifications.length} 未读)
-          </h2>
-          <div className="space-y-2">
-            {(activeTab === 'notifications' ? notifications : unreadNotifications.slice(0, 10)).map((item: NotificationItem) => (
-              <div
-                key={item.id}
-                className={cn(
-                  'flex items-start gap-3 p-4 rounded-lg border transition-colors cursor-pointer',
-                  item.is_read
-                    ? 'bg-card/50 opacity-70'
-                    : 'bg-card hover:bg-accent/50',
-                )}
-                onClick={() => handleNotificationClick(item)}
-              >
-                <span
-                  className={cn(
-                    'mt-1 w-2 h-2 rounded-full shrink-0',
-                    item.is_read ? 'bg-transparent' : 'bg-primary',
-                  )}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.title}</p>
-                  {item.content && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.content}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(item.created_at).toLocaleString('zh-CN')}
-                  </p>
+                <div className="mt-3 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground sm:hidden">
+                  右滑采纳，左滑忽略；长按底部 AI 按钮可快速记录拜访。
                 </div>
-                {item.action_url && (
-                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
-                )}
-              </div>
-            ))}
-          </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={recordActionEvent.isPending}
+                      onClick={() => handleActionEvent(item, 'accepted')}
+                    >
+                      采纳
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={recordActionEvent.isPending}
+                      onClick={() => handleActionEvent(item, 'snoozed')}
+                    >
+                      稍后
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={recordActionEvent.isPending}
+                      onClick={() => handleActionEvent(item, 'completed')}
+                    >
+                      完成
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={recordActionEvent.isPending}
+                      onClick={() => handleActionEvent(item, 'ignored')}
+                    >
+                      忽略
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                  {item.actions.map((command) => (
+                    <Button
+                      key={command.id}
+                      size="sm"
+                      variant={
+                        command.variant === 'primary'
+                          ? 'default'
+                          : command.variant === 'danger'
+                            ? 'destructive'
+                            : 'outline'
+                      }
+                      disabled={executeAction.isPending}
+                      onClick={() => handleCommand(item, command)}
+                    >
+                      {command.kind === 'navigate' && command.id === 'view' && (
+                        <ExternalLink className="mr-1 h-3.5 w-3.5" />
+                      )}
+                      {command.id === 'approve' && (
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                      )}
+                      {command.label}
+                    </Button>
+                  ))}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </section>
       )}
 
-      {/* Empty state */}
-      {!isLoading &&
-        pendingApprovals.length === 0 &&
-        exceptions.length === 0 &&
-        unreadNotifications.length === 0 && (
-          <div className="text-center py-16">
-            <CheckCircle2 className="h-12 w-12 text-success mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium">一切就绪</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              暂无待处理事项，可以专注于当前工作
-            </p>
-          </div>
-        )}
+      {!isLoading && !isError && visibleItems.length === 0 && (
+        <div className="rounded-lg border bg-card py-16 text-center">
+          <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-success opacity-60" />
+          <h3 className="text-lg font-medium">今天没有待处理行动</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            审批、客户风险和通知都已清空，可以专注推进当前销售机会。
+          </p>
+        </div>
+      )}
     </div>
   );
 }

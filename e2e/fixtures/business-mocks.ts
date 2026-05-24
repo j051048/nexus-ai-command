@@ -172,6 +172,71 @@ export async function setupBusinessMocks(page: Page) {
       ])
     });
   });
+
+  await page.route('**/api/inbox/actions**', async (route) => {
+    if (route.request().url().includes('/events')) {
+      await fulfillJson(route, {
+        success: true,
+        data: {
+          recorded: true,
+          event: {
+            id: 'evt-1',
+            created_at: new Date().toISOString(),
+          },
+        },
+      });
+      return;
+    }
+
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        items: [
+          {
+            id: 'approval:ap-1',
+            source: 'approval',
+            source_id: 'ap-1',
+            type: 'expense',
+            title: 'E2E Admin 的报销审批',
+            description: '测试环境待处理审批',
+            reason: '等待你处理的审批事项',
+            priority: 'high',
+            status: 'open',
+            created_at: new Date().toISOString(),
+            action_url: '/approval',
+            actions: [
+              {
+                id: 'view',
+                label: '查看',
+                kind: 'navigate',
+                variant: 'primary',
+                navigate_to: '/approval',
+              },
+            ],
+            metadata: {
+              risk_score: 65,
+              risk_flags: ['测试审批待处理'],
+              evidence: [
+                { label: '提交人', value: 'E2E Admin' },
+                { label: '审批类型', value: 'expense' },
+              ],
+            },
+          },
+        ],
+        summary: {
+          total: 1,
+          urgent: 0,
+          high: 1,
+          by_source: {
+            approval: 1,
+            notification: 0,
+            crm: 0,
+            system: 0,
+          },
+        },
+      },
+    });
+  });
 }
 
 /**

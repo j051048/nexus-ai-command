@@ -16,7 +16,6 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import {
-  LayoutDashboard,
   Users,
   FileCheck,
   BookOpen,
@@ -185,13 +184,12 @@ function isNavFeatureEnabled(item: NavItem): boolean {
 }
 
 const NAV_CONFIG: NavItem[] = [
-  // 一级导航 (6项核心)
-  { icon: <LayoutDashboard size={18} />, label: "工作台", href: "dashboard", group: "primary" },
-  { icon: <Inbox size={18} />, label: "待办", href: "inbox", group: "primary" },
-  { icon: <Contact size={18} />, label: "客户与销售", href: "crm", group: "primary" },
-  { icon: <Briefcase size={18} />, label: "项目管理", href: "projects", group: "primary" },
-  { icon: <FileCheck size={18} />, label: "审批中心", href: "approval", group: "primary" },
-  { icon: <Bot size={18} />, label: "AI助手", href: "#ai-chat", group: "primary" },
+  // 一级导航：默认只暴露 5 个产品空间，其它模块通过“更多模块”和命令面板触达。
+  { icon: <Inbox size={18} />, label: "行动台", href: "dashboard", group: "primary" },
+  { icon: <Contact size={18} />, label: "CRM", href: "crm", group: "primary" },
+  { icon: <Briefcase size={18} />, label: "工作台", href: "workbench", group: "primary" },
+  { icon: <BarChart3 size={18} />, label: "数据", href: "data", group: "primary" },
+  { icon: <Bot size={18} />, label: "AI 中心", href: "ai-center", group: "primary" },
 
   // 业务域分组
   { icon: <TrendingUp size={18} />, label: "销售管道", href: "sales", group: "业务" },
@@ -234,6 +232,42 @@ const NAV_CONFIG: NavItem[] = [
 
 const NAV_GROUPS = ["primary", "业务", "办公", "数据", "资产", "管理"];
 
+const SPACE_MATCH_PREFIXES: Record<string, string[]> = {
+  workbench: [
+    "projects",
+    "approval",
+    "contracts",
+    "oa",
+    "hr",
+    "finance",
+    "work-orders",
+    "workflows",
+    "workflow-templates",
+    "form-designer",
+    "org-chart",
+  ],
+  data: [
+    "reports",
+    "report-builder",
+    "target-dashboard",
+    "performance-dashboard",
+    "boss-dashboard",
+    "custom-dashboard",
+    "customer-success",
+  ],
+  "ai-center": [
+    "knowledge",
+    "vmd",
+    "plugins",
+    "llm",
+    "tools",
+    "agent-runs",
+    "agent-debug",
+    "scheduled-tasks",
+    "admin",
+  ],
+};
+
 function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
   const { user } = useUser();
   const { role, signOut, profile } = useAuth();
@@ -253,7 +287,10 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
   const isActive = (href: string) => {
     const p = location.pathname.replace(/^\//, '');
     const hrefPath = href.split("?")[0];
-    return p === hrefPath || (hrefPath === 'dashboard' && p === '') || p.startsWith(hrefPath + '/');
+    const spaceMatches = SPACE_MATCH_PREFIXES[hrefPath]?.some(
+      (prefix) => p === prefix || p.startsWith(`${prefix}/`),
+    );
+    return p === hrefPath || (hrefPath === 'dashboard' && p === '') || p.startsWith(hrefPath + '/') || Boolean(spaceMatches);
   };
 
   const renderNavGroup = (title: string, items: NavItem[]) => {
