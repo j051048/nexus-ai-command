@@ -648,6 +648,10 @@ CHECKS = [
         "src/pages/AIOperatingSystemPage.tsx",
         (
             "科学仪器销售团队的 AI 作战室",
+            "真实运营数据",
+            "useAIOperatingOverview",
+            "useRunAgentSimulation",
+            "运行仿真",
             "P0-P3：AI 原生能力底座",
             "P4-P6：产品形态与增长闭环",
             "AI-Native 场景",
@@ -664,6 +668,39 @@ CHECKS = [
             "VMD 超级场景",
             "Agent 生命周期",
             "业务上下文层",
+        ),
+    ),
+    GateCheck(
+        "P0",
+        "AI operating system backend aggregation",
+        "nexus_backend/app/routers/ai_operating_system.py",
+        (
+            "/api/ai-operating-system",
+            '"/overview"',
+            '"/simulate"',
+            "build_business_context_graph",
+            "_simulate_messages",
+        ),
+    ),
+    GateCheck(
+        "P1",
+        "business graph context injection",
+        "nexus_backend/app/agent/context_engine.py",
+        (
+            "BusinessGraphContextProvider",
+            "business_context_graph",
+            "context_engine.register(BusinessGraphContextProvider())",
+        ),
+    ),
+    GateCheck(
+        "P1",
+        "business graph shared service",
+        "nexus_backend/app/services/business_context_graph.py",
+        (
+            "GRAPH_QUERY_SPECS",
+            "build_business_context_graph",
+            "prompt_context",
+            "客户项目",
         ),
     ),
     GateCheck(

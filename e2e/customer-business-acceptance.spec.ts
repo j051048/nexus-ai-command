@@ -582,7 +582,8 @@ test.describe('Customer business acceptance flows', () => {
     await page.goto('/ai-operating-system');
     await expectHealthyPage(page);
     await expect(page.getByText('科学仪器销售团队的 AI 作战室')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Agent 仿真沙盒')).toBeVisible();
+    await expect(page.getByText('真实运营数据')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Agent 仿真沙盒' }).first()).toBeVisible();
     await expect(page.getByText('SOP → AOP 自然语言定义器')).toBeVisible();
     await expect(page.locator('#demo-space').getByRole('heading', { name: '科学仪器 Demo 空间' })).toBeVisible();
   });

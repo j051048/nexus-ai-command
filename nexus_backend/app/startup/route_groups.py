@@ -12,6 +12,7 @@ logger = get_logger(__name__)
 def register_ai_routes(app: FastAPI) -> None:
     from app.routers import (
         agent_observability,
+        ai_operating_system,
         ai_feedback,
         analysis,
         audio,
@@ -43,6 +44,7 @@ def register_ai_routes(app: FastAPI) -> None:
         ws_router.router,
         agent_proactive_router.router,
         agent_observability.router,
+        ai_operating_system.router,
         ai_feedback.router,
         ai_feedback.router_v1,
         export.router,

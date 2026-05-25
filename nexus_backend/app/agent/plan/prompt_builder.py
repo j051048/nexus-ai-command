@@ -333,6 +333,7 @@ async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
             context_window=_ctx_window,
             context_ledger=ledger,
             session_id=agent_config.session_id,
+            user_role=agent_config.user_role,
         )
         state["context_ledger"] = ledger.to_dict()
         if engine_ctx:

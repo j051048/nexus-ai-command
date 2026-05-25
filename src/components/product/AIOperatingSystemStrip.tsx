@@ -36,9 +36,7 @@ export function AIOperatingSystemStrip() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() =>
-              triggerAI('请把 Nexus 的 P0-P6 产品升级压缩成今天可执行的 5 个落地动作。')
-            }
+            onClick={() => triggerAI('把 Nexus 的 P0-P6 产品升级压缩成今天可执行的 5 个落地动作。')}
           >
             <Sparkles className="mr-2 h-4 w-4" />
             生成今日落地动作

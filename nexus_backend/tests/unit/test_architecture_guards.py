@@ -852,6 +852,12 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     model = read("src/config/aiOperatingSystem.ts")
     page = read("src/pages/AIOperatingSystemPage.tsx")
     strip = read("src/components/product/AIOperatingSystemStrip.tsx")
+    hook = read("src/hooks/useAIOperatingSystem.ts")
+    router = read("nexus_backend/app/routers/ai_operating_system.py")
+    graph_service = read("nexus_backend/app/services/business_context_graph.py")
+    context_engine = read("nexus_backend/app/agent/context_engine.py")
+    prompt_builder = read("nexus_backend/app/agent/plan/prompt_builder.py")
+    route_groups = read("nexus_backend/app/startup/route_groups.py")
     core_routes = read("src/routes/coreRoutes.tsx")
     lazy_imports = read("src/routes/lazyImports.ts")
     sidebar = read("src/components/layout/Sidebar.tsx")
@@ -869,6 +875,10 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "ROLE_WORKBENCH_PROFILES" in model
 
     assert "科学仪器销售团队的 AI 作战室" in page
+    assert "真实运营数据" in page
+    assert "useAIOperatingOverview" in page
+    assert "useRunAgentSimulation" in page
+    assert "运行仿真" in page
     assert "P0-P3：AI 原生能力底座" in page
     assert "P4-P6：产品形态与增长闭环" in page
     assert "AI-Native 场景" in page
@@ -890,3 +900,16 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     )
     assert "AI 作战操作系统" in command_bar
     assert "/ai-operating-system" in acceptance
+
+    assert "/api/ai-operating-system" in router
+    assert '"/overview"' in router
+    assert '"/simulate"' in router
+    assert "build_business_context_graph" in router
+    assert "AgentSimulationResult" in hook
+    assert "BusinessContextGraph" in hook
+    assert "GRAPH_QUERY_SPECS" in graph_service
+    assert "prompt_context" in graph_service
+    assert "BusinessGraphContextProvider" in context_engine
+    assert "context_engine.register(BusinessGraphContextProvider())" in context_engine
+    assert "user_role=agent_config.user_role" in prompt_builder
+    assert "ai_operating_system.router" in route_groups

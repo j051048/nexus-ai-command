@@ -303,6 +303,101 @@ export async function setupBusinessMocks(page: Page) {
       },
     });
   });
+
+  await page.route('**/api/ai-operating-system/overview**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        window_days: 30,
+        agent: {
+          total_runs: 18,
+          completed: 15,
+          failed: 2,
+          failure_rate: 0.11,
+          success_rate: 0.83,
+          tool_failure_signals: 1,
+          total_cost_usd: 1.23,
+          total_tokens: 42000,
+        },
+        actions: {
+          total_events: 9,
+          accepted: 4,
+          completed: 3,
+          ignored: 1,
+          completion_rate: 0.33,
+          acceptance_rate: 0.44,
+        },
+        graph: {
+          nodes: [
+            { id: 'customer:c-1', type: 'customer', label: 'Google Cloud', status: 'lead' },
+            { id: 'project:p-1', type: 'project', label: 'Pilot Rollout', status: 'planning' },
+            { id: 'action_event:e-1', type: 'action_event', label: 'crm-risk:c-1', status: 'accepted' },
+          ],
+          edges: [
+            { source: 'customer:c-1', target: 'project:p-1', label: '客户项目', strength: 0.86 },
+            { source: 'customer:c-1', target: 'action_event:e-1', label: '客户行动', strength: 0.68 },
+          ],
+          summary: {
+            node_count: 3,
+            edge_count: 2,
+            density: 0.67,
+            entity_counts: { customer: 1, project: 1, action_event: 1 },
+          },
+          prompt_context: '[业务知识图谱]\\n- customer: Google Cloud',
+        },
+        recent_runs: [
+          {
+            id: 'run-1',
+            run_id: 'run-1',
+            status: 'completed',
+            input_summary: '查询高价值客户跟进风险',
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        operating_metrics: {
+          agent_success_rate: 0.83,
+          action_completion_rate: 0.33,
+          context_graph_nodes: 3,
+          context_graph_edges: 2,
+        },
+      },
+    });
+  });
+
+  await page.route('**/api/ai-operating-system/simulate**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        cases: [
+          {
+            id: 'case-1',
+            message: '30天未跟进客户自动生成拜访提醒和邮件草稿',
+            detected_intent: 'crm_followup',
+            suggested_tools: ['search_customers', 'draft_followup'],
+            baseline: { mode: 'recommend_only', expected_outcome: '生成建议，等待人工点击执行' },
+            candidate: { mode: 'auto', policy: '低风险自动执行', expected_outcome: '自动执行低风险步骤' },
+            risk_score: 20,
+            risk_flags: ['低风险信息处理或草稿生成，可自动执行'],
+          },
+        ],
+        summary: {
+          case_count: 1,
+          automation_rate: 1,
+          hitl_rate: 0,
+          avg_risk_score: 20,
+          recommendation: '可上线灰度',
+        },
+        context_graph_summary: {
+          node_count: 3,
+          edge_count: 2,
+          density: 0.67,
+          entity_counts: { customer: 1, project: 1, action_event: 1 },
+        },
+        baseline_policy: '全部建议人工点击执行',
+        candidate_policy: '低风险自动执行',
+      },
+    });
+  });
 }
 
 /**

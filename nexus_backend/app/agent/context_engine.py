@@ -493,6 +493,36 @@ class KnowledgeBaseProvider(ContextProvider):
             return ""
 
 
+class BusinessGraphContextProvider(ContextProvider):
+    """Inject lightweight customer/project/contract/action graph context."""
+
+    name = "business_context_graph"
+    priority = 35
+
+    def max_tokens(self) -> int:
+        return 700
+
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
+        if not org_id:
+            return ""
+        try:
+            from app.core.database import supabase
+            from app.services.business_context_graph import build_business_context_graph
+
+            graph = await build_business_context_graph(
+                supabase,
+                org_id=org_id,
+                user_id=user_id,
+                role=kwargs.get("user_role"),
+            )
+            return graph.get("prompt_context") or ""
+        except Exception as e:
+            logger.error(f"[BusinessGraphContextProvider] Failed: {e}")
+            return ""
+
+
 class CompletedTasksProvider(ContextProvider):
     """跨会话已完成任务注入，让 AI 记住"帮用户做过什么"。"""
 
@@ -670,4 +700,5 @@ context_engine.register(CompletedTasksProvider())
 context_engine.register(CorrectionHistoryProvider())
 # SemanticMemoryProvider 已由 memory.py:prepare_initial_state() 第554行覆盖，跳过避免重复注入
 # context_engine.register(SemanticMemoryProvider())
+context_engine.register(BusinessGraphContextProvider())
 context_engine.register(KnowledgeBaseProvider())
