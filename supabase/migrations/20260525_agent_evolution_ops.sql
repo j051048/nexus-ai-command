@@ -1,5 +1,9 @@
 -- Agent Evolution Ops: prompt versions, CI runs, proposals, context quality,
--- eval cases, reward events, marketplace skills, red-team findings and trust reports.
+-- reward events, marketplace skills, red-team findings and trust reports.
+-- NOTE: public.agent_eval_cases is intentionally not created here. It is owned
+-- by 20260508_prompt_context_harness_eval_cases.sql and reconciled by
+-- 20260525_agent_eval_cases_schema_reconcile.sql to avoid IF NOT EXISTS silently
+-- preserving an incompatible pre-existing schema.
 
 CREATE TABLE IF NOT EXISTS public.agent_prompt_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -62,19 +66,6 @@ CREATE TABLE IF NOT EXISTS public.context_quality_events (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.agent_eval_cases (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID,
-  source_run_id UUID,
-  dimension TEXT NOT NULL,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  expectations JSONB DEFAULT '{}'::jsonb,
-  status TEXT DEFAULT 'active',
-  created_by UUID,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS public.agent_reward_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID,
@@ -126,8 +117,6 @@ CREATE INDEX IF NOT EXISTS idx_agent_improvement_proposals_org_status
   ON public.agent_improvement_proposals (organization_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agent_ci_runs_org_created
   ON public.agent_ci_runs (organization_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_agent_eval_cases_org_dimension
-  ON public.agent_eval_cases (organization_id, dimension, status);
 CREATE INDEX IF NOT EXISTS idx_agent_reward_events_org_created
   ON public.agent_reward_events (organization_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agent_redteam_findings_org_status

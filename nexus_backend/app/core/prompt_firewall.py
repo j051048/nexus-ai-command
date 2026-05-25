@@ -14,6 +14,7 @@ Layers:
 
 import base64
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -245,6 +246,13 @@ class PromptFirewall:
 
     def __init__(self, config: FirewallConfig | None = None):
         self._config = config or FirewallConfig()
+        if (
+            self._config.enable_llm_judge
+            and os.getenv("PROMPT_FIREWALL_LLM_JUDGE", "").lower()
+            not in {"1", "true", "yes", "on"}
+            and (os.getenv("ENV") == "test" or os.getenv("PYTEST_CURRENT_TEST"))
+        ):
+            self._config.enable_llm_judge = False
         self._compiled: dict[str, list[tuple[re.Pattern, str, RiskLevel]]] = {}
         self._compile()
 

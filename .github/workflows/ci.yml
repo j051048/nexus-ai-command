@@ -188,6 +188,18 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: python scripts/scan_rls_coverage.py
 
+      - name: Scan RLS policy tenant columns
+        working-directory: ${{ github.workspace }}
+        run: python scripts/scan_rls_policy_columns.py
+
+      - name: Scan migration schema conflicts
+        working-directory: ${{ github.workspace }}
+        run: python scripts/scan_migration_schema_conflicts.py
+
+      - name: Verify migration replay wiring
+        working-directory: ${{ github.workspace }}
+        run: python scripts/verify_migration_replay.py
+
       - name: Run P0-P2 release quality gate
         working-directory: ${{ github.workspace }}
         run: python scripts/release_quality_gate.py
@@ -195,6 +207,10 @@ jobs:
       - name: Run customer acceptance static gate
         working-directory: ${{ github.workspace }}
         run: python scripts/customer_acceptance_gate.py
+
+      - name: Run production proof gate
+        working-directory: ${{ github.workspace }}
+        run: python scripts/production_proof_gate.py
 
       - name: Collect release and SOC2 evidence manifests
         working-directory: ${{ github.workspace }}
@@ -204,6 +220,9 @@ jobs:
 
       - name: Run architecture and security guardrails
         run: pytest tests/unit/test_architecture_guards.py tests/security/test_prompt_firewall_indirect_injection.py -q
+
+      - name: Run production proof contracts
+        run: pytest tests/production_proof -q
 
       - name: Run tests with coverage
         run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-report=json --retries 2 --retry-delay 1

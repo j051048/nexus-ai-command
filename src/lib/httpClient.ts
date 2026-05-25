@@ -51,6 +51,11 @@ httpClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+    const silent = error.config?.headers?.['X-Silent-Error'] === '1';
+
+    if (silent) {
+      return Promise.reject(error);
+    }
 
     if (status === 401 && window.location.pathname !== '/login') {
       toast.error('登录已过期，请重新登录');

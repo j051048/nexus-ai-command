@@ -67,6 +67,30 @@ CHECKS = [
     ),
     GateCheck(
         "P0",
+        "migration schema conflict scanner",
+        "scripts/scan_migration_schema_conflicts.py",
+        ("CREATE TABLE IF NOT EXISTS", "schema-compatible", "extract_definitions"),
+    ),
+    GateCheck(
+        "P0",
+        "RLS policy column scanner",
+        "scripts/scan_rls_policy_columns.py",
+        ("current_tenant_id_text", "TENANT_COLUMN_RE", "is not defined"),
+    ),
+    GateCheck(
+        "P0",
+        "scratch database migration replay",
+        "scripts/verify_migration_replay.py",
+        ("MIGRATION_REPLAY_DATABASE_URL", "ON_ERROR_STOP=1", "psql"),
+    ),
+    GateCheck(
+        "P0",
+        "local Python runtime launcher",
+        "scripts/dev_python.ps1",
+        (".venv", "trying global Python", "No Python runtime found"),
+    ),
+    GateCheck(
+        "P0",
         "containerized backend build",
         "Dockerfile",
         ("COPY nexus_backend/requirements.txt", "USER appuser"),
@@ -99,7 +123,19 @@ CHECKS = [
         "P0",
         "tenant RLS policy backfill",
         "supabase/migrations/20260514_p0_tenant_rls_policy_backfill.sql",
-        ("current_tenant_id_text", "CREATE POLICY"),
+        ("current_tenant_id_text", "CREATE POLICY", "organization_id::text"),
+    ),
+    GateCheck(
+        "P1",
+        "known failure regression contracts",
+        "nexus_backend/tests/production_proof/test_known_failure_regressions.py",
+        ("_kingdee_identity", "PROMPT_FIREWALL_LLM_JUDGE", "chat-input"),
+    ),
+    GateCheck(
+        "P2",
+        "product focus and observability contract",
+        "nexus_backend/tests/production_proof/test_product_focus_and_observability_contract.py",
+        ("MODULE_TIER_LABELS", "reward_model", "audit_summary"),
     ),
     GateCheck(
         "P0",
@@ -780,11 +816,23 @@ CHECKS = [
         (
             "agent_prompt_versions",
             "agent_improvement_proposals",
-            "agent_eval_cases",
+            "agent_eval_cases is intentionally not created here",
             "agent_reward_events",
             "agent_skill_marketplace",
             "agent_redteam_findings",
             "agent_trust_reports",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "agent eval cases schema reconciliation",
+        "supabase/migrations/20260525_agent_eval_cases_schema_reconcile.sql",
+        (
+            "ADD COLUMN IF NOT EXISTS organization_id",
+            "column_name = 'org_id'",
+            "column_name = 'criticality'",
+            "column_name = 'query'",
+            "agent_eval_cases_tenant_read",
         ),
     ),
     GateCheck(
@@ -886,6 +934,29 @@ CHECKS = [
             "Acceptance Rules",
             "customer-business-acceptance.spec.ts",
         ),
+    ),
+    GateCheck(
+        "P0",
+        "production proof gate",
+        "scripts/production_proof_gate.py",
+        (
+            "five golden business flows",
+            "agent graph e2e contract",
+            "tenant RLS isolation contract",
+            "LLM VCR replay cassette",
+        ),
+    ),
+    GateCheck(
+        "P0",
+        "production proof test suite",
+        "nexus_backend/tests/production_proof/test_golden_business_flows.py",
+        ("RUN_REAL_GOLDEN_FLOWS", "golden-login-crm-ai-approval-close"),
+    ),
+    GateCheck(
+        "P0",
+        "production proof CI wiring",
+        ".github/workflows/ci.yml",
+        ("production_proof_gate.py", "pytest tests/production_proof"),
     ),
 ]
 

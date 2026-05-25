@@ -1,9 +1,9 @@
+import type { AxiosError, AxiosRequestConfig, Method } from 'axios';
 import { toast } from 'sonner';
 
 import { supabase } from '@/integrations/supabase/client';
 import { getApiBaseUrl } from '@/lib/apiConfig';
-
-const API_BASE_URL = getApiBaseUrl();
+import { httpClient } from '@/lib/httpClient';
 
 function generateTraceId(): string {
   const timestamp = Date.now().toString(36);
@@ -35,21 +35,8 @@ async function getAuthToken(): Promise<string | null> {
   return session?.access_token ?? null;
 }
 
-async function refreshAndGetToken(): Promise<string | null> {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.refreshSession();
-  if (error || !session) {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
-    return null;
-  }
-  return session.access_token;
-}
-
 function buildUrl(endpoint: string): string {
-  let url = API_BASE_URL;
+  let url = getApiBaseUrl();
   if (!url.startsWith('http')) {
     url = url.includes('localhost') ? `http://${url}` : `https://${url}`;
   }
@@ -102,13 +89,11 @@ function handleErrorResponse(status: number, errorMessage: string, silent?: bool
 }
 
 function handleNetworkError(error: Error, silent?: boolean): void {
-  if (silent) return;
+  if (silent || error.name === 'AbortError') return;
 
   const message = error.message || '';
   if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('network')) {
     toast.error('网络不可用，请检查网络连接', { id: 'network-error' });
-  } else if (message.includes('AbortError') || error.name === 'AbortError') {
-    return;
   } else {
     toast.error(message || '请求失败，请重试');
   }
@@ -132,50 +117,71 @@ async function parseErrorMessage(response: Response): Promise<string> {
   return errorMessage;
 }
 
+function parseAxiosErrorMessage(error: AxiosError<unknown>): string {
+  const status = error.response?.status;
+  const data = error.response?.data as {
+    error?: { message?: string };
+    detail?: string | Array<{ msg?: string }>;
+    message?: string;
+  } | undefined;
+
+  if (data?.error?.message) return data.error.message;
+  if (typeof data?.detail === 'string') return data.detail;
+  if (Array.isArray(data?.detail)) {
+    const detail = data.detail.map((item) => item.msg).filter(Boolean).join(', ');
+    if (detail) return detail;
+  }
+  if (data?.message) return data.message;
+  return status ? `API Request Failed (${status})` : error.message || 'API Request Failed';
+}
+
+function normalizeJsonBody(body: BodyInit | null | undefined, contentType: string | undefined): unknown {
+  if (typeof body === 'string' && contentType?.includes('application/json')) {
+    try {
+      return JSON.parse(body);
+    } catch {
+      return body;
+    }
+  }
+  return body;
+}
+
 export const aiClient = {
   async fetch<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    const fullUrl = buildUrl(endpoint);
     const silent = options._silentError;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Trace-ID': getTraceId(),
+      ...(silent ? { 'X-Silent-Error': '1' } : {}),
       ...(options.headers as Record<string, string>),
     };
 
-    if (options.requireAuth !== false) {
-      const token = await getAuthToken();
-      if (token) headers.Authorization = `Bearer ${token}`;
+    if (options.requireAuth === false) {
+      headers['X-Skip-Optional-Auth'] = '1';
     }
 
-    let response: Response;
     try {
-      response = await fetch(fullUrl, { ...options, headers });
-    } catch (networkError) {
-      handleNetworkError(networkError as Error, silent);
-      throw networkError;
-    }
-
-    if (response.status === 401 && !options._retried && options.requireAuth !== false) {
-      const newToken = await refreshAndGetToken();
-      if (newToken) {
-        return this.fetch(endpoint, {
-          ...options,
-          _retried: true,
-          headers: { ...(options.headers as Record<string, string>), Authorization: `Bearer ${newToken}` },
-        });
+      const requestConfig: AxiosRequestConfig = {
+        url: endpoint,
+        method: (options.method ?? 'GET') as Method,
+        headers,
+        data: normalizeJsonBody(options.body, headers['Content-Type']),
+        signal: options.signal,
+      };
+      const response = await httpClient.request<T>(requestConfig);
+      return response.data;
+    } catch (requestError) {
+      const maybeAxios = requestError as AxiosError<unknown>;
+      if (maybeAxios.response) {
+        const errorMessage = parseAxiosErrorMessage(maybeAxios);
+        const retryAfterHeader = maybeAxios.response.headers?.['retry-after'];
+        const retryAfter = parseInt(String(retryAfterHeader || '0'), 10) || undefined;
+        handleErrorResponse(maybeAxios.response.status, errorMessage, silent, retryAfter);
+        throw new Error(errorMessage);
       }
-      handleErrorResponse(401, '会话已过期，请重新登录', silent);
-      throw new Error('会话已过期，请重新登录');
+      handleNetworkError(requestError as Error, silent);
+      throw requestError;
     }
-
-    if (!response.ok) {
-      const errorMessage = await parseErrorMessage(response);
-      const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10) || undefined;
-      handleErrorResponse(response.status, errorMessage, silent, retryAfter);
-      throw new Error(errorMessage);
-    }
-
-    return response.json();
   },
 
   async get<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<{ data: T }> {

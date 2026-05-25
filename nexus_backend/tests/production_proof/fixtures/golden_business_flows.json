@@ -1,0 +1,49 @@
+[
+  {
+    "id": "golden-login-crm-ai-approval-close",
+    "name": "Login -> CRM customer -> AI follow-up -> approval -> close",
+    "steps": [
+      {"kind": "auth", "action": "login", "asserts": ["session_created", "org_context_set"]},
+      {"kind": "crm", "action": "create_customer", "asserts": ["customer_id", "organization_id"]},
+      {"kind": "agent", "action": "draft_followup", "asserts": ["tool_call", "evidence_ids"]},
+      {"kind": "approval", "action": "submit_and_approve", "asserts": ["approved", "audit_log"]},
+      {"kind": "crm", "action": "mark_closed", "asserts": ["status_closed", "reward_event"]}
+    ]
+  },
+  {
+    "id": "golden-stale-customer-next-best-action",
+    "name": "Stale customer -> next best action -> task created",
+    "steps": [
+      {"kind": "crm", "action": "seed_stale_customer", "asserts": ["last_contact_at"]},
+      {"kind": "agent", "action": "detect_risk", "asserts": ["risk_reason", "customer_id"]},
+      {"kind": "tool", "action": "create_followup_task", "asserts": ["task_id", "owner_id"]}
+    ]
+  },
+  {
+    "id": "golden-tender-score-to-boss-review",
+    "name": "Tender document -> score matrix -> boss review",
+    "steps": [
+      {"kind": "document", "action": "upload_tender", "asserts": ["document_id"]},
+      {"kind": "agent", "action": "score_tender", "asserts": ["score_matrix", "evidence_ids"]},
+      {"kind": "approval", "action": "request_boss_review", "asserts": ["pending_review"]}
+    ]
+  },
+  {
+    "id": "golden-contract-renewal-risk",
+    "name": "Contract renewal risk -> reminder -> email draft",
+    "steps": [
+      {"kind": "contract", "action": "seed_expiring_contract", "asserts": ["expires_at"]},
+      {"kind": "agent", "action": "detect_renewal_risk", "asserts": ["risk_level"]},
+      {"kind": "tool", "action": "draft_email", "asserts": ["draft_id", "human_review_required"]}
+    ]
+  },
+  {
+    "id": "golden-cross-tenant-deny",
+    "name": "Tenant A cannot read Tenant B business data",
+    "steps": [
+      {"kind": "tenant", "action": "seed_two_orgs", "asserts": ["org_a", "org_b"]},
+      {"kind": "api", "action": "read_other_org_customer", "asserts": ["403_or_empty"]},
+      {"kind": "audit", "action": "record_denied_access", "asserts": ["audit_event"]}
+    ]
+  }
+]

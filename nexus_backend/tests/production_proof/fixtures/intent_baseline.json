@@ -1,0 +1,14 @@
+[
+  {"id": "intent-001", "text": "Create a follow-up task for customers not contacted for 30 days", "expected_intent": "crm_followup"},
+  {"id": "intent-002", "text": "Approve this travel reimbursement after checking risk", "expected_intent": "approval_decision"},
+  {"id": "intent-003", "text": "Score this tender document against the technical requirements", "expected_intent": "tender_support"},
+  {"id": "intent-004", "text": "Generate a battlecard against Thermo Fisher", "expected_intent": "battlecard"},
+  {"id": "intent-005", "text": "Which contracts will expire in the next 60 days?", "expected_intent": "renewal_or_contract"},
+  {"id": "intent-006", "text": "Hello, what can you do?", "expected_intent": "general_assistant"},
+  {"id": "intent-007", "text": "Find CRM leads with high value and low activity", "expected_intent": "crm_followup"},
+  {"id": "intent-008", "text": "Reject this approval because the invoice is missing", "expected_intent": "approval_decision"},
+  {"id": "intent-009", "text": "Compare Agilent and Shimadzu for this opportunity", "expected_intent": "battlecard"},
+  {"id": "intent-010", "text": "Prepare a renewal email for the expiring service contract", "expected_intent": "renewal_or_contract"},
+  {"id": "intent-011", "text": "Extract score criteria from the RFP", "expected_intent": "tender_support"},
+  {"id": "intent-012", "text": "Draft a visit note for today's lab customer meeting", "expected_intent": "crm_followup"}
+]

@@ -18,3 +18,12 @@ async def test_context_overflow_does_not_call_llm_judge(monkeypatch):
 
     assert result.violations
     assert any(v.layer == "context_overflow" for v in result.violations)
+
+
+def test_pytest_environment_disables_llm_judge(monkeypatch):
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_prompt_firewall_fast_path")
+    monkeypatch.delenv("PROMPT_FIREWALL_LLM_JUDGE", raising=False)
+
+    fw = PromptFirewall()
+
+    assert fw._config.enable_llm_judge is False

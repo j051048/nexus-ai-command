@@ -63,10 +63,10 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_candidates_referrer_id ON public.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_employees_created_by ON public.hr_employees(created_by);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_employees_updated_by ON public.hr_employees(updated_by);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_job_positions_created_by ON public.hr_job_positions(created_by);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_performance_reviews_org_id ON public.hr_performance_reviews(org_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_performance_reviews_org_id ON public.hr_performance_reviews(organization_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_performance_reviews_reviewer_id ON public.hr_performance_reviews(reviewer_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_performance_reviews_user_id ON public.hr_performance_reviews(user_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_salary_records_org_id ON public.hr_salary_records(org_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_hr_salary_records_org_id ON public.hr_salary_records(organization_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_employees_position_id ON public.employees(position_id);
 
 -- ============================================================================

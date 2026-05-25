@@ -41,12 +41,15 @@ CREATE POLICY "Org Isolation for Candidates" ON public.hr_candidates FOR ALL TO 
     organization_id = public.get_user_org_id(auth.uid())
 );
 
--- 4. hr_salary_records (Has org_id, adding organization_id for consistency)
+-- 4. hr_salary_records (adding organization_id for consistency)
 DO $$ BEGIN 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hr_salary_records' AND column_name = 'organization_id') THEN
         ALTER TABLE public.hr_salary_records ADD COLUMN organization_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL;
-        -- Backfill if possible
-        UPDATE public.hr_salary_records SET organization_id = org_id WHERE organization_id IS NULL AND org_id IS NOT NULL;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hr_salary_records' AND column_name = 'org_id') THEN
+        UPDATE public.hr_salary_records
+        SET organization_id = org_id
+        WHERE organization_id IS NULL AND org_id IS NOT NULL;
     END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_hr_salary_org ON public.hr_salary_records(organization_id);
@@ -55,12 +58,15 @@ CREATE POLICY "Org Isolation for Salary Records" ON public.hr_salary_records FOR
     organization_id = public.get_user_org_id(auth.uid())
 );
 
--- 5. hr_performance_reviews (Has org_id, adding organization_id for consistency)
+-- 5. hr_performance_reviews (adding organization_id for consistency)
 DO $$ BEGIN 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hr_performance_reviews' AND column_name = 'organization_id') THEN
         ALTER TABLE public.hr_performance_reviews ADD COLUMN organization_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL;
-        -- Backfill if possible
-        UPDATE public.hr_performance_reviews SET organization_id = org_id WHERE organization_id IS NULL AND org_id IS NOT NULL;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hr_performance_reviews' AND column_name = 'org_id') THEN
+        UPDATE public.hr_performance_reviews
+        SET organization_id = org_id
+        WHERE organization_id IS NULL AND org_id IS NOT NULL;
     END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_hr_performance_org ON public.hr_performance_reviews(organization_id);

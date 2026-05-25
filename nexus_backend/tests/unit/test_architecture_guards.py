@@ -218,6 +218,9 @@ def test_customer_launch_integrations_are_not_mocked():
     assert "KINGDEE_BASE_URL" in kingdee
     assert "KINGDEE_API_KEY" in kingdee
     assert "INTEGRATION_CONNECT_FAILED" in kingdee
+    assert "_kingdee_identity" in kingdee
+    assert "Depends(get_current_user_id)" in kingdee
+    assert "await get_current_org_id(request)" in kingdee
     assert "metadata_source" in plugin_service
     assert '"rating": None' in plugin_service
     assert '"downloads": 0' in plugin_service
@@ -593,6 +596,8 @@ def test_p0_p2_release_quality_gate_is_wired():
         assert token in gate
     assert "Run P0-P2 release quality gate" in ci
     assert "python scripts/release_quality_gate.py" in ci
+    assert "python scripts/scan_rls_policy_columns.py" in ci
+    assert "python scripts/verify_migration_replay.py" in ci
     assert "scripts/release_quality_gate.py" in readiness
     assert "docs/SOC2_CONTROLS.md" in readiness
     assert "20260514_p2_cost_report_rpc.sql" in readiness
@@ -936,6 +941,9 @@ def test_agent_evolution_engine_is_wired_end_to_end():
     memory_hygiene = read("nexus_backend/app/services/memory_hygiene_service.py")
     evolution_ops = read("nexus_backend/app/services/agent_evolution_ops_service.py")
     evolution_migration = read("supabase/migrations/20260525_agent_evolution_ops.sql")
+    eval_reconcile_migration = read(
+        "supabase/migrations/20260525_agent_eval_cases_schema_reconcile.sql"
+    )
     prompt_builder = read("nexus_backend/app/agent/plan/prompt_builder.py")
     context_ledger = read("nexus_backend/app/agent/context_ledger.py")
     context_engine = read("nexus_backend/app/agent/context_engine.py")
@@ -1000,13 +1008,22 @@ def test_agent_evolution_engine_is_wired_end_to_end():
         "agent_improvement_proposals",
         "agent_ci_runs",
         "context_quality_events",
-        "agent_eval_cases",
+        "agent_eval_cases is intentionally not created here",
         "agent_reward_events",
         "agent_skill_marketplace",
         "agent_redteam_findings",
         "agent_trust_reports",
     ]:
         assert token in evolution_migration
+    assert "CREATE TABLE IF NOT EXISTS public.agent_eval_cases" not in evolution_migration
+    for token in [
+        "ADD COLUMN IF NOT EXISTS organization_id",
+        "column_name = 'org_id'",
+        "column_name = 'criticality'",
+        "column_name = 'query'",
+        "agent_eval_cases_tenant_read",
+    ]:
+        assert token in eval_reconcile_migration
 
     for token in [
         '"/prompt-registry"',

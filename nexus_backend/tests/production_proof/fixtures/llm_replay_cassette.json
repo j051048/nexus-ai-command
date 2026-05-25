@@ -1,0 +1,26 @@
+{
+  "cassette_version": "2026-05-25.1",
+  "provider": "recorded",
+  "cases": [
+    {
+      "id": "replay-crm-followup",
+      "input": "Find customers not contacted for 30 days and draft next steps.",
+      "expected_tool_calls": ["search_customers", "draft_followup"],
+      "recorded_response": {
+        "intent": "crm_followup",
+        "tool_calls": ["search_customers", "draft_followup"],
+        "answer_contains": ["evidence", "next step"]
+      }
+    },
+    {
+      "id": "replay-tender-score",
+      "input": "Parse tender requirements and produce a scored response matrix.",
+      "expected_tool_calls": ["parse_tender_document", "score_tender_response"],
+      "recorded_response": {
+        "intent": "tender_support",
+        "tool_calls": ["parse_tender_document", "score_tender_response"],
+        "answer_contains": ["score matrix", "risk"]
+      }
+    }
+  ]
+}

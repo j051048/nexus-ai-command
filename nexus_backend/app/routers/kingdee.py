@@ -65,6 +65,15 @@ def _parse_response(response: httpx.Response) -> Any:
     return {"text": response.text}
 
 
+async def _kingdee_identity(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+) -> tuple[str, str]:
+    """Resolve Kingdee auth before any integration or payload validation work."""
+    org_id = await get_current_org_id(request)
+    return user_id, org_id
+
+
 async def _kingdee_request(
     method: str,
     url: str,
@@ -107,10 +116,10 @@ async def _kingdee_request(
 @router.get("/inventory/{item_id}")
 async def get_inventory(
     item_id: str,
-    user_id: str = Depends(get_current_user_id),
-    org_id: str = Depends(get_current_org_id),
+    identity: tuple[str, str] = Depends(_kingdee_identity),
 ):
     """Query inventory from the configured Kingdee gateway."""
+    user_id, org_id = identity
     url = _endpoint_url(
         "KINGDEE_INVENTORY_PATH",
         "/inventory/{item_id}",
@@ -123,10 +132,10 @@ async def get_inventory(
 @router.post("/sync/salary")
 async def sync_salary(
     request: Request,
-    user_id: str = Depends(get_current_user_id),
-    org_id: str = Depends(get_current_org_id),
+    identity: tuple[str, str] = Depends(_kingdee_identity),
 ):
     """Send salary sync payload to the configured Kingdee gateway."""
+    user_id, org_id = identity
     payload = await request.json()
     url = _endpoint_url("KINGDEE_SALARY_SYNC_PATH", "/salary/sync")
     data = await _kingdee_request(
