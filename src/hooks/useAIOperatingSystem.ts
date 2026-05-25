@@ -64,6 +64,21 @@ export interface AIOperatingOverview {
     context_graph_nodes: number;
     context_graph_edges: number;
   };
+  value: {
+    saved_minutes: number;
+    saved_hours: number;
+    automated_followups: number;
+    risk_reviews: number;
+    estimated_value_cny: number;
+    roi_story: string;
+  };
+  trust: {
+    confidence_score: number;
+    confidence_level: string;
+    human_review_rate: number;
+    tool_failure_rate: number;
+    audit_summary: string;
+  };
 }
 
 export interface AgentSimulationPayload {
@@ -95,6 +110,35 @@ export interface AgentSimulationResult {
   candidate_policy: string;
 }
 
+export interface AgentDefinitionPayload {
+  sop_text: string;
+  scenario?: string;
+  autonomy_level?: string;
+}
+
+export interface AgentDefinitionResult {
+  scenario: string;
+  autonomy_level: string;
+  intent_rules: Array<{
+    name: string;
+    trigger: string;
+    tools: string[];
+    autonomy: string;
+  }>;
+  operating_procedure: Array<{
+    step: number;
+    name: string;
+    instruction: string;
+    expected_evidence: string;
+  }>;
+  tools: string[];
+  guardrails: string[];
+  test_cases: string[];
+  confidence: number;
+  next_steps: string[];
+  definition_markdown: string;
+}
+
 export function useAIOperatingOverview(days = 30) {
   return useQuery({
     queryKey: ['ai-operating-system-overview', days],
@@ -114,6 +158,15 @@ export function useRunAgentSimulation() {
     mutationFn: async (payload: AgentSimulationPayload) => {
       const response = await httpClient.post('/api/ai-operating-system/simulate', payload);
       return response.data?.data as AgentSimulationResult;
+    },
+  });
+}
+
+export function useDefineAgentFromSop() {
+  return useMutation({
+    mutationFn: async (payload: AgentDefinitionPayload) => {
+      const response = await httpClient.post('/api/ai-operating-system/define-agent', payload);
+      return response.data?.data as AgentDefinitionResult;
     },
   });
 }

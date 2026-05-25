@@ -876,8 +876,12 @@ def test_p0_to_p6_ai_operating_system_is_productized():
 
     assert "科学仪器销售团队的 AI 作战室" in page
     assert "真实运营数据" in page
+    assert "AI 价值与信任仪表盘" in page
+    assert "SOP → AOP 自然语言定义器" in page
+    assert "生成 Agent 定义" in page
     assert "useAIOperatingOverview" in page
     assert "useRunAgentSimulation" in page
+    assert "useDefineAgentFromSop" in page
     assert "运行仿真" in page
     assert "P0-P3：AI 原生能力底座" in page
     assert "P4-P6：产品形态与增长闭环" in page
@@ -904,8 +908,17 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "/api/ai-operating-system" in router
     assert '"/overview"' in router
     assert '"/simulate"' in router
+    assert '"/define-agent"' in router
+    assert "AgentDefinitionRequest" in router
+    assert "_generate_agent_definition" in router
+    assert "_value_summary" in router
+    assert "_trust_summary" in router
     assert "build_business_context_graph" in router
     assert "AgentSimulationResult" in hook
+    assert "AgentDefinitionResult" in hook
+    assert "useDefineAgentFromSop" in hook
+    assert "roi_story" in hook
+    assert "confidence_score" in hook
     assert "BusinessContextGraph" in hook
     assert "GRAPH_QUERY_SPECS" in graph_service
     assert "prompt_context" in graph_service

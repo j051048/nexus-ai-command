@@ -11,7 +11,7 @@ import {
   SEVEN_DAY_SUCCESS_PATH,
   type OperatingCapability,
 } from '@/config/aiOperatingSystem';
-import { useAIOperatingOverview, useRunAgentSimulation } from '@/hooks/useAIOperatingSystem';
+import { useAIOperatingOverview, useDefineAgentFromSop, useRunAgentSimulation } from '@/hooks/useAIOperatingSystem';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -47,6 +47,13 @@ const DEFAULT_SIMULATION_MESSAGES = [
   '30天未跟进客户自动生成拜访提醒和邮件草稿',
   '审批一笔12000元差旅报销并检查风险',
   '根据招标文件生成评分矩阵和技术响应草稿',
+].join('\n');
+
+const DEFAULT_SOP_TEXT = [
+  '当科学仪器客户 30 天没有跟进记录时，Agent 需要查询客户阶段、最近拜访、项目预算和历史沟通。',
+  '如果客户处于报价或招投标阶段，先生成跟进邮件草稿和下一步任务，不直接外发。',
+  '如果涉及合同金额、审批结论、付款、删除或批量外发，必须进入人工确认。',
+  '每次建议都要引用客户、项目、合同、文档或行动事件作为证据。',
 ].join('\n');
 
 function triggerAI(prompt: string) {
@@ -101,8 +108,10 @@ function CapabilityCard({ item }: { item: OperatingCapability }) {
 
 export default function AIOperatingSystemPage() {
   const [simulationInput, setSimulationInput] = useState(DEFAULT_SIMULATION_MESSAGES);
+  const [sopInput, setSopInput] = useState(DEFAULT_SOP_TEXT);
   const overview = useAIOperatingOverview(30);
   const simulation = useRunAgentSimulation();
+  const agentDefinition = useDefineAgentFromSop();
 
   const p0p3 = AI_OPERATING_CAPABILITIES.filter((item) => ['P0', 'P1', 'P2', 'P3'].includes(item.priority));
   const p4p6 = AI_OPERATING_CAPABILITIES.filter((item) => ['P4', 'P5', 'P6'].includes(item.priority));
@@ -124,6 +133,14 @@ export default function AIOperatingSystemPage() {
         .map((item) => item.trim())
         .filter(Boolean),
       candidate_policy: '低风险动作自动执行；审批、合同、外发、付款、删除和批量动作进入人工确认。',
+    });
+  };
+
+  const defineAgent = () => {
+    agentDefinition.mutate({
+      scenario: '科学仪器客户跟进 Agent',
+      autonomy_level: 'guarded_auto',
+      sop_text: sopInput,
     });
   };
 
@@ -169,6 +186,99 @@ export default function AIOperatingSystemPage() {
             真实运营数据暂时不可用，页面已保留产品蓝图。请确认 `/api/ai-operating-system/overview` 可访问。
           </div>
         )}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <section className="rounded-lg border bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold">AI 价值与信任仪表盘</h2>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            这里把“用了多少 token”翻译成老板和业务主管能理解的节省时间、自动化跟进、风险复核和可信度。
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-md border bg-background/60 p-3">
+              <div className="text-xs text-muted-foreground">折算业务价值</div>
+              <div className="mt-2 text-xl font-semibold">¥{overview.data?.value.estimated_value_cny ?? 0}</div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {overview.data?.value.roi_story ?? '等待真实行动事件进入后自动生成 ROI 叙事。'}
+              </p>
+            </div>
+            <div className="rounded-md border bg-background/60 p-3">
+              <div className="text-xs text-muted-foreground">Agent 信任评分</div>
+              <div className="mt-2 flex items-end gap-2">
+                <span className="text-xl font-semibold">{overview.data?.trust.confidence_score ?? 0}</span>
+                <Badge variant="outline">{overview.data?.trust.confidence_level ?? '待评估'}</Badge>
+              </div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {overview.data?.trust.audit_summary ?? '暂无足够运行数据生成审计摘要。'}
+              </p>
+            </div>
+            <div className="rounded-md border bg-background/60 p-3">
+              <div className="text-xs text-muted-foreground">自动跟进行动</div>
+              <div className="mt-2 text-xl font-semibold">{overview.data?.value.automated_followups ?? 0}</div>
+              <p className="mt-1 text-xs text-muted-foreground">来自 CRM 行动事件的采纳、完成或命令执行记录。</p>
+            </div>
+            <div className="rounded-md border bg-background/60 p-3">
+              <div className="text-xs text-muted-foreground">人工复核率</div>
+              <div className="mt-2 text-xl font-semibold">{formatPercent(overview.data?.trust.human_review_rate)}</div>
+              <p className="mt-1 text-xs text-muted-foreground">复核率高说明护栏谨慎，复核率低说明自动化更充分。</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold">SOP → AOP 自然语言定义器</h2>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            业务人员可以直接粘贴销售 SOP、投标流程或客户跟进规范，系统会生成 Agent 触发规则、工具链、护栏和测试用例。
+          </p>
+          <Textarea
+            className="mt-3 min-h-32"
+            value={sopInput}
+            onChange={(event) => setSopInput(event.target.value)}
+          />
+          <Button className="mt-3" onClick={defineAgent} disabled={agentDefinition.isPending}>
+            {agentDefinition.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            生成 Agent 定义
+          </Button>
+          {agentDefinition.data && (
+            <div className="mt-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{agentDefinition.data.scenario}</Badge>
+                <Badge variant="outline">置信度 {formatPercent(agentDefinition.data.confidence)}</Badge>
+                <Badge variant="outline">{agentDefinition.data.autonomy_level}</Badge>
+              </div>
+              <div className="rounded-md border bg-background/60 p-3">
+                <div className="text-sm font-medium">触发规则</div>
+                <div className="mt-2 space-y-2">
+                  {agentDefinition.data.intent_rules.slice(0, 3).map((rule) => (
+                    <div key={rule.name} className="text-sm leading-5 text-muted-foreground">
+                      {rule.trigger}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-md border bg-background/60 p-3">
+                <div className="text-sm font-medium">工具链</div>
+                <p className="mt-2 text-sm text-muted-foreground">{agentDefinition.data.tools.join(' → ')}</p>
+              </div>
+              <div className="rounded-md border bg-background/60 p-3">
+                <div className="text-sm font-medium">护栏</div>
+                <div className="mt-2 space-y-1">
+                  {agentDefinition.data.guardrails.slice(0, 3).map((guardrail) => (
+                    <div key={guardrail} className="text-sm leading-5 text-muted-foreground">
+                      {guardrail}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">

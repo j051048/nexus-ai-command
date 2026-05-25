@@ -27,6 +27,12 @@ class SimulationRequest(BaseModel):
     baseline_policy: str = Field(default="全部建议人工点击执行", max_length=500)
 
 
+class AgentDefinitionRequest(BaseModel):
+    sop_text: str = Field(..., min_length=20, max_length=8000)
+    scenario: str = Field(default="科学仪器销售运营", max_length=120)
+    autonomy_level: str = Field(default="guarded_auto", max_length=80)
+
+
 def _db(request: Request):
     client = getattr(request.state, "db", None)
     if client is None:
@@ -103,6 +109,77 @@ def _action_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _value_summary(
+    agent: dict[str, Any], actions: dict[str, Any], events: list[dict[str, Any]]
+) -> dict[str, Any]:
+    completed_actions = actions["completed"]
+    accepted_actions = actions["accepted"]
+    saved_minutes = (
+        completed_actions * 18 + max(accepted_actions - completed_actions, 0) * 8
+    )
+    automated_followups = sum(
+        1
+        for item in events
+        if item.get("source") == "crm"
+        and item.get("event_type") in {"accepted", "completed", "command_executed"}
+    )
+    risk_reviews = agent["failed"] + agent["tool_failure_signals"]
+    saved_hours = round(saved_minutes / 60, 1)
+    estimated_value_cny = round(
+        saved_hours * 180 + automated_followups * 120 + risk_reviews * 300
+    )
+    return {
+        "saved_minutes": saved_minutes,
+        "saved_hours": saved_hours,
+        "automated_followups": automated_followups,
+        "risk_reviews": risk_reviews,
+        "estimated_value_cny": estimated_value_cny,
+        "roi_story": (
+            f"近 30 天 AI 约节省 {saved_hours} 小时，自动推进 {automated_followups} 个跟进动作，"
+            f"识别/复核 {risk_reviews} 个风险信号，折算业务价值约 ¥{estimated_value_cny}。"
+        ),
+    }
+
+
+def _trust_summary(agent: dict[str, Any], actions: dict[str, Any]) -> dict[str, Any]:
+    tool_failure_rate = (
+        round(agent["tool_failure_signals"] / agent["total_runs"], 4)
+        if agent["total_runs"]
+        else 0
+    )
+    human_review_rate = (
+        round(1 - actions["acceptance_rate"], 4) if actions["total_events"] else 0
+    )
+    confidence_score = max(
+        0,
+        min(
+            100,
+            round(
+                agent["success_rate"] * 70
+                + actions["completion_rate"] * 20
+                + (1 - tool_failure_rate) * 10
+            ),
+        ),
+    )
+    if confidence_score >= 80:
+        level = "高"
+    elif confidence_score >= 55:
+        level = "中"
+    else:
+        level = "低"
+    return {
+        "confidence_score": confidence_score,
+        "confidence_level": level,
+        "human_review_rate": human_review_rate,
+        "tool_failure_rate": tool_failure_rate,
+        "audit_summary": (
+            f"Agent 成功率 {round(agent['success_rate'] * 100)}%，"
+            f"行动完成率 {round(actions['completion_rate'] * 100)}%，"
+            f"工具失败信号 {agent['tool_failure_signals']} 次。"
+        ),
+    }
+
+
 def _intent_for(message: str) -> tuple[str, list[str]]:
     text = message.lower()
     if any(token in text for token in ["审批", "报销", "批准", "驳回", "approval"]):
@@ -118,6 +195,135 @@ def _intent_for(message: str) -> tuple[str, list[str]]:
     if any(token in text for token in ["客户", "线索", "crm", "跟进", "拜访"]):
         return "crm_followup", ["search_customers", "draft_followup"]
     return "general_assistant", ["answer_with_context"]
+
+
+def _normalize_lines(text: str) -> list[str]:
+    lines = []
+    for raw in text.replace("\r", "\n").split("\n"):
+        line = raw.strip(" -\t")
+        if line:
+            lines.append(line[:180])
+    return lines
+
+
+def _extract_trigger_phrases(lines: list[str]) -> list[str]:
+    triggers = []
+    keywords = [
+        "当",
+        "如果",
+        "若",
+        "客户",
+        "招标",
+        "投标",
+        "合同",
+        "审批",
+        "跟进",
+        "报价",
+        "竞品",
+    ]
+    for line in lines:
+        if any(keyword in line for keyword in keywords):
+            triggers.append(line)
+        if len(triggers) >= 5:
+            break
+    return triggers or lines[:3]
+
+
+def _tools_for_sop(text: str) -> list[str]:
+    tools = []
+    mapping = [
+        ("客户", "search_customers"),
+        ("线索", "score_sales_lead"),
+        ("跟进", "draft_followup"),
+        ("拜访", "create_visit_note"),
+        ("招标", "parse_tender_document"),
+        ("投标", "score_tender_response"),
+        ("竞品", "generate_battlecard"),
+        ("合同", "query_contracts"),
+        ("审批", "query_pending_approvals"),
+        ("邮件", "draft_email"),
+        ("周报", "generate_weekly_report"),
+    ]
+    for keyword, tool in mapping:
+        if keyword in text and tool not in tools:
+            tools.append(tool)
+    return tools or ["answer_with_context", "create_followup_task"]
+
+
+def _generate_agent_definition(payload: AgentDefinitionRequest) -> dict[str, Any]:
+    lines = _normalize_lines(payload.sop_text)
+    triggers = _extract_trigger_phrases(lines)
+    tools = _tools_for_sop(payload.sop_text)
+    high_risk_terms = [
+        "付款",
+        "打款",
+        "删除",
+        "外发",
+        "批量",
+        "批准",
+        "驳回",
+        "合同金额",
+    ]
+    guardrails = [
+        "所有付款、删除、批量外发、审批结论和合同金额变更必须进入人工确认。",
+        "回答必须引用客户、项目、合同、审批或文档证据；证据不足时只生成待确认草稿。",
+        "不得伪造客户关系、采购预算、竞品参数或招投标评分。",
+    ]
+    if any(term in payload.sop_text for term in high_risk_terms):
+        guardrails.insert(0, "该 SOP 含高风险动作，默认启用 HITL 确认门。")
+
+    procedure = []
+    for index, line in enumerate(lines[:6], start=1):
+        procedure.append(
+            {
+                "step": index,
+                "name": f"步骤 {index}",
+                "instruction": line,
+                "expected_evidence": "客户/项目/合同/文档/行动事件",
+            }
+        )
+
+    intent_rules = [
+        {
+            "name": f"{payload.scenario} 规则 {index}",
+            "trigger": trigger,
+            "tools": tools[:4],
+            "autonomy": payload.autonomy_level,
+        }
+        for index, trigger in enumerate(triggers[:4], start=1)
+    ]
+    test_cases = [
+        f"用户说：{trigger}。验证 Agent 是否按 SOP 调用 {tools[0]} 并输出证据链。"
+        for trigger in triggers[:3]
+    ]
+    confidence = min(0.92, max(0.55, 0.58 + len(lines) * 0.03 + len(tools) * 0.02))
+    definition_markdown = "\n".join(
+        [
+            f"# {payload.scenario} Agent Operating Procedure",
+            "## 触发规则",
+            *[f"- {rule['trigger']}" for rule in intent_rules],
+            "## 工具链",
+            f"- {' -> '.join(tools)}",
+            "## 护栏",
+            *[f"- {item}" for item in guardrails],
+        ]
+    )
+    return {
+        "scenario": payload.scenario,
+        "autonomy_level": payload.autonomy_level,
+        "intent_rules": intent_rules,
+        "operating_procedure": procedure,
+        "tools": tools,
+        "guardrails": guardrails,
+        "test_cases": test_cases,
+        "confidence": round(confidence, 2),
+        "next_steps": [
+            "放入 Agent 仿真沙盒跑历史消息回放。",
+            "把高风险动作绑定 HITL 确认门。",
+            "灰度给 1 个销售小组并观察采纳率、失败率和人工否决原因。",
+        ],
+        "definition_markdown": definition_markdown,
+    }
 
 
 def _risk_for(message: str, intent: str) -> tuple[int, list[str], str]:
@@ -224,12 +430,14 @@ async def get_ai_operating_overview(
         limit=300,
     )
     graph = await build_business_context_graph(db, org_id=org_id, user_id=user_id)
+    agent = _agent_summary(runs)
+    actions = _action_summary(events)
 
     return api_success(
         data={
             "window_days": days,
-            "agent": _agent_summary(runs),
-            "actions": _action_summary(events),
+            "agent": agent,
+            "actions": actions,
             "graph": graph,
             "recent_runs": [
                 {
@@ -242,11 +450,13 @@ async def get_ai_operating_overview(
                 for item in runs[:8]
             ],
             "operating_metrics": {
-                "agent_success_rate": _agent_summary(runs)["success_rate"],
-                "action_completion_rate": _action_summary(events)["completion_rate"],
+                "agent_success_rate": agent["success_rate"],
+                "action_completion_rate": actions["completion_rate"],
                 "context_graph_nodes": graph["summary"]["node_count"],
                 "context_graph_edges": graph["summary"]["edge_count"],
             },
+            "value": _value_summary(agent, actions, events),
+            "trust": _trust_summary(agent, actions),
         }
     )
 
@@ -299,3 +509,15 @@ async def simulate_agent_policy(
     simulation["baseline_policy"] = payload.baseline_policy
     simulation["candidate_policy"] = payload.candidate_policy
     return api_success(data=simulation)
+
+
+@router.post("/define-agent")
+async def define_agent_from_sop(
+    payload: AgentDefinitionRequest,
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    definition = _generate_agent_definition(payload)
+    definition["created_by"] = user_id
+    definition["organization_id"] = org_id
+    return api_success(data=definition)

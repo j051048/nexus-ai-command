@@ -354,15 +354,30 @@ export async function setupBusinessMocks(page: Page) {
             updated_at: new Date().toISOString(),
           },
         ],
-        operating_metrics: {
-          agent_success_rate: 0.83,
-          action_completion_rate: 0.33,
-          context_graph_nodes: 3,
-          context_graph_edges: 2,
+          operating_metrics: {
+            agent_success_rate: 0.83,
+            action_completion_rate: 0.33,
+            context_graph_nodes: 3,
+            context_graph_edges: 2,
+          },
+          value: {
+            saved_minutes: 86,
+            saved_hours: 1.4,
+            automated_followups: 2,
+            risk_reviews: 3,
+            estimated_value_cny: 1392,
+            roi_story: '近 30 天 AI 约节省 1.4 小时，自动推进 2 个跟进动作，识别/复核 3 个风险信号，折算业务价值约 ¥1392。',
+          },
+          trust: {
+            confidence_score: 75,
+            confidence_level: '中',
+            human_review_rate: 0.56,
+            tool_failure_rate: 0.06,
+            audit_summary: 'Agent 成功率 83%，行动完成率 33%，工具失败信号 1 次。',
+          },
         },
-      },
+      });
     });
-  });
 
   await page.route('**/api/ai-operating-system/simulate**', async (route) => {
     await fulfillJson(route, {
@@ -396,9 +411,44 @@ export async function setupBusinessMocks(page: Page) {
         baseline_policy: '全部建议人工点击执行',
         candidate_policy: '低风险自动执行',
       },
+      });
+    });
+
+  await page.route('**/api/ai-operating-system/define-agent**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        scenario: '科学仪器客户跟进 Agent',
+        autonomy_level: 'guarded_auto',
+        intent_rules: [
+          {
+            name: '科学仪器客户跟进 Agent 规则 1',
+            trigger: '当科学仪器客户 30 天没有跟进记录时，Agent 需要查询客户阶段、最近拜访、项目预算和历史沟通。',
+            tools: ['search_customers', 'draft_followup'],
+            autonomy: 'guarded_auto',
+          },
+        ],
+        operating_procedure: [
+          {
+            step: 1,
+            name: '步骤 1',
+            instruction: '查询客户阶段、最近拜访、项目预算和历史沟通。',
+            expected_evidence: '客户/项目/合同/文档/行动事件',
+          },
+        ],
+        tools: ['search_customers', 'draft_followup', 'create_visit_note'],
+        guardrails: [
+          '所有付款、删除、批量外发、审批结论和合同金额变更必须进入人工确认。',
+          '回答必须引用客户、项目、合同、审批或文档证据；证据不足时只生成待确认草稿。',
+        ],
+        test_cases: ['用户说：30 天未跟进客户。验证 Agent 是否输出证据链。'],
+        confidence: 0.82,
+        next_steps: ['放入 Agent 仿真沙盒跑历史消息回放。'],
+        definition_markdown: '# 科学仪器客户跟进 Agent Operating Procedure',
+      },
     });
   });
-}
+  }
 
 /**
  * 快速注入登录状态至 localStorage
