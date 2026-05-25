@@ -162,6 +162,9 @@ export default function AIOperatingSystemPage() {
             <Button asChild>
               <Link to="/vmd">进入 VMD 超级场景</Link>
             </Button>
+            <Button asChild variant="secondary">
+              <Link to="/agent-improvement-center">Agent 进化中心</Link>
+            </Button>
             <Button
               variant="outline"
               onClick={() => triggerAI('基于当前 Agent 运行、行动事件和业务知识图谱，生成今天的科学仪器销售作战建议。')}

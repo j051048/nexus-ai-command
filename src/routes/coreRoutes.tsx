@@ -6,6 +6,7 @@ import {
   ApprovalCenter,
   AICenterPage,
   AIOperatingSystemPage,
+  AgentImprovementCenterPage,
   BossDashboard,
   DataHubPage,
   EmployeeDashboard,
@@ -51,6 +52,7 @@ export function coreRoutes(
       <Route path="action-analytics" element={routeBoundary("Action Analytics", <ActionAnalyticsPage />)} />
       <Route path="ai-center" element={routeBoundary("AI Center", <AICenterPage />)} />
       <Route path="ai-operating-system" element={routeBoundary("AI Operating System", <AIOperatingSystemPage />)} />
+      <Route path="agent-improvement-center" element={routeBoundary("Agent Improvement Center", <AgentImprovementCenterPage />)} />
       <Route path="industry-knowledge" element={routeBoundary("Industry Knowledge", <IndustryKnowledgePage />)} />
       <Route path="approval" element={routeBoundary("Approval Center", <ApprovalCenter />)} />
       <Route path="sales" element={routeBoundary("Sales Pipeline", <SalesPipeline />)} />

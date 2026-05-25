@@ -36,6 +36,7 @@ export const InventoryPage = lazyWithRetry(() => import("@/pages/InventoryPage")
 export const InboxPage = lazyWithRetry(() => import("@/pages/InboxPage"));
 export const IndustryKnowledgePage = lazyWithRetry(() => import("@/pages/IndustryKnowledgePage"));
 export const AIOperatingSystemPage = lazyWithRetry(() => import("@/pages/AIOperatingSystemPage"));
+export const AgentImprovementCenterPage = lazyWithRetry(() => import("@/pages/AgentImprovementCenterPage"));
 export const WorkspaceHubPage = lazyWithRetry(() => import("@/pages/ProductSpaceHubPage").then(m => ({ default: m.WorkspaceHubPage })));
 export const DataHubPage = lazyWithRetry(() => import("@/pages/ProductSpaceHubPage").then(m => ({ default: m.DataHubPage })));
 export const AICenterPage = lazyWithRetry(() => import("@/pages/ProductSpaceHubPage").then(m => ({ default: m.AICenterPage })));

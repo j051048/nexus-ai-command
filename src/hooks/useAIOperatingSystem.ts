@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { httpClient } from '@/lib/httpClient';
 
 export interface BusinessGraphNode {
@@ -139,6 +139,142 @@ export interface AgentDefinitionResult {
   definition_markdown: string;
 }
 
+export interface PromptManifest {
+  agent_code: string;
+  prompt_version: string;
+  owner: string;
+  scenario: string;
+  risk_tier: string;
+  status: string;
+  eval_gates: string[];
+  blocks: Array<{ name: string; purpose: string; risk: string; required: boolean }>;
+}
+
+export interface AgentCIResult {
+  passed: boolean;
+  score: number;
+  case_count: number;
+  recommendation: string;
+  cases: Array<{
+    id: string;
+    message: string;
+    passed: boolean;
+    score: number;
+    behavior_diff: {
+      expected_tools: string[];
+      actual_tools: string[];
+      missing_tools: string[];
+      forbidden_hits: string[];
+    };
+  }>;
+}
+
+export interface AgentImprovementProposalResult {
+  proposals: Array<{
+    id: string;
+    category: string;
+    title: string;
+    rationale: string;
+    proposed_patch: Record<string, unknown>;
+    risk_level: string;
+    approval_required: boolean;
+    status: string;
+  }>;
+  agent_ci: AgentCIResult;
+  governance: {
+    self_mutation_allowed: boolean;
+    required_flow: string[];
+  };
+}
+
+export interface MemoryHygieneResult {
+  sample_size: number;
+  hygiene_score: number;
+  stale_memories: number;
+  expired_memories: number;
+  compressed_memories: number;
+  conflict_candidates: number;
+  golden_examples: number;
+  recommendations: string[];
+  policy: Record<string, number>;
+}
+
+export interface AgentEvolutionOpsResult {
+  generated_at: string;
+  persistence: {
+    migration: string;
+    tables: string[];
+    persisted_counts: Record<string, number>;
+    mode: string;
+  };
+  proposal_flow: {
+    states: string[];
+    requires_human_approval: boolean;
+    records: Array<{
+      id: string;
+      title: string;
+      status: string;
+      approval_required: boolean;
+      gray_percentage: number;
+      rollback_plan: string;
+      allowed_actions: string[];
+    }>;
+  };
+  diffs: {
+    prompt_diff: Record<string, unknown>;
+    context_diff: Record<string, unknown>;
+    tool_diff: Record<string, unknown>;
+  };
+  low_quality_queue: Array<{
+    id: string;
+    reason: string;
+    priority: string;
+    suggested_action: string;
+    source: string;
+  }>;
+  eval_dataset: {
+    case_count: number;
+    from_real_runs: number;
+    coverage_dimensions: string[];
+    cases: Array<Record<string, unknown>>;
+  };
+  reward_model: {
+    name: string;
+    score: number;
+    signals: Array<{ name: string; weight: number }>;
+    business_outcomes: string[];
+  };
+  skill_marketplace: Array<{
+    id: string;
+    name: string;
+    scenario: string;
+    agent_roles: string[];
+    tools: string[];
+    install_state: string;
+    quality_gate: string;
+  }>;
+  multi_agent_protocol: {
+    name: string;
+    version: string;
+    handoff_contract: string[];
+    flows: Array<{ id: string; steps: Array<{ agent: string; responsibility: string }> }>;
+  };
+  redteam_center: {
+    scenario_count: number;
+    open_high: number;
+    scenarios: Array<Record<string, string>>;
+    latest_findings: Array<Record<string, unknown>>;
+    required_release_gate: string;
+  };
+  trust_center: {
+    customer_visible: boolean;
+    confidence_score: number;
+    confidence_level: string;
+    audit_story: string;
+    controls: string[];
+  };
+}
+
 export function useAIOperatingOverview(days = 30) {
   return useQuery({
     queryKey: ['ai-operating-system-overview', days],
@@ -167,6 +303,90 @@ export function useDefineAgentFromSop() {
     mutationFn: async (payload: AgentDefinitionPayload) => {
       const response = await httpClient.post('/api/ai-operating-system/define-agent', payload);
       return response.data?.data as AgentDefinitionResult;
+    },
+  });
+}
+
+export function usePromptRegistry() {
+  return useQuery({
+    queryKey: ['ai-operating-system-prompt-registry'],
+    queryFn: async () => {
+      const response = await httpClient.get('/api/ai-operating-system/prompt-registry');
+      return response.data?.data?.manifests as PromptManifest[];
+    },
+    retry: 1,
+  });
+}
+
+export function useAgentCI() {
+  return useMutation({
+    mutationFn: async (payload: { cases?: unknown[]; candidate_metadata?: Record<string, unknown> } = {}) => {
+      const response = await httpClient.post('/api/ai-operating-system/agent-ci', payload);
+      return response.data?.data as AgentCIResult;
+    },
+  });
+}
+
+export function useAgentImprovementProposals() {
+  return useQuery({
+    queryKey: ['ai-operating-system-improvement-proposals'],
+    queryFn: async () => {
+      const response = await httpClient.get('/api/ai-operating-system/improvement-proposals');
+      return response.data?.data as AgentImprovementProposalResult;
+    },
+    retry: 1,
+  });
+}
+
+export function useMemoryHygiene() {
+  return useQuery({
+    queryKey: ['ai-operating-system-memory-hygiene'],
+    queryFn: async () => {
+      const response = await httpClient.get('/api/ai-operating-system/memory-hygiene');
+      return response.data?.data as MemoryHygieneResult;
+    },
+    retry: 1,
+  });
+}
+
+export function useAgentEvolutionOps() {
+  return useQuery({
+    queryKey: ['ai-operating-system-evolution-ops'],
+    queryFn: async () => {
+      const response = await httpClient.get('/api/ai-operating-system/evolution-ops');
+      return response.data?.data as AgentEvolutionOpsResult;
+    },
+    retry: 1,
+  });
+}
+
+export function useDecideAgentProposal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      proposal_key: string;
+      action: 'approve' | 'reject' | 'gray_release' | 'rollback';
+      gray_percentage?: number;
+      reviewer_note?: string;
+    }) => {
+      const response = await httpClient.post(
+        `/api/ai-operating-system/proposals/${encodeURIComponent(payload.proposal_key)}/decision`,
+        {
+          action: payload.action,
+          gray_percentage: payload.gray_percentage ?? 0,
+          reviewer_note: payload.reviewer_note ?? '',
+        },
+      );
+      return response.data?.data as {
+        proposal_key: string;
+        action: string;
+        status: string;
+        persistence: string;
+      };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['ai-operating-system-evolution-ops'] });
+      void queryClient.invalidateQueries({ queryKey: ['ai-operating-system-improvement-proposals'] });
     },
   });
 }

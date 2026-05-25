@@ -926,3 +926,118 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "context_engine.register(BusinessGraphContextProvider())" in context_engine
     assert "user_role=agent_config.user_role" in prompt_builder
     assert "ai_operating_system.router" in route_groups
+
+
+def test_agent_evolution_engine_is_wired_end_to_end():
+    prompt_registry = read("nexus_backend/app/services/prompt_registry.py")
+    context_quality = read("nexus_backend/app/services/context_quality.py")
+    agent_ci = read("nexus_backend/app/services/agent_ci_service.py")
+    improvement = read("nexus_backend/app/services/agent_improvement_service.py")
+    memory_hygiene = read("nexus_backend/app/services/memory_hygiene_service.py")
+    evolution_ops = read("nexus_backend/app/services/agent_evolution_ops_service.py")
+    evolution_migration = read("supabase/migrations/20260525_agent_evolution_ops.sql")
+    prompt_builder = read("nexus_backend/app/agent/plan/prompt_builder.py")
+    context_ledger = read("nexus_backend/app/agent/context_ledger.py")
+    context_engine = read("nexus_backend/app/agent/context_engine.py")
+    router = read("nexus_backend/app/routers/ai_operating_system.py")
+    hook = read("src/hooks/useAIOperatingSystem.ts")
+    page = read("src/pages/AgentImprovementCenterPage.tsx")
+    core_routes = read("src/routes/coreRoutes.tsx")
+    lazy_imports = read("src/routes/lazyImports.ts")
+    sidebar = read("src/components/layout/Sidebar.tsx")
+    command_bar = read("src/components/layout/GlobalCommandBar.tsx")
+
+    for token in [
+        "PromptManifest",
+        "prompt_version",
+        "eval_gates",
+        "prompt_registry",
+    ]:
+        assert token in prompt_registry
+    assert "Prompt registry" in prompt_builder
+    assert "resolve_prompt_version" in prompt_builder
+
+    for token in [
+        "ContextQualityScore",
+        "quality_score",
+        "permission_scope",
+        "build_evidence_pack",
+    ]:
+        assert token in context_quality
+    for token in ["quality_score", "permission_scope", "evidence_pack"]:
+        assert token in context_ledger or token in context_engine
+
+    assert "AgentCIService" in agent_ci
+    assert "DEFAULT_AGENT_CI_CASES" in agent_ci
+    assert "behavior_diff" in agent_ci
+    assert "agent_replay_harness.evaluate_trace" in agent_ci
+
+    assert "AgentImprovementService" in improvement
+    assert "self_mutation_allowed" in improvement
+    assert "人工批准" in improvement
+    assert "小流量灰度" in improvement
+
+    assert "MemoryHygieneService" in memory_hygiene
+    assert "hygiene_score" in memory_hygiene
+    assert "golden_example_target" in memory_hygiene
+
+    for token in [
+        "AgentEvolutionOpsService",
+        "AGENT_EVOLUTION_TABLES",
+        "AGENT_SKILL_CATALOG",
+        "MULTI_AGENT_PROTOCOL",
+        "REDTEAM_SCENARIOS",
+        "build_prompt_context_tool_diff",
+        "build_low_quality_queue",
+        "build_eval_dataset",
+        "build_reward_model",
+        "build_trust_center_report",
+        "build_decision_result",
+    ]:
+        assert token in evolution_ops
+    for token in [
+        "agent_prompt_versions",
+        "agent_improvement_proposals",
+        "agent_ci_runs",
+        "context_quality_events",
+        "agent_eval_cases",
+        "agent_reward_events",
+        "agent_skill_marketplace",
+        "agent_redteam_findings",
+        "agent_trust_reports",
+    ]:
+        assert token in evolution_migration
+
+    for token in [
+        '"/prompt-registry"',
+        '"/agent-ci"',
+        '"/improvement-proposals"',
+        '"/memory-hygiene"',
+        '"/evolution-ops"',
+        '"/proposals/{proposal_key}/decision"',
+    ]:
+        assert token in router
+
+    for token in [
+        "usePromptRegistry",
+        "useAgentCI",
+        "useAgentImprovementProposals",
+        "useMemoryHygiene",
+        "useAgentEvolutionOps",
+        "useDecideAgentProposal",
+    ]:
+        assert token in hook
+        assert token in page
+
+    assert "内置 Agent 自我进化控制台" in page
+    assert "Hermes 式改进提案" in page
+    assert "Context Quality & Memory Hygiene" in page
+    assert "10项 Agent Evolution Ops" in page
+    assert "Agent Skill Marketplace" in page
+    assert "Multi-Agent Protocol" in page
+    assert "Red Team Center" in page
+    assert "Customer Visible Trust Center" in page
+    assert "AgentImprovementCenterPage" in lazy_imports
+    assert 'path="agent-improvement-center"' in core_routes
+    assert "Agent 进化中心" in sidebar
+    assert "/agent-improvement-center" in command_bar

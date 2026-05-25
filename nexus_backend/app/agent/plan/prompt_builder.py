@@ -64,6 +64,19 @@ async def inject_system_prompts(
 
 def _inject_role_and_tools(lc_msgs, agent_config, complexity, intent_summary, state):
     extra_lines = []
+    try:
+        from app.services.prompt_registry import prompt_registry
+
+        registry_header = prompt_registry.build_runtime_header(
+            getattr(agent_config, "agent_code", None)
+        )
+        extra_lines.append(registry_header)
+        state["prompt_version"] = prompt_registry.resolve_prompt_version(
+            getattr(agent_config, "agent_code", None)
+        )
+    except Exception as e:
+        logger.debug("[PromptBuilder] Prompt registry injection skipped: %s", e)
+
     user_role = agent_config.user_role
     if user_role:
         extra_lines.append(f"当前用户角色: {user_role}")
@@ -422,7 +435,7 @@ def _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity):
         _ctx_window = (_resolved.get(_tier_key) or {}).get("context_window")
         prompt_version = (
             state.get("prompt_version")
-            or getattr(agent_config, "agent_code", None)
+            or _resolve_prompt_version(getattr(agent_config, "agent_code", None))
             or "runtime"
         )
         snapshot = build_prompt_snapshot(
@@ -435,3 +448,12 @@ def _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity):
             logger.warning("[PromptSnapshot] warnings=%s", snapshot.warnings[:5])
     except Exception as e:
         logger.debug("[PromptBuilder] prompt snapshot skipped: %s", e)
+
+
+def _resolve_prompt_version(agent_code: str | None) -> str:
+    try:
+        from app.services.prompt_registry import prompt_registry
+
+        return prompt_registry.resolve_prompt_version(agent_code)
+    except Exception:
+        return agent_code or "runtime"

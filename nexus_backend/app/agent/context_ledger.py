@@ -21,9 +21,16 @@ class ContextLedgerEntry:
     tokens_estimated: int
     included: bool
     source_ids: list[str] = field(default_factory=list)
+    evidence_ids: list[str] = field(default_factory=list)
     freshness: str | None = None
     trust_level: str = "internal"
     pii_level: str = "unknown"
+    relevance: float | None = None
+    authority: float | None = None
+    freshness_score: float | None = None
+    quality_score: float | None = None
+    permission_scope: str | None = None
+    conflict_flag: bool = False
     truncated_reason: str | None = None
     notes: dict[str, Any] = field(default_factory=dict)
 
@@ -53,7 +60,7 @@ class ContextLedger:
         return False
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "request_id": self.request_id,
             "total_budget": self.total_budget,
             "used_tokens": self.used_tokens,
@@ -62,6 +69,15 @@ class ContextLedger:
             "mojibake_risk": self.has_mojibake_risk(),
             "entries": [entry.to_dict() for entry in self.entries],
         }
+        try:
+            from app.services.context_quality import context_quality_service
+
+            payload["evidence_pack"] = context_quality_service.build_evidence_pack(
+                payload
+            )
+        except Exception:
+            payload["evidence_pack"] = {}
+        return payload
 
 
 def estimate_pii_level(text: str) -> str:

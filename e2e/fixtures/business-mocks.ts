@@ -379,6 +379,199 @@ export async function setupBusinessMocks(page: Page) {
       });
     });
 
+  await page.route('**/api/ai-operating-system/prompt-registry**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        manifests: [
+          {
+            agent_code: 'director_agent',
+            prompt_version: 'director_agent@2026-05-25.1',
+            owner: 'agent-platform',
+            scenario: 'scientific instrument sales operations',
+            risk_tier: 'high',
+            status: 'active',
+            eval_gates: ['agent_ci', 'redteam', 'human_approval'],
+            blocks: [{ name: 'operating_policy', purpose: 'governed action', risk: 'medium', required: true }],
+          },
+        ],
+      },
+    });
+  });
+
+  await page.route('**/api/ai-operating-system/agent-ci**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        passed: true,
+        score: 0.91,
+        case_count: 2,
+        recommendation: 'ready_for_gray_release',
+        cases: [
+          {
+            id: 'eval-crm-risk-followup',
+            message: 'Find stale customers',
+            passed: true,
+            score: 0.94,
+            behavior_diff: {
+              expected_tools: ['search_customers', 'draft_followup'],
+              actual_tools: ['search_customers', 'draft_followup'],
+              missing_tools: [],
+              forbidden_hits: [],
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  await page.route('**/api/ai-operating-system/improvement-proposals**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        proposals: [
+          {
+            id: 'proposal-crm-nba',
+            category: 'context_policy',
+            title: 'Require evidence pack for CRM next best action',
+            rationale: 'Low-quality runs show missing evidence links.',
+            proposed_patch: { context: 'evidence_pack_required' },
+            risk_level: 'medium',
+            approval_required: true,
+            status: 'proposed',
+          },
+        ],
+        agent_ci: {
+          passed: true,
+          score: 0.91,
+          case_count: 2,
+          recommendation: 'ready_for_gray_release',
+          cases: [],
+        },
+        governance: {
+          self_mutation_allowed: false,
+          required_flow: ['proposal', 'agent_ci', 'human_approval', 'gray_release', 'rollback'],
+        },
+      },
+    });
+  });
+
+  await page.route('**/api/ai-operating-system/memory-hygiene**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        sample_size: 20,
+        hygiene_score: 87,
+        stale_memories: 2,
+        expired_memories: 1,
+        compressed_memories: 3,
+        conflict_candidates: 1,
+        golden_examples: 6,
+        recommendations: ['Promote high-quality solved runs to golden examples.'],
+        policy: { max_age_days: 120, golden_example_target: 50 },
+      },
+    });
+  });
+
+  await page.route('**/api/ai-operating-system/evolution-ops**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        generated_at: new Date().toISOString(),
+        persistence: {
+          migration: '20260525_agent_evolution_ops.sql',
+          tables: ['agent_prompt_versions', 'agent_improvement_proposals', 'agent_eval_cases', 'agent_redteam_findings'],
+          persisted_counts: { agent_prompt_versions: 1, agent_improvement_proposals: 1 },
+          mode: 'database_backed_with_safe_fallback',
+        },
+        proposal_flow: {
+          states: ['proposed', 'approved', 'gray_release', 'published', 'rolled_back', 'rejected'],
+          requires_human_approval: true,
+          records: [
+            {
+              id: 'proposal-crm-nba',
+              title: 'Require evidence pack for CRM next best action',
+              status: 'proposed',
+              approval_required: true,
+              gray_percentage: 0,
+              rollback_plan: 'restore previous prompt_version',
+              allowed_actions: ['approve', 'reject', 'gray_release', 'rollback'],
+            },
+          ],
+        },
+        diffs: {
+          prompt_diff: { baseline_version: 'director_agent@2026-05-25.1', candidate_version: 'candidate' },
+          context_diff: { candidate_policy: 'require evidence_pack' },
+          tool_diff: { candidate_mode: 'low-risk autonomous action with HITL' },
+        },
+        low_quality_queue: [
+          {
+            id: 'run-low-1',
+            reason: 'tool failed',
+            priority: 'high',
+            suggested_action: 'convert_to_eval_case',
+            source: 'agent_runs',
+          },
+        ],
+        eval_dataset: {
+          case_count: 3,
+          from_real_runs: 1,
+          coverage_dimensions: ['sales_followup', 'scientific_instrument_tender'],
+          cases: [],
+        },
+        reward_model: {
+          name: 'business_reward_model_v1',
+          score: 0.76,
+          signals: [{ name: 'task_completed', weight: 1 }],
+          business_outcomes: ['saved_minutes', 'risk_prevented'],
+        },
+        skill_marketplace: [
+          {
+            id: 'scientific_tender_copilot',
+            name: 'Scientific Tender Copilot',
+            scenario: 'scientific_instrument_tender',
+            agent_roles: ['tender_agent'],
+            tools: ['parse_tender_document'],
+            install_state: 'recommended',
+            quality_gate: 'agent_ci_score >= 0.85',
+          },
+        ],
+        multi_agent_protocol: {
+          name: 'Nexus Agent Collaboration Protocol',
+          version: '2026-05-25.1',
+          handoff_contract: ['Every handoff includes evidence_ids.'],
+          flows: [{ id: 'tender_to_approval', steps: [{ agent: 'sales_agent', responsibility: 'capture context' }] }],
+        },
+        redteam_center: {
+          scenario_count: 5,
+          open_high: 0,
+          scenarios: [],
+          latest_findings: [],
+          required_release_gate: 'no critical open finding',
+        },
+        trust_center: {
+          customer_visible: true,
+          confidence_score: 88,
+          confidence_level: 'high',
+          audit_story: '1 proposals reviewed, CI score 0.91, reward score 0.76.',
+          controls: ['versioned_prompt_registry', 'human_approval_required', 'gray_release_and_rollback'],
+        },
+      },
+    });
+  });
+
+  await page.route('**/api/ai-operating-system/proposals/*/decision**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        proposal_key: 'proposal-crm-nba',
+        action: 'gray_release',
+        status: 'gray_release',
+        persistence: 'saved',
+      },
+    });
+  });
+
   await page.route('**/api/ai-operating-system/simulate**', async (route) => {
     await fulfillJson(route, {
       success: true,

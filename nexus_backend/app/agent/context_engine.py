@@ -131,6 +131,7 @@ class ContextEngine:
         parts: list[str] = []
 
         for provider, text in results:
+            quality = None
             if not text:
                 if context_ledger is not None:
                     from app.agent.context_ledger import ContextLedgerEntry
@@ -145,6 +146,19 @@ class ContextEngine:
                         )
                     )
                 continue
+
+            try:
+                from app.services.context_quality import context_quality_service
+
+                quality = context_quality_service.score_context_block(
+                    provider=provider.name,
+                    text=text,
+                    query=query,
+                    org_id=org_id,
+                    user_id=user_id,
+                )
+            except Exception:
+                quality = None
 
             text_tokens = self._estimate_tokens(text)
             provider_budget = provider.max_tokens()
@@ -177,6 +191,19 @@ class ContextEngine:
                                 priority=provider.priority,
                                 tokens_estimated=remaining,
                                 included=True,
+                                evidence_ids=quality.evidence_ids if quality else [],
+                                relevance=quality.relevance if quality else None,
+                                authority=quality.authority if quality else None,
+                                freshness_score=quality.freshness if quality else None,
+                                quality_score=(
+                                    quality.quality_score if quality else None
+                                ),
+                                permission_scope=(
+                                    quality.permission_scope if quality else None
+                                ),
+                                conflict_flag=(
+                                    quality.conflict_flag if quality else False
+                                ),
                                 pii_level=estimate_pii_level(text),
                                 truncated_reason="total_budget",
                                 notes={"sample": text[:160]},
@@ -198,6 +225,13 @@ class ContextEngine:
                         priority=provider.priority,
                         tokens_estimated=text_tokens,
                         included=True,
+                        evidence_ids=quality.evidence_ids if quality else [],
+                        relevance=quality.relevance if quality else None,
+                        authority=quality.authority if quality else None,
+                        freshness_score=quality.freshness if quality else None,
+                        quality_score=quality.quality_score if quality else None,
+                        permission_scope=quality.permission_scope if quality else None,
+                        conflict_flag=quality.conflict_flag if quality else False,
                         pii_level=estimate_pii_level(original_text),
                         truncated_reason=truncated_reason,
                         notes={"sample": original_text[:160]},

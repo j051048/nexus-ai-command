@@ -191,6 +191,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <BarChart3 size={18} />, label: "数据", href: "data", group: "primary" },
   { icon: <Bot size={18} />, label: "AI 中心", href: "ai-center", group: "primary" },
   { icon: <Sparkles size={18} />, label: "AI 作战系统", href: "ai-operating-system", group: "primary" },
+  { icon: <Brain size={18} />, label: "Agent 进化中心", href: "agent-improvement-center", roles: ["boss", "founder"], group: "primary" },
 
   // 业务域分组
   { icon: <TrendingUp size={18} />, label: "销售管道", href: "sales", group: "业务" },
@@ -259,6 +260,7 @@ const SPACE_MATCH_PREFIXES: Record<string, string[]> = {
   "ai-center": [
     "knowledge",
     "ai-operating-system",
+    "agent-improvement-center",
     "vmd",
     "plugins",
     "llm",

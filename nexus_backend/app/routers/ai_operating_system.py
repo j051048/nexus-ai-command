@@ -33,6 +33,17 @@ class AgentDefinitionRequest(BaseModel):
     autonomy_level: str = Field(default="guarded_auto", max_length=80)
 
 
+class AgentCIRequest(BaseModel):
+    cases: list[dict[str, Any]] = Field(default_factory=list, max_length=30)
+    candidate_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentProposalDecisionRequest(BaseModel):
+    action: str = Field(..., pattern="^(approve|reject|gray_release|rollback)$")
+    gray_percentage: int = Field(default=0, ge=0, le=100)
+    reviewer_note: str = Field(default="", max_length=1000)
+
+
 def _db(request: Request):
     client = getattr(request.state, "db", None)
     if client is None:
@@ -59,6 +70,14 @@ async def _safe_select(
         return result.data or []
     except Exception:
         return []
+
+
+async def _safe_count(db: Any, table: str) -> int:
+    try:
+        result = await db.table(table).select("id", count="exact").limit(1).execute()
+        return int(getattr(result, "count", 0) or 0)
+    except Exception:
+        return 0
 
 
 def _agent_summary(runs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -521,3 +540,220 @@ async def define_agent_from_sop(
     definition["created_by"] = user_id
     definition["organization_id"] = org_id
     return api_success(data=definition)
+
+
+@router.get("/prompt-registry")
+async def list_prompt_registry(
+    _user_id: str = Depends(get_current_user_id),
+    _org_id: str = Depends(get_current_org_id),
+):
+    from app.services.prompt_registry import prompt_registry
+
+    return api_success(data={"manifests": prompt_registry.list_manifests()})
+
+
+@router.post("/agent-ci")
+async def run_agent_ci(
+    payload: AgentCIRequest,
+    _user_id: str = Depends(get_current_user_id),
+    _org_id: str = Depends(get_current_org_id),
+):
+    from app.services.agent_ci_service import agent_ci_service
+
+    return api_success(
+        data=agent_ci_service.run_static_ci(
+            cases=payload.cases or None,
+            candidate_metadata=payload.candidate_metadata,
+        )
+    )
+
+
+@router.get("/improvement-proposals")
+async def get_agent_improvement_proposals(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    db = _db(request)
+    runs = await _safe_select(
+        db,
+        "agent_runs",
+        "id, run_id, status, input_summary, error, error_message, metadata, updated_at",
+        order_by="updated_at",
+        limit=80,
+    )
+    graph = await build_business_context_graph(db, org_id=org_id, user_id=user_id)
+    from app.services.agent_improvement_service import agent_improvement_service
+    from app.services.context_quality import context_quality_service
+    from app.services.prompt_registry import prompt_registry
+
+    context_pack = context_quality_service.build_evidence_pack(
+        {
+            "entries": [
+                {
+                    "included": True,
+                    "quality_score": 0.9 if graph["summary"]["node_count"] else 0.45,
+                    "evidence_ids": [node["id"] for node in graph["nodes"][:8]],
+                    "permission_scope": "tenant_scoped",
+                    "conflict_flag": False,
+                }
+            ]
+        }
+    )
+    manifest = prompt_registry.get_manifest("director_agent").to_dict()
+    return api_success(
+        data=agent_improvement_service.generate_proposals(
+            runs=runs,
+            prompt_manifest=manifest,
+            context_pack=context_pack,
+        )
+    )
+
+
+@router.get("/memory-hygiene")
+async def get_memory_hygiene(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    from app.services.memory_hygiene_service import memory_hygiene_service
+
+    return api_success(
+        data=await memory_hygiene_service.audit_memory_hygiene(
+            db=_db(request),
+            user_id=user_id,
+            org_id=org_id,
+        )
+    )
+
+
+@router.get("/evolution-ops")
+async def get_agent_evolution_ops(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    db = _db(request)
+    runs = await _safe_select(
+        db,
+        "agent_runs",
+        "id, run_id, status, input_summary, error, error_message, metadata, updated_at",
+        order_by="updated_at",
+        limit=120,
+    )
+    events = await _safe_select(
+        db,
+        "action_events",
+        "id, action_id, source, source_id, event_type, status, user_id, metadata, created_at",
+        order_by="created_at",
+        limit=200,
+    )
+    persisted_proposals = await _safe_select(
+        db,
+        "agent_improvement_proposals",
+        "id, proposal_key, category, title, rationale, proposed_patch, risk_level, "
+        "status, gray_percentage, ci_result, created_at, updated_at",
+        order_by="updated_at",
+        limit=40,
+    )
+    redteam_findings = await _safe_select(
+        db,
+        "agent_redteam_findings",
+        "id, scenario_key, attack_type, severity, status, finding, created_at",
+        order_by="created_at",
+        limit=40,
+    )
+    graph = await build_business_context_graph(db, org_id=org_id, user_id=user_id)
+
+    from app.services.agent_ci_service import agent_ci_service
+    from app.services.agent_evolution_ops_service import (
+        AGENT_EVOLUTION_TABLES,
+        agent_evolution_ops_service,
+    )
+    from app.services.agent_improvement_service import agent_improvement_service
+    from app.services.context_quality import context_quality_service
+    from app.services.prompt_registry import prompt_registry
+
+    context_pack = context_quality_service.build_evidence_pack(
+        {
+            "entries": [
+                {
+                    "included": True,
+                    "quality_score": 0.9 if graph["summary"]["node_count"] else 0.45,
+                    "evidence_ids": [node["id"] for node in graph["nodes"][:8]],
+                    "permission_scope": "tenant_scoped",
+                    "conflict_flag": False,
+                }
+            ]
+        }
+    )
+    manifest = prompt_registry.get_manifest("director_agent").to_dict()
+    generated = agent_improvement_service.generate_proposals(
+        runs=runs,
+        prompt_manifest=manifest,
+        context_pack=context_pack,
+    )
+    proposals = persisted_proposals or generated["proposals"]
+    agent_ci = agent_ci_service.run_static_ci(
+        candidate_metadata={"source": "evolution_ops_dashboard"}
+    )
+    persisted_counts = {
+        table: await _safe_count(db, table) for table in AGENT_EVOLUTION_TABLES
+    }
+    return api_success(
+        data=agent_evolution_ops_service.build_dashboard(
+            runs=runs,
+            events=events,
+            proposals=proposals,
+            prompt_manifest=manifest,
+            context_pack=context_pack,
+            agent_ci=agent_ci,
+            redteam_findings=redteam_findings,
+            persisted_counts=persisted_counts,
+        )
+    )
+
+
+@router.post("/proposals/{proposal_key}/decision")
+async def decide_agent_improvement_proposal(
+    proposal_key: str,
+    payload: AgentProposalDecisionRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    from app.services.agent_evolution_ops_service import agent_evolution_ops_service
+
+    result = agent_evolution_ops_service.build_decision_result(
+        proposal_key=proposal_key,
+        action=payload.action,
+        reviewer_id=user_id,
+        gray_percentage=payload.gray_percentage,
+    )
+    db = _db(request)
+    try:
+        await (
+            db.table("agent_improvement_proposals")
+            .upsert(
+                {
+                    "organization_id": org_id,
+                    "proposal_key": proposal_key,
+                    "category": "operator_decision",
+                    "title": f"Decision for {proposal_key}",
+                    "rationale": payload.reviewer_note,
+                    "proposed_patch": {},
+                    "risk_level": "medium",
+                    "status": result["status"],
+                    "gray_percentage": result["gray_percentage"],
+                    "decided_by": user_id,
+                    "decided_at": result["decided_at"],
+                    "updated_at": result["decided_at"],
+                },
+                on_conflict="organization_id,proposal_key",
+            )
+            .execute()
+        )
+        result["persistence"] = "saved"
+    except Exception:
+        result["persistence"] = "safe_fallback_not_saved"
+    return api_success(data=result)
