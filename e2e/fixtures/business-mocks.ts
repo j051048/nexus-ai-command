@@ -173,6 +173,72 @@ export async function setupBusinessMocks(page: Page) {
     });
   });
 
+  await page.route('**/api/inbox/analytics**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        window_days: 30,
+        summary: {
+          total_events: 7,
+          accepted: 3,
+          completed: 2,
+          ignored: 1,
+          snoozed: 1,
+          completion_rate: 0.29,
+          acceptance_rate: 0.43,
+          ignored_rate: 0.14,
+          open_high_risk: 1,
+          unique_actors: 2,
+        },
+        by_source: {
+          approval: {
+            total: 3,
+            accepted: 1,
+            completed: 1,
+            ignored: 0,
+            snoozed: 1,
+            command_executed: 1,
+          },
+          crm: {
+            total: 4,
+            accepted: 2,
+            completed: 1,
+            ignored: 1,
+            snoozed: 0,
+            command_executed: 0,
+          },
+        },
+        stale_open_actions: [
+          {
+            id: 'crm-risk:c-1',
+            source: 'crm',
+            source_id: 'c-1',
+            type: 'customer_followup_risk',
+            title: 'Google Cloud 需要跟进',
+            description: '客户长时间没有新的跟进记录',
+            reason: 'AI 规则：机会客户 30 天无更新',
+            priority: 'high',
+            status: 'open',
+            created_at: new Date().toISOString(),
+            action_url: '/crm?customer=c-1',
+            actions: [],
+            metadata: {},
+          },
+        ],
+        recent_events: [
+          {
+            id: 'evt-1',
+            action_id: 'approval:ap-1',
+            source: 'approval',
+            event_type: 'accepted',
+            created_at: new Date().toISOString(),
+            metadata: {},
+          },
+        ],
+      },
+    });
+  });
+
   await page.route('**/api/inbox/actions**', async (route) => {
     if (route.request().url().includes('/events')) {
       await fulfillJson(route, {
@@ -286,6 +352,13 @@ export async function mockLoggedInState(page: Page, role = 'boss') {
   }, { sessionRole: role, keys: storageKeys });
 }
 
+async function dismissProductTourIfVisible(page: Page) {
+  const skipTour = page.getByRole('button', { name: '跳过引导' });
+  if (await skipTour.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await skipTour.click();
+  }
+}
+
 /**
  * 通过表单登录获取真实的 Supabase session（配合 setupBusinessMocks 的 API 拦截）
  * 这比 localStorage 注入更可靠，因为 Supabase JS v2 会通过内部流程正确存储 session
@@ -293,16 +366,24 @@ export async function mockLoggedInState(page: Page, role = 'boss') {
 export async function loginViaForm(page: Page, role = 'boss') {
   await page.addInitScript(() => window.localStorage.setItem('hasSeenTour', 'true'));
   await page.goto('/login');
+  const emailInput = page.getByTestId('login-email-input');
+  if (!(await emailInput.isVisible({ timeout: 2000 }).catch(() => false))) {
+    await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('sidebar-main').getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
+    await dismissProductTourIfVisible(page);
+    return;
+  }
   const roleButton = page.getByTestId(`role-${role}-btn`);
   if (await roleButton.isVisible().catch(() => false)) {
     await roleButton.click();
   }
   const email = role === 'boss' ? 'test-admin@nexus-ai.com' : `${role}@nexus-ai.com`;
-  await page.getByTestId('login-email-input').fill(email);
+  await emailInput.fill(email);
   await page.getByTestId('login-password-input').fill('TestPass123!');
   await page.getByTestId('login-submit-btn').click();
   // 等待离开登录页
   await expect(page).not.toHaveURL(/.*\/login/, { timeout: 10000 });
   await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
   await expect(page.getByTestId('sidebar-main').getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
+  await dismissProductTourIfVisible(page);
 }

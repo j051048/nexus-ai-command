@@ -39,6 +39,13 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  FileCheck2,
+  FileText,
+  Goal,
+  Handshake,
+  LineChart,
+  ListChecks,
+  Swords,
 } from 'lucide-react';
 import {
   useCustomerTimeline,
@@ -561,6 +568,167 @@ function AIInsightsPanel({ customerName }: { customerName: string }) {
   );
 }
 
+function triggerAI(prompt: string) {
+  window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
+}
+
+function Customer360Panel({
+  customer,
+  contacts,
+  timeline,
+}: {
+  customer: Customer;
+  contacts: CustomerContact[];
+  timeline: CustomerActivity[];
+}) {
+  const metadata = customer.metadata || {};
+  const competitors = Array.isArray(metadata.competitors)
+    ? metadata.competitors
+    : ['Thermo Fisher', 'Agilent', 'Shimadzu'];
+  const quoteStatus = String(metadata.quote_status || '待报价');
+  const tenderStatus = String(metadata.tender_status || '未进入招投标');
+  const nextAction = String(
+    metadata.next_action || '确认预算、使用场景和关键决策人，补齐技术方案证据。',
+  );
+  const decisionRoles = [
+    { label: '拍板人', value: metadata.decision_maker || contacts[0]?.name || '待确认' },
+    { label: '技术影响人', value: metadata.technical_owner || contacts[1]?.name || '实验老师/平台负责人' },
+    { label: '采购/财务', value: metadata.procurement_owner || '采购办/财务待确认' },
+  ];
+  const evidence = [
+    { label: '联系人', value: `${contacts.length} 位` },
+    { label: '跟进记录', value: `${timeline.length} 条` },
+    { label: '商机金额', value: `¥${Number(customer.estimated_value || 0).toLocaleString()}` },
+    { label: '当前阶段', value: STAGES[customer.stage]?.name || customer.stage || '未标记' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">客户 360 作战视图</div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              把联系人、决策链、竞品、报价、招投标、证据和下一步动作放在一个详情面板里。
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() =>
+              triggerAI(`请基于客户 360 信息，为 ${customer.name} 生成下一步推进计划、风险点和需要补齐的证据。`)
+            }
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            AI 推进计划
+          </Button>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {evidence.map((item) => (
+            <div key={item.label} className="rounded-lg border bg-background/60 p-2">
+              <div className="text-[11px] text-muted-foreground">{item.label}</div>
+              <div className="mt-1 text-sm font-semibold">{item.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <div className="rounded-lg border p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+            <Handshake className="h-4 w-4 text-emerald-600" />
+            决策链
+          </div>
+          <div className="space-y-2">
+            {decisionRoles.map((role) => (
+              <div key={role.label} className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">{role.label}</span>
+                <span className="font-medium">{String(role.value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border p-3">
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <Swords className="h-4 w-4 text-cyan-600" />
+              竞品态势
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {competitors.map((competitor: string) => (
+                <Badge key={competitor} variant="outline">
+                  {competitor}
+                </Badge>
+              ))}
+            </div>
+            <Button
+              className="mt-3 w-full"
+              size="sm"
+              variant="outline"
+              onClick={() => triggerAI(`请为 ${customer.name} 生成竞品战卡，重点对比 ${competitors.join('、')}。`)}
+            >
+              生成竞品战卡
+            </Button>
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <FileCheck2 className="h-4 w-4 text-amber-600" />
+              报价 / 招投标
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">报价</span>
+                <span className="font-medium">{quoteStatus}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">招投标</span>
+                <span className="font-medium">{tenderStatus}</span>
+              </div>
+            </div>
+            <Button
+              className="mt-3 w-full"
+              size="sm"
+              variant="outline"
+              onClick={() => triggerAI(`请为 ${customer.name} 生成招投标评分拆解和报价风险清单。`)}
+            >
+              评估投标/报价风险
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-lg border p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+            <ListChecks className="h-4 w-4 text-primary" />
+            下一步动作
+          </div>
+          <p className="text-sm leading-6 text-muted-foreground">{nextAction}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {[
+              { icon: FileText, label: '写跟进邮件' },
+              { icon: Goal, label: '生成拜访提纲' },
+              { icon: LineChart, label: '更新预测概率' },
+            ].map((action) => {
+              const Icon = action.icon;
+              return (
+                <Button
+                  key={action.label}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => triggerAI(`请围绕客户 ${customer.name} ${action.label}。`)}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {action.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CustomerDetailSheet({
   customer,
   open,
@@ -632,8 +800,9 @@ export default function CustomerDetailSheet({
           </SheetHeader>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className="grid w-full grid-cols-4 mb-4">
               <TabsTrigger value="overview">概览</TabsTrigger>
+              <TabsTrigger value="customer360">360</TabsTrigger>
               <TabsTrigger value="contacts">
                 联系人 {(contacts as CustomerContact[]).length > 0 && `(${(contacts as CustomerContact[]).length})`}
               </TabsTrigger>
@@ -748,6 +917,14 @@ export default function CustomerDetailSheet({
               <div className="text-xs text-muted-foreground">
                 更新于 {new Date(customer.updated_at).toLocaleDateString('zh-CN')}
               </div>
+            </TabsContent>
+
+            <TabsContent value="customer360">
+              <Customer360Panel
+                customer={customer}
+                contacts={contacts as CustomerContact[]}
+                timeline={timeline as CustomerActivity[]}
+              />
             </TabsContent>
 
             <TabsContent value="contacts" className="space-y-3">

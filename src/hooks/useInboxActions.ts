@@ -89,10 +89,30 @@ export interface InboxAnalyticsEvent {
   metadata: Record<string, unknown>;
 }
 
+export interface InboxAnalyticsActor {
+  user_id: string;
+  total: number;
+  accepted: number;
+  completed: number;
+  ignored: number;
+  snoozed: number;
+}
+
+export interface InboxAnalyticsTrendPoint {
+  date: string;
+  total: number;
+  accepted: number;
+  completed: number;
+  ignored: number;
+  snoozed: number;
+}
+
 export interface InboxAnalyticsResponse {
   window_days: number;
   summary: InboxAnalyticsSummary;
   by_source: Partial<Record<ActionSource, InboxAnalyticsSource>>;
+  by_actor: InboxAnalyticsActor[];
+  daily_trend: InboxAnalyticsTrendPoint[];
   stale_open_actions: InboxActionItem[];
   recent_events: InboxAnalyticsEvent[];
 }

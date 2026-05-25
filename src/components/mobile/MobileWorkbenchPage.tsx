@@ -47,6 +47,7 @@ import {
   MODULE_TIER_LABELS,
   type ModuleFlag,
 } from '@/config/featureFlags';
+import MobileNativeCapturePanel from './MobileNativeCapturePanel';
 
 // ── Types ──
 type Role = 'boss' | 'manager' | 'employee' | 'ai_assistant';
@@ -298,6 +299,8 @@ export default function MobileWorkbenchPage() {
   // ── Render ──
   return (
     <div className="flex flex-col gap-5 px-4 pb-24 pt-4">
+      <MobileNativeCapturePanel />
+
       {/* Search bar - real filtering */}
       <div
         className={cn(

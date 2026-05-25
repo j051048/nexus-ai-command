@@ -24,6 +24,11 @@ import {
   Workflow,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  SCIENTIFIC_INSTRUMENT_KNOWLEDGE_ASSETS,
+  SCIENTIFIC_INSTRUMENT_PROMPTS,
+} from '@/config/scientificInstrumentKnowledge';
+import { MODULE_INTEGRATION_STRATEGY } from '@/config/featureFlags';
 import { cn } from '@/lib/utils';
 
 interface SpaceLink {
@@ -113,11 +118,7 @@ function triggerAI(prompt: string) {
 }
 
 function IndustryExpertPanel() {
-  const prompts = [
-    '帮我对标 Thermo Fisher 的同类产品，生成一份科学仪器竞品战卡。',
-    '根据招标文件评分标准，评估我们的技术方案可能得分和短板。',
-    '这个高校实验室客户通常的采购决策链是什么？请给出跟进节奏。',
-  ];
+  const featuredAssets = SCIENTIFIC_INSTRUMENT_KNOWLEDGE_ASSETS.slice(0, 3);
 
   return (
     <section className="rounded-lg border bg-card p-4 shadow-sm">
@@ -134,26 +135,79 @@ function IndustryExpertPanel() {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={() =>
-            triggerAI('请进入科学仪器行业专家模式，先根据我的客户和产品线提出 5 个最值得补齐的行业知识库条目。')
-          }
-        >
-          <Sparkles className="mr-2 h-4 w-4" />
-          生成知识库缺口
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link to="/industry-knowledge">打开资产库</Link>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              triggerAI('请进入科学仪器行业专家模式，先根据我的客户和产品线提出 5 个最值得补齐的行业知识库条目。')
+            }
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            生成知识库缺口
+          </Button>
+        </div>
       </div>
       <div className="mt-4 grid gap-2 md:grid-cols-3">
-        {prompts.map((prompt) => (
+        {featuredAssets.map((asset) => (
           <button
-            key={prompt}
+            key={asset.id}
             type="button"
-            onClick={() => triggerAI(prompt)}
+            onClick={() => triggerAI(asset.aiPrompt)}
             className="rounded-lg border bg-background/60 p-3 text-left text-sm leading-6 transition-colors hover:bg-accent"
           >
-            {prompt}
+            <span className="block font-medium">{asset.title}</span>
+            <span className="mt-1 block text-muted-foreground">{asset.scenario}</span>
           </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function IntegrationStrategyPanel() {
+  const strategies = MODULE_INTEGRATION_STRATEGY.filter(
+    (item) => item.status !== 'native_core',
+  );
+
+  return (
+    <section className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-primary">模块收缩与集成策略</div>
+          <h2 className="mt-1 text-lg font-semibold">成熟赛道轻入口，核心销售深打磨</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+            HR、财务、OA、库存等模块不再默认按完整套件扩张，优先承接第三方系统，把研发火力集中到 CRM、行动台和行业 AI。
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => triggerAI('请根据当前模块收缩与第三方集成策略，输出客户实施时的系统边界说明和集成优先级。')}
+        >
+          <Sparkles className="mr-2 h-4 w-4" />
+          生成实施边界
+        </Button>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {strategies.map((item) => (
+          <div key={item.flag} className="rounded-lg border bg-background/60 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{item.flag}</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                {item.status === 'third_party_first' ? '第三方优先' : '轻入口'}
+              </span>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.productDecision}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {item.recommendedVendors.map((vendor) => (
+                <span key={vendor} className="rounded-full border px-2 py-0.5 text-xs">
+                  {vendor}
+                </span>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </section>
@@ -226,7 +280,12 @@ export function WorkspaceHubPage() {
           tone: 'bg-slate-500/10 text-slate-600',
         },
       ]}
-      afterLinks={<IndustryExpertPanel />}
+      afterLinks={
+        <div className="space-y-4">
+          <IndustryExpertPanel />
+          <IntegrationStrategyPanel />
+        </div>
+      }
     />
   );
 }
@@ -304,11 +363,25 @@ export function AICenterPage() {
       primaryLabel="打开知识库"
       links={[
         {
+          title: 'AI 作战操作系统',
+          description: '集中管理 P0-P6：超级场景、Agent 沙盒、SOP 定义、知识图谱、价值证明和角色化体验。',
+          href: '/ai-operating-system',
+          icon: Sparkles,
+          tone: 'bg-fuchsia-500/10 text-fuchsia-600',
+        },
+        {
           title: '知识库',
           description: '管理行业知识、文档检索和组织记忆。',
           href: '/knowledge',
           icon: Database,
           tone: 'bg-blue-500/10 text-blue-600',
+        },
+        {
+          title: '行业知识资产',
+          description: `沉淀 ${SCIENTIFIC_INSTRUMENT_KNOWLEDGE_ASSETS.length} 个科学仪器销售、售前和招投标模板。`,
+          href: '/industry-knowledge',
+          icon: FlaskConical,
+          tone: 'bg-cyan-500/10 text-cyan-600',
         },
         {
           title: 'VMD 虚拟市场部',
@@ -346,6 +419,23 @@ export function AICenterPage() {
           tone: 'bg-violet-500/10 text-violet-600',
         },
       ]}
+      afterLinks={
+        <section className="rounded-lg border bg-card p-4 shadow-sm">
+          <div className="mb-3 text-sm font-semibold">科学仪器常用 Prompt</div>
+          <div className="grid gap-2 md:grid-cols-2">
+            {SCIENTIFIC_INSTRUMENT_PROMPTS.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                onClick={() => triggerAI(prompt)}
+                className="rounded-lg border bg-background/60 p-3 text-left text-sm leading-6 transition-colors hover:bg-accent"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </section>
+      }
     />
   );
 }

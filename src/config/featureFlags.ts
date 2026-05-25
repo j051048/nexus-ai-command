@@ -166,3 +166,62 @@ export function getModuleTier(flag: ModuleFlag): ModuleTier {
 export function getEnabledModulesByTier(tier: ModuleTier): ModuleFlag[] {
   return MODULE_TIERS[tier].filter(isModuleEnabled);
 }
+
+export type IntegrationStrategyStatus = "native_core" | "light_entry" | "third_party_first";
+
+export interface ModuleIntegrationStrategy {
+  flag: ModuleFlag;
+  status: IntegrationStrategyStatus;
+  owner: string;
+  recommendedVendors: string[];
+  productDecision: string;
+}
+
+export const MODULE_INTEGRATION_STRATEGY: ModuleIntegrationStrategy[] = [
+  {
+    flag: "crm",
+    status: "native_core",
+    owner: "sales-product",
+    recommendedVendors: [],
+    productDecision: "作为科学仪器销售主战场继续深挖，客户 360、行动台和行业知识优先内建。",
+  },
+  {
+    flag: "approval",
+    status: "native_core",
+    owner: "workflow-product",
+    recommendedVendors: [],
+    productDecision: "保留原生审批与行动台 inline approval，承载 AI 风控和业务闭环。",
+  },
+  {
+    flag: "hr",
+    status: "third_party_first",
+    owner: "platform-integrations",
+    recommendedVendors: ["飞书人事", "钉钉人事", "企业微信通讯录"],
+    productDecision: "产品内仅保留员工与组织轻入口，深度人事流程优先对接第三方。",
+  },
+  {
+    flag: "finance",
+    status: "third_party_first",
+    owner: "platform-integrations",
+    recommendedVendors: ["金蝶", "用友", "Stripe"],
+    productDecision: "费用与回款进入行动台，凭证、总账、税务和复杂财务流程交给专业系统。",
+  },
+  {
+    flag: "oa",
+    status: "light_entry",
+    owner: "platform-integrations",
+    recommendedVendors: ["飞书", "钉钉", "企业微信"],
+    productDecision: "保留公告、通知和快捷入口；考勤、会议室、IM 工作流优先连接现有办公平台。",
+  },
+  {
+    flag: "inventory",
+    status: "third_party_first",
+    owner: "platform-integrations",
+    recommendedVendors: ["金蝶云星空", "用友 U8", "ERP"],
+    productDecision: "库存只做销售/项目上下文引用，不在 Nexus 内重建完整 ERP。",
+  },
+];
+
+export function getIntegrationStrategy(flag: ModuleFlag): ModuleIntegrationStrategy | undefined {
+  return MODULE_INTEGRATION_STRATEGY.find((item) => item.flag === flag);
+}

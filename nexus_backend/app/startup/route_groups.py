@@ -108,6 +108,7 @@ def register_workflow_routes(app: FastAPI) -> None:
 def register_document_routes(app: FastAPI) -> None:
     from app.routers import (
         documents,
+        industry_knowledge,
         import_data,
         qa_pairs,
         report_engine,
@@ -117,6 +118,7 @@ def register_document_routes(app: FastAPI) -> None:
 
     for router in [
         documents.router,
+        industry_knowledge.router,
         training.router,
         reports.router,
         qa_pairs.router,

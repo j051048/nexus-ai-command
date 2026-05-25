@@ -136,6 +136,7 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '工作台', path: '/workbench', icon: Workflow, keywords: ['项目', '审批', '合同', 'oa', 'hr', '流程'], group: '核心空间' },
   { label: '数据', path: '/data', icon: BarChart3, keywords: ['报表', '数据', '目标', 'dashboard', '经营'], group: '核心空间' },
   { label: 'AI 中心', path: '/ai-center', icon: Sparkles, keywords: ['ai', 'agent', '知识库', '模型', '插件'], group: '核心空间' },
+  { label: 'AI 作战操作系统', path: '/ai-operating-system', icon: Sparkles, keywords: ['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'agent sandbox', 'sop', 'aop', '知识图谱', 'demo', '角色化'], group: '核心空间' },
   { label: '领导驾驶舱', path: '/boss-dashboard', icon: Crown, keywords: ['boss', '管理', '概览'], group: '核心功能' },
   { label: '待办中心', path: '/inbox', icon: Bell, keywords: ['待办', 'inbox', '收件箱', '审批', '通知', '异常'], group: '核心功能' },
   { label: '审批中心', path: '/approval', icon: FileCheck, keywords: ['审批', 'approval', '请假', '报销'], group: '核心功能' },

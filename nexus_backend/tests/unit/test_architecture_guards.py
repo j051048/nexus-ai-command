@@ -357,6 +357,102 @@ def test_customer_acceptance_and_handoff_gates_are_wired():
     assert "CUSTOMER_ACCEPTANCE_CRITERIA.md" in evidence
 
 
+def test_action_inbox_analytics_is_wired_end_to_end():
+    inbox_router = read("nexus_backend/app/routers/inbox.py")
+    hook = read("src/hooks/useInboxActions.ts")
+    page = read("src/pages/ActionAnalyticsPage.tsx")
+    routes = read("src/routes/coreRoutes.tsx")
+    hubs = read("src/pages/ProductSpaceHubPage.tsx")
+    mocks = read("e2e/fixtures/business-mocks.ts")
+
+    assert '"/analytics"' in inbox_router
+    assert "action_events" in inbox_router
+    assert "acceptance_rate" in inbox_router
+    assert "stale_open_actions" in inbox_router
+    assert "useInboxAnalytics" in hook
+    assert "/api/inbox/analytics" in hook
+    assert "行动台运营分析" in page
+    assert "采纳率" in page
+    assert "高风险未闭环" in page
+    assert 'path="action-analytics"' in routes
+    assert "/action-analytics" in hubs
+    assert "**/api/inbox/analytics**" in mocks
+
+
+def test_scientific_instrument_knowledge_assets_are_productized():
+    assets = read("src/config/scientificInstrumentKnowledge.ts")
+    page = read("src/pages/IndustryKnowledgePage.tsx")
+    hook = read("src/hooks/useIndustryKnowledgeAssets.ts")
+    router = read("nexus_backend/app/routers/industry_knowledge.py")
+    route_groups = read("nexus_backend/app/startup/route_groups.py")
+    routes = read("src/routes/coreRoutes.tsx")
+    lazy = read("src/routes/lazyImports.ts")
+    hubs = read("src/pages/ProductSpaceHubPage.tsx")
+
+    for token in [
+        "SCIENTIFIC_INSTRUMENT_KNOWLEDGE_ASSETS",
+        "Thermo Fisher LC/MS",
+        "Agilent",
+        "Shimadzu",
+        "招投标评分拆解模板",
+        "高校/科研院所采购决策链",
+        "基金/课题线索跟进节奏",
+    ]:
+        assert token in assets
+    assert "科学仪器行业知识资产" in page
+    assert "用 AI 套用此资产" in page
+    assert "资产化规则" in page
+    assert "useIndustryKnowledgeAssets" in hook
+    assert "api/industry-knowledge/assets" in hook
+    assert "frontend-fallback" in hook
+    assert 'prefix="/api/industry-knowledge"' in router
+    assert "industry_knowledge.router" in route_groups
+    assert 'path="industry-knowledge"' in routes
+    assert "IndustryKnowledgePage" in lazy
+    assert "/industry-knowledge" in hubs
+
+
+def test_golden_customer_acceptance_chain_covers_productized_ai_workflows():
+    acceptance = read("e2e/customer-business-acceptance.spec.ts")
+
+    assert "golden path covers action inbox" in acceptance
+    assert "今日行动台" in acceptance
+    assert "AI 证据链" in acceptance
+    assert "记录拜访" in acceptance
+    assert "/industry-knowledge" in acceptance
+    assert "/action-analytics" in acceptance
+    assert "高风险未闭环" in acceptance
+
+
+def test_p2_product_depth_round_is_wired():
+    inbox_router = read("nexus_backend/app/routers/inbox.py")
+    analytics_page = read("src/pages/ActionAnalyticsPage.tsx")
+    crm_detail = read("src/pages/crm/CustomerDetailSheet.tsx")
+    mobile_capture = read("src/components/mobile/MobileNativeCapturePanel.tsx")
+    mobile_workbench = read("src/components/mobile/MobileWorkbenchPage.tsx")
+    flags = read("src/config/featureFlags.ts")
+    hubs = read("src/pages/ProductSpaceHubPage.tsx")
+
+    assert "daily_trend" in inbox_router
+    assert "by_actor" in inbox_router
+    assert "行动趋势" in analytics_page
+    assert "团队动作榜" in analytics_page
+    assert "Customer360Panel" in crm_detail
+    assert "客户 360 作战视图" in crm_detail
+    assert "竞品态势" in crm_detail
+    assert "报价 / 招投标" in crm_detail
+    assert "MobileNativeCapturePanel" in mobile_capture
+    assert "语音速记" in mobile_capture
+    assert "拍名片" in mobile_capture
+    assert "附件归档" in mobile_capture
+    assert "<MobileNativeCapturePanel />" in mobile_workbench
+    assert "MODULE_INTEGRATION_STRATEGY" in flags
+    assert "third_party_first" in flags
+    assert "getIntegrationStrategy" in flags
+    assert "IntegrationStrategyPanel" in hubs
+    assert "模块收缩与集成策略" in hubs
+
+
 def test_p0_customer_visible_placeholder_language_is_removed():
     files = [
         "nexus_backend/app/tools/hr_tools.py",
@@ -750,3 +846,47 @@ def test_p2_mobile_module_tiers_and_industry_expert_are_wired():
     assert "IndustryExpertPanel" in ai_center
     assert "科学仪器行业专家" in ai_center
     assert "招投标评分" in ai_center
+
+
+def test_p0_to_p6_ai_operating_system_is_productized():
+    model = read("src/config/aiOperatingSystem.ts")
+    page = read("src/pages/AIOperatingSystemPage.tsx")
+    strip = read("src/components/product/AIOperatingSystemStrip.tsx")
+    core_routes = read("src/routes/coreRoutes.tsx")
+    lazy_imports = read("src/routes/lazyImports.ts")
+    sidebar = read("src/components/layout/Sidebar.tsx")
+    command_bar = read("src/components/layout/GlobalCommandBar.tsx")
+    inbox = read("src/pages/InboxPage.tsx")
+    acceptance = read("e2e/customer-business-acceptance.spec.ts")
+
+    assert "AI_OPERATING_CAPABILITIES" in model
+    assert "Agent 仿真沙盒" in model
+    assert "SOP → AOP 自然语言定义器" in model
+    assert "CONTEXT_GRAPH_EDGES" in model
+    assert "AUTONOMOUS_ACTION_POLICIES" in model
+    assert "SEVEN_DAY_SUCCESS_PATH" in model
+    assert "DEMO_WORKSPACE_ARTIFACTS" in model
+    assert "ROLE_WORKBENCH_PROFILES" in model
+
+    assert "科学仪器销售团队的 AI 作战室" in page
+    assert "P0-P3：AI 原生能力底座" in page
+    assert "P4-P6：产品形态与增长闭环" in page
+    assert "AI-Native 场景" in page
+    assert "行业 Agent 模板库" in page
+    assert "事件驱动 Agent 触发蓝图" in page
+
+    assert "AIOperatingSystemStrip" in strip
+    assert "AI 作战操作系统" in strip
+    assert "打开作战系统" in strip
+    assert "VMD 超级场景" in strip
+    assert "Agent 生命周期" in strip
+    assert "业务上下文层" in strip
+    assert "<AIOperatingSystemStrip />" in inbox
+
+    assert "AIOperatingSystemPage" in lazy_imports
+    assert 'path="ai-operating-system"' in core_routes
+    assert (
+        'label: "AI 作战系统", href: "ai-operating-system", group: "primary"' in sidebar
+    )
+    assert "AI 作战操作系统" in command_bar
+    assert "/ai-operating-system" in acceptance

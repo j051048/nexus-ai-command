@@ -1,5 +1,5 @@
 import { expect, Page, Route, test } from '@playwright/test';
-import { fulfillJson, mockLoggedInState, setupBusinessMocks } from './fixtures/business-mocks';
+import { fulfillJson, loginViaForm, mockLoggedInState, setupBusinessMocks } from './fixtures/business-mocks';
 
 type Role = 'boss' | 'manager' | 'employee';
 
@@ -353,7 +353,7 @@ async function browserApi<T>(page: Page, path: string, init: RequestInit = {}): 
 }
 
 async function expectHealthyPage(page: Page) {
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
   const body = await page.textContent('body');
   expect(body).toBeTruthy();
   expect(body).not.toContain('Something went wrong');
@@ -548,5 +548,42 @@ test.describe('Customer business acceptance flows', () => {
     await page.goto('/boss-dashboard');
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
     await expectHealthyPage(page);
+  });
+
+  test('9. golden path covers action inbox, CRM AI follow-up, industry assets, and analytics', async ({ page }) => {
+    await setupAcceptanceMocks(page, 'boss');
+
+    await page.goto('/dashboard');
+    await expectHealthyPage(page);
+    await expect(page.getByText('今日行动台')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('AI 证据链')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: '跳过引导' }).click({ timeout: 5000 }).catch(() => undefined);
+    await page.getByRole('button', { name: '采纳' }).first().click();
+
+    await page.goto('/crm');
+    await expectHealthyPage(page);
+    await expect(page.getByRole('button', { name: /记录拜访/ })).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByRole('button', { name: /记录拜访/ }).click();
+    await expect(page.getByTestId('chat-input')).toBeVisible({ timeout: 15000 });
+
+    await page.goto('/industry-knowledge');
+    await expectHealthyPage(page);
+    await expect(page.getByText('科学仪器行业知识资产')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Thermo Fisher LC/MS 竞品对比框架')).toBeVisible();
+
+    await page.goto('/action-analytics');
+    await expectHealthyPage(page);
+    await expect(page.getByText('行动台运营分析')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('采纳率')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '高风险未闭环' })).toBeVisible();
+
+    await page.goto('/ai-operating-system');
+    await expectHealthyPage(page);
+    await expect(page.getByText('科学仪器销售团队的 AI 作战室')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Agent 仿真沙盒')).toBeVisible();
+    await expect(page.getByText('SOP → AOP 自然语言定义器')).toBeVisible();
+    await expect(page.locator('#demo-space').getByRole('heading', { name: '科学仪器 Demo 空间' })).toBeVisible();
   });
 });

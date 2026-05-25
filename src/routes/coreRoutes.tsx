@@ -1,15 +1,17 @@
 import React from "react";
 import { Navigate, Route } from "react-router-dom";
 import { ModuleRouteBoundary } from "@/components/common/ModuleRouteBoundary";
+import ActionAnalyticsPage from "@/pages/ActionAnalyticsPage";
 import {
   ApprovalCenter,
   AICenterPage,
-  ActionAnalyticsPage,
+  AIOperatingSystemPage,
   BossDashboard,
   DataHubPage,
   EmployeeDashboard,
   ExceptionsPage,
   InboxPage,
+  IndustryKnowledgePage,
   ProfileCenter,
   ProjectDetail,
   ProjectManagement,
@@ -48,6 +50,8 @@ export function coreRoutes(
       <Route path="data" element={routeBoundary("Data", <DataHubPage />)} />
       <Route path="action-analytics" element={routeBoundary("Action Analytics", <ActionAnalyticsPage />)} />
       <Route path="ai-center" element={routeBoundary("AI Center", <AICenterPage />)} />
+      <Route path="ai-operating-system" element={routeBoundary("AI Operating System", <AIOperatingSystemPage />)} />
+      <Route path="industry-knowledge" element={routeBoundary("Industry Knowledge", <IndustryKnowledgePage />)} />
       <Route path="approval" element={routeBoundary("Approval Center", <ApprovalCenter />)} />
       <Route path="sales" element={routeBoundary("Sales Pipeline", <SalesPipeline />)} />
       <Route path="projects" element={routeBoundary("Projects", <ProjectManagement />)} />

@@ -22,6 +22,7 @@ import {
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AIOperatingSystemStrip } from '@/components/product/AIOperatingSystemStrip';
 import { cn } from '@/lib/utils';
 import {
   InboxActionCommand,
@@ -284,6 +285,7 @@ export default function InboxPage() {
       </header>
 
       {!isLoading && !isError && <ActionInboxInsightStrip items={items} />}
+      <AIOperatingSystemStrip />
 
       <nav className="flex flex-wrap gap-2 border-b pb-3">
         {tabs.map((tab) => {

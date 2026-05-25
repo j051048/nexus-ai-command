@@ -459,6 +459,8 @@ async def get_action_analytics(
         event_counts = Counter(_as_text(event.get("event_type")) for event in events)
         source_counts: dict[str, Counter[str]] = defaultdict(Counter)
         actor_counts: Counter[str] = Counter()
+        actor_event_counts: dict[str, Counter[str]] = defaultdict(Counter)
+        daily_counts: dict[str, Counter[str]] = defaultdict(Counter)
         recent_events: list[dict[str, Any]] = []
         handled_action_ids: set[str] = set()
 
@@ -467,7 +469,12 @@ async def get_action_analytics(
             source = _as_text(event.get("source"), "system")
             source_counts[source][event_type] += 1
             if event.get("user_id"):
-                actor_counts[_as_text(event.get("user_id"))] += 1
+                actor_id = _as_text(event.get("user_id"))
+                actor_counts[actor_id] += 1
+                actor_event_counts[actor_id][event_type] += 1
+            created = _parse_datetime(event.get("created_at"))
+            if created:
+                daily_counts[created.date().isoformat()][event_type] += 1
             if event_type in {"accepted", "completed", "ignored", "command_executed"}:
                 handled_action_ids.add(_as_text(event.get("action_id")))
             if len(recent_events) < 10:
@@ -493,6 +500,31 @@ async def get_action_analytics(
             }
             for source, counter in source_counts.items()
         }
+        by_actor = [
+            {
+                "user_id": user_id_value,
+                "total": sum(counter.values()),
+                "accepted": counter.get("accepted", 0),
+                "completed": counter.get("completed", 0)
+                + counter.get("command_executed", 0),
+                "ignored": counter.get("ignored", 0),
+                "snoozed": counter.get("snoozed", 0),
+            }
+            for user_id_value, counter in actor_event_counts.items()
+        ]
+        by_actor.sort(key=lambda item: item["total"], reverse=True)
+        daily_trend = [
+            {
+                "date": date,
+                "total": sum(counter.values()),
+                "accepted": counter.get("accepted", 0),
+                "completed": counter.get("completed", 0)
+                + counter.get("command_executed", 0),
+                "ignored": counter.get("ignored", 0),
+                "snoozed": counter.get("snoozed", 0),
+            }
+            for date, counter in sorted(daily_counts.items())
+        ]
 
         open_actions = _sort_actions(
             [
@@ -537,6 +569,8 @@ async def get_action_analytics(
                     "unique_actors": len(actor_counts),
                 },
                 "by_source": per_source,
+                "by_actor": by_actor[:10],
+                "daily_trend": daily_trend,
                 "stale_open_actions": [item.model_dump() for item in stale_open],
                 "recent_events": recent_events,
             }

@@ -53,6 +53,8 @@ export default function ActionAnalyticsPage() {
       })),
     [data?.by_source],
   );
+  const trendRows = data?.daily_trend ?? [];
+  const maxTrendTotal = Math.max(1, ...trendRows.map((row) => row.total));
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
@@ -218,6 +220,67 @@ export default function ActionAnalyticsPage() {
                   ))
                 )}
               </div>
+            </div>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-semibold">行动趋势</h2>
+                <Badge variant="outline">按天聚合</Badge>
+              </div>
+              {trendRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">暂无趋势数据。</p>
+              ) : (
+                <div className="space-y-2">
+                  {trendRows.slice(-14).map((row) => {
+                    const width = Math.max(4, Math.round((row.total / maxTrendTotal) * 100));
+                    return (
+                      <div key={row.date} className="grid grid-cols-[84px_1fr_52px] items-center gap-3 text-sm">
+                        <span className="text-xs text-muted-foreground">{row.date.slice(5)}</span>
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
+                        </div>
+                        <span className="text-right text-xs text-muted-foreground">{row.total} 次</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-semibold">团队动作榜</h2>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => triggerAI('请根据团队动作榜识别执行力断点，并给出下周管理动作。')}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  管理建议
+                </Button>
+              </div>
+              {(data?.by_actor ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">暂无团队动作数据。</p>
+              ) : (
+                <div className="space-y-2">
+                  {data!.by_actor.slice(0, 6).map((actor) => (
+                    <div key={actor.user_id} className="rounded-lg border bg-background/60 p-3">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="truncate font-medium">{actor.user_id}</span>
+                        <Badge variant="outline">{actor.total} 次</Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>采纳 {actor.accepted}</span>
+                        <span>完成 {actor.completed}</span>
+                        <span>忽略 {actor.ignored}</span>
+                        <span>稍后 {actor.snoozed}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
