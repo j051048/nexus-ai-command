@@ -9,7 +9,7 @@ fleets, persona/soul packs, and externally exposed capabilities.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
@@ -357,6 +357,7 @@ class AgentOpsRuntimeService:
             "skill_health": 0,
             "reactive_triggers": 0,
             "repair_proposals": 0,
+            "trigger_actions": 0,
             "chain_templates": 0,
             "persona_profiles": 0,
             "external_capabilities": 0,
@@ -416,6 +417,37 @@ class AgentOpsRuntimeService:
                 .execute()
             )
             persisted["reactive_triggers"] += 1
+
+        for item in (payload.get("reactive_triggers") or {}).get("fired", []):
+            trigger_key = str(item.get("trigger") or "agent-ops-trigger")
+            skill_key = str(item.get("skill") or "general_agent")
+            action_id = f"agent-ops:{trigger_key}:{skill_key}"
+            await (
+                db.table("action_events")
+                .insert(
+                    {
+                        "organization_id": organization_id,
+                        "action_id": action_id,
+                        "source": "system",
+                        "source_id": trigger_key,
+                        "event_type": "accepted",
+                        "status": "open",
+                        "comment": "Reactive Agent Ops trigger created an operator action.",
+                        "metadata": {
+                            "type": "agent_ops_reactive_trigger",
+                            "trigger": trigger_key,
+                            "skill": skill_key,
+                            "reason": item.get("reason"),
+                            "next_action": item.get("next_action"),
+                            "priority": "high",
+                            "action_url": "/agent-improvement",
+                            "requires_human_review": True,
+                        },
+                    }
+                )
+                .execute()
+            )
+            persisted["trigger_actions"] += 1
 
         for proposal in (payload.get("self_repair") or {}).get("proposals", []):
             await (
@@ -496,6 +528,81 @@ class AgentOpsRuntimeService:
             persisted["external_capabilities"] += 1
 
         return persisted
+
+    def _next_daily_utc(self, utc_hour: int = 1, minute: int = 0) -> str:
+        now = datetime.now(UTC)
+        target = now.replace(hour=utc_hour, minute=minute, second=0, microsecond=0)
+        if target <= now:
+            target += timedelta(days=1)
+        return target.isoformat()
+
+    async def register_heartbeat_schedule(
+        self,
+        *,
+        db: Any,
+        organization_id: str,
+        user_id: str,
+        focus_var: str,
+    ) -> dict[str, Any]:
+        """Register the daily Agent Ops heartbeat in the existing scheduler.
+
+        The scheduler executes user_scheduled_tasks through the proactive agent.
+        This prompt is intentionally low-risk: it asks the agent to inspect,
+        summarize, and create proposals/actions, never to apply repairs.
+        """
+        task_name = "Agent Ops Daily Heartbeat"
+        prompt = (
+            "Run the governed Agent Ops heartbeat for "
+            f"{focus_var}. Inspect recent agent runs, skill health, reactive "
+            "trigger conditions, self-repair proposals, and trust signals. "
+            "Persist only safe heartbeat facts, proposed repair items, and "
+            "operator action records. Do not execute high-risk operations or "
+            "apply self-repair without HITL approval."
+        )
+        task_data = {
+            "user_id": user_id,
+            "organization_id": organization_id,
+            "name": task_name,
+            "prompt": prompt,
+            "schedule_type": "daily",
+            "hour": 9,
+            "minute": 0,
+            "is_active": True,
+            "notify_method": "notification",
+            "next_execution_at": self._next_daily_utc(),
+        }
+        existing = await (
+            db.table("user_scheduled_tasks")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("organization_id", organization_id)
+            .eq("name", task_name)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            task_id = existing.data[0]["id"]
+            result = await (
+                db.table("user_scheduled_tasks")
+                .update(task_data)
+                .eq("id", task_id)
+                .execute()
+            )
+            return {
+                "mode": "updated",
+                "task_id": task_id,
+                "next_execution_at": task_data["next_execution_at"],
+                "record": (result.data or [{}])[0],
+            }
+
+        result = await db.table("user_scheduled_tasks").insert(task_data).execute()
+        record = (result.data or [{}])[0]
+        return {
+            "mode": "created",
+            "task_id": record.get("id"),
+            "next_execution_at": task_data["next_execution_at"],
+            "record": record,
+        }
 
 
 agent_ops_runtime_service = AgentOpsRuntimeService()

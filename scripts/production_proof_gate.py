@@ -160,17 +160,35 @@ CHECKS = [
             "build_persona_soul",
             "build_external_capabilities",
             "persist_dashboard",
+            "register_heartbeat_schedule",
+            "trigger_actions",
         ),
     ),
     ProofCheck(
         "Aeon-inspired Agent Ops API",
         "nexus_backend/app/routers/ai_operating_system.py",
-        ("/aeon-inspired-ops", "/aeon-inspired-ops/run-heartbeat", "agent_ops_runtime_service", "focus_var"),
+        (
+            "/aeon-inspired-ops",
+            "/aeon-inspired-ops/run-heartbeat",
+            "/aeon-inspired-ops/register-heartbeat-schedule",
+            "agent_ops_runtime_service",
+            "focus_var",
+        ),
     ),
     ProofCheck(
         "Aeon-inspired Agent Ops UI",
         "src/pages/AgentImprovementCenterPage.tsx",
-        ("Aeon-style Agent Ops Runtime", "Heartbeat Supervisor", "MCP / A2A Capabilities"),
+        (
+            "Aeon-style Agent Ops Runtime",
+            "Heartbeat Supervisor",
+            "MCP / A2A Capabilities",
+            "启用每日自动巡检",
+        ),
+    ),
+    ProofCheck(
+        "Agent Ops system actions in inbox",
+        "nexus_backend/app/routers/inbox.py",
+        ("_load_system_actions", "Reactive trigger fired", '.eq("source", "system")'),
     ),
     ProofCheck(
         "Aeon-inspired Agent Ops persistence",

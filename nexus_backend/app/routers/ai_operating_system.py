@@ -812,6 +812,32 @@ async def run_aeon_inspired_heartbeat(
     return api_success(data=payload)
 
 
+@router.post("/aeon-inspired-ops/register-heartbeat-schedule")
+async def register_aeon_heartbeat_schedule(
+    request: Request,
+    focus_var: str = Query("scientific instrument sales", max_length=160),
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Register a daily governed Agent Ops heartbeat with the scheduler."""
+    db = _db(request)
+    from app.services.agent_ops_runtime_service import agent_ops_runtime_service
+
+    try:
+        schedule = await agent_ops_runtime_service.register_heartbeat_schedule(
+            db=db,
+            organization_id=org_id,
+            user_id=user_id,
+            focus_var=focus_var,
+        )
+    except Exception as exc:
+        schedule = {
+            "mode": "safe_fallback_not_registered",
+            "reason": str(exc)[:240],
+        }
+    return api_success(data=schedule)
+
+
 @router.post("/proposals/{proposal_key}/decision")
 async def decide_agent_improvement_proposal(
     proposal_key: str,

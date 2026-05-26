@@ -7,6 +7,7 @@ import {
   useMemoryHygiene,
   usePromptRegistry,
   useRunAeonInspiredHeartbeat,
+  useRegisterAeonHeartbeatSchedule,
 } from '@/hooks/useAIOperatingSystem';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ export default function AgentImprovementCenterPage() {
   const evolutionOps = useAgentEvolutionOps();
   const aeonOps = useAeonInspiredOps('scientific instrument sales');
   const runAeonHeartbeat = useRunAeonInspiredHeartbeat();
+  const registerAeonSchedule = useRegisterAeonHeartbeatSchedule();
   const decideProposal = useDecideAgentProposal();
   const agentCI = useAgentCI();
 
@@ -410,6 +412,14 @@ export default function AgentImprovementCenterPage() {
             disabled={runAeonHeartbeat.isPending}
           >
             Run heartbeat
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => registerAeonSchedule.mutate('scientific instrument sales')}
+            disabled={registerAeonSchedule.isPending}
+          >
+            启用每日自动巡检
           </Button>
         </div>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">

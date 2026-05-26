@@ -463,6 +463,30 @@ export function useRunAeonInspiredHeartbeat() {
   });
 }
 
+export function useRegisterAeonHeartbeatSchedule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (focusVar = 'scientific instrument sales') => {
+      const response = await httpClient.post(
+        '/api/ai-operating-system/aeon-inspired-ops/register-heartbeat-schedule',
+        null,
+        {
+          params: { focus_var: focusVar },
+        },
+      );
+      return response.data?.data as {
+        mode: string;
+        task_id?: string;
+        next_execution_at?: string;
+        reason?: string;
+      };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['ai-operating-system-aeon-inspired-ops'] });
+    },
+  });
+}
+
 export function useDecideAgentProposal() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -290,6 +290,56 @@ def _customer_risk_to_action_item(item: dict[str, Any]) -> ActionItem:
     )
 
 
+def _system_event_to_action_item(item: dict[str, Any]) -> ActionItem:
+    metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+    action_id = _as_text(item.get("action_id"))
+    source_id = _as_text(item.get("source_id"), action_id)
+    trigger = _as_text(metadata.get("trigger"), source_id)
+    skill = _as_text(metadata.get("skill"), "Agent Ops")
+    reason = _as_text(metadata.get("reason"), item.get("comment") or "")
+    action_url = _as_text(metadata.get("action_url"), "/agent-improvement")
+    priority = _as_text(metadata.get("priority"), "high")
+    if priority not in _PRIORITY_RANK:
+        priority = "medium"
+    return ActionItem(
+        id=action_id,
+        source="system",
+        source_id=source_id,
+        type=_as_text(metadata.get("type"), "system_action"),
+        title=f"{skill} needs operator review",
+        description=reason[:180] if reason else None,
+        reason=f"Reactive trigger fired: {trigger}",
+        priority=priority,  # type: ignore[arg-type]
+        created_at=item.get("created_at"),
+        action_url=action_url,
+        actions=[
+            ActionCommand(
+                id="review",
+                label="Review",
+                kind="navigate",
+                variant="primary",
+                navigate_to=action_url,
+            ),
+            ActionCommand(
+                id="archive",
+                label="Archive",
+                kind="api",
+                method="POST",
+                url=f"/api/inbox/actions/{action_id}/events",
+                payload={
+                    "action_id": action_id,
+                    "source": "system",
+                    "source_id": source_id,
+                    "event_type": "ignored",
+                    "status": "archived",
+                    "metadata": {"archived_from": "system_event_action"},
+                },
+            ),
+        ],
+        metadata=metadata,
+    )
+
+
 def _sort_actions(items: list[ActionItem]) -> list[ActionItem]:
     def key(item: ActionItem) -> tuple[int, str]:
         created = item.created_at or ""
@@ -353,6 +403,23 @@ async def _load_customer_risks(client: Any, limit: int) -> list[ActionItem]:
         return []
 
 
+async def _load_system_actions(client: Any, limit: int) -> list[ActionItem]:
+    try:
+        res = (
+            await client.table("action_events")
+            .select("*")
+            .eq("source", "system")
+            .eq("status", "open")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return [_system_event_to_action_item(item) for item in (res.data or [])]
+    except Exception as exc:
+        logger.warning("Inbox system action aggregation failed: %s", exc)
+        return []
+
+
 @router.post("/actions/{action_id}/events")
 async def record_action_event(
     action_id: str,
@@ -402,6 +469,7 @@ async def list_action_items(
             await _load_unread_notifications(client, user_id, per_source_limit)
         )
         items.extend(await _load_customer_risks(client, per_source_limit))
+        items.extend(await _load_system_actions(client, per_source_limit))
 
         sorted_items = _sort_actions(items)[:limit]
         summary = {

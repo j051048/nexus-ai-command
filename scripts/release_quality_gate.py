@@ -973,6 +973,8 @@ CHECKS = [
             "build_persona_soul",
             "build_external_capabilities",
             "persist_dashboard",
+            "register_heartbeat_schedule",
+            "trigger_actions",
         ),
     ),
     GateCheck(
@@ -983,7 +985,14 @@ CHECKS = [
             "Aeon-style Agent Ops Runtime",
             "Heartbeat Supervisor",
             "MCP / A2A Capabilities",
+            "启用每日自动巡检",
         ),
+    ),
+    GateCheck(
+        "P2",
+        "Agent Ops system actions in inbox",
+        "nexus_backend/app/routers/inbox.py",
+        ("_load_system_actions", "Reactive trigger fired", '.eq("source", "system")'),
     ),
     GateCheck(
         "P5",

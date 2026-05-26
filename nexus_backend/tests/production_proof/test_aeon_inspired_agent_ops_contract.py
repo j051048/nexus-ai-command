@@ -13,6 +13,7 @@ def read(path: str) -> str:
 def test_aeon_inspired_agent_ops_backend_contract():
     service = read("nexus_backend/app/services/agent_ops_runtime_service.py")
     router = read("nexus_backend/app/routers/ai_operating_system.py")
+    inbox = read("nexus_backend/app/routers/inbox.py")
     migration = read("supabase/migrations/20260526_agent_ops_runtime.sql")
 
     for token in [
@@ -27,12 +28,18 @@ def test_aeon_inspired_agent_ops_backend_contract():
         "build_persona_soul",
         "build_external_capabilities",
         "persist_dashboard",
+        "register_heartbeat_schedule",
+        "action_events",
+        "trigger_actions",
     ]:
         assert token in service
 
     assert "/aeon-inspired-ops" in router
     assert "/aeon-inspired-ops/run-heartbeat" in router
+    assert "/aeon-inspired-ops/register-heartbeat-schedule" in router
     assert "agent_ops_runtime_service" in router
+    assert "_load_system_actions" in inbox
+    assert "Reactive trigger fired" in inbox
     assert "agent_heartbeat_runs" in migration
     assert "agent_external_capabilities" in migration
 
@@ -42,8 +49,22 @@ def test_aeon_inspired_agent_ops_frontend_contract():
     page = read("src/pages/AgentImprovementCenterPage.tsx")
 
     assert "useAeonInspiredOps" in hook
+    assert "useRegisterAeonHeartbeatSchedule" in hook
     assert "AeonInspiredOpsResult" in hook
     assert "aeon-inspired-ops" in hook
     assert "Aeon-style Agent Ops Runtime" in page
     assert "Heartbeat Supervisor" in page
     assert "MCP / A2A Capabilities" in page
+    assert "启用每日自动巡检" in page
+
+
+def test_agent_improvement_center_visible_text_is_utf8_clean():
+    page = read("src/pages/AgentImprovementCenterPage.tsx")
+    service = read("nexus_backend/app/services/agent_ops_runtime_service.py")
+
+    for token in ["鍐", "杩", "姣", "鏆", "绔炲搧", "棰勭畻"]:
+        assert token not in page
+
+    assert "内置 Agent 自我进化控制台" in page
+    assert "华东区高校客户" in service
+    assert "Thermo Fisher 竞品线索" in service
