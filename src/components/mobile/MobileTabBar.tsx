@@ -1,10 +1,10 @@
 /**
  * 移动端底部 Tab 导航栏
- * 5-tab: 首页 | 工作台 | AI(中心突出) | 消息 | 我的
+ * 5-tab: 收件箱 | 客户 | AI(中心突出) | 数据 | 我的
  * AI Tab 不跳路由，唤起半屏浮窗
  */
 
-import { Home, LayoutGrid, Bot, Bell, User } from 'lucide-react';
+import { Inbox, Users, Bot, BarChart3, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingApprovalsCount } from '@/hooks/useApprovals';
 import { useUnreadCount } from '@/hooks/useNotificationCenter';
@@ -17,10 +17,10 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: 'home', label: '行动', icon: Home },
-  { id: 'workbench', label: '工作台', icon: LayoutGrid },
+  { id: 'home', label: '收件箱', icon: Inbox },
+  { id: 'customers', label: '客户', icon: Users },
   { id: 'ai', label: 'AI', icon: Bot, isCenter: true },
-  { id: 'notifications', label: '消息', icon: Bell },
+  { id: 'data', label: '数据', icon: BarChart3 },
   { id: 'profile', label: '我的', icon: User },
 ];
 
@@ -63,8 +63,7 @@ export default function MobileTabBar({
 
           // Badge 计算
           let badgeCount = 0;
-          if (tab.id === 'workbench') badgeCount = pendingCount;
-          if (tab.id === 'notifications') badgeCount = unreadCount;
+          if (tab.id === 'home') badgeCount = pendingCount + unreadCount;
 
           // AI 中心按钮 — 突出样式
           if (tab.isCenter) {

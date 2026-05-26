@@ -10,22 +10,28 @@ import { getApiBaseUrl } from './apiConfig';
 
 const IS_PROD = import.meta.env.PROD;
 const REPORT_ENDPOINT = import.meta.env.VITE_VITALS_ENDPOINT || `${getApiBaseUrl()}/api/metrics/web-vitals`;
+const WEB_VITAL_RATINGS = new Set(['good', 'needs-improvement', 'poor']);
+
+function normalizeRating(rating: Metric['rating'] | undefined): string {
+  return rating && WEB_VITAL_RATINGS.has(rating) ? rating : 'unknown';
+}
 
 function reportMetric(metric: Metric): void {
+  const rating = normalizeRating(metric.rating);
   const payload = {
     name: metric.name,
     value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),
-    rating: metric.rating,
+    rating,
     id: metric.id,
     path: window.location.pathname,
   };
 
   // Dev: rich console output with color-coded rating
   if (!IS_PROD) {
-    const color = metric.rating === 'good' ? '#0CCE6B'
-      : metric.rating === 'needs-improvement' ? '#FFA400' : '#FF4E42';
+    const color = rating === 'good' ? '#0CCE6B'
+      : rating === 'needs-improvement' ? '#FFA400' : '#FF4E42';
     console.log(
-      `%c[WebVitals] ${metric.name}: ${payload.value} (${metric.rating})`,
+      `%c[WebVitals] ${metric.name}: ${payload.value} (${rating})`,
       `color: ${color}; font-weight: bold;`
     );
     return;
@@ -36,7 +42,7 @@ function reportMetric(metric: Metric): void {
     import('@sentry/react').then((Sentry) => {
       Sentry.setMeasurement(metric.name, metric.value, metric.name === 'CLS' ? '' : 'millisecond');
       // Tag poor metrics for Sentry alerting
-      if (metric.rating === 'poor') {
+      if (rating === 'poor') {
         Sentry.setTag(`webvitals.${metric.name}`, 'poor');
       }
     }).catch(() => {});

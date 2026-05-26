@@ -30,7 +30,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
         const path = location.pathname;
         if (path.includes('boss-dashboard')) return '总控中心';
         if (path.includes('performance-dashboard')) return '战绩看板';
-        if (path.includes('dashboard')) return '行动台';
+        if (path.includes('dashboard')) return '收件箱';
         if (path.includes('workbench')) return '工作台';
         if (path.includes('ai-center')) return 'AI 中心';
         if (path.includes('data')) return '数据';

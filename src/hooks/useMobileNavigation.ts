@@ -7,7 +7,7 @@ import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthContext';
 
-type TabId = 'home' | 'workbench' | 'ai' | 'notifications' | 'profile';
+type TabId = 'home' | 'customers' | 'ai' | 'data' | 'profile';
 
 interface TabConfig {
   defaultPath: string | ((role: string) => string);
@@ -19,27 +19,26 @@ const TAB_CONFIG: Record<Exclude<TabId, 'ai'>, TabConfig> = {
     defaultPath: '/dashboard',
     matchPaths: ['/dashboard'],
   },
-  workbench: {
-    defaultPath: '/workbench',
-    matchPaths: [
-      '/workbench', '/approval', '/sales', '/projects', '/contracts',
-      '/exceptions', '/workflows', '/oa', '/hr', '/finance',
-      '/tender-analysis', '/battlecards', '/employees',
-      '/roles', '/departments', '/targets', '/knowledge', '/documents',
-      '/import', '/form-designer', '/workflow-templates',
-    ],
+  customers: {
+    defaultPath: '/crm',
+    matchPaths: ['/crm', '/sales', '/contracts', '/tender-analysis', '/battlecards'],
   },
-  notifications: {
-    defaultPath: '/notification-center',
-    matchPaths: ['/notification-center'],
+  data: {
+    defaultPath: '/data',
+    matchPaths: [
+      '/data', '/reports', '/report-builder', '/target-dashboard',
+      '/boss-dashboard', '/custom-dashboard', '/customer-success',
+    ],
   },
   profile: {
     defaultPath: '/profile',
     matchPaths: [
-      '/profile', '/settings', '/rewards', '/payments',
-      '/api-keys', '/audit', '/training', '/custom-dashboard', '/admin',
-      '/data', '/boss-dashboard', '/target-dashboard', '/reports',
-      '/report-builder', '/customer-success', '/ai-center', '/crm',
+      '/profile', '/settings', '/rewards', '/payments', '/workbench',
+      '/approval', '/projects', '/exceptions', '/workflows', '/oa',
+      '/hr', '/finance', '/employees', '/roles', '/departments',
+      '/targets', '/knowledge', '/documents', '/import', '/form-designer',
+      '/workflow-templates', '/notification-center', '/api-keys',
+      '/audit', '/training', '/admin', '/ai-center',
       '/vmd', '/vmd/tasks', '/vmd/agents', '/vmd/clues',
       '/vmd/compliance', '/vmd/dashboard', '/llm/models', '/plugins',
       '/agent-debug', '/agent-runs', '/tools/governance',
@@ -49,7 +48,7 @@ const TAB_CONFIG: Record<Exclude<TabId, 'ai'>, TabConfig> = {
 
 /** 路径 → 中文标题映射 */
 const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': '行动台',
+  '/dashboard': '收件箱',
   '/workbench': '工作台',
   '/data': '数据',
   '/ai-center': 'AI 中心',
@@ -103,9 +102,8 @@ const PAGE_TITLES: Record<string, string> = {
 /** Tab 首页路径集合 — 这些路径算 Tab 首页，不显示返回按钮 */
 const TAB_HOME_PATHS = new Set([
   '/dashboard',
-  '/boss-dashboard',
-  '/workbench',
-  '/notification-center',
+  '/crm',
+  '/data',
   '/profile',
 ]);
 

@@ -449,7 +449,7 @@ CHECKS = [
         "five-space navigation",
         "src/components/layout/Sidebar.tsx",
         (
-            'label: "行动台"',
+            'label: "收件箱"',
             'label: "CRM"',
             'label: "工作台"',
             'label: "数据"',
@@ -474,6 +474,12 @@ CHECKS = [
         "embedded CRM AI layer",
         "src/pages/crm/CRMPage.tsx",
         ("CRMAIInsightLayer", "AI 客户摘要", "生成跟进优先级"),
+    ),
+    GateCheck(
+        "P1",
+        "embedded contract AI risk layer",
+        "src/pages/ContractManagement.tsx",
+        ("ContractAIInsightLayer", "AI 合同风控摘要", "生成风险清单"),
     ),
     GateCheck(
         "P1",

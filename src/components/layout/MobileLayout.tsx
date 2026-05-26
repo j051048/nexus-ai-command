@@ -96,7 +96,7 @@ export function MobileLayout() {
     }
 
     // 工作台默认页 → 移动端功能卡片网格
-    if (activeTab === 'workbench' && path === '/workbench') {
+    if (path === '/workbench') {
       return <MobileWorkbenchPage />;
     }
 

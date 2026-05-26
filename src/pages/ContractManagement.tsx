@@ -33,12 +33,14 @@ import {
   Ban,
   RotateCw,
   Trash2,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContracts, useContractDetail, useCreateContract, useDeleteContract, type Contract, type ContractEvent } from '@/hooks/useContracts';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { AITrustBadge } from '@/components/ai/AITrustBadge';
 
 // 合同类型
 const CONTRACT_TYPES: Record<string, string> = {
@@ -88,6 +90,80 @@ function daysUntil(dateStr: string) {
   if (!dateStr) return null;
   const diff = new Date(dateStr).getTime() - new Date().getTime();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function triggerAI(prompt: string) {
+  window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
+}
+
+function ContractAIInsightLayer({ contracts }: { contracts: Contract[] }) {
+  const expiring = contracts.filter((contract) => {
+    const days = daysUntil(contract.end_date);
+    return contract.status === 'active' && days !== null && days >= 0 && days <= 30;
+  });
+  const pendingReview = contracts.filter((contract) => contract.status === 'pending_review');
+  const highValue = [...contracts]
+    .filter((contract) => Number(contract.amount) > 0)
+    .sort((a, b) => Number(b.amount) - Number(a.amount))
+    .slice(0, 1);
+  const trustLevel = expiring.length > 0 || pendingReview.length > 0 ? 'medium' : 'high';
+
+  return (
+    <section className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-semibold">AI 合同风控摘要</h2>
+              <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 90 : 76} />
+            </div>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              当前合同池中有 {pendingReview.length} 份待审核、{expiring.length} 份 30 天内到期
+              {highValue[0] ? `，最高金额合同为 ${highValue[0].title}。` : '。'}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => triggerAI('请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单和处理优先级。')}
+          >
+            生成风险清单
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => triggerAI('请把当前即将到期和待审核合同整理成今天的合同处理计划。')}
+          >
+            今日合同计划
+          </Button>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="rounded-lg border bg-muted/30 p-3">
+          <div className="text-xs text-muted-foreground">到期风险</div>
+          <div className="mt-1 text-lg font-semibold">{expiring.length}</div>
+          <p className="mt-1 text-xs text-muted-foreground">建议优先触发续签或回款确认。</p>
+        </div>
+        <div className="rounded-lg border bg-muted/30 p-3">
+          <div className="text-xs text-muted-foreground">待审核合同</div>
+          <div className="mt-1 text-lg font-semibold">{pendingReview.length}</div>
+          <p className="mt-1 text-xs text-muted-foreground">金额、付款条款和客户主体需进入人审。</p>
+        </div>
+        <div className="rounded-lg border bg-muted/30 p-3">
+          <div className="text-xs text-muted-foreground">AI 证据</div>
+          <div className="mt-1 text-sm font-medium">
+            {highValue[0] ? `${highValue[0].customer_name || '未关联客户'} / ${formatAmount(Number(highValue[0].amount))}` : '暂无高金额合同'}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">来自合同金额、客户、状态和到期日。</p>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export function ContractManagement() {
@@ -333,6 +409,8 @@ export function ContractManagement() {
           </CardContent>
         </Card>
       </div>
+
+      <ContractAIInsightLayer contracts={allContracts} />
 
       {/* 搜索和筛选 */}
       <div className="flex flex-col sm:flex-row gap-4">

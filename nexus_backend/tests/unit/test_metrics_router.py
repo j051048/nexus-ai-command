@@ -19,6 +19,21 @@ def test_web_vital_payload_normalizes_metric_labels():
     assert payload.path == "/customers/123"
 
 
+@pytest.mark.parametrize(
+    ("raw_rating", "expected"),
+    [
+        (None, "unknown"),
+        ("needsImprovement", "needs-improvement"),
+        ("needs_improvement", "needs-improvement"),
+        ("needs improvement", "needs-improvement"),
+    ],
+)
+def test_web_vital_payload_accepts_browser_rating_variants(raw_rating, expected):
+    payload = WebVitalPayload(name="CLS", value=1, rating=raw_rating, path="/")
+
+    assert payload.rating == expected
+
+
 @pytest.mark.parametrize("name", ["custom_metric", "request_count", ""])
 def test_web_vital_payload_rejects_unknown_metric_names(name: str):
     with pytest.raises(ValidationError):

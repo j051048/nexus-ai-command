@@ -132,7 +132,7 @@ export function dispatchNewChat() {
 
 const COMMAND_ITEMS: NavCommandItem[] = [
   // 核心功能
-  { label: '行动台', path: '/dashboard', icon: Bell, keywords: ['首页', 'home', 'dashboard', '待办', '收件箱', '行动'], group: '核心空间' },
+  { label: '收件箱', path: '/dashboard', icon: Bell, keywords: ['首页', 'home', 'dashboard', '待办', '收件箱', '行动'], group: '核心空间' },
   { label: 'CRM', path: '/crm', icon: Users, keywords: ['crm', '客户', '线索', '商机', '销售'], group: '核心空间' },
   { label: '工作台', path: '/workbench', icon: Workflow, keywords: ['项目', '审批', '合同', 'oa', 'hr', '流程'], group: '核心空间' },
   { label: '数据', path: '/data', icon: BarChart3, keywords: ['报表', '数据', '目标', 'dashboard', '经营'], group: '核心空间' },

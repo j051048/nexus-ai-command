@@ -1,6 +1,7 @@
 """Agent metrics API endpoint."""
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
@@ -16,12 +17,17 @@ router = APIRouter(prefix="/api/metrics", tags=["Metrics"])
 
 _ALLOWED_WEB_VITALS = {"CLS", "FCP", "INP", "LCP", "TTFB"}
 _ALLOWED_WEB_VITAL_RATINGS = {"good", "needs-improvement", "poor", "unknown"}
+_WEB_VITAL_RATING_ALIASES = {
+    "needs_improvement": "needs-improvement",
+    "needs improvement": "needs-improvement",
+    "needsimprovement": "needs-improvement",
+}
 
 
 class WebVitalPayload(BaseModel):
     name: str = Field(..., max_length=24)
     value: float = Field(..., ge=0)
-    rating: str = Field(default="unknown", max_length=16)
+    rating: str | None = Field(default="unknown", max_length=32)
     id: str | None = Field(default=None, max_length=128)
     path: str = Field(default="/", max_length=256)
 
@@ -33,10 +39,11 @@ class WebVitalPayload(BaseModel):
             raise ValueError("unsupported web vital metric")
         return normalized
 
-    @field_validator("rating")
+    @field_validator("rating", mode="before")
     @classmethod
-    def validate_rating(cls, value: str) -> str:
-        normalized = (value or "unknown").lower()
+    def validate_rating(cls, value: Any) -> str:
+        normalized = str(value or "unknown").strip().lower()
+        normalized = _WEB_VITAL_RATING_ALIASES.get(normalized, normalized)
         if normalized not in _ALLOWED_WEB_VITAL_RATINGS:
             raise ValueError("unsupported web vital rating")
         return normalized

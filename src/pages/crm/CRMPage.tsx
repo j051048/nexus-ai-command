@@ -1,9 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { useDebounce } from '@/hooks/useDebounce';
+import { useMemo, useState } from 'react';
+import { AlertTriangle, ArrowRightLeft, DollarSign, Loader2, Plus, Sparkles, Trash2, TrendingUp, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/common/LoadingState';
+import { AIQuickActions } from '@/components/ai/AIQuickActions';
+import { AITrustBadge } from '@/components/ai/AITrustBadge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -12,33 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useRegisterPageContext } from '@/hooks/usePageContext';
+import { useCustomers, useCustomerStats, useDeleteCustomer, type Customer } from '@/hooks/useCRM';
 import { cn } from '@/lib/utils';
-import {
-  Users,
-  Plus,
-  ArrowRightLeft,
-  DollarSign,
-  TrendingUp,
-  Trash2,
-  Loader2,
-  Sparkles,
-  AlertTriangle,
-} from 'lucide-react';
-import {
-  useCustomers,
-  useCustomerStats,
-  useDeleteCustomer,
-} from '@/hooks/useCRM';
-import type { Customer } from '@/hooks/useCRM';
+import { iconBackgrounds, iconColors, spacing, typography } from '@/lib/design-tokens';
+import CustomerDetailSheet, { EditCustomerDialog } from './CustomerDetailSheet';
 import CustomerFilters from './CustomerFilters';
+import CustomerFormDialog from './CustomerFormDialog';
 import CustomerKanban from './CustomerKanban';
 import CustomerTable from './CustomerTable';
-import CustomerDetailSheet from './CustomerDetailSheet';
-import CustomerFormDialog from './CustomerFormDialog';
-import { EditCustomerDialog } from './CustomerDetailSheet';
-import { iconColors, iconBackgrounds, spacing, typography } from '@/lib/design-tokens';
-import { AIQuickActions } from '@/components/ai/AIQuickActions';
-import { useRegisterPageContext } from '@/hooks/usePageContext';
 
 function daysSince(value?: string | null) {
   if (!value) return null;
@@ -69,6 +55,7 @@ function CRMAIInsightLayer({
   );
   const topRisk = staleCustomers[0]?.customer;
   const topRiskDays = staleCustomers[0]?.staleDays ?? 0;
+  const trustLevel = staleCustomers.length > 3 ? 'medium' : 'high';
   const evidenceCards = [
     {
       label: '长期未跟进',
@@ -97,6 +84,7 @@ function CRMAIInsightLayer({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-semibold">AI 客户摘要</h2>
+              <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 88 : 74} />
               {staleCustomers.length > 0 && (
                 <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
                   {staleCustomers.length} 个客户需跟进
@@ -106,7 +94,9 @@ function CRMAIInsightLayer({
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               当前客户池共 {Number(stats?.total_customers ?? customers.length)} 个客户，
               {highValueOpen.length} 个高价值机会仍在推进中
-              {topRisk ? `，${topRisk.name} 已较久未更新，建议优先确认下一步。` : '，暂无明显长期停滞客户。'}
+              {topRisk
+                ? `，${topRisk.name} 已较久未更新，建议优先确认下一步。`
+                : '，暂无明显长期停滞客户。'}
             </p>
           </div>
         </div>
@@ -168,19 +158,19 @@ function StatsBar() {
     { label: '客户总数', value: stats?.total_customers ?? 0, icon: Users, color: iconColors.blue, bg: iconBackgrounds.blue },
     { label: '本月新增', value: stats?.new_this_month ?? 0, icon: Plus, color: iconColors.green, bg: iconBackgrounds.green },
     { label: '转化率', value: `${stats?.conversion_rate ?? 0}%`, icon: ArrowRightLeft, color: iconColors.orange, bg: iconBackgrounds.orange },
-    { label: '预估总额', value: `¥${Number(stats?.total_estimated_value ?? 0).toLocaleString()}`, icon: DollarSign, color: iconColors.purple, bg: iconBackgrounds.purple },
+    { label: '预计金额', value: `¥${Number(stats?.total_estimated_value ?? 0).toLocaleString()}`, icon: DollarSign, color: iconColors.purple, bg: iconBackgrounds.purple },
     { label: '流失', value: stats?.churned ?? 0, icon: TrendingUp, color: iconColors.red, bg: iconBackgrounds.red },
   ];
 
   return (
     <div className={cn('grid grid-cols-2 md:grid-cols-5', spacing.sm)}>
-      {items.map(item => (
+      {items.map((item) => (
         <Card key={item.label} variant="elevated">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <span className={cn(typography.xs)}>{item.label}</span>
-              <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', item.bg)}>
-                <item.icon className={cn('w-5 h-5', item.color)} />
+              <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', item.bg)}>
+                <item.icon className={cn('h-5 w-5', item.color)} />
               </div>
             </div>
             <p className={cn(typography.h2, item.color)}>{item.value}</p>
@@ -204,11 +194,10 @@ function CRMPage() {
   const deleteMutation = useDeleteCustomer();
   const statsQuery = useCustomerStats();
 
-  // Register page context for AI panel
   useRegisterPageContext(
     selectedCustomer
       ? { type: 'customer', id: selectedCustomer.id, name: selectedCustomer.name }
-      : { type: 'crm' }
+      : { type: 'crm' },
   );
 
   const filters = useMemo(() => {
@@ -236,11 +225,13 @@ function CRMPage() {
   };
 
   return (
-    <div className={cn('space-y-6')}>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className={cn(typography.h1)}>客户管理</h1>
-          <p className={cn(typography.small, 'text-muted-foreground mt-1')}>管理客户关系，跟踪销售漏斗</p>
+          <p className={cn(typography.small, 'mt-1 text-muted-foreground')}>
+            管理客户关系、销售机会、跟进节奏和 AI 风险提示。
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -250,20 +241,18 @@ function CRMPage() {
               triggerAI('请帮我快速记录一次客户拜访，提取客户名称、联系人、需求、异议、预算、下一步动作和跟进时间。')
             }
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="h-4 w-4" />
             记录拜访
           </Button>
           <Button className="gap-2" onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             新建客户
           </Button>
         </div>
       </div>
 
       <StatsBar />
-
       <AIQuickActions pageType="crm" />
-
       <CRMAIInsightLayer customers={customers} stats={statsQuery.data} />
 
       <CustomerFilters
@@ -302,17 +291,19 @@ function CRMPage() {
       {hasNextPage && (
         <div className="flex justify-center">
           <Button variant="outline" disabled={isFetchingNextPage} onClick={() => fetchNextPage()}>
-            {isFetchingNextPage ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />加载中...</> : '加载更多'}
+            {isFetchingNextPage ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                加载中...
+              </>
+            ) : (
+              '加载更多'
+            )}
           </Button>
         </div>
       )}
 
-      <CustomerDetailSheet
-        customer={selectedCustomer}
-        open={detailOpen}
-        onClose={() => setDetailOpen(false)}
-      />
-
+      <CustomerDetailSheet customer={selectedCustomer} open={detailOpen} onClose={() => setDetailOpen(false)} />
       <CustomerFormDialog open={createOpen} onClose={() => setCreateOpen(false)} />
 
       {editFromList && (
@@ -323,15 +314,17 @@ function CRMPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="h-5 w-5" />
               确认删除客户
             </DialogTitle>
             <DialogDescription>
-              您即将删除客户 <strong>{deleteFromList?.name}</strong>。此操作不可撤销。
+              你即将删除客户 <strong>{deleteFromList?.name}</strong>。此操作不可撤销。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteFromList(null)}>取消</Button>
+            <Button variant="outline" onClick={() => setDeleteFromList(null)}>
+              取消
+            </Button>
             <Button
               variant="destructive"
               disabled={deleteMutation.isPending}
@@ -340,10 +333,12 @@ function CRMPage() {
                 try {
                   await deleteMutation.mutateAsync(deleteFromList.id);
                   setDeleteFromList(null);
-                } catch { /* hook handles toast */ }
+                } catch {
+                  toast.error('删除客户失败');
+                }
               }}
             >
-              {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               确认删除
             </Button>
           </DialogFooter>

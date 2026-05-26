@@ -754,7 +754,7 @@ def test_navigation_is_consolidated_into_five_product_spaces():
     core_routes = read("src/routes/coreRoutes.tsx")
     hub_page = read("src/pages/ProductSpaceHubPage.tsx")
 
-    assert 'label: "行动台", href: "dashboard", group: "primary"' in sidebar
+    assert 'label: "收件箱", href: "dashboard", group: "primary"' in sidebar
     assert 'label: "CRM", href: "crm", group: "primary"' in sidebar
     assert 'label: "工作台", href: "workbench", group: "primary"' in sidebar
     assert 'label: "数据", href: "data", group: "primary"' in sidebar
@@ -776,6 +776,7 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     copilot = read("src/components/ai/ProactiveCopilotPanel.tsx")
     chat_panel = read("src/components/ai/chat/EnhancedAIChatPanel.tsx")
     crm_page = read("src/pages/crm/CRMPage.tsx")
+    contract_page = read("src/pages/ContractManagement.tsx")
     inbox_page = read("src/pages/InboxPage.tsx")
     layout = read("src/components/layout/ChatFirstLayout.tsx")
     mobile_nav = read("src/hooks/useMobileNavigation.ts")
@@ -788,14 +789,16 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     assert "ProactiveCopilotPanel" in chat_panel
     assert "CRMAIInsightLayer" in crm_page
     assert "AI 客户摘要" in crm_page
+    assert "ContractAIInsightLayer" in contract_page
+    assert "AI 合同风控摘要" in contract_page
     assert "ActionInboxInsightStrip" in inbox_page
     assert "AI 优先级解释" in inbox_page
     assert "AI 证据链" in inbox_page
     assert "risk_flags" in inbox_page
     assert "ApprovalAIRiskPanel" in approval_center
     assert "AI 审批风控建议" in approval_center
-    assert "return '行动台'" in layout
-    assert "'/dashboard': '行动台'" in mobile_nav
+    assert "return '收件箱'" in layout
+    assert "'/dashboard': '收件箱'" in mobile_nav
 
 
 def test_p0_p1_action_first_mobile_and_audit_contracts_are_wired():
@@ -816,7 +819,7 @@ def test_p0_p1_action_first_mobile_and_audit_contracts_are_wired():
     assert "return <InboxPage />" in mobile_layout
     assert "path === '/workbench'" in mobile_layout
     assert "'/workbench'" in mobile_nav
-    assert "label: '行动'" in mobile_tab
+    assert "label: '收件箱'" in mobile_tab
     assert "AI 风险依据" in crm_page
 
 
@@ -905,7 +908,7 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "AIOperatingSystemPage" in lazy_imports
     assert 'path="ai-operating-system"' in core_routes
     assert (
-        'label: "AI 作战系统", href: "ai-operating-system", group: "primary"' in sidebar
+        'label: "AI 作战系统", href: "ai-operating-system", group: "AI 中心"' in sidebar
     )
     assert "AI 作战操作系统" in command_bar
     assert "/ai-operating-system" in acceptance

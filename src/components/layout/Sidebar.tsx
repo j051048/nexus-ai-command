@@ -184,55 +184,58 @@ function isNavFeatureEnabled(item: NavItem): boolean {
 }
 
 const NAV_CONFIG: NavItem[] = [
-  // 一级导航：默认只暴露 5 个产品空间，其它模块通过“更多模块”和命令面板触达。
-  { icon: <Inbox size={18} />, label: "行动台", href: "dashboard", group: "primary" },
+  // 一级导航只暴露 5 个产品空间；其它模块通过二级分组和命令面板触达。
+  { icon: <Inbox size={18} />, label: "收件箱", href: "dashboard", group: "primary" },
   { icon: <Contact size={18} />, label: "CRM", href: "crm", group: "primary" },
   { icon: <Briefcase size={18} />, label: "工作台", href: "workbench", group: "primary" },
   { icon: <BarChart3 size={18} />, label: "数据", href: "data", group: "primary" },
   { icon: <Bot size={18} />, label: "AI 中心", href: "ai-center", group: "primary" },
-  { icon: <Sparkles size={18} />, label: "AI 作战系统", href: "ai-operating-system", group: "primary" },
-  { icon: <Brain size={18} />, label: "Agent 进化中心", href: "agent-improvement-center", roles: ["boss", "founder"], group: "primary" },
 
   // 业务域分组
-  { icon: <TrendingUp size={18} />, label: "销售管道", href: "sales", group: "业务" },
-  { icon: <FileSignature size={18} />, label: "合同", href: "contracts", roles: ["manager", "boss", "founder"], group: "业务" },
-  { icon: <FileSearch size={18} />, label: "标书", href: "tender-analysis", group: "业务" },
-  { icon: <Swords size={18} />, label: "竞品库", href: "battlecards", group: "业务" },
+  { icon: <TrendingUp size={18} />, label: "销售管道", href: "sales", group: "客户增长" },
+  { icon: <FileSignature size={18} />, label: "合同", href: "contracts", roles: ["manager", "boss", "founder"], group: "客户增长" },
+  { icon: <FileSearch size={18} />, label: "标书", href: "tender-analysis", group: "客户增长" },
+  { icon: <Swords size={18} />, label: "竞品库", href: "battlecards", group: "客户增长" },
 
   // 办公域分组
-  { icon: <Calendar size={18} />, label: "OA办公", href: "oa", group: "办公" },
-  { icon: <Clock size={18} />, label: "人事", href: "hr", roles: ["manager", "boss", "founder"], group: "办公" },
-  { icon: <DollarSign size={18} />, label: "财务", href: "finance", group: "办公" },
-  { icon: <Wrench size={18} />, label: "工单", href: "work-orders", group: "办公" },
+  { icon: <Calendar size={18} />, label: "OA 办公", href: "oa", group: "协作" },
+  { icon: <Clock size={18} />, label: "人事", href: "hr", roles: ["manager", "boss", "founder"], group: "协作" },
+  { icon: <DollarSign size={18} />, label: "财务", href: "finance", group: "协作" },
+  { icon: <Wrench size={18} />, label: "工单", href: "work-orders", group: "协作" },
+  { icon: <Workflow size={18} />, label: "流程", href: "workflows", roles: ["boss", "founder"], group: "协作" },
 
   // 数据域分组
-  { icon: <BarChart3 size={18} />, label: "数据报表", href: "reports", group: "数据" },
-  { icon: <Target size={18} />, label: "目标看板", href: "target-dashboard", group: "数据" },
-  { icon: <Sparkles size={18} />, label: "AI 报表引擎", href: "report-builder", roles: ["boss", "founder", "manager"], group: "数据" },
-  { icon: <Crown size={18} />, label: "总控中心", href: "boss-dashboard", roles: ["boss", "founder"], group: "数据" },
+  { icon: <BarChart3 size={18} />, label: "数据报表", href: "reports", group: "经营数据" },
+  { icon: <Target size={18} />, label: "目标看板", href: "target-dashboard", group: "经营数据" },
+  { icon: <Sparkles size={18} />, label: "AI 报表引擎", href: "report-builder", roles: ["boss", "founder", "manager"], group: "经营数据" },
+  { icon: <Crown size={18} />, label: "老板看板", href: "boss-dashboard", roles: ["boss", "founder"], group: "经营数据" },
+  { icon: <BarChart3 size={18} />, label: "客户成功", href: "customer-success", roles: ["boss", "founder", "manager"], group: "经营数据" },
 
   // 资产域分组
   { icon: <Warehouse size={18} />, label: "库存", href: "inventory", group: "资产" },
   { icon: <Package size={18} />, label: "资产", href: "assets", group: "资产" },
 
+  // AI 能力域
+  { icon: <Sparkles size={18} />, label: "AI 作战系统", href: "ai-operating-system", group: "AI 中心" },
+  { icon: <Brain size={18} />, label: "Agent 进化", href: "agent-improvement-center", roles: ["boss", "founder"], group: "AI 中心" },
+  { icon: <BookOpen size={18} />, label: "知识库", href: "knowledge", group: "AI 中心" },
+  { icon: <Rocket size={18} />, label: "VMD", href: "vmd", group: "AI 中心" },
+  { icon: <Puzzle size={18} />, label: "插件", href: "plugins", group: "AI 中心" },
+  { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "AI 中心" },
+  { icon: <ShieldCheck size={18} />, label: "Tool 治理", href: "tools/governance", roles: ["boss", "founder"], group: "AI 中心" },
+  { icon: <Activity size={18} />, label: "Agent Runs", href: "agent-runs", roles: ["boss", "founder"], group: "AI 中心" },
+
   // 管理域分组
-  { icon: <Workflow size={18} />, label: "流程", href: "workflows", roles: ["boss", "founder"], group: "管理" },
-  { icon: <BookOpen size={18} />, label: "知识库", href: "knowledge", group: "管理" },
   { icon: <GraduationCap size={18} />, label: "培训", href: "training", group: "管理" },
-  { icon: <Rocket size={18} />, label: "VMD", href: "vmd", group: "管理" },
   { icon: <Network size={18} />, label: "组织", href: "org-chart", roles: ["boss", "founder"], group: "管理" },
   { icon: <Building2 size={18} />, label: "公司设置", href: "company-settings", roles: ["boss", "founder"], group: "管理" },
-  { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "管理" },
-  { icon: <Activity size={18} />, label: "Agent Runs", href: "agent-runs", roles: ["boss", "founder"], group: "管理" },
   { icon: <Server size={18} />, label: "上线交付", href: "deployment-readiness", roles: ["boss", "founder"], group: "管理" },
-  { icon: <BarChart3 size={18} />, label: "客户成功", href: "customer-success", roles: ["boss", "founder", "manager"], group: "管理" },
   { icon: <Shield size={18} />, label: "权限矩阵", href: "permissions-matrix", roles: ["boss", "founder"], group: "管理" },
-  { icon: <ShieldCheck size={18} />, label: "Tool 治理", href: "tools/governance", roles: ["boss", "founder"], group: "管理" },
   { icon: <Brain size={18} />, label: "意图规则", href: "admin/intent-rules", roles: ["boss", "founder"], group: "管理" },
   { icon: <Settings size={18} />, label: "系统设置", href: "settings", roles: ["boss", "founder"], group: "管理" },
 ];
 
-const NAV_GROUPS = ["primary", "业务", "办公", "数据", "资产", "管理"];
+const NAV_GROUPS = ["primary", "客户增长", "协作", "经营数据", "资产", "AI 中心", "管理"];
 
 const SPACE_MATCH_PREFIXES: Record<string, string[]> = {
   workbench: [
@@ -323,7 +326,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
         <ul className={cn("space-y-0.5 mt-1 transition-all", !isOpen && !isCollapsed && "hidden")}>
           {items.map((item) => {
             let badge = item.badge;
-            if (item.href === 'inbox' && inboxBadgeCount > 0) badge = String(inboxBadgeCount);
+            if ((item.href === 'dashboard' || item.href === 'inbox') && inboxBadgeCount > 0) badge = String(inboxBadgeCount);
 
             const handleClick = (e: React.MouseEvent) => {
               if (item.href === '#ai-chat') {

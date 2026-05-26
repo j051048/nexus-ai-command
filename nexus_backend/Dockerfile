@@ -1,5 +1,5 @@
 # Stage 1: Build dependencies
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim-bookworm AS builder
 
 WORKDIR /build
 COPY requirements.txt .
@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir --prefix=/install \
     -r requirements.txt
 
 # Stage 2: Production image
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 # Ensure UTF-8 encoding for Chinese character support
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8

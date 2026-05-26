@@ -1,9 +1,9 @@
 /**
- * InboxPage - unified action workspace.
+ * Unified action inbox.
  *
- * The page intentionally consumes `/api/inbox/actions` instead of stitching
- * approvals, notifications, and CRM risk queries in the browser. That keeps the
- * product centered on one action model shared by desktop, mobile, and AI copilot.
+ * This is the action-first home surface shared by desktop, mobile, and AI
+ * copilot. It consumes `/api/inbox/actions` so approvals, customer risks,
+ * notifications, and Agent Ops actions use one interaction model.
  */
 
 import { useMemo, useRef, useState, type ElementType } from 'react';
@@ -23,12 +23,13 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AIOperatingSystemStrip } from '@/components/product/AIOperatingSystemStrip';
+import { AITrustBadge, type AITrustLevel } from '@/components/ai/AITrustBadge';
 import { cn } from '@/lib/utils';
 import {
-  InboxActionCommand,
-  InboxActionItem,
-  ActionSource,
-  ActionEventType,
+  type ActionEventType,
+  type ActionSource,
+  type InboxActionCommand,
+  type InboxActionItem,
   useExecuteInboxAction,
   useInboxActions,
   useRecordInboxActionEvent,
@@ -37,24 +38,21 @@ import {
 type TabKey = 'all' | ActionSource;
 type EvidenceItem = { label: string; value: string };
 
-const SOURCE_META: Record<
-  ActionSource,
-  { label: string; icon: ElementType; tone: string }
-> = {
+const SOURCE_META: Record<ActionSource, { label: string; icon: ElementType; tone: string }> = {
   approval: {
     label: '审批',
     icon: FileCheck,
-    tone: 'text-blue-500 bg-blue-500/10',
+    tone: 'text-blue-600 bg-blue-500/10',
   },
   notification: {
     label: '通知',
     icon: Bell,
-    tone: 'text-sky-500 bg-sky-500/10',
+    tone: 'text-sky-600 bg-sky-500/10',
   },
   crm: {
     label: '客户',
     icon: UserRoundSearch,
-    tone: 'text-amber-500 bg-amber-500/10',
+    tone: 'text-amber-600 bg-amber-500/10',
   },
   system: {
     label: '系统',
@@ -113,11 +111,19 @@ function getRiskFlags(item: InboxActionItem): string[] {
   return raw.map((value) => String(value)).filter(Boolean);
 }
 
+function getTrustLevel(item: InboxActionItem): AITrustLevel {
+  const riskScore = Number(item.metadata?.risk_score ?? 0);
+  if (item.priority === 'urgent' || riskScore >= 80) return 'low';
+  if (item.priority === 'high' || riskScore >= 55) return 'medium';
+  return 'high';
+}
+
 function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
   const urgent = items.filter((item) => item.priority === 'urgent');
   const high = items.filter((item) => item.priority === 'high');
   const crmRisk = items.filter((item) => item.source === 'crm');
   const nextItem = urgent[0] || high[0] || items[0];
+  const trustLevel: AITrustLevel = urgent.length > 0 ? 'medium' : 'high';
 
   return (
     <section className="rounded-lg border bg-card p-4 shadow-sm">
@@ -127,7 +133,10 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="font-semibold">AI 优先级解释</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-semibold">AI 优先级解释</h2>
+              <AITrustBadge level={trustLevel} score={urgent.length > 0 ? 72 : 91} />
+            </div>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               {items.length === 0
                 ? '当前没有待处理行动项，可以把时间用于推进高价值客户和关键项目。'
@@ -171,10 +180,7 @@ export default function InboxPage() {
 
   const items = data?.items ?? [];
   const visibleItems = useMemo(
-    () =>
-      activeTab === 'all'
-        ? items
-        : items.filter((item) => item.source === activeTab),
+    () => (activeTab === 'all' ? items : items.filter((item) => item.source === activeTab)),
     [activeTab, items],
   );
 
@@ -197,12 +203,10 @@ export default function InboxPage() {
     { key: 'approval', label: '审批', icon: FileCheck },
     { key: 'crm', label: '客户风险', icon: UserRoundSearch },
     { key: 'notification', label: '通知', icon: Bell },
+    { key: 'system', label: 'Agent Ops', icon: AlertTriangle },
   ];
 
-  const handleCommand = async (
-    item: InboxActionItem,
-    command: InboxActionCommand,
-  ) => {
+  const handleCommand = async (item: InboxActionItem, command: InboxActionCommand) => {
     if (command.kind === 'navigate') {
       recordActionEvent.mutate({
         action: item,
@@ -226,10 +230,7 @@ export default function InboxPage() {
     }
   };
 
-  const handleActionEvent = async (
-    item: InboxActionItem,
-    eventType: ActionEventType,
-  ) => {
+  const handleActionEvent = async (item: InboxActionItem, eventType: ActionEventType) => {
     const labels: Partial<Record<ActionEventType, string>> = {
       accepted: '已采纳',
       completed: '已完成',
@@ -259,9 +260,9 @@ export default function InboxPage() {
             <Sparkles className="h-4 w-4" />
             今日行动台
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">今天该处理什么</h1>
+          <h1 className="text-2xl font-bold tracking-tight">今天应该先处理什么</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            聚合审批、客户风险、通知和 AI 规则建议，按优先级帮你排好队。
+            聚合审批、客户风险、通知和 AI 规则建议，按优先级帮你排队。
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center md:min-w-[260px]">
@@ -270,15 +271,11 @@ export default function InboxPage() {
             <div className="text-xs text-muted-foreground">待处理</div>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <div className="text-xl font-bold text-destructive">
-              {data?.summary.urgent ?? 0}
-            </div>
+            <div className="text-xl font-bold text-destructive">{data?.summary.urgent ?? 0}</div>
             <div className="text-xs text-muted-foreground">紧急</div>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <div className="text-xl font-bold text-orange-600">
-              {data?.summary.high ?? 0}
-            </div>
+            <div className="text-xl font-bold text-orange-600">{data?.summary.high ?? 0}</div>
             <div className="text-xs text-muted-foreground">高优先级</div>
           </div>
         </div>
@@ -305,9 +302,7 @@ export default function InboxPage() {
             >
               <Icon className="h-4 w-4" />
               {tab.label}
-              {count > 0 && (
-                <Badge variant={active ? 'secondary' : 'outline'}>{count}</Badge>
-              )}
+              {count > 0 && <Badge variant={active ? 'secondary' : 'outline'}>{count}</Badge>}
             </button>
           );
         })}
@@ -341,6 +336,8 @@ export default function InboxPage() {
             const time = formatTime(item.due_at || item.created_at);
             const evidence = getEvidence(item).slice(0, 4);
             const riskFlags = getRiskFlags(item).slice(0, 3);
+            const trustLevel = getTrustLevel(item);
+            const riskScore = typeof item.metadata?.risk_score === 'number' ? item.metadata.risk_score : undefined;
             return (
               <article
                 key={item.id}
@@ -354,23 +351,16 @@ export default function InboxPage() {
                 className="rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-accent/30"
               >
                 <div className="flex gap-4">
-                  <div
-                    className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-                      meta.tone,
-                    )}
-                  >
+                  <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', meta.tone)}>
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline">{meta.label}</Badge>
-                      <Badge
-                        variant="outline"
-                        className={PRIORITY_CLASS[item.priority]}
-                      >
+                      <Badge variant="outline" className={PRIORITY_CLASS[item.priority]}>
                         {PRIORITY_LABEL[item.priority]}
                       </Badge>
+                      <AITrustBadge level={trustLevel} score={riskScore ? 100 - riskScore : undefined} />
                       {time && (
                         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3.5 w-3.5" />
@@ -378,17 +368,11 @@ export default function InboxPage() {
                         </span>
                       )}
                     </div>
-                    <h2 className="mt-2 text-base font-semibold leading-snug">
-                      {item.title}
-                    </h2>
+                    <h2 className="mt-2 text-base font-semibold leading-snug">{item.title}</h2>
                     {item.description && (
-                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                        {item.description}
-                      </p>
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
                     )}
-                    {item.reason && (
-                      <p className="mt-2 text-xs text-primary">{item.reason}</p>
-                    )}
+                    {item.reason && <p className="mt-2 text-xs text-primary">{item.reason}</p>}
                     {(evidence.length > 0 || riskFlags.length > 0) && (
                       <div className="mt-3 grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs md:grid-cols-2">
                         {evidence.length > 0 && (
@@ -396,12 +380,8 @@ export default function InboxPage() {
                             <div className="font-medium text-foreground">AI 证据链</div>
                             {evidence.map((entry) => (
                               <div key={`${item.id}-${entry.label}`} className="flex gap-2">
-                                <span className="shrink-0 text-muted-foreground">
-                                  {entry.label}:
-                                </span>
-                                <span className="min-w-0 truncate text-foreground">
-                                  {entry.value}
-                                </span>
+                                <span className="shrink-0 text-muted-foreground">{entry.label}:</span>
+                                <span className="min-w-0 truncate text-foreground">{entry.value}</span>
                               </div>
                             ))}
                           </div>
@@ -419,72 +399,35 @@ export default function InboxPage() {
                         )}
                       </div>
                     )}
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground sm:hidden">
-                  右滑采纳，左滑忽略；长按底部 AI 按钮可快速记录拜访。
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={recordActionEvent.isPending}
-                      onClick={() => handleActionEvent(item, 'accepted')}
-                    >
-                      采纳
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={recordActionEvent.isPending}
-                      onClick={() => handleActionEvent(item, 'snoozed')}
-                    >
-                      稍后
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={recordActionEvent.isPending}
-                      onClick={() => handleActionEvent(item, 'completed')}
-                    >
-                      完成
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={recordActionEvent.isPending}
-                      onClick={() => handleActionEvent(item, 'ignored')}
-                    >
-                      忽略
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                  {item.actions.map((command) => (
-                    <Button
-                      key={command.id}
-                      size="sm"
-                      variant={
-                        command.variant === 'primary'
-                          ? 'default'
-                          : command.variant === 'danger'
-                            ? 'destructive'
-                            : 'outline'
-                      }
-                      disabled={executeAction.isPending}
-                      onClick={() => handleCommand(item, command)}
-                    >
-                      {command.kind === 'navigate' && command.id === 'view' && (
-                        <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                      )}
-                      {command.id === 'approve' && (
-                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                      )}
-                      {command.label}
-                    </Button>
-                  ))}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {item.actions.map((command) => (
+                        <Button
+                          key={command.id}
+                          size="sm"
+                          variant={
+                            command.variant === 'primary'
+                              ? 'default'
+                              : command.variant === 'danger'
+                                ? 'destructive'
+                                : 'outline'
+                          }
+                          onClick={() => handleCommand(item, command)}
+                        >
+                          {command.label}
+                          {command.kind === 'navigate' && <ExternalLink className="ml-1.5 h-3.5 w-3.5" />}
+                        </Button>
+                      ))}
+                      <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'completed')}>
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                        标记完成
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'ignored')}>
+                        忽略
+                      </Button>
+                    </div>
+                    <div className="mt-2 text-[11px] text-muted-foreground md:hidden">
+                      右滑采纳，左滑忽略
+                    </div>
                   </div>
                 </div>
               </article>
@@ -494,12 +437,12 @@ export default function InboxPage() {
       )}
 
       {!isLoading && !isError && visibleItems.length === 0 && (
-        <div className="rounded-lg border bg-card py-16 text-center">
-          <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-success opacity-60" />
-          <h3 className="text-lg font-medium">今天没有待处理行动</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            审批、客户风险和通知都已清空，可以专注推进当前销售机会。
-          </p>
+        <div className="rounded-lg border bg-card p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <h2 className="mt-4 font-semibold">当前筛选下没有待办</h2>
+          <p className="mt-1 text-sm text-muted-foreground">可以切回全部行动，或让 AI 生成下一步工作计划。</p>
         </div>
       )}
     </div>
