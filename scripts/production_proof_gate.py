@@ -136,6 +136,16 @@ CHECKS = [
         ("MODULE_FOCUS_POLICY", "THIRD_PARTY_FIRST_MODULES", "isThirdPartyFirstModule"),
     ),
     ProofCheck(
+        "schema convergence audit",
+        "scripts/audit_schema_convergence.py",
+        ("SCHEMA_CONVERGENCE_OK", "agent_heartbeat_runs", "organization_id"),
+    ),
+    ProofCheck(
+        "agent eval baseline service",
+        "nexus_backend/app/services/agent_eval_baseline_service.py",
+        ("_intent_for", "run_router_baseline", "accuracy"),
+    ),
+    ProofCheck(
         "Aeon-inspired Agent Ops runtime",
         "nexus_backend/app/services/agent_ops_runtime_service.py",
         (
@@ -149,12 +159,13 @@ CHECKS = [
             "build_instance_fleet",
             "build_persona_soul",
             "build_external_capabilities",
+            "persist_dashboard",
         ),
     ),
     ProofCheck(
         "Aeon-inspired Agent Ops API",
         "nexus_backend/app/routers/ai_operating_system.py",
-        ("/aeon-inspired-ops", "agent_ops_runtime_service", "focus_var"),
+        ("/aeon-inspired-ops", "/aeon-inspired-ops/run-heartbeat", "agent_ops_runtime_service", "focus_var"),
     ),
     ProofCheck(
         "Aeon-inspired Agent Ops UI",

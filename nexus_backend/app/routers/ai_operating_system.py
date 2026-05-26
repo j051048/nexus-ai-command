@@ -757,6 +757,61 @@ async def get_aeon_inspired_agent_ops(
     return api_success(data=payload)
 
 
+@router.post("/aeon-inspired-ops/run-heartbeat")
+async def run_aeon_inspired_heartbeat(
+    request: Request,
+    focus_var: str = Query("scientific instrument sales", max_length=160),
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Run and persist one governed Agent Ops heartbeat snapshot."""
+    db = _db(request)
+    runs = await _safe_select(
+        db,
+        "agent_runs",
+        "id, run_id, agent, agent_role, tool_name, status, input_summary, error, "
+        "error_message, metadata, updated_at",
+        order_by="updated_at",
+        limit=160,
+    )
+    events = await _safe_select(
+        db,
+        "action_events",
+        "id, action_id, source, source_id, event_type, status, user_id, metadata, created_at",
+        order_by="created_at",
+        limit=240,
+    )
+    proposals = await _safe_select(
+        db,
+        "agent_improvement_proposals",
+        "id, proposal_key, category, title, status, risk_level, updated_at",
+        order_by="updated_at",
+        limit=40,
+    )
+    from app.services.agent_ops_runtime_service import agent_ops_runtime_service
+
+    payload = agent_ops_runtime_service.build_dashboard(
+        runs=runs,
+        events=events,
+        proposals=proposals,
+        focus_var=focus_var,
+    )
+    payload["requested_by"] = user_id
+    payload["organization_id"] = org_id
+    try:
+        payload["persistence"] = await agent_ops_runtime_service.persist_dashboard(
+            db=db,
+            organization_id=org_id,
+            payload=payload,
+        )
+    except Exception as exc:
+        payload["persistence"] = {
+            "mode": "safe_fallback_not_saved",
+            "reason": str(exc)[:240],
+        }
+    return api_success(data=payload)
+
+
 @router.post("/proposals/{proposal_key}/decision")
 async def decide_agent_improvement_proposal(
     proposal_key: str,

@@ -100,12 +100,23 @@ business flows actually run.
    - Persistence: `20260526_agent_ops_runtime.sql`
    - Required proof: heartbeat, skill health, reactive triggers, governed self-repair, skill chains, universal var, operating memory, fleet, persona/soul, and MCP/A2A capability exposure all remain present.
 
+18. Closed-loop Agent Ops heartbeat
+   - API: `POST /api/ai-operating-system/aeon-inspired-ops/run-heartbeat`
+   - Persistence: heartbeat snapshots, skill health, reactive triggers, repair proposals, chain templates, persona profiles, and external capabilities.
+   - Required proof: the endpoint persists operating facts only; self-repair remains proposal-only and human-approved.
+
+19. Router eval and schema convergence
+   - Eval runner: `app/services/agent_eval_baseline_service.py`
+   - Schema audit: `scripts/audit_schema_convergence.py`
+   - Required proof: 200+ eval cases can run through the operating-system router baseline, and Agent Ops tables stay on `organization_id`.
+
 ## Recommended Commands
 
 ```bash
 python scripts/production_proof_gate.py
 python scripts/scan_rls_policy_columns.py
 python scripts/verify_migration_replay.py
+python scripts/audit_schema_convergence.py
 node scripts/generate_agent_eval_dataset.mjs
 npm run build
 cd nexus_backend

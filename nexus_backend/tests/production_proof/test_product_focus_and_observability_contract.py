@@ -39,4 +39,6 @@ def test_agent_quality_and_business_audit_are_customer_visible():
     assert "agent_ci_score" in ops_service
     assert "/roi" in dashboard_router
     assert "/ai-weekly-report" in dashboard_router
+    assert "Boss View" in improvement_page
+    assert "Admin Control Plane" in improvement_page
     assert "高风险未闭环" in action_analytics or "楂橀闄╂湭闂幆" in action_analytics

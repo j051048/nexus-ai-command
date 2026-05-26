@@ -445,6 +445,24 @@ export function useAeonInspiredOps(focusVar = 'scientific instrument sales') {
   });
 }
 
+export function useRunAeonInspiredHeartbeat() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (focusVar = 'scientific instrument sales') => {
+      const response = await httpClient.post('/api/ai-operating-system/aeon-inspired-ops/run-heartbeat', null, {
+        params: { focus_var: focusVar },
+      });
+      return response.data?.data as AeonInspiredOpsResult & { persistence?: Record<string, unknown> };
+    },
+    onSuccess: (_data, focusVar) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['ai-operating-system-aeon-inspired-ops', focusVar],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['ai-operating-system-evolution-ops'] });
+    },
+  });
+}
+
 export function useDecideAgentProposal() {
   const queryClient = useQueryClient();
   return useMutation({

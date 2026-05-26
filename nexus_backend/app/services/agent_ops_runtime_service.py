@@ -316,14 +316,17 @@ class AgentOpsRuntimeService:
         focus_var: str,
     ) -> dict[str, Any]:
         health = self.build_skill_health(runs)
+        heartbeat = self.build_heartbeat(health)
+        reactive_triggers = self.build_reactive_triggers(health)
+        self_repair = self.build_self_repair(health)
         return {
             "generated_at": datetime.now(UTC).isoformat(),
             "inspiration": "aeon-style unattended Agent Ops adapted for enterprise SaaS governance",
             "tables": AEON_AGENT_OPS_TABLES,
-            "heartbeat": self.build_heartbeat(health),
+            "heartbeat": heartbeat,
             "skill_health": health,
-            "reactive_triggers": self.build_reactive_triggers(health),
-            "self_repair": self.build_self_repair(health),
+            "reactive_triggers": reactive_triggers,
+            "self_repair": self_repair,
             "skill_chains": self.build_skill_chains(focus_var),
             "universal_var": self.build_universal_var(focus_var),
             "operating_memory": self.build_operating_memory(runs, events),
@@ -336,6 +339,163 @@ class AgentOpsRuntimeService:
                 "required_release_flow": ["simulate", "agent_ci", "redteam", "human_approval", "gray_release", "rollback_ready"],
             },
         }
+
+    async def persist_dashboard(
+        self,
+        *,
+        db: Any,
+        organization_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Persist one Agent Ops heartbeat snapshot.
+
+        This intentionally writes only operating facts and proposed actions.
+        It never applies self-repair patches or runs high-risk side effects.
+        """
+        persisted = {
+            "heartbeat": False,
+            "skill_health": 0,
+            "reactive_triggers": 0,
+            "repair_proposals": 0,
+            "chain_templates": 0,
+            "persona_profiles": 0,
+            "external_capabilities": 0,
+        }
+
+        heartbeat = payload.get("heartbeat") or {}
+        await (
+            db.table("agent_heartbeat_runs")
+            .insert(
+                {
+                    "organization_id": organization_id,
+                    "status": heartbeat.get("status", "unknown"),
+                    "summary": heartbeat.get("summary"),
+                    "attention_items": heartbeat.get("attention_items", []),
+                }
+            )
+            .execute()
+        )
+        persisted["heartbeat"] = True
+
+        for item in payload.get("skill_health") or []:
+            await (
+                db.table("agent_skill_health")
+                .upsert(
+                    {
+                        "organization_id": organization_id,
+                        "skill_key": item["skill"],
+                        "score": item["score"],
+                        "success_rate": item["success_rate"],
+                        "failure_count": item["failure_count"],
+                        "flags": item["flags"],
+                        "last_status": item.get("last_status"),
+                        "updated_at": datetime.now(UTC).isoformat(),
+                    },
+                    on_conflict="organization_id,skill_key",
+                )
+                .execute()
+            )
+            persisted["skill_health"] += 1
+
+        for item in (payload.get("reactive_triggers") or {}).get("definitions", []):
+            await (
+                db.table("agent_reactive_triggers")
+                .upsert(
+                    {
+                        "organization_id": organization_id,
+                        "trigger_key": item["id"],
+                        "condition_expr": item["when"],
+                        "run_target": item["run"],
+                        "autonomy": item["autonomy"],
+                        "risk": item["risk"],
+                        "enabled": True,
+                        "updated_at": datetime.now(UTC).isoformat(),
+                    },
+                    on_conflict="organization_id,trigger_key",
+                )
+                .execute()
+            )
+            persisted["reactive_triggers"] += 1
+
+        for proposal in (payload.get("self_repair") or {}).get("proposals", []):
+            await (
+                db.table("agent_improvement_proposals")
+                .upsert(
+                    {
+                        "organization_id": organization_id,
+                        "proposal_key": proposal["id"],
+                        "category": "self_repair",
+                        "title": f"Repair proposal for {proposal['skill']}",
+                        "rationale": ", ".join(proposal.get("diagnosis") or []),
+                        "proposed_patch": proposal.get("proposed_patch") or {},
+                        "risk_level": "medium",
+                        "approval_required": True,
+                        "status": "proposed",
+                        "updated_at": datetime.now(UTC).isoformat(),
+                    },
+                    on_conflict="organization_id,proposal_key",
+                )
+                .execute()
+            )
+            persisted["repair_proposals"] += 1
+
+        for chain in (payload.get("skill_chains") or {}).get("chains", []):
+            await (
+                db.table("agent_chain_runs")
+                .insert(
+                    {
+                        "organization_id": organization_id,
+                        "chain_key": chain["id"],
+                        "focus_var": chain.get("var"),
+                        "status": "template_registered",
+                        "steps": chain.get("steps") or [],
+                        "output_contract": chain.get("output_contract"),
+                        "outputs": {},
+                    }
+                )
+                .execute()
+            )
+            persisted["chain_templates"] += 1
+
+        for persona in (payload.get("persona_soul") or {}).get("profiles", []):
+            await (
+                db.table("agent_persona_profiles")
+                .upsert(
+                    {
+                        "organization_id": organization_id,
+                        "persona_key": persona["id"],
+                        "role_name": persona["role"],
+                        "style_contract": persona["style"],
+                        "must_do": persona.get("must_do") or [],
+                        "enabled": True,
+                        "updated_at": datetime.now(UTC).isoformat(),
+                    },
+                    on_conflict="organization_id,persona_key",
+                )
+                .execute()
+            )
+            persisted["persona_profiles"] += 1
+
+        for capability in (payload.get("external_capabilities") or {}).get("capabilities", []):
+            await (
+                db.table("agent_external_capabilities")
+                .upsert(
+                    {
+                        "organization_id": organization_id,
+                        "capability_key": capability["name"],
+                        "description": capability["description"],
+                        "protocols": capability.get("protocols") or [],
+                        "risk": capability.get("risk") or "low",
+                        "enabled": True,
+                        "updated_at": datetime.now(UTC).isoformat(),
+                    },
+                    on_conflict="organization_id,capability_key",
+                )
+                .execute()
+            )
+            persisted["external_capabilities"] += 1
+
+        return persisted
 
 
 agent_ops_runtime_service = AgentOpsRuntimeService()

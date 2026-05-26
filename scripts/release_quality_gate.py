@@ -939,6 +939,26 @@ CHECKS = [
     ),
     GateCheck(
         "P2",
+        "schema convergence and real router eval",
+        "scripts/audit_schema_convergence.py",
+        (
+            "SCHEMA_CONVERGENCE_OK",
+            "agent_heartbeat_runs",
+            "organization_id",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "agent eval baseline service",
+        "nexus_backend/app/services/agent_eval_baseline_service.py",
+        (
+            "_intent_for",
+            "run_router_baseline",
+            "accuracy",
+        ),
+    ),
+    GateCheck(
+        "P2",
         "Aeon-inspired Agent Ops runtime",
         "nexus_backend/app/services/agent_ops_runtime_service.py",
         (
@@ -952,6 +972,7 @@ CHECKS = [
             "build_instance_fleet",
             "build_persona_soul",
             "build_external_capabilities",
+            "persist_dashboard",
         ),
     ),
     GateCheck(

@@ -6,6 +6,7 @@ import {
   useDecideAgentProposal,
   useMemoryHygiene,
   usePromptRegistry,
+  useRunAeonInspiredHeartbeat,
 } from '@/hooks/useAIOperatingSystem';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ export default function AgentImprovementCenterPage() {
   const memory = useMemoryHygiene();
   const evolutionOps = useAgentEvolutionOps();
   const aeonOps = useAeonInspiredOps('scientific instrument sales');
+  const runAeonHeartbeat = useRunAeonInspiredHeartbeat();
   const decideProposal = useDecideAgentProposal();
   const agentCI = useAgentCI();
 
@@ -57,6 +59,25 @@ export default function AgentImprovementCenterPage() {
             <GitCompareArrows className="mr-2 h-4 w-4" />
             运行 Agent CI
           </Button>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <div className="text-sm font-semibold text-primary">Boss View</div>
+          <h2 className="mt-1 text-lg font-semibold">AI value, risk, and weekly operating story</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Boss users should see value, saved hours, confidence, risk exceptions, and what needs approval.
+            Deep prompt, eval, and repair internals stay below in Admin Control Plane.
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <div className="text-sm font-semibold text-primary">Admin Control Plane</div>
+          <h2 className="mt-1 text-lg font-semibold">Health, triggers, evals, repair, and release gates</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Admin users operate heartbeat snapshots, skill health, reactive triggers, red-team findings,
+            self-repair proposals, gray release, and rollback.
+          </p>
         </div>
       </section>
 
@@ -381,6 +402,15 @@ export default function AgentImprovementCenterPage() {
         <div className="flex items-center gap-2">
           <BrainCircuit className="h-4 w-4 text-primary" />
           <h2 className="font-semibold">Aeon-style Agent Ops Runtime</h2>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto"
+            onClick={() => runAeonHeartbeat.mutate('scientific instrument sales')}
+            disabled={runAeonHeartbeat.isPending}
+          >
+            Run heartbeat
+          </Button>
         </div>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           Learned from Aeon: unattended heartbeat, skill health, reactive triggers, governed self-repair,

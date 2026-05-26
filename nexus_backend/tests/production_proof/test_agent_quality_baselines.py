@@ -61,3 +61,24 @@ def test_agent_eval_dataset_is_large_and_balanced(agent_eval_cases_200):
         assert case["text"]
         assert case["expected_intent"]
         assert "respects_tenant_context" in case["assertions"]
+
+
+def test_agent_eval_dataset_runs_against_operating_system_router(agent_eval_cases_200):
+    from app.services.agent_eval_baseline_service import agent_eval_baseline_service
+
+    router_supported = {
+        "approval_decision",
+        "battlecard",
+        "crm_followup",
+        "renewal_or_contract",
+        "tender_support",
+        "general_assistant",
+    }
+    cases = [
+        case
+        for case in agent_eval_cases_200
+        if case["expected_intent"] in router_supported
+    ][:120]
+    result = agent_eval_baseline_service.run_router_baseline(cases)
+    assert result["case_count"] >= 70
+    assert result["accuracy"] >= 0.70

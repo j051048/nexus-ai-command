@@ -17,6 +17,9 @@ try {
   & .\scripts\dev_python.ps1 .\scripts\scan_migration_schema_conflicts.py
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+  & .\scripts\dev_python.ps1 .\scripts\audit_schema_convergence.py
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   if ($RealMigrations) {
     & .\scripts\dev_python.ps1 .\scripts\verify_migration_replay.py
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

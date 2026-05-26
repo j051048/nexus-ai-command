@@ -26,10 +26,12 @@ def test_aeon_inspired_agent_ops_backend_contract():
         "build_instance_fleet",
         "build_persona_soul",
         "build_external_capabilities",
+        "persist_dashboard",
     ]:
         assert token in service
 
     assert "/aeon-inspired-ops" in router
+    assert "/aeon-inspired-ops/run-heartbeat" in router
     assert "agent_ops_runtime_service" in router
     assert "agent_heartbeat_runs" in migration
     assert "agent_external_capabilities" in migration

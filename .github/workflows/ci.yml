@@ -198,6 +198,10 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: python scripts/scan_migration_schema_conflicts.py
 
+      - name: Audit schema convergence
+        working-directory: ${{ github.workspace }}
+        run: python scripts/audit_schema_convergence.py
+
       - name: Verify migration replay wiring
         working-directory: ${{ github.workspace }}
         run: python scripts/verify_migration_replay.py
