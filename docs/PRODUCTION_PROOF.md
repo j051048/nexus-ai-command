@@ -70,14 +70,53 @@ business flows actually run.
    - CI: `.github/workflows/ci.yml`
    - Required proof: this suite runs on every backend CI pass.
 
+13. Last-mile hardening
+   - Local launcher: `scripts/dev_python.ps1`
+   - Pytest launcher: `scripts/dev_pytest.ps1`
+   - Combined runner: `scripts/run_last_mile_checks.ps1`
+   - Required proof: local and CI checks share the same Python path and encoding setup.
+
+14. Memory-safe frontend build
+   - Build wrapper: `scripts/build_frontend.mjs`
+   - CI env: `NODE_OPTIONS=--max-old-space-size=4096`
+   - Required proof: frontend builds use a consistent memory profile and avoid compressed-size reporting overhead.
+
+15. Agent eval dataset and failure attribution
+   - Dataset: `fixtures/agent_eval_cases_200.json`
+   - Generator: `scripts/generate_agent_eval_dataset.mjs`
+   - Attribution engine: `app/agent/tool_failure_attribution.py`
+   - Required proof: at least 200 eval cases, balanced by scenario, and failed tool guidance includes category, owner, retryability, and confidence.
+
+16. AI behavior weekly report and module convergence
+   - API: `/api/dashboard/ai-weekly-report`
+   - Hook: `src/hooks/useAIWeeklyReport.ts`
+   - Policy: `MODULE_FOCUS_POLICY`
+   - Required proof: boss users can see a business-readable AI audit summary, and low-depth modules remain integration-first.
+
+17. Aeon-inspired Agent Ops runtime
+   - Runtime: `app/services/agent_ops_runtime_service.py`
+   - API: `/api/ai-operating-system/aeon-inspired-ops`
+   - UI: `AgentImprovementCenterPage`
+   - Persistence: `20260526_agent_ops_runtime.sql`
+   - Required proof: heartbeat, skill health, reactive triggers, governed self-repair, skill chains, universal var, operating memory, fleet, persona/soul, and MCP/A2A capability exposure all remain present.
+
 ## Recommended Commands
 
 ```bash
 python scripts/production_proof_gate.py
 python scripts/scan_rls_policy_columns.py
 python scripts/verify_migration_replay.py
+node scripts/generate_agent_eval_dataset.mjs
+npm run build
 cd nexus_backend
 pytest tests/production_proof -q
+```
+
+Windows local wrapper:
+
+```powershell
+.\scripts\run_last_mile_checks.ps1
+.\scripts\run_last_mile_checks.ps1 -RealMigrations -RealBackend
 ```
 
 For real staging proof:

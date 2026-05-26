@@ -25,6 +25,7 @@ import { AIActivityStats } from './AIActivityStats';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
 import { useAuth } from '@/components/auth/AuthContext';
 import { LaunchChecklistPanel } from '@/components/product/LaunchChecklistPanel';
+import { useAIWeeklyReport } from '@/hooks/useAIWeeklyReport';
 
 const TeamPerformanceChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.TeamPerformanceChart })));
 const RevenueChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.RevenueChart })));
@@ -66,6 +67,7 @@ export function BossDashboard() {
   useSalesMetricsRealtime();
   const { data: teamData } = useTeamPerformance();
   const { data: leaderboardData } = useLeaderboard(3);
+  const { data: aiWeeklyReport } = useAIWeeklyReport();
   const seedDemoData = useSeedDemoData();
 
   const weeklyReport = useMemo(() => {
@@ -81,6 +83,18 @@ export function BossDashboard() {
   }, [leaderboardData]);
 
   const hasRealData = leaderboardData && leaderboardData.length > 0;
+  const aiWeeklyViewModel = {
+    cashFlow: aiWeeklyReport?.estimated_savings ?? 0,
+    cashFlowTrend: aiWeeklyReport?.success_rate ?? 0,
+    salesRisks: aiWeeklyReport?.top_failed_scenarios?.map((item) => `${item.category}: ${item.count}`) ?? [],
+    totalIncentives: weeklyReport.totalIncentives ?? 0,
+    topPerformers: weeklyReport.topPerformers ?? [],
+    actionsExecuted: aiWeeklyReport?.actions_executed ?? 0,
+    successRate: aiWeeklyReport?.success_rate ?? 0,
+    humanOverrides: aiWeeklyReport?.human_overrides ?? 0,
+    estimatedHoursSaved: aiWeeklyReport?.estimated_hours_saved ?? 0,
+    auditSummary: aiWeeklyReport?.audit_summary,
+  };
 
   if (!loading && !user) return <Navigate to="/login" replace />;
   if (!loading && role && !['boss', 'founder'].includes(role)) {
@@ -185,6 +199,10 @@ export function BossDashboard() {
               />
             </React.Suspense>
           </div>
+
+          <React.Suspense fallback={<SectionSkeleton />}>
+            <AIWeeklyReport report={aiWeeklyViewModel} />
+          </React.Suspense>
         </TabsContent>
 
         <TabsContent value="history" className="animate-fade-slide-up">

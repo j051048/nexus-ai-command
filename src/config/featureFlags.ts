@@ -76,6 +76,29 @@ export const MODULE_TIERS: Record<ModuleTier, ModuleFlag[]> = {
   ],
 };
 
+export const CORE_NATIVE_MODULES: ModuleFlag[] = MODULE_TIERS.core;
+export const SPECIALIZED_AI_NATIVE_MODULES: ModuleFlag[] = [
+  "battlecards",
+  "tender",
+  "vmd",
+  "knowledge",
+  "crm",
+];
+export const THIRD_PARTY_FIRST_MODULES: ModuleFlag[] = [
+  "finance",
+  "hr",
+  "inventory",
+  "oa",
+  "billing",
+];
+
+export const MODULE_FOCUS_POLICY = {
+  defaultNavigation: "five-space-workbench",
+  superScenario: "VMD + scientific-instrument sales intelligence",
+  nativeDepthRule: "Build deep native UX only for core sales, approval, knowledge, reports, and VMD scenarios.",
+  integrationRule: "Keep HR, finance, OA, inventory, and billing as light entry points unless a customer explicitly enables deep native workflows.",
+} as const;
+
 export const SMALL_COMPANY_LAUNCH_MODULES: ModuleFlag[] = [
   "approval",
   "crm",
@@ -224,4 +247,8 @@ export const MODULE_INTEGRATION_STRATEGY: ModuleIntegrationStrategy[] = [
 
 export function getIntegrationStrategy(flag: ModuleFlag): ModuleIntegrationStrategy | undefined {
   return MODULE_INTEGRATION_STRATEGY.find((item) => item.flag === flag);
+}
+
+export function isThirdPartyFirstModule(flag: ModuleFlag): boolean {
+  return THIRD_PARTY_FIRST_MODULES.includes(flag);
 }

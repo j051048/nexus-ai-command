@@ -434,3 +434,126 @@ async def ai_roi_baselines(
     except Exception as e:
         logger.error("ROI baselines query failed: %s", e)
         return api_success(data=[])
+
+
+@router.get("/ai-weekly-report")
+async def ai_weekly_report(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Business-facing weekly AI behavior report for leaders."""
+    from datetime import datetime, timedelta, timezone
+
+    client = get_request_db(request)
+    if not client:
+        raise api_error(
+            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
+        )
+
+    CN_TZ = timezone(timedelta(hours=8))
+    now = datetime.now(CN_TZ)
+    week_start = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    week_start_iso = week_start.isoformat()
+
+    actions_executed = 0
+    successful_actions = 0
+    human_overrides = 0
+    failures_by_category: dict[str, int] = {}
+    top_failed_scenarios: list[dict] = []
+    risk_avoided = 0
+
+    try:
+        res = (
+            await client.table("agent_tasks")
+            .select("id,status,error_type,task_type,updated_at")
+            .gte("updated_at", week_start_iso)
+            .execute()
+        )
+        rows = res.data or []
+        actions_executed = len(rows)
+        successful_actions = len(
+            [
+                r
+                for r in rows
+                if r.get("status") in ("done", "success", "completed")
+            ]
+        )
+        for row in rows:
+            if row.get("status") in ("failed", "error"):
+                category = row.get("error_type") or "unknown"
+                failures_by_category[category] = failures_by_category.get(category, 0) + 1
+        top_failed_scenarios = [
+            {"category": category, "count": count}
+            for category, count in sorted(
+                failures_by_category.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )[:5]
+        ]
+    except Exception as e:
+        logger.warning("AI weekly report agent task query failed: %s", e)
+
+    try:
+        res = (
+            await client.table("agent_trust_reports")
+            .select("human_overrides,risk_avoided,created_at")
+            .gte("created_at", week_start_iso)
+            .execute()
+        )
+        for row in res.data or []:
+            human_overrides += int(row.get("human_overrides") or 0)
+            risk_avoided += int(row.get("risk_avoided") or 0)
+    except Exception as e:
+        logger.info("AI weekly report trust query unavailable: %s", e)
+
+    try:
+        roi_res = (
+            await client.table("ai_roi_daily")
+            .select(
+                "estimated_minutes_saved,estimated_labor_cost_saved,metric_date"
+            )
+            .gte("metric_date", week_start.date().isoformat())
+            .execute()
+        )
+        estimated_minutes = sum(
+            float(r.get("estimated_minutes_saved") or 0) for r in (roi_res.data or [])
+        )
+        estimated_savings = sum(
+            float(r.get("estimated_labor_cost_saved") or 0)
+            for r in (roi_res.data or [])
+        )
+    except Exception as e:
+        logger.info("AI weekly report ROI query unavailable: %s", e)
+        estimated_minutes = actions_executed * 15
+        estimated_savings = successful_actions * 20
+
+    success_rate = (
+        round(successful_actions / actions_executed * 100, 1)
+        if actions_executed
+        else 0
+    )
+    report = {
+        "generated_at": now.isoformat(),
+        "week_start": week_start_iso,
+        "actions_executed": actions_executed,
+        "successful_actions": successful_actions,
+        "success_rate": success_rate,
+        "human_overrides": human_overrides,
+        "risk_avoided": risk_avoided,
+        "failures_by_category": failures_by_category,
+        "top_failed_scenarios": top_failed_scenarios,
+        "estimated_hours_saved": round(estimated_minutes / 60, 1),
+        "estimated_savings": round(estimated_savings, 2),
+        "audit_summary": (
+            f"AI completed {successful_actions}/{actions_executed} actions this week; "
+            f"{human_overrides} required human override."
+        ),
+        "recommendations": [
+            "Review the top failed scenario queue before changing prompts.",
+            "Enable autonomous execution only for low-risk, high-confidence actions.",
+            "Use replay cases for every prompt or tool-policy change.",
+        ],
+    }
+    return api_success(data=report)

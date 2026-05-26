@@ -1,0 +1,3124 @@
+[
+  {
+    "id": "agent-eval-001",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户1已经14天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-002",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 2 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-003",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单3金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-004",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 4 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-005",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件5要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-006",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 6 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-007",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡7。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-008",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 8.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-009",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同9还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-010",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 10 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-011",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案11。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-012",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索12设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-013",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本13。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-014",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户14连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-015",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项15。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-016",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户16已经29天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-017",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 17 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-018",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单18金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-019",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 19 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-020",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件20要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-021",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 21 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-022",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡22。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-023",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 23.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-024",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同24还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-025",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 25 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-026",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案26。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-027",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索27设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-028",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本28。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-029",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户29连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-030",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项30。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-031",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户31已经44天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-032",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 32 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-033",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单33金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-034",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 34 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-035",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件35要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-036",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 36 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-037",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡37。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-038",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 38.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-039",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同39还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-040",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 40 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-041",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案41。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-042",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索42设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-043",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本43。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-044",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户44连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-045",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项45。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-046",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户46已经14天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-047",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 47 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-048",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单48金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-049",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 49 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-050",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件50要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-051",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 51 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-052",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡52。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-053",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 53.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-054",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同54还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-055",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 55 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-056",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案56。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-057",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索57设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-058",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本58。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-059",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户59连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-060",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项60。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-061",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户61已经29天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-062",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 62 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-063",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单63金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-064",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 64 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-065",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件65要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-066",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 66 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-067",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡67。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-068",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 68.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-069",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同69还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-070",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 70 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-071",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案71。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-072",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索72设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-073",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本73。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-074",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户74连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-075",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项75。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-076",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户76已经44天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-077",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 77 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-078",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单78金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-079",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 79 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-080",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件80要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-081",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 81 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-082",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡82。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-083",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 83.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-084",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同84还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-085",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 85 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-086",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案86。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-087",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索87设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-088",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本88。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-089",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户89连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-090",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项90。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-091",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户91已经14天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-092",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 92 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-093",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单93金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-094",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 94 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-095",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件95要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-096",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 96 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-097",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡97。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-098",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 98.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-099",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同99还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-100",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 100 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-101",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案101。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-102",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索102设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-103",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本103。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-104",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户104连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-105",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项105。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-106",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户106已经29天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-107",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 107 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-108",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单108金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-109",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 109 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-110",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件110要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-111",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 111 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-112",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡112。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-113",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 113.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-114",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同114还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-115",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 115 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-116",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案116。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-117",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索117设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-118",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本118。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-119",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户119连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-120",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项120。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-121",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户121已经44天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-122",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 122 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-123",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单123金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-124",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 124 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-125",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件125要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-126",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 126 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-127",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡127。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-128",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 128.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-129",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同129还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-130",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 130 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-131",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案131。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-132",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索132设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-133",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本133。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-134",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户134连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-135",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项135。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-136",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户136已经14天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-137",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 137 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-138",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单138金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-139",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 139 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-140",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件140要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-141",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 141 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-142",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡142。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-143",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 143.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-144",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同144还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-145",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 145 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-146",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案146。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-147",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索147设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-148",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本148。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-149",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户149连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-150",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项150。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-151",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户151已经29天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-152",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 152 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-153",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单153金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-154",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 154 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-155",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件155要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-156",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 156 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-157",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡157。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-158",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 158.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-159",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同159还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-160",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 160 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-161",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案161。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-162",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索162设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-163",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本163。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-164",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户164连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-165",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项165。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-166",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户166已经44天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-167",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 167 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-168",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单168金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-169",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 169 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-170",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件170要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-171",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 171 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-172",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡172。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-173",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 173.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-174",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同174还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-175",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 175 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-176",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案176。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-177",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索177设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-178",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本178。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-179",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户179连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-180",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项180。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-181",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户181已经14天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-182",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 182 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-183",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单183金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-184",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 184 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-185",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件185要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-186",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 186 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-187",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡187。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-188",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 188.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-189",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同189还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-190",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 190 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-191",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案191。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-192",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索192设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-193",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本193。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-194",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户194连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-195",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项195。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-196",
+    "dimension": "CRM",
+    "criticality": "critical",
+    "text": "客户196已经29天没有跟进，请生成下一步行动。",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-197",
+    "dimension": "CRM",
+    "criticality": "high",
+    "text": "Summarize the next best action for lead 197 after a delayed visit.",
+    "expected_intent": "crm_followup",
+    "expected_tools": [
+      "crm_followup_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-198",
+    "dimension": "Approval",
+    "criticality": "critical",
+    "text": "报销单198金额偏高，请判断是否需要老板复核。",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-199",
+    "dimension": "Approval",
+    "criticality": "high",
+    "text": "Approve or reject reimbursement request 199 with risk notes.",
+    "expected_intent": "approval_decision",
+    "expected_tools": [
+      "approval_decision_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-200",
+    "dimension": "Tender",
+    "criticality": "critical",
+    "text": "招标文件200要求评分标准，帮我提取技术扣分风险。",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-201",
+    "dimension": "Tender",
+    "criticality": "high",
+    "text": "RFP 201 needs a compliance checklist and score estimate.",
+    "expected_intent": "tender_support",
+    "expected_tools": [
+      "tender_support_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-202",
+    "dimension": "Competitive",
+    "criticality": "high",
+    "text": "对比 Thermo Fisher 和我们的质谱方案，生成战卡202。",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-203",
+    "dimension": "Competitive",
+    "criticality": "medium",
+    "text": "Compare Agilent competitor claims against our product for case 203.",
+    "expected_intent": "battlecard",
+    "expected_tools": [
+      "battlecard_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-204",
+    "dimension": "Contract",
+    "criticality": "critical",
+    "text": "合同204还有60天到期，请生成续签计划。",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "requires_high_confidence_or_handoff"
+    ]
+  },
+  {
+    "id": "agent-eval-205",
+    "dimension": "Contract",
+    "criticality": "high",
+    "text": "Customer contract 205 expires soon; prepare renewal risk summary.",
+    "expected_intent": "renewal_or_contract",
+    "expected_tools": [
+      "renewal_or_contract_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-206",
+    "dimension": "Knowledge",
+    "criticality": "medium",
+    "text": "从知识库找出关于液相色谱维护的标准答案206。",
+    "expected_intent": "knowledge_search",
+    "expected_tools": [
+      "knowledge_search_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-207",
+    "dimension": "VMD",
+    "criticality": "high",
+    "text": "为科学仪器展会线索207设计一轮虚拟营销部跟进。",
+    "expected_intent": "vmd_campaign",
+    "expected_tools": [
+      "vmd_campaign_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-208",
+    "dimension": "ROI",
+    "criticality": "medium",
+    "text": "计算本周 AI 自动化为团队节省了多少时间，样本208。",
+    "expected_intent": "finance_roi",
+    "expected_tools": [
+      "finance_roi_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-209",
+    "dimension": "Risk",
+    "criticality": "high",
+    "text": "发现客户209连续30天无互动，请触发风险预警。",
+    "expected_intent": "risk_alert",
+    "expected_tools": [
+      "risk_alert_tool"
+    ],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  },
+  {
+    "id": "agent-eval-210",
+    "dimension": "General",
+    "criticality": "medium",
+    "text": "帮我把今天的客户会议纪要整理成三条行动项210。",
+    "expected_intent": "general_assistant",
+    "expected_tools": [],
+    "assertions": [
+      "routes_to_expected_intent",
+      "respects_tenant_context",
+      "allows_standard_confidence"
+    ]
+  }
+]

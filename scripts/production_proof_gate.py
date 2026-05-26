@@ -96,6 +96,77 @@ CHECKS = [
         ("trying global Python", "No Python runtime found"),
     ),
     ProofCheck(
+        "local pytest launcher",
+        "scripts/dev_pytest.ps1",
+        ("PYTHONIOENCODING", "PYTHONPATH", "-m pytest"),
+    ),
+    ProofCheck(
+        "last mile check runner",
+        "scripts/run_last_mile_checks.ps1",
+        ("RealBackend", "RealMigrations", "verify_migration_replay.py"),
+    ),
+    ProofCheck(
+        "memory-safe frontend build wrapper",
+        "scripts/build_frontend.mjs",
+        ("--max-old-space-size", "VITE_BUILD_PROFILE", "vite"),
+    ),
+    ProofCheck(
+        "large agent eval dataset",
+        "nexus_backend/tests/production_proof/fixtures/agent_eval_cases_200.json",
+        ("agent-eval-200", "vmd_campaign", "respects_tenant_context"),
+    ),
+    ProofCheck(
+        "tool failure attribution",
+        "nexus_backend/app/agent/tool_failure_attribution.py",
+        ("invalid_params", "permission_denied", "network_error", "suggested_action"),
+    ),
+    ProofCheck(
+        "AI weekly behavior report API",
+        "nexus_backend/app/routers/dashboard.py",
+        ('"/ai-weekly-report"', "audit_summary", "human_overrides"),
+    ),
+    ProofCheck(
+        "AI weekly behavior report UI hook",
+        "src/hooks/useAIWeeklyReport.ts",
+        ("ai-weekly-report", "human_overrides", "estimated_hours_saved"),
+    ),
+    ProofCheck(
+        "module convergence policy",
+        "src/config/featureFlags.ts",
+        ("MODULE_FOCUS_POLICY", "THIRD_PARTY_FIRST_MODULES", "isThirdPartyFirstModule"),
+    ),
+    ProofCheck(
+        "Aeon-inspired Agent Ops runtime",
+        "nexus_backend/app/services/agent_ops_runtime_service.py",
+        (
+            "build_heartbeat",
+            "build_skill_health",
+            "build_reactive_triggers",
+            "build_self_repair",
+            "build_skill_chains",
+            "build_universal_var",
+            "build_operating_memory",
+            "build_instance_fleet",
+            "build_persona_soul",
+            "build_external_capabilities",
+        ),
+    ),
+    ProofCheck(
+        "Aeon-inspired Agent Ops API",
+        "nexus_backend/app/routers/ai_operating_system.py",
+        ("/aeon-inspired-ops", "agent_ops_runtime_service", "focus_var"),
+    ),
+    ProofCheck(
+        "Aeon-inspired Agent Ops UI",
+        "src/pages/AgentImprovementCenterPage.tsx",
+        ("Aeon-style Agent Ops Runtime", "Heartbeat Supervisor", "MCP / A2A Capabilities"),
+    ),
+    ProofCheck(
+        "Aeon-inspired Agent Ops persistence",
+        "supabase/migrations/20260526_agent_ops_runtime.sql",
+        ("agent_heartbeat_runs", "agent_skill_health", "agent_external_capabilities"),
+    ),
+    ProofCheck(
         "SSE reconnect contract",
         "nexus_backend/tests/production_proof/test_sse_reconnect_contract.py",
         ("disconnect_detection", "idempotent_resume", "no_duplicate_message"),
@@ -149,6 +220,17 @@ def validate_golden_flow_count() -> tuple[bool, str]:
     return True, ""
 
 
+def validate_agent_eval_case_count() -> tuple[bool, str]:
+    cases = json.loads(
+        (ROOT / "nexus_backend/tests/production_proof/fixtures/agent_eval_cases_200.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    if len(cases) < 200:
+        return False, "agent eval case count below 200"
+    return True, ""
+
+
 def main() -> int:
     failures: list[str] = []
     print("Production proof gate")
@@ -160,6 +242,11 @@ def main() -> int:
 
     ok, reason = validate_golden_flow_count()
     print(f"{'OK' if ok else 'FAIL':<4} golden flow count")
+    if not ok:
+        failures.append(reason)
+
+    ok, reason = validate_agent_eval_case_count()
+    print(f"{'OK' if ok else 'FAIL':<4} agent eval case count")
     if not ok:
         failures.append(reason)
 

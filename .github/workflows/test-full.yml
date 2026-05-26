@@ -305,6 +305,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_BUILD_PROFILE: ci
           VITE_SUPABASE_URL: "https://placeholder.supabase.co"
           VITE_SUPABASE_PUBLISHABLE_KEY: "placeholder-key"
 

@@ -101,6 +101,7 @@ from app.agent.state import (
     get_completed_tools,
     get_task_steps,
 )
+from app.agent.tool_failure_attribution import classify_tool_failure
 from app.core.agent_metrics import record_agent_execution
 from app.core.config import settings
 from app.core.model_pricing import estimate_cost
@@ -287,20 +288,18 @@ def _build_failed_tool_guidance(state: AgentState) -> None:
     if not failed_tools:
         return
 
-    lines = ["以下工具执行失败，请根据错误类型调整策略："]
+    lines = ["Failed tools detected. Replan using the attribution below:"]
     for ft in failed_tools[:5]:
         name = getattr(ft, "tool_name", None) or ft.get("tool_name", "unknown")
         result = (getattr(ft, "result", "") or ft.get("result", "") or "")[:300]
-        err_type = getattr(ft, "error_type", None) or ft.get("error_type", "unknown")
-        if err_type == "param_error":
-            lines.append(f"- {name} [参数错误]: {result}")
-            lines.append("  -> 检查参数格式和必填字段，修正后重试")
-        elif err_type == "fatal":
-            lines.append(f"- {name} [不可恢复]: {result}")
-            lines.append("  -> 此工具无法完成目标，换用其他工具或改变方案")
-        else:
-            lines.append(f"- {name} [临时故障]: {result}")
-            lines.append("  -> 网络/服务问题，可直接重试")
+        attribution = classify_tool_failure(ft)
+        retryable = str(attribution.retryable).lower()
+        lines.append(
+            f"- {name} [{attribution.category}, owner={attribution.owner}, "
+            f"retryable={retryable}, confidence={attribution.confidence:.2f}]: "
+            f"{result}"
+        )
+        lines.append(f"  -> {attribution.suggested_action}")
     state["reflection_guidance"] = "\n".join(lines)
 
 

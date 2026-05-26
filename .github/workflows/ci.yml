@@ -111,6 +111,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_BUILD_PROFILE: ci
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
 
@@ -711,6 +713,8 @@ jobs:
       - name: Build frontend for staging
         run: npm run build
         env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_BUILD_PROFILE: ci
           VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
 

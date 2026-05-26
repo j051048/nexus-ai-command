@@ -878,6 +878,93 @@ CHECKS = [
         ("useAgentEvolutionOps", "useDecideAgentProposal", "AgentEvolutionOpsResult"),
     ),
     GateCheck(
+        "P2",
+        "last-mile delivery hardening",
+        "scripts/run_last_mile_checks.ps1",
+        (
+            "RealBackend",
+            "RealMigrations",
+            "verify_migration_replay.py",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "memory-safe frontend build",
+        "scripts/build_frontend.mjs",
+        (
+            "--max-old-space-size",
+            "VITE_BUILD_PROFILE",
+            "vite",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "large agent eval dataset",
+        "nexus_backend/tests/production_proof/fixtures/agent_eval_cases_200.json",
+        (
+            "agent-eval-200",
+            "vmd_campaign",
+            "respects_tenant_context",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "tool failure attribution",
+        "nexus_backend/app/agent/tool_failure_attribution.py",
+        (
+            "invalid_params",
+            "permission_denied",
+            "network_error",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "AI behavior weekly report",
+        "src/hooks/useAIWeeklyReport.ts",
+        (
+            "ai-weekly-report",
+            "human_overrides",
+            "estimated_hours_saved",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "module convergence policy",
+        "src/config/featureFlags.ts",
+        (
+            "MODULE_FOCUS_POLICY",
+            "THIRD_PARTY_FIRST_MODULES",
+            "isThirdPartyFirstModule",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "Aeon-inspired Agent Ops runtime",
+        "nexus_backend/app/services/agent_ops_runtime_service.py",
+        (
+            "build_heartbeat",
+            "build_skill_health",
+            "build_reactive_triggers",
+            "build_self_repair",
+            "build_skill_chains",
+            "build_universal_var",
+            "build_operating_memory",
+            "build_instance_fleet",
+            "build_persona_soul",
+            "build_external_capabilities",
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "Aeon-inspired Agent Ops UI and API",
+        "src/pages/AgentImprovementCenterPage.tsx",
+        (
+            "Aeon-style Agent Ops Runtime",
+            "Heartbeat Supervisor",
+            "MCP / A2A Capabilities",
+        ),
+    ),
+    GateCheck(
         "P5",
         "AI operating system route and E2E",
         "e2e/customer-business-acceptance.spec.ts",

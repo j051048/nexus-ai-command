@@ -4,6 +4,8 @@ import { VitePWA } from "vite-plugin-pwa";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
 
+const disablePwa = process.env.VITE_DISABLE_PWA === "1";
+
 export default defineConfig(({ mode }) => ({
   test: {
     globals: true,
@@ -21,7 +23,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "analyze" && visualizer({ open: true, gzipSize: true, filename: "stats.html" }),
-    VitePWA({
+    !disablePwa && VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "logo192.png", "logo512.png", "apple-touch-icon.png"],
       manifest: {
@@ -118,6 +120,10 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     emptyOutDir: true,
+    target: "es2020",
+    sourcemap: false,
+    minify: "esbuild",
+    reportCompressedSize: false,
     chunkSizeWarningLimit: 500,
     modulePreload: {
       resolveDependencies(_url, deps) {

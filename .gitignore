@@ -99,6 +99,9 @@ tmp/
 tmp_*.txt
 lint_output.txt
 *.ps1
+!scripts/dev_python.ps1
+!scripts/dev_pytest.ps1
+!scripts/run_last_mile_checks.ps1
 
 # Supabase temp
 supabase/.temp/

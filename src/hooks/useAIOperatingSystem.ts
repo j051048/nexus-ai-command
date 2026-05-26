@@ -275,6 +275,78 @@ export interface AgentEvolutionOpsResult {
   };
 }
 
+export interface AeonInspiredOpsResult {
+  generated_at: string;
+  inspiration: string;
+  tables: string[];
+  heartbeat: {
+    status: string;
+    checked_at: string;
+    summary: string;
+    notify_operator: boolean;
+    attention_items: Array<Record<string, unknown>>;
+  };
+  skill_health: Array<{
+    skill: string;
+    window: number;
+    score: number;
+    success_rate: number;
+    failure_count: number;
+    flags: string[];
+    last_status: string;
+    recommended_action: string;
+  }>;
+  reactive_triggers: {
+    trigger_count: number;
+    definitions: Array<Record<string, unknown>>;
+    fired: Array<Record<string, unknown>>;
+    dsl: string;
+  };
+  self_repair: {
+    mode: string;
+    auto_apply: boolean;
+    proposal_count: number;
+    proposals: Array<Record<string, unknown>>;
+  };
+  skill_chains: {
+    chain_count: number;
+    chains: Array<{ id: string; var: string; steps: string[]; output_contract: string }>;
+  };
+  universal_var: {
+    name: string;
+    value: string;
+    description: string;
+    examples: string[];
+    routing_hint: string;
+  };
+  operating_memory: {
+    stores: string[];
+    run_count: number;
+    event_count: number;
+    retention_policy: string;
+    memory_promotion_rule: string;
+  };
+  instance_fleet: {
+    instances: Array<Record<string, unknown>>;
+    fleet_control: string;
+  };
+  persona_soul: {
+    profiles: Array<Record<string, unknown>>;
+    style_contract: string;
+    guardrail: string;
+  };
+  external_capabilities: {
+    gateway: string;
+    capabilities: Array<Record<string, unknown>>;
+    auth_boundary: string;
+  };
+  governance: {
+    proposal_count: number;
+    self_mutation_allowed: boolean;
+    required_release_flow: string[];
+  };
+}
+
 export function useAIOperatingOverview(days = 30) {
   return useQuery({
     queryKey: ['ai-operating-system-overview', days],
@@ -355,6 +427,19 @@ export function useAgentEvolutionOps() {
     queryFn: async () => {
       const response = await httpClient.get('/api/ai-operating-system/evolution-ops');
       return response.data?.data as AgentEvolutionOpsResult;
+    },
+    retry: 1,
+  });
+}
+
+export function useAeonInspiredOps(focusVar = 'scientific instrument sales') {
+  return useQuery({
+    queryKey: ['ai-operating-system-aeon-inspired-ops', focusVar],
+    queryFn: async () => {
+      const response = await httpClient.get('/api/ai-operating-system/aeon-inspired-ops', {
+        params: { focus_var: focusVar },
+      });
+      return response.data?.data as AeonInspiredOpsResult;
     },
     retry: 1,
   });

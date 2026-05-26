@@ -7,6 +7,11 @@ interface WeeklyReport {
     salesRisks: string[];
     totalIncentives: number;
     topPerformers: { name: string; score: number; bonus: number }[];
+    actionsExecuted?: number;
+    successRate?: number;
+    humanOverrides?: number;
+    estimatedHoursSaved?: number;
+    auditSummary?: string;
 }
 
 interface AIWeeklyReportProps {
@@ -75,11 +80,31 @@ export function AIWeeklyReport({ report }: AIWeeklyReportProps) {
                 <div className="bg-background/40 backdrop-blur-md rounded-2xl p-4 border border-border/50 hover-lift">
                     <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">AI 自治处理率</p>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-3xl sm:text-4xl font-extrabold text-primary tracking-tight mono-number">95<span className="text-2xl">%</span></span>
+                        <span className="text-3xl sm:text-4xl font-extrabold text-primary tracking-tight mono-number">{report.successRate ?? 0}<span className="text-2xl">%</span></span>
                         <span className="text-sm font-medium text-primary">全程无人干预</span>
                     </div>
                 </div>
             </div>
+
+            {report.auditSummary && (
+                <div className="mt-6 sm:mt-8 p-4 sm:p-5 bg-background/45 backdrop-blur-sm rounded-2xl border border-border/50 relative z-10">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground">AI actions</p>
+                            <p className="text-2xl font-extrabold mono-number text-foreground">{report.actionsExecuted ?? 0}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground">Human overrides</p>
+                            <p className="text-2xl font-extrabold mono-number text-warning">{report.humanOverrides ?? 0}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground">Hours saved</p>
+                            <p className="text-2xl font-extrabold mono-number text-success">{report.estimatedHoursSaved ?? 0}</p>
+                        </div>
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">{report.auditSummary}</p>
+                </div>
+            )}
 
             {/* Risk Alerts */}
             {report.salesRisks.length > 0 && (

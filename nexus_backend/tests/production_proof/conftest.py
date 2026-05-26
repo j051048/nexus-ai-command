@@ -44,3 +44,8 @@ def intent_baseline():
 @pytest.fixture
 def llm_replay_cassette():
     return load_fixture("llm_replay_cassette.json")
+
+
+@pytest.fixture
+def agent_eval_cases_200():
+    return load_fixture("agent_eval_cases_200.json")

@@ -1,5 +1,6 @@
 import {
   useAgentCI,
+  useAeonInspiredOps,
   useAgentEvolutionOps,
   useAgentImprovementProposals,
   useDecideAgentProposal,
@@ -27,6 +28,7 @@ export default function AgentImprovementCenterPage() {
   const proposals = useAgentImprovementProposals();
   const memory = useMemoryHygiene();
   const evolutionOps = useAgentEvolutionOps();
+  const aeonOps = useAeonInspiredOps('scientific instrument sales');
   const decideProposal = useDecideAgentProposal();
   const agentCI = useAgentCI();
 
@@ -371,6 +373,117 @@ export default function AgentImprovementCenterPage() {
                 </span>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <BrainCircuit className="h-4 w-4 text-primary" />
+          <h2 className="font-semibold">Aeon-style Agent Ops Runtime</h2>
+        </div>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          Learned from Aeon: unattended heartbeat, skill health, reactive triggers, governed self-repair,
+          skill chains, universal var, operating memory, agent fleet, persona/soul, and MCP/A2A exposure.
+        </p>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-5">
+          <div className="rounded-lg border bg-background/60 p-4 lg:col-span-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold">1. Heartbeat Supervisor</div>
+              <Badge variant={aeonOps.data?.heartbeat.status === 'ok' ? 'default' : 'destructive'}>
+                {aeonOps.data?.heartbeat.status ?? 'loading'}
+              </Badge>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {aeonOps.data?.heartbeat.summary ?? 'Waiting for heartbeat summary.'}
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4 lg:col-span-3">
+            <div className="text-sm font-semibold">2. Skill Health</div>
+            <div className="mt-3 grid gap-2 md:grid-cols-3">
+              {(aeonOps.data?.skill_health ?? []).slice(0, 3).map((skill) => (
+                <div key={skill.skill} className="rounded-md border bg-card p-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{skill.skill}</span>
+                    <Badge variant={skill.score >= 4 ? 'default' : skill.score >= 3 ? 'secondary' : 'destructive'}>
+                      {skill.score}/5
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    success {formatPercent(skill.success_rate)} · failures {skill.failure_count}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4">
+            <div className="text-sm font-semibold">3. Reactive Triggers</div>
+            <div className="mt-2 text-2xl font-semibold">{aeonOps.data?.reactive_triggers.trigger_count ?? 0}</div>
+            <p className="text-xs text-muted-foreground">fired: {aeonOps.data?.reactive_triggers.fired.length ?? 0}</p>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4">
+            <div className="text-sm font-semibold">4. Self Repair</div>
+            <div className="mt-2 text-2xl font-semibold">{aeonOps.data?.self_repair.proposal_count ?? 0}</div>
+            <p className="text-xs text-muted-foreground">
+              auto apply: {aeonOps.data?.self_repair.auto_apply ? 'yes' : 'no'}
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4">
+            <div className="text-sm font-semibold">5. Skill Chains</div>
+            <div className="mt-2 text-2xl font-semibold">{aeonOps.data?.skill_chains.chain_count ?? 0}</div>
+            <p className="text-xs text-muted-foreground">{aeonOps.data?.skill_chains.chains?.[0]?.id}</p>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4">
+            <div className="text-sm font-semibold">6. Universal var</div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {aeonOps.data?.universal_var.routing_hint ?? 'Focus parameter will bias retrieval and chain output.'}
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4">
+            <div className="text-sm font-semibold">7. Operating Memory</div>
+            <div className="mt-2 text-2xl font-semibold">{aeonOps.data?.operating_memory.stores.length ?? 0}</div>
+            <p className="text-xs text-muted-foreground">
+              runs {aeonOps.data?.operating_memory.run_count ?? 0} · events {aeonOps.data?.operating_memory.event_count ?? 0}
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4 lg:col-span-2">
+            <div className="text-sm font-semibold">8. Instance Fleet</div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(aeonOps.data?.instance_fleet.instances ?? []).map((instance) => (
+                <Badge key={String(instance.id)} variant="outline">
+                  {String(instance.id)}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4 lg:col-span-2">
+            <div className="text-sm font-semibold">9. Persona / Soul</div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {aeonOps.data?.persona_soul.style_contract ?? 'Role style packs keep output consistent.'}
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-background/60 p-4 lg:col-span-3">
+            <div className="text-sm font-semibold">10. MCP / A2A Capabilities</div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(aeonOps.data?.external_capabilities.capabilities ?? []).map((capability) => (
+                <Badge key={String(capability.name)} variant="outline">
+                  {String(capability.name)}
+                </Badge>
+              ))}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {aeonOps.data?.external_capabilities.auth_boundary}
+            </p>
           </div>
         </div>
       </section>
