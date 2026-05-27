@@ -18,6 +18,7 @@ import { InstallPrompt } from '@/components/common/InstallPrompt';
 // Sprint 3: 移动端专属首页 + 工作台
 import MobileHomePage from '@/components/mobile/MobileHomePage';
 import MobileWorkbenchPage from '@/components/mobile/MobileWorkbenchPage';
+import MobileActionCardStack from '@/components/mobile/MobileActionCardStack';
 import InboxPage from '@/pages/InboxPage';
 
 // Sprint 4: 个人中心
@@ -87,7 +88,12 @@ export function MobileLayout() {
 
     // 行动台是移动端默认首页，和桌面统一使用同一套行动模型。
     if (path === '/dashboard') {
-      return <InboxPage />;
+      return (
+        <div className="space-y-4 px-4 pb-24 pt-4">
+          <MobileActionCardStack />
+          <InboxPage />
+        </div>
+      );
     }
 
     // Boss 总控仍保留移动端概览。

@@ -12,7 +12,7 @@ Usage::
 
     from app.core.ai_metrics import record_llm_latency, record_tool_execution
 
-    record_llm_latency(model="gpt-4o", duration_ms=342.1)
+    record_llm_latency(model="deepseek-v4-flash", duration_ms=342.1)
     record_tool_execution(tool_name="KnowledgeBaseTool", success=True, duration_ms=58.7)
 """
 
@@ -103,7 +103,7 @@ def record_llm_latency(model: str, duration_ms: float) -> None:
     """Record the duration of an LLM API request.
 
     Args:
-        model: The model identifier (e.g. ``"gpt-4o"``).
+        model: The model identifier (e.g. ``"deepseek-v4-flash"``).
         duration_ms: Wall-clock duration of the request in milliseconds.
     """
     if not _otel_available:

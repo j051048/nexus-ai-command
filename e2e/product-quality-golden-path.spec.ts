@@ -1,0 +1,92 @@
+import { test, expect, type Page } from '@playwright/test';
+import { fulfillJson, mockLoggedInState, setupBusinessMocks } from './fixtures/business-mocks';
+
+async function setupProductQualityMocks(page: Page, role = 'boss') {
+  await setupBusinessMocks(page);
+  await page.addInitScript(() => window.localStorage.setItem('hasSeenTour', 'true'));
+
+  await page.route(/.*profile.*/, async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        user: {
+          id: 'test-user-id',
+          user_id: 'test-user-id',
+          email: `${role}@nexus-ai.com`,
+          name: `E2E ${role}`,
+          role,
+          avatar_url: null,
+          organization_id: 'org-123',
+        },
+      },
+    });
+  });
+
+  await page.route('**/rest/v1/rpc/get_user_role*', async (route) => {
+    await fulfillJson(route, role);
+  });
+
+  await page.route('**/api/feedback/experience', async (route) => {
+    await fulfillJson(route, { success: true, data: { recorded: true } });
+  });
+
+  await page.route('**/api/contracts**', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: [
+        {
+          id: 'contract-1',
+          title: '华东实验室质谱采购合同',
+          status: 'active',
+          amount: 580000,
+          customer_name: '华东实验室',
+          end_date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 45).toISOString(),
+        },
+      ],
+    });
+  });
+}
+
+async function expectHealthyPage(page: Page) {
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForTimeout(300);
+  const body = await page.textContent('body');
+  expect(body).toBeTruthy();
+  expect(body).not.toContain('Something went wrong');
+  expect(body).not.toContain('Application error');
+  expect(body).not.toContain('Unhandled');
+}
+
+test.describe('product quality golden paths', () => {
+  test('core workspaces expose the unified AI insight layer', async ({ page }) => {
+    await setupProductQualityMocks(page, 'boss');
+    await mockLoggedInState(page, 'boss');
+
+    for (const path of ['/dashboard', '/crm', '/approval', '/contracts']) {
+      await page.goto(path);
+      await expectHealthyPage(page);
+      await expect(page.getByTestId('ai-insight-panel').first()).toBeVisible({ timeout: 15000 });
+    }
+  });
+
+  test('command bar can launch executable business actions with page context', async ({ page }) => {
+    await setupProductQualityMocks(page, 'boss');
+    await mockLoggedInState(page, 'boss');
+
+    await page.goto('/crm');
+    await expectHealthyPage(page);
+    await page.keyboard.press('Control+K');
+    await expect(page.getByTestId('global-command-input')).toBeVisible({ timeout: 5000 });
+    await page.getByTestId('global-command-input').fill('创建客户');
+    await expect(page.getByText('创建客户').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('employee entering boss-only workspace is guided back to dashboard', async ({ page }) => {
+    await setupProductQualityMocks(page, 'employee');
+    await mockLoggedInState(page, 'employee');
+
+    await page.goto('/boss-dashboard');
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
+    await expectHealthyPage(page);
+  });
+});

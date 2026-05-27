@@ -1,4 +1,5 @@
 import asyncio
+import fnmatch
 import logging
 import os
 from collections import defaultdict
@@ -26,6 +27,18 @@ require_tool_governance_admin = require_role(["admin", "founder", "boss"])
 MAX_SSE_PER_USER = 3
 _sse_connections: dict[str, int] = defaultdict(int)
 _sse_lock = asyncio.Lock()
+
+
+def _should_override_chat_model(model: str | None) -> bool:
+    if getattr(settings, "LLM_FORCE_DEFAULT_MODEL", True):
+        return True
+    patterns = [
+        item.strip().lower()
+        for item in (settings.LLM_EXPENSIVE_MODEL_BLOCKLIST or "").split(",")
+        if item.strip()
+    ]
+    value = (model or "").lower()
+    return bool(value) and any(fnmatch.fnmatch(value, pattern) for pattern in patterns)
 
 
 @router.get("/chat/prompts/manifest")
@@ -164,7 +177,7 @@ async def chat(
     ai_config = {
         "base_url": os.getenv("AI_BASE_URL", "https://proxy.flydao.top/v1"),
         "api_key": os.getenv("OPENAI_API_KEY", ""),
-        "model": "gpt-4o",
+        "model": settings.AI_DEFAULT_MODEL,
         "token": token,
     }
     try:
@@ -201,6 +214,16 @@ async def chat(
                 ai_config["model"] = s["model"]
     except Exception as e:
         logger.warning(f"Settings fetch failed: {e}")
+
+    if _should_override_chat_model(ai_config.get("model")):
+        configured_model = ai_config.get("model")
+        ai_config["model"] = settings.AI_DEFAULT_MODEL
+        if configured_model != ai_config["model"]:
+            logger.warning(
+                "[LLMCostPolicy] Chat route overriding user model %s -> %s",
+                configured_model,
+                ai_config["model"],
+            )
 
     if not ai_config["api_key"]:
         return StreamingResponse(

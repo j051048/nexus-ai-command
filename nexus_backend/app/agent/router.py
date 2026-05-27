@@ -7,10 +7,10 @@ This runs as the FIRST node in the graph. It performs:
 3. Model selection based on complexity tier
 
 Complexity tiers:
-  SIMPLE   → greetings, small-talk, simple FAQ     → gpt-4o-mini
-  MODERATE → single-tool lookups, status queries    → gpt-4o-mini
-  COMPLEX  → multi-step analysis, reports           → gpt-4o
-  CRITICAL → approvals, financial mutations         → gpt-4o + HITL gate
+  SIMPLE   → greetings, small-talk, simple FAQ      → economy tier
+  MODERATE → single-tool lookups, status queries    → balanced tier
+  COMPLEX  → multi-step analysis, reports           → power tier
+  CRITICAL → approvals, financial mutations         → flagship tier + HITL gate
 """
 
 import json

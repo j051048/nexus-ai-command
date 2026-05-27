@@ -54,6 +54,7 @@ import {
 import { aiClient } from '@/api/aiClient';
 import { pinyin } from 'pinyin-pro';
 import { isModuleEnabled, type ModuleFlag } from '@/config/featureFlags';
+import { usePageContext } from '@/hooks/usePageContext';
 
 /**
  * 拼音处理辅助函数：生成全拼和首字母
@@ -290,6 +291,33 @@ const AI_QUICK_ACTIONS = [
   { label: '本周业绩总结', prompt: '帮我总结本周的业绩情况', icon: BarChart3 },
 ];
 
+const EXECUTION_COMMANDS = [
+  {
+    label: '创建客户',
+    path: '/crm',
+    prompt: '请打开创建客户流程，并提示我补齐客户名称、联系人、需求、预算和下一步动作。',
+    icon: Users,
+  },
+  {
+    label: '写跟进邮件',
+    path: '/crm',
+    prompt: '请根据当前客户上下文，写一封专业的销售跟进邮件，并列出需要人工确认的信息。',
+    icon: MessageSquare,
+  },
+  {
+    label: '合同风险清单',
+    path: '/contracts',
+    prompt: '请基于当前合同台账，输出到期、金额、付款条款和客户主体的风险清单。',
+    icon: FileText,
+  },
+  {
+    label: '发起审批',
+    path: '/approval',
+    prompt: '请帮我发起审批，并先询问审批类型、金额、事由、附件和审批人。',
+    icon: FileCheck,
+  },
+];
+
 export function GlobalCommandBar() {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -297,6 +325,7 @@ export function GlobalCommandBar() {
   const [isSearching, setIsSearching] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { pageContext } = usePageContext();
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // P2: Detect intent from current input
@@ -314,7 +343,7 @@ export function GlobalCommandBar() {
   // Listen for Ctrl+K / Cmd+K
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
@@ -398,6 +427,7 @@ export function GlobalCommandBar() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput
+        data-testid="global-command-input"
         placeholder={intent === 'ai_action' ? '💡 AI 将处理你的请求...' : '搜索功能、页面，或直接提问 AI... (Ctrl+K)'}
         value={searchQuery}
         onValueChange={setSearchQuery}
@@ -487,6 +517,39 @@ export function GlobalCommandBar() {
             </CommandItem>
           )}
         </CommandGroup>
+
+        <CommandSeparator />
+
+        {/* Executable business actions */}
+        <CommandGroup heading="常用动作">
+          {EXECUTION_COMMANDS.map((action) => (
+            <CommandItem
+              key={action.label}
+              value={`动作 ${action.label} ${action.prompt}`}
+              onSelect={() => handleAIChat(action.prompt)}
+            >
+              <action.icon className="mr-2 h-4 w-4" />
+              <span>{action.label}</span>
+              <CommandShortcut>{action.path}</CommandShortcut>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+
+        {pageContext && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="AI 当前上下文">
+              <CommandItem value={`当前上下文 ${pageContext.type} ${pageContext.name ?? ''}`} disabled>
+                <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                <span>
+                  {pageContext.type}
+                  {pageContext.name ? ` / ${pageContext.name}` : ''}
+                  {pageContext.id ? ` / ${pageContext.id.slice(0, 8)}` : ''}
+                </span>
+              </CommandItem>
+            </CommandGroup>
+          </>
+        )}
 
         <CommandSeparator />
 

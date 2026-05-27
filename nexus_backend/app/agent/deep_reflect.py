@@ -104,7 +104,7 @@ class DeepReflector:
         try:
             llm = ChatOpenAI(
                 model=getattr(config, "mini_model", None)
-                or getattr(config, "model", "gpt-4o-mini"),
+                or getattr(config, "model", "deepseek-v4-flash"),
                 api_key=config.api_key,
                 base_url=config.base_url,
                 temperature=0.7,
@@ -204,7 +204,7 @@ class DeepReflector:
         try:
             llm = ChatOpenAI(
                 model=getattr(config, "mini_model", None)
-                or getattr(config, "model", "gpt-4o-mini"),
+                or getattr(config, "model", "deepseek-v4-flash"),
                 api_key=config.api_key,
                 base_url=config.base_url,
                 temperature=0.3,

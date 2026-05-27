@@ -23,7 +23,10 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AIOperatingSystemStrip } from '@/components/product/AIOperatingSystemStrip';
+import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AITrustBadge, type AITrustLevel } from '@/components/ai/AITrustBadge';
+import { WorkEmptyState, WorkErrorState, WorkLoadingState } from '@/components/common/WorkState';
+import { useAuth } from '@/components/auth/AuthContext';
 import { cn } from '@/lib/utils';
 import {
   type ActionEventType,
@@ -87,10 +90,6 @@ function formatTime(value?: string | null) {
   });
 }
 
-function triggerAI(prompt: string) {
-  window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
-}
-
 function getEvidence(item: InboxActionItem): EvidenceItem[] {
   const raw = item.metadata?.evidence;
   if (!Array.isArray(raw)) return [];
@@ -126,44 +125,61 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
   const trustLevel: AITrustLevel = urgent.length > 0 ? 'medium' : 'high';
 
   return (
-    <section className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-semibold">AI 优先级解释</h2>
-              <AITrustBadge level={trustLevel} score={urgent.length > 0 ? 72 : 91} />
-            </div>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {items.length === 0
-                ? '当前没有待处理行动项，可以把时间用于推进高价值客户和关键项目。'
-                : `今天共有 ${items.length} 个行动项，其中 ${urgent.length} 个紧急、${high.length} 个高优先级、${crmRisk.length} 个客户风险。`}
-              {nextItem ? ` 建议先处理：${nextItem.title}` : ''}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            onClick={() =>
-              triggerAI('请解释当前行动台的优先级排序，并给我一个今天的处理顺序。')
-            }
-          >
-            <Sparkles className="mr-2 h-4 w-4" />
-            解释排序
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              triggerAI('请把当前行动台整理成一份今天可以照着执行的工作计划。')
-            }
-          >
-            生成今日计划
-          </Button>
+    <AIInsightPanel
+      title="AI 优先级解释"
+      icon={Sparkles}
+      trustLevel={trustLevel}
+      score={urgent.length > 0 ? 72 : 91}
+      summary={
+        <>
+          {items.length === 0
+            ? '当前没有待处理行动项，可以把时间用于推进高价值客户和关键项目。'
+            : `今天共有 ${items.length} 个行动项，其中 ${urgent.length} 个紧急、${high.length} 个高优先级、${crmRisk.length} 个客户风险。`}
+          {nextItem ? ` 建议先处理：${nextItem.title}` : ''}
+        </>
+      }
+      context={['收件箱', '审批/客户/通知', '按风险和截止时间排序']}
+      evidence={[
+        { label: '待处理', value: `${items.length} 项` },
+        { label: '紧急', value: `${urgent.length} 项` },
+        { label: '客户风险', value: `${crmRisk.length} 项` },
+      ]}
+      risks={urgent.length > 0 ? ['存在紧急行动项', '建议人审高风险操作'] : []}
+      actions={[
+        {
+          label: '解释排序',
+          variant: 'default',
+          prompt: '请解释当前行动台的优先级排序，并给我一个今天的处理顺序。',
+        },
+        {
+          label: '生成今日计划',
+          prompt: '请把当前行动台整理成一份今天可以照着执行的工作计划。',
+        },
+      ]}
+    />
+  );
+}
+
+function RoleGuidanceStrip({ role }: { role?: string | null }) {
+  const isBoss = role === 'boss' || role === 'founder';
+  const isManager = role === 'manager';
+  const title = isBoss ? '管理者今日视角' : isManager ? '团队负责人今日视角' : '个人执行视角';
+  const items = isBoss
+    ? ['先看高风险审批和合同', '复盘客户跟进断点', '让 AI 生成经营摘要']
+    : isManager
+      ? ['处理团队待审批', '推进高价值客户', '检查项目和合同节点']
+      : ['清空个人待办', '记录客户拜访', '补齐审批材料'];
+
+  return (
+    <section className="rounded-lg border bg-muted/30 p-3">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="text-sm font-medium">{title}</div>
+        <div className="flex flex-wrap gap-1.5">
+          {items.map((item) => (
+            <Badge key={item} variant="outline" className="bg-background/70">
+              {item}
+            </Badge>
+          ))}
         </div>
       </div>
     </section>
@@ -172,6 +188,7 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
 
 export default function InboxPage() {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const touchStartX = useRef(0);
   const { data, isLoading, isError, refetch } = useInboxActions(50);
@@ -253,7 +270,7 @@ export default function InboxPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
@@ -282,6 +299,7 @@ export default function InboxPage() {
       </header>
 
       {!isLoading && !isError && <ActionInboxInsightStrip items={items} />}
+      <RoleGuidanceStrip role={role} />
       <AIOperatingSystemStrip />
 
       <nav className="flex flex-wrap gap-2 border-b pb-3">
@@ -309,23 +327,16 @@ export default function InboxPage() {
       </nav>
 
       {isLoading && (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-28 animate-pulse rounded-lg bg-muted" />
-          ))}
-        </div>
+        <WorkLoadingState title="正在整理今日行动" description="正在合并审批、客户风险、通知和 Agent Ops。" />
       )}
 
       {isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-5">
-          <div className="font-medium text-destructive">行动列表加载失败</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            请稍后重试，或检查后端 `/api/inbox/actions` 是否可用。
-          </p>
-          <Button className="mt-4" variant="outline" onClick={() => refetch()}>
-            重新加载
-          </Button>
-        </div>
+        <WorkErrorState
+          title="行动列表加载失败"
+          description="请稍后重试，或检查后端 `/api/inbox/actions` 是否可用。"
+          actionLabel="重新加载"
+          onAction={() => refetch()}
+        />
       )}
 
       {!isLoading && !isError && visibleItems.length > 0 && (
@@ -437,13 +448,13 @@ export default function InboxPage() {
       )}
 
       {!isLoading && !isError && visibleItems.length === 0 && (
-        <div className="rounded-lg border bg-card p-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <CheckCircle2 className="h-6 w-6" />
-          </div>
-          <h2 className="mt-4 font-semibold">当前筛选下没有待办</h2>
-          <p className="mt-1 text-sm text-muted-foreground">可以切回全部行动，或让 AI 生成下一步工作计划。</p>
-        </div>
+        <WorkEmptyState
+          icon={<CheckCircle2 className="h-6 w-6" />}
+          title="当前筛选下没有待办"
+          description="可以切回全部行动，或让 AI 生成下一步工作计划。"
+          actionLabel="查看全部行动"
+          onAction={() => setActiveTab('all')}
+        />
       )}
     </div>
   );

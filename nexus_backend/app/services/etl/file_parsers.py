@@ -7,6 +7,8 @@ Contains format-specific file parsing logic (PDF, DOCX, Excel, PPTX, images, tex
 import io
 import logging
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,7 +55,7 @@ async def parse_file_content(
 
         base64_image = base64.b64encode(content).decode("utf-8")
         payload = {
-            "model": "gpt-4o-mini",
+            "model": settings.AI_MINI_MODEL or "deepseek-v4-flash",
             "messages": [
                 {
                     "role": "user",

@@ -43,7 +43,7 @@ export const NoDataYet = ({
 }: Partial<EmptyStateProps> & { resourceName?: string; onAdd?: () => void }) => (
   <EmptyState
     title={title ?? (resourceName ? `暂无${resourceName}` : "暂无数据")}
-    description={description ?? (resourceName ? `目前还没有${resourceName}数据，点击上方按钮创建。` : "目前还没有相关数据，请稍后再试。")}
+    description={description ?? (resourceName ? `目前还没有${resourceName}数据，可以先创建一条记录。` : "目前还没有相关数据。")}
     action={onAdd ? { label: `新建${resourceName || '数据'}`, onClick: onAdd } : undefined}
     {...props}
   />
@@ -51,7 +51,7 @@ export const NoDataYet = ({
 
 export const NoSearchResults = ({
   title = "未找到结果",
-  description = "没找到匹配的搜索结果，请尝试其他关键词。",
+  description = "没有找到匹配的搜索结果，请尝试其他关键词。",
   query,
   onClear,
   ...props
@@ -59,7 +59,7 @@ export const NoSearchResults = ({
   <EmptyState
     icon={<Search className="w-10 h-10" />}
     title={title}
-    description={query ? `未找到"${query}"的相关结果，请尝试其他关键词。` : description}
+    description={query ? `未找到“${query}”的相关结果，请尝试其他关键词。` : description}
     action={onClear ? { label: "清除搜索", onClick: onClear } : undefined}
     {...props}
   />

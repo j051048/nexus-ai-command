@@ -36,10 +36,10 @@ class AgentPhase(StrEnum):
 class QueryComplexity(StrEnum):
     """Result of the intent router — drives model selection."""
 
-    SIMPLE = "simple"  # Greeting, FAQ → gpt-4o-mini
-    MODERATE = "moderate"  # Single-tool lookup → gpt-4o-mini
-    COMPLEX = "complex"  # Multi-tool, analysis → gpt-4o
-    CRITICAL = "critical"  # Approvals, financial ops → gpt-4o + confirmation
+    SIMPLE = "simple"  # Greeting, FAQ → economy tier
+    MODERATE = "moderate"  # Single-tool lookup → balanced tier
+    COMPLEX = "complex"  # Multi-tool, analysis → power tier
+    CRITICAL = "critical"  # Approvals, financial ops → flagship tier + confirmation
 
     @property
     def model_tier(self) -> str:
@@ -153,8 +153,8 @@ class AgentConfig(BaseModel):
     agent_name: str = "default"
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
-    model: str = "gpt-4o"
-    mini_model: str = "gpt-4o-mini"
+    model: str = "deepseek-v4-flash"
+    mini_model: str = "deepseek-v4-flash"
     system_confirmed: bool = False
     confirmed_tool: dict | None = None  # HITL: {tool_name, args} from blocked call
     org_id: str | None = None
@@ -217,7 +217,7 @@ class AgentConfig(BaseModel):
             from app.core.config import settings as _settings
 
             fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(
-                _settings, "AI_DEFAULT_MODEL", "gemini-3-flash-preview"
+                _settings, "AI_DEFAULT_MODEL", "deepseek-v4-flash"
             )
             # Guard: if fallback is the same model, skip the misleading log
             if fallback != model:

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRightLeft, DollarSign, Loader2, Plus, Sparkles, Trash2, TrendingUp, Users } from 'lucide-react';
+import { ArrowRightLeft, DollarSign, Loader2, Plus, Sparkles, Trash2, TrendingUp, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
-import { AITrustBadge } from '@/components/ai/AITrustBadge';
+import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -75,75 +75,49 @@ function CRMAIInsightLayer({
   ];
 
   return (
-    <section className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-semibold">AI 客户摘要</h2>
-              <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 88 : 74} />
-              {staleCustomers.length > 0 && (
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                  {staleCustomers.length} 个客户需跟进
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              当前客户池共 {Number(stats?.total_customers ?? customers.length)} 个客户，
-              {highValueOpen.length} 个高价值机会仍在推进中
-              {topRisk
-                ? `，${topRisk.name} 已较久未更新，建议优先确认下一步。`
-                : '，暂无明显长期停滞客户。'}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            onClick={() =>
-              triggerAI('请基于当前 CRM 客户列表，生成高价值机会和风险客户的跟进优先级。')
-            }
-          >
-            <Sparkles className="mr-2 h-4 w-4" />
-            生成跟进优先级
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              triggerAI('请帮我写一份今天的 CRM 销售晨会摘要，包含新增、机会、风险和下一步动作。')
-            }
-          >
-            晨会摘要
-          </Button>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {evidenceCards.map((card) => (
-          <div key={card.label} className="rounded-lg border bg-background/60 p-3">
-            <div className="text-xs text-muted-foreground">{card.label}</div>
-            <div className="mt-1 text-lg font-semibold">{card.value}</div>
-            <div className="mt-1 text-xs leading-5 text-muted-foreground">{card.hint}</div>
-          </div>
-        ))}
-      </div>
-
-      {topRisk && (
-        <div className="mt-4 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-sm">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-            <p className="text-amber-700 dark:text-amber-300">
-              建议今天先处理 {topRisk.name}：该客户处于 {topRisk.stage || '未标记'} 阶段，
-              预计金额 ¥{Number(topRisk.estimated_value ?? 0).toLocaleString()}。
-            </p>
-          </div>
-        </div>
-      )}
-    </section>
+    <AIInsightPanel
+      title="AI 客户摘要"
+      icon={Sparkles}
+      trustLevel={trustLevel}
+      score={trustLevel === 'high' ? 88 : 74}
+      summary={
+        <>
+          当前客户池共 {Number(stats?.total_customers ?? customers.length)} 个客户，
+          {highValueOpen.length} 个高价值机会仍在推进中
+          {topRisk ? `，${topRisk.name} 已较久未更新，建议优先确认下一步。` : '，暂无明显长期停滞客户。'}
+        </>
+      }
+      context={['CRM', '客户健康分', '跟进节奏']}
+      evidence={evidenceCards.map((card) => ({
+        label: card.label,
+        value: (
+          <>
+            <span className="text-lg font-semibold">{card.value}</span>
+            <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{card.hint}</span>
+          </>
+        ),
+      }))}
+      risks={
+        topRisk
+          ? [
+              `${topRisk.name} ${topRiskDays} 天未跟进`,
+              `阶段：${topRisk.stage || '未标记'}`,
+              `预计金额 ¥${Number(topRisk.estimated_value ?? 0).toLocaleString()}`,
+            ]
+          : []
+      }
+      actions={[
+        {
+          label: '生成跟进优先级',
+          variant: 'default',
+          prompt: '请基于当前 CRM 客户列表，生成高价值机会和风险客户的跟进优先级。',
+        },
+        {
+          label: '晨会摘要',
+          prompt: '请帮我写一份今天的 CRM 销售晨会摘要，包含新增、机会、风险和下一步动作。',
+        },
+      ]}
+    />
   );
 }
 

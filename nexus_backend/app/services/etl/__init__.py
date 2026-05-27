@@ -536,11 +536,16 @@ class ETLService:
                 logger.warning(f"Model {model_name} processing error: {str(e)}")
                 return False, None
 
-        success, response_json = await call_ai_model("gemini-3-pro-preview")
+        default_model = settings.AI_DEFAULT_MODEL or "deepseek-v4-flash"
+        success, response_json = await call_ai_model(default_model)
 
         if not success:
-            logger.warning("Primary model failed. Falling back to Gemini-2.5-Pro...")
-            success, response_json = await call_ai_model("gemini-2.5-pro")
+            fallback_model = settings.AI_MINI_MODEL or default_model
+            if fallback_model != default_model:
+                logger.warning(
+                    "Primary model failed. Falling back to configured mini model..."
+                )
+                success, response_json = await call_ai_model(fallback_model)
 
         if not success or not response_json:
             return False, {"error": "All AI models failed to process the document."}

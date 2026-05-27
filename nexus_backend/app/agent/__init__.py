@@ -9,7 +9,7 @@ Key improvements over the old ChatService.stream_response:
 - Explicit state graph with conditional edges
 - Self-reflection & hallucination detection nodes
 - Long-term memory (vector + structured hybrid)
-- Dynamic model routing (simple queries → mini, complex → gpt-4o)
+- Dynamic model routing (simple queries to economy tier, complex to power tier)
 
 Modules:
 - state: AgentState TypedDict and related data structures

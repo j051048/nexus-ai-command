@@ -16,6 +16,8 @@
     "check:prod": "node scripts/production_readiness_check.mjs",
     "check:health": "node scripts/production_health_check.mjs",
     "check:bundle": "node scripts/check_bundle_budget.mjs",
+    "check:text": "node scripts/check_text_quality.mjs",
+    "quality:frontend": "npm run build && npm run check:bundle && npm run check:text",
     "analyze": "vite build --mode analyze"
   },
   "dependencies": {

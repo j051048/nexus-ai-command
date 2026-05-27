@@ -6,9 +6,11 @@ integration, and context window auto-upgrade logic.
 """
 
 import logging
+import fnmatch
 import re
 import time
 
+from app.core.config import settings
 from app.core.database import supabase
 from app.services.encryption_service import encryption_service
 from app.services.llm_adapters.base import BaseModelAdapter, ModelConfig
@@ -17,6 +19,7 @@ from app.services.llm_circuit_breaker import circuit_breaker_manager
 from app.services.token_service import token_counter
 
 logger = logging.getLogger(__name__)
+LOW_COST_DEFAULT_MODEL = "deepseek-v4-flash"
 
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
@@ -25,6 +28,74 @@ _UUID_RE = re.compile(
 
 def _is_valid_uuid(val: str | None) -> bool:
     return bool(val and _UUID_RE.match(val))
+
+
+def _default_chat_model() -> str:
+    return (getattr(settings, "AI_DEFAULT_MODEL", "") or LOW_COST_DEFAULT_MODEL).strip()
+
+
+def _expensive_model_patterns() -> list[str]:
+    raw = getattr(settings, "LLM_EXPENSIVE_MODEL_BLOCKLIST", "") or ""
+    return [item.strip().lower() for item in raw.split(",") if item.strip()]
+
+
+def _is_expensive_model(model_code: str | None) -> bool:
+    value = (model_code or "").strip().lower()
+    return bool(value) and any(
+        fnmatch.fnmatch(value, pattern) for pattern in _expensive_model_patterns()
+    )
+
+
+def _should_force_default(scene_code: str | None) -> bool:
+    if (scene_code or "").lower() == "embedding":
+        return False
+    return bool(getattr(settings, "LLM_FORCE_DEFAULT_MODEL", True))
+
+
+def _apply_cost_policy(model_code: str | None, scene_code: str | None, reason: str) -> str | None:
+    if not model_code:
+        return model_code
+    default_model = _default_chat_model()
+    if _should_force_default(scene_code) and model_code != default_model:
+        logger.warning(
+            "[LLMCostPolicy] Overriding model %s -> %s for scene=%s reason=%s",
+            model_code,
+            default_model,
+            scene_code or "*",
+            reason,
+        )
+        return default_model
+    if _is_expensive_model(model_code):
+        logger.warning(
+            "[LLMCostPolicy] Blocking expensive model %s -> %s for scene=%s reason=%s",
+            model_code,
+            default_model,
+            scene_code or "*",
+            reason,
+        )
+        return default_model
+    return model_code
+
+
+def _build_env_model_config(model_code: str) -> ModelConfig | None:
+    """Build a safe OpenAI-compatible fallback for the configured default model."""
+    default_model = _default_chat_model()
+    if model_code != default_model:
+        return None
+    if not settings.OPENAI_API_KEY or not settings.AI_BASE_URL:
+        return None
+    return ModelConfig(
+        model_code=default_model,
+        model_name=default_model,
+        provider_type="openai_compatible",
+        api_key=settings.OPENAI_API_KEY,
+        api_base_url=settings.AI_BASE_URL,
+        model_id=default_model,
+        context_window=getattr(settings, "TOKEN_DEFAULT_CONTEXT_WINDOW", 128000),
+        max_tokens=4096,
+        supports_tools=True,
+        default_temperature=0.7,
+    )
 
 
 class ModelResolutionMixin:
@@ -61,6 +132,14 @@ class ModelResolutionMixin:
                 return config
 
         if not supabase:
+            fallback = _build_env_model_config(model_code)
+            if fallback:
+                logger.warning(
+                    "Database not available - using env fallback config for model=%s",
+                    model_code,
+                )
+                self._model_cache[cache_key] = (fallback, now)
+                return fallback
             logger.warning("Database not available - cannot load model config")
             return None
 
@@ -95,6 +174,14 @@ class ModelResolutionMixin:
                 rows = res.data or []
 
             if not rows:
+                fallback = _build_env_model_config(model_code)
+                if fallback:
+                    logger.warning(
+                        "No DB config found for model=%s, using env fallback config",
+                        model_code,
+                    )
+                    self._model_cache[cache_key] = (fallback, now)
+                    return fallback
                 logger.warning(f"No config found for model={model_code}, org={org_id}")
                 return None
 
@@ -160,9 +247,12 @@ class ModelResolutionMixin:
         if cache_key in self._schedule_cache:
             rule, loaded_at = self._schedule_cache[cache_key]
             if now - loaded_at < self._CACHE_TTL:
-                return self._pick_healthy_model(rule)
+                resolved = self._pick_healthy_model(rule)
+                return _apply_cost_policy(resolved, scene_code, "schedule_cache")
 
         if not supabase:
+            if (scene_code or "").lower() != "embedding":
+                return _default_chat_model()
             logger.warning("Database not available - cannot resolve model schedule")
             return None
 
@@ -238,6 +328,16 @@ class ModelResolutionMixin:
                     break
 
             if not rows:
+                if (scene_code or "").lower() != "embedding":
+                    default_model = _default_chat_model()
+                    logger.warning(
+                        "No schedule rule found for scene=%s, agent=%s, org=%s; using default model %s",
+                        scene_code,
+                        agent_code,
+                        org_id,
+                        default_model,
+                    )
+                    return default_model
                 logger.warning(
                     f"No schedule rule found for scene={scene_code}, agent={agent_code}, org={org_id}"
                 )
@@ -249,7 +349,8 @@ class ModelResolutionMixin:
             await self._fill_model_codes(rule)
 
             self._schedule_cache[cache_key] = (rule, now)
-            return self._pick_healthy_model(rule)
+            resolved = self._pick_healthy_model(rule)
+            return _apply_cost_policy(resolved, scene_code, "schedule_rule")
 
         except Exception as e:
             logger.error(
@@ -322,6 +423,8 @@ class ModelResolutionMixin:
         self, current_model_code: str, org_id: str, required_tokens: int
     ) -> str | None:
         """Find an enabled chat model with a larger context window that fits required_tokens."""
+        if getattr(settings, "LLM_FORCE_DEFAULT_MODEL", True):
+            return None
         if not supabase:
             return None
         try:
@@ -349,9 +452,13 @@ class ModelResolutionMixin:
                 if c.get("provider_type") == current_config.provider_type
             ]
             if same_provider:
-                return same_provider[0]["model_code"]
+                return _apply_cost_policy(
+                    same_provider[0]["model_code"], "chat", "context_upgrade"
+                )
             if candidates:
-                return candidates[0]["model_code"]
+                return _apply_cost_policy(
+                    candidates[0]["model_code"], "chat", "context_upgrade"
+                )
             return None
         except Exception as e:
             logger.warning(f"Failed to find larger context model: {e}")
@@ -426,7 +533,7 @@ class ModelResolutionMixin:
                     and backup != exclude
                     and circuit_breaker_manager.is_allowed(backup)
                 ):
-                    return backup
+                    return _apply_cost_policy(backup, scene_code, "backup_model")
         return None
 
     def invalidate_cache(self, org_id: str | None = None) -> None:

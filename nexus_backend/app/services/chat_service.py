@@ -222,7 +222,7 @@ class ChatService:
             api_key=settings.OPENAI_API_KEY,
             base_url=settings.AI_BASE_URL,
             model=settings.AI_DEFAULT_MODEL,
-            mini_model=getattr(settings, "AI_MINI_MODEL", "gpt-4o-mini"),
+            mini_model=getattr(settings, "AI_MINI_MODEL", "deepseek-v4-flash"),
             user_role=user_role,
             org_id=org_id,
             max_iterations=settings.LANGGRAPH_MAX_ITERATIONS,

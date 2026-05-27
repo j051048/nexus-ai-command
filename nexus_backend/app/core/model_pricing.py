@@ -31,6 +31,9 @@ MODEL_PRICES: dict[str, tuple[float, float]] = {
     "claude-3-haiku": (0.25, 1.25),
     "claude-3": (3.00, 15.00),
     # DeepSeek
+    "deepseek-v4-flash": (0.07, 0.28),
+    "deepseek-v4": (0.50, 1.50),
+    "deepseek-chat": (0.14, 0.28),
     "deepseek": (1.00, 2.00),
     # Embeddings
     "text-embedding-3-small": (0.02, 0.0),

@@ -23,6 +23,7 @@ import { lazyWithRetry } from '@/lib/lazyPreload';
 import { AlertWidget } from './AlertWidget';
 import { AIActivityStats } from './AIActivityStats';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
+import { RoleAccessHint } from '@/components/auth/RoleAccessHint';
 import { useAuth } from '@/components/auth/AuthContext';
 import { LaunchChecklistPanel } from '@/components/product/LaunchChecklistPanel';
 import { useAIWeeklyReport } from '@/hooks/useAIWeeklyReport';
@@ -98,7 +99,12 @@ export function BossDashboard() {
 
   if (!loading && !user) return <Navigate to="/login" replace />;
   if (!loading && role && !['boss', 'founder'].includes(role)) {
-    return <Navigate to="/dashboard" replace />;
+    return (
+      <RoleAccessHint
+        requiredRoles={['boss', 'founder']}
+        redirectTo="/dashboard"
+      />
+    );
   }
 
   return (

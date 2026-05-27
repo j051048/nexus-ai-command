@@ -33,7 +33,7 @@ class SummaryService:
             or "https://api.openai.com/v1"
         )
         model = (config or {}).get("model") or getattr(
-            settings, "AI_DEFAULT_MODEL", "gpt-4o"
+            settings, "AI_DEFAULT_MODEL", "deepseek-v4-flash"
         )
 
         if not api_key:

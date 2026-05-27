@@ -191,14 +191,26 @@ class TestResolveModelPriority:
     """测试模型解析优先级链"""
 
     @pytest.mark.asyncio
-    async def test_resolve_no_db_returns_none(self):
-        """无 DB 连接时应返回 None"""
+    async def test_resolve_no_db_uses_default_chat_model(self):
+        """No DB connection should fall back to the low-cost default chat model."""
         from app.services.llm_gateway_service import LLMGatewayService
 
         service = LLMGatewayService()
 
         with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
             result = await service._resolve_model("chat", "default_agent", "org-001")
+
+        assert result == "deepseek-v4-flash"
+
+    @pytest.mark.asyncio
+    async def test_resolve_no_db_keeps_embedding_unresolved(self):
+        """Embedding scenes are excluded from chat cost-policy fallback."""
+        from app.services.llm_gateway_service import LLMGatewayService
+
+        service = LLMGatewayService()
+
+        with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
+            result = await service._resolve_model("embedding", "default_agent", "org-001")
 
         assert result is None
 
@@ -223,7 +235,7 @@ class TestResolveModelPriority:
             mock_cb.is_allowed.return_value = True
             result = await service._resolve_model("chat", "agent", "org-001")
 
-        assert result == "cached-model"
+        assert result == "deepseek-v4-flash"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

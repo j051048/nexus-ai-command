@@ -29,6 +29,7 @@ _TOKEN_SAFETY_MARGIN = 1.2
 
 # Default context window sizes per model family (in tokens)
 _MODEL_CONTEXT_WINDOWS = {
+    "deepseek-v4-flash": 128000,
     "gpt-4o": 128000,
     "gpt-4o-mini": 128000,
     "gpt-4-turbo": 128000,
@@ -102,7 +103,7 @@ async def trim_messages_to_window(
     Returns:
         A (potentially shortened) message list that fits within the window.
     """
-    model = config.model or "gpt-4o"
+    model = config.model or "deepseek-v4-flash"
     context_window = _MODEL_CONTEXT_WINDOWS.get(model, _DEFAULT_CONTEXT_WINDOW)
     token_limit = int(context_window * threshold_ratio)
 

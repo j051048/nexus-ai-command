@@ -255,7 +255,7 @@ class RerankerService:
 
         response = await asyncio.wait_for(
             client.chat.completions.create(
-                model=getattr(settings, "AI_MINI_MODEL", "gpt-4o-mini"),
+                model=getattr(settings, "AI_MINI_MODEL", "deepseek-v4-flash"),
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=50,
                 temperature=0,

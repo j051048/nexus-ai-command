@@ -19,6 +19,8 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -235,7 +237,7 @@ class ContentModerator:
         self._injection_patterns = []
         self._compile_patterns()
         self._llm_client = None
-        self._resolved_model = "gpt-4o-mini"
+        self._resolved_model = settings.AI_MINI_MODEL or "deepseek-v4-flash"
         self._detection_cache: dict[str, tuple[bool, str]] = {}
 
     def _get_llm_client(self):

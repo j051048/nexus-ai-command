@@ -40,7 +40,7 @@ import { useContracts, useContractDetail, useCreateContract, useDeleteContract, 
 import { useAuth } from '@/components/auth/AuthContext';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { AITrustBadge } from '@/components/ai/AITrustBadge';
+import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 
 // 合同类型
 const CONTRACT_TYPES: Record<string, string> = {
@@ -92,10 +92,6 @@ function daysUntil(dateStr: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-function triggerAI(prompt: string) {
-  window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
-}
-
 function ContractAIInsightLayer({ contracts }: { contracts: Contract[] }) {
   const expiring = contracts.filter((contract) => {
     const days = daysUntil(contract.end_date);
@@ -109,60 +105,59 @@ function ContractAIInsightLayer({ contracts }: { contracts: Contract[] }) {
   const trustLevel = expiring.length > 0 || pendingReview.length > 0 ? 'medium' : 'high';
 
   return (
-    <section className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-semibold">AI 合同风控摘要</h2>
-              <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 90 : 76} />
-            </div>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              当前合同池中有 {pendingReview.length} 份待审核、{expiring.length} 份 30 天内到期
-              {highValue[0] ? `，最高金额合同为 ${highValue[0].title}。` : '。'}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => triggerAI('请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单和处理优先级。')}
-          >
-            生成风险清单
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => triggerAI('请把当前即将到期和待审核合同整理成今天的合同处理计划。')}
-          >
-            今日合同计划
-          </Button>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <div className="text-xs text-muted-foreground">到期风险</div>
-          <div className="mt-1 text-lg font-semibold">{expiring.length}</div>
-          <p className="mt-1 text-xs text-muted-foreground">建议优先触发续签或回款确认。</p>
-        </div>
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <div className="text-xs text-muted-foreground">待审核合同</div>
-          <div className="mt-1 text-lg font-semibold">{pendingReview.length}</div>
-          <p className="mt-1 text-xs text-muted-foreground">金额、付款条款和客户主体需进入人审。</p>
-        </div>
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <div className="text-xs text-muted-foreground">AI 证据</div>
-          <div className="mt-1 text-sm font-medium">
-            {highValue[0] ? `${highValue[0].customer_name || '未关联客户'} / ${formatAmount(Number(highValue[0].amount))}` : '暂无高金额合同'}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">来自合同金额、客户、状态和到期日。</p>
-        </div>
-      </div>
-    </section>
+    <AIInsightPanel
+      title="AI 合同风控摘要"
+      icon={Sparkles}
+      trustLevel={trustLevel}
+      score={trustLevel === 'high' ? 90 : 76}
+      summary={
+        <>
+          当前合同池中有 {pendingReview.length} 份待审核、{expiring.length} 份 30 天内到期
+          {highValue[0] ? `，最高金额合同为 ${highValue[0].title}。` : '。'}
+        </>
+      }
+      context={['合同台账', '到期日', '金额/客户主体']}
+      evidence={[
+        {
+          label: '到期风险',
+          value: (
+            <>
+              <span className="text-lg font-semibold">{expiring.length}</span>
+              <span className="mt-1 block text-xs font-normal text-muted-foreground">建议优先触发续签或回款确认。</span>
+            </>
+          ),
+        },
+        {
+          label: '待审核合同',
+          value: (
+            <>
+              <span className="text-lg font-semibold">{pendingReview.length}</span>
+              <span className="mt-1 block text-xs font-normal text-muted-foreground">金额、付款条款和客户主体需进入人审。</span>
+            </>
+          ),
+        },
+        {
+          label: 'AI 证据',
+          value: highValue[0]
+            ? `${highValue[0].customer_name || '未关联客户'} / ${formatAmount(Number(highValue[0].amount))}`
+            : '暂无高金额合同',
+        },
+      ]}
+      risks={[
+        ...(expiring.length > 0 ? ['存在 30 天内到期合同'] : []),
+        ...(pendingReview.length > 0 ? ['存在待审核合同'] : []),
+      ]}
+      actions={[
+        {
+          label: '生成风险清单',
+          prompt: '请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单和处理优先级。',
+        },
+        {
+          label: '今日合同计划',
+          prompt: '请把当前即将到期和待审核合同整理成今天的合同处理计划。',
+        },
+      ]}
+    />
   );
 }
 

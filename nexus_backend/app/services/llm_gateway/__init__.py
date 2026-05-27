@@ -13,6 +13,7 @@ as the original monolithic module.
 
 import time
 
+from app.core.config import settings
 from app.services.llm_adapters.base import ChatResponse, ModelConfig
 from app.services.llm_gateway.call_logging import CallLoggingMixin
 from app.services.llm_gateway.chat_dispatch import ChatDispatchMixin
@@ -82,9 +83,9 @@ def get_llm(
 
     Args:
         org_id: Tenant organization ID for config resolution.
-        model: Explicit model code (e.g. ``gpt-4o-mini``).
-        model_tier: Shorthand tier — ``"mini"`` maps to ``gpt-4o-mini``,
-                    ``"power"`` maps to ``gpt-4o``.  Ignored when *model*
+        model: Explicit model code (e.g. ``deepseek-v4-flash``).
+        model_tier: Shorthand tier — all tiers map to the configured
+                    low-cost default by policy.  Ignored when *model*
                     is explicitly provided.
         resolved_config: Dict returned by ``resolve_model_config``.
         **kwargs: Passed through to ``ChatOpenAI`` (e.g. ``temperature``,
@@ -93,14 +94,15 @@ def get_llm(
     from app.services.llm_helpers import get_langchain_llm_sync
 
     # Resolve model_tier shorthand
+    default_model = settings.AI_DEFAULT_MODEL or "deepseek-v4-flash"
     _TIER_MAP = {
-        "mini": "gpt-4o-mini",
-        "economy": "gpt-4o-mini",
-        "balanced": "gpt-4o",
-        "power": "gpt-4o",
-        "flagship": "gpt-4-turbo",
+        "mini": default_model,
+        "economy": default_model,
+        "balanced": default_model,
+        "power": default_model,
+        "flagship": default_model,
     }
-    resolved_model = model or _TIER_MAP.get(model_tier or "") or "gpt-4o-mini"
+    resolved_model = model or _TIER_MAP.get(model_tier or "") or default_model
 
     if resolved_config:
         return get_langchain_llm_sync(

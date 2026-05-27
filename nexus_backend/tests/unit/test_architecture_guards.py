@@ -149,6 +149,24 @@ def test_llm_gateway_has_ab_routing_policy():
     assert "LLM_AB_ECONOMY_MODEL" in policy
 
 
+def test_llm_gateway_defaults_to_low_cost_deepseek_policy():
+    config = read("nexus_backend/app/core/config.py")
+    model_resolution = read("nexus_backend/app/services/llm_gateway/model_resolution.py")
+    chat_router = read("nexus_backend/app/routers/chat.py")
+    models_yaml = read("nexus_backend/config/models.yaml")
+
+    assert 'default="deepseek-v4-flash"' in config
+    assert "LLM_FORCE_DEFAULT_MODEL" in config
+    assert "LLM_EXPENSIVE_MODEL_BLOCKLIST" in config
+    assert "LOW_COST_DEFAULT_MODEL = \"deepseek-v4-flash\"" in model_resolution
+    assert "_apply_cost_policy" in model_resolution
+    assert "_should_override_chat_model" in chat_router
+    assert "[LLMCostPolicy]" in chat_router
+    assert "default:" in models_yaml
+    assert "flagship:" in models_yaml
+    assert "model: deepseek-v4-flash" in models_yaml
+
+
 def test_prompt_context_harness_is_wired_to_ops():
     prompt_registry = read("nexus_backend/app/core/prompts_registry.py")
     prompt_builder = read("nexus_backend/app/agent/plan/prompt_builder.py")
@@ -777,7 +795,11 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     chat_panel = read("src/components/ai/chat/EnhancedAIChatPanel.tsx")
     crm_page = read("src/pages/crm/CRMPage.tsx")
     contract_page = read("src/pages/ContractManagement.tsx")
+    ai_panel = read("src/components/ai/AIInsightPanel.tsx")
+    work_state = read("src/components/common/WorkState.tsx")
     inbox_page = read("src/pages/InboxPage.tsx")
+    mobile_actions = read("src/components/mobile/MobileActionCardStack.tsx")
+    command_bar = read("src/components/layout/GlobalCommandBar.tsx")
     layout = read("src/components/layout/ChatFirstLayout.tsx")
     mobile_nav = read("src/hooks/useMobileNavigation.ts")
     approval_center = read("src/components/approval/ApprovalCenter.tsx")
@@ -787,14 +809,26 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     assert "routeInsights" in copilot
     assert "chat.messages.length === 0" in chat_panel
     assert "ProactiveCopilotPanel" in chat_panel
+    assert "AIInsightPanel" in ai_panel
+    assert "AITrustBadge" in ai_panel
+    assert "executeEndpoint" in ai_panel
+    assert "requiresConfirmation" in ai_panel
+    assert "ExperienceFeedback" in ai_panel
+    assert "WorkEmptyState" in work_state
     assert "CRMAIInsightLayer" in crm_page
     assert "AI 客户摘要" in crm_page
     assert "ContractAIInsightLayer" in contract_page
     assert "AI 合同风控摘要" in contract_page
     assert "ActionInboxInsightStrip" in inbox_page
     assert "AI 优先级解释" in inbox_page
+    assert "RoleGuidanceStrip" in inbox_page
     assert "AI 证据链" in inbox_page
     assert "risk_flags" in inbox_page
+    assert "MobileActionCardStack" in mobile_actions
+    assert "语音拜访速记" in mobile_actions
+    assert "常用动作" in command_bar
+    assert "AI 当前上下文" in command_bar
+    assert "global-command-input" in command_bar
     assert "ApprovalAIRiskPanel" in approval_center
     assert "AI 审批风控建议" in approval_center
     assert "return '收件箱'" in layout

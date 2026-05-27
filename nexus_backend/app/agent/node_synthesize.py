@@ -181,7 +181,7 @@ async def synthesize_node(state: AgentState) -> dict:
 
     try:
         # Synthesis only formats tool results — mini_model is sufficient even for
-        # complex queries.  Using the heavy selected_model (e.g. gemini-3.1-pro)
+        # complex queries.  Using the strong selected_model here
         # risks hanging on an unresponsive proxy and wasting the budget.
         synth_model = config.mini_model
         llm = _get_llm(config, model=synth_model, streaming=True)

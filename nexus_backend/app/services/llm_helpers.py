@@ -38,6 +38,7 @@ _WEAK_MODEL_CODES = {
 # Models that contain weak-sounding substrings but are actually capable.
 # Exact matches checked first, then prefix patterns for version resilience.
 _STRONG_MODEL_OVERRIDES = {
+    "deepseek-v4-flash",
     "gemini-3-flash-preview",
     "gemini-3.1-flash-preview",
     "gemini-2.0-flash",
@@ -49,6 +50,7 @@ _STRONG_MODEL_OVERRIDES = {
 # despite containing weak substrings (e.g. "flash").
 # This avoids needing to update the whitelist for every new version.
 _STRONG_MODEL_PREFIXES = (
+    "deepseek-v4-flash",
     "gemini-2.0-flash",  # gemini-2.0-flash, gemini-2.0-flash-001, ...
     "gemini-2.5-flash",  # gemini-2.5-flash-preview-*, ...
     "gemini-3-flash",  # gemini-3-flash-preview, ...
@@ -167,7 +169,7 @@ def _build_tier_fallback(tier: str, scene_code: str = "") -> dict | None:
         return {
             "api_key": api_key,
             "base_url": base_url,
-            "model": config.get("model", "gpt-4o-mini"),
+            "model": config.get("model", settings.AI_DEFAULT_MODEL),
             "temperature": config.get("temperature", 0.7),
             "timeout": config.get("timeout", 60.0),
             "supports_tools": config.get("supports_tools", True),
@@ -250,7 +252,7 @@ async def resolve_model_config(
     return {
         "api_key": settings.OPENAI_API_KEY,
         "base_url": getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
-        "model": getattr(settings, "AI_DEFAULT_MODEL", "gpt-4o"),
+        "model": getattr(settings, "AI_DEFAULT_MODEL", "deepseek-v4-flash"),
         "temperature": 0.7,
         "timeout": 60.0,
         "supports_tools": True,

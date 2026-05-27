@@ -389,7 +389,7 @@ def _get_summary_template(token_budget: int) -> str:
 async def _update_summary(
     existing_summary: str,
     new_messages: list[BaseMessage],
-    model: str = "gpt-4o-mini",
+    model: str = "deepseek-v4-flash",
     token_budget: int | None = None,
 ) -> str:
     """在已有摘要基础上增量更新，避免信息丢失。
@@ -451,7 +451,7 @@ async def _update_summary(
 
 async def _summarize_messages(
     messages: list[BaseMessage],
-    model: str = "gpt-4o-mini",
+    model: str = "deepseek-v4-flash",
     token_budget: int | None = None,
 ) -> str:
     """Use LLM to generate a structured summary of conversation messages.
@@ -620,7 +620,7 @@ def _fix_orphaned_tool_pairs(messages: list[BaseMessage]) -> list[BaseMessage]:
 async def compress_conversation_history(
     messages: list[BaseMessage],
     max_tokens: int = DEFAULT_MAX_TOKENS_BEFORE_COMPRESS,
-    model: str = "gpt-4o-mini",
+    model: str = "deepseek-v4-flash",
     max_turns: int = DEFAULT_MAX_TURNS_BEFORE_COMPRESS,
     keep_recent: int = DEFAULT_KEEP_RECENT_TURNS,
     tail_token_budget: int | None = DEFAULT_TAIL_TOKEN_BUDGET,

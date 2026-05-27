@@ -81,17 +81,25 @@ class Settings(BaseSettings):
         description="Base URL for OpenAI-compatible API",
     )
     AI_DEFAULT_MODEL: str = Field(
-        default="gemini-3-flash-preview",
+        default="deepseek-v4-flash",
         description="Default AI model for general tasks",
     )
     AI_MINI_MODEL: str = Field(
-        default="gemini-3-flash-preview",
+        default="deepseek-v4-flash",
         description="Lightweight model for simple queries",
     )
     AI_STRONG_MODEL: str = Field(
-        default="gemini-3-flash-preview",
+        default="deepseek-v4-flash",
         description="Strong model for complex/flagship tasks. When user's saved model is weak (mini/flash/turbo), "
         "power/flagship tier auto-upgrades to this. Falls back to AI_DEFAULT_MODEL if empty.",
+    )
+    LLM_FORCE_DEFAULT_MODEL: bool = Field(
+        default=True,
+        description="Force chat/completion traffic to AI_DEFAULT_MODEL unless explicitly disabled.",
+    )
+    LLM_EXPENSIVE_MODEL_BLOCKLIST: str = Field(
+        default="gemini-*-pro*,gemini-pro,gpt-4*,claude-3-opus*,claude-3.5-sonnet*,claude-3-5-sonnet*",
+        description="Comma-separated fnmatch patterns that are never used for chat traffic by default.",
     )
 
     # AI Fallback (备用 AI 服务，主服务欠费/不可用时自动切换)
