@@ -1,9 +1,36 @@
 import { test, expect, type Page } from '@playwright/test';
-import { fulfillJson, mockLoggedInState, setupBusinessMocks } from './fixtures/business-mocks';
+import { createFakeJwt, fulfillJson, loginViaForm, setupBusinessMocks } from './fixtures/business-mocks';
 
 async function setupProductQualityMocks(page: Page, role = 'boss') {
   await setupBusinessMocks(page);
   await page.addInitScript(() => window.localStorage.setItem('hasSeenTour', 'true'));
+
+  await page.unroute('**/auth/v1/token*').catch(() => undefined);
+  await page.unroute('**/auth/v1/user*').catch(() => undefined);
+
+  await page.route('**/auth/v1/token*', async (route) => {
+    await fulfillJson(route, {
+      access_token: createFakeJwt(role),
+      token_type: 'bearer',
+      expires_in: 3600,
+      refresh_token: 'fake-refresh',
+      user: {
+        id: 'test-user-id',
+        email: `${role}@nexus-ai.com`,
+        user_metadata: { role, name: `E2E ${role}` },
+        app_metadata: { provider: 'email', role },
+      },
+    });
+  });
+
+  await page.route('**/auth/v1/user*', async (route) => {
+    await fulfillJson(route, {
+      id: 'test-user-id',
+      email: `${role}@nexus-ai.com`,
+      user_metadata: { role, name: `E2E ${role}` },
+      app_metadata: { provider: 'email', role },
+    });
+  });
 
   await page.route(/.*profile.*/, async (route) => {
     await fulfillJson(route, {
@@ -60,7 +87,7 @@ async function expectHealthyPage(page: Page) {
 test.describe('product quality golden paths', () => {
   test('core workspaces expose the unified AI insight layer', async ({ page }) => {
     await setupProductQualityMocks(page, 'boss');
-    await mockLoggedInState(page, 'boss');
+    await loginViaForm(page, 'boss');
 
     for (const path of ['/dashboard', '/crm', '/approval', '/contracts']) {
       await page.goto(path);
@@ -71,7 +98,7 @@ test.describe('product quality golden paths', () => {
 
   test('command bar can launch executable business actions with page context', async ({ page }) => {
     await setupProductQualityMocks(page, 'boss');
-    await mockLoggedInState(page, 'boss');
+    await loginViaForm(page, 'boss');
 
     await page.goto('/crm');
     await expectHealthyPage(page);
@@ -83,7 +110,7 @@ test.describe('product quality golden paths', () => {
 
   test('employee entering boss-only workspace is guided back to dashboard', async ({ page }) => {
     await setupProductQualityMocks(page, 'employee');
-    await mockLoggedInState(page, 'employee');
+    await loginViaForm(page, 'employee');
 
     await page.goto('/boss-dashboard');
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });

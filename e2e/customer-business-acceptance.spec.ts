@@ -558,7 +558,7 @@ test.describe('Customer business acceptance flows', () => {
     await expect(page.getByText('今日行动台')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('AI 证据链')).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: '跳过引导' }).click({ timeout: 5000 }).catch(() => undefined);
-    await page.getByRole('button', { name: '采纳' }).first().click();
+    await page.locator('[data-testid^="inbox-action-accept-"]').first().click();
 
     await page.goto('/crm');
     await expectHealthyPage(page);

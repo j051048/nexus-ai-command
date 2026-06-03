@@ -428,6 +428,15 @@ export default function InboxPage() {
                           {command.kind === 'navigate' && <ExternalLink className="ml-1.5 h-3.5 w-3.5" />}
                         </Button>
                       ))}
+                      <Button
+                        data-testid={`inbox-action-accept-${item.id}`}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleActionEvent(item, 'accepted')}
+                      >
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                        采纳
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'completed')}>
                         <CheckCircle2 className="mr-1.5 h-4 w-4" />
                         标记完成

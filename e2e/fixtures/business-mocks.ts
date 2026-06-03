@@ -28,18 +28,20 @@ export async function fulfillJson(route: Route, body: unknown, status = 200) {
   });
 }
 
-function createFakeJwt(role = 'boss') {
+export function createFakeJwt(role = 'boss') {
   const now = Math.floor(Date.now() / 1000);
+  const email = role === 'boss' ? 'test-admin@nexus-ai.com' : `${role}@nexus-ai.com`;
+  const name = role === 'boss' ? 'E2E Admin' : `E2E ${role}`;
   const encode = (value: unknown) =>
     Buffer.from(JSON.stringify(value)).toString('base64url');
   return [
     encode({ alg: 'HS256', typ: 'JWT' }),
     encode({
       sub: 'test-user-id',
-      email: 'test-admin@nexus-ai.com',
+      email,
       role: 'authenticated',
       app_metadata: { provider: 'email', role },
-      user_metadata: { role, name: 'E2E Admin' },
+      user_metadata: { role, name },
       aud: 'authenticated',
       exp: now + 3600,
       iat: now,
@@ -705,9 +707,22 @@ export async function loginViaForm(page: Page, role = 'boss') {
   await page.addInitScript(() => window.localStorage.setItem('hasSeenTour', 'true'));
   await page.goto('/login');
   const emailInput = page.getByTestId('login-email-input');
-  if (!(await emailInput.isVisible({ timeout: 2000 }).catch(() => false))) {
-    await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId('sidebar-main').getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
+
+  const sidebar = page.getByTestId('sidebar-main');
+  const loginFormReady = await emailInput
+    .waitFor({ state: 'visible', timeout: 12000 })
+    .then(() => true)
+    .catch(async () => {
+      if (await sidebar.isVisible({ timeout: 1000 }).catch(() => false)) {
+        return false;
+      }
+      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
+      return emailInput.isVisible({ timeout: 5000 }).catch(() => false);
+    });
+
+  if (!loginFormReady) {
+    await expect(sidebar).toBeVisible({ timeout: 10000 });
+    await expect(sidebar.getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
     await dismissProductTourIfVisible(page);
     return;
   }
@@ -721,7 +736,7 @@ export async function loginViaForm(page: Page, role = 'boss') {
   await page.getByTestId('login-submit-btn').click();
   // 等待离开登录页
   await expect(page).not.toHaveURL(/.*\/login/, { timeout: 10000 });
-  await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
-  await expect(page.getByTestId('sidebar-main').getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(sidebar).toBeVisible({ timeout: 10000 });
+  await expect(sidebar.getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
   await dismissProductTourIfVisible(page);
 }
