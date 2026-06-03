@@ -12,7 +12,6 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-
 AEON_AGENT_OPS_TABLES = [
     "agent_heartbeat_runs",
     "agent_skill_health",

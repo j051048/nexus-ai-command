@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -93,13 +93,13 @@ def _parse_datetime(value: Any) -> datetime | None:
     if not value:
         return None
     if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
     if not isinstance(value, str):
         return None
     try:
         normalized = value.replace("Z", "+00:00")
         parsed = datetime.fromisoformat(normalized)
-        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
     except ValueError:
         return None
 
@@ -223,7 +223,7 @@ def _customer_risk_to_action_item(item: dict[str, Any]) -> ActionItem:
     updated_at = item.get("updated_at") or item.get("created_at")
     updated_dt = _parse_datetime(updated_at)
     stale_days = (
-        max(0, (datetime.now(timezone.utc) - updated_dt).days) if updated_dt else None
+        max(0, (datetime.now(UTC) - updated_dt).days) if updated_dt else None
     )
     estimated_value = item.get("estimated_value")
     numeric_value = (
@@ -386,7 +386,7 @@ async def _load_unread_notifications(
 async def _load_customer_risks(client: Any, limit: int) -> list[ActionItem]:
     try:
         stale_before = (
-            (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+            (datetime.now(UTC) - timedelta(days=30)).date().isoformat()
         )
         res = (
             await client.table("customers")
@@ -511,7 +511,7 @@ async def get_action_analytics(
     """Return operating metrics for the unified action inbox."""
     try:
         client = get_request_db(request)
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
         since_iso = since.isoformat()
 
         events_res = (

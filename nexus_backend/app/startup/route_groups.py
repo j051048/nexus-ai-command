@@ -12,8 +12,8 @@ logger = get_logger(__name__)
 def register_ai_routes(app: FastAPI) -> None:
     from app.routers import (
         agent_observability,
-        ai_operating_system,
         ai_feedback,
+        ai_operating_system,
         analysis,
         audio,
         batch,
@@ -110,8 +110,8 @@ def register_workflow_routes(app: FastAPI) -> None:
 def register_document_routes(app: FastAPI) -> None:
     from app.routers import (
         documents,
-        industry_knowledge,
         import_data,
+        industry_knowledge,
         qa_pairs,
         report_engine,
         reports,

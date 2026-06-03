@@ -13,7 +13,7 @@ as the original monolithic module.
 
 import time
 
-from app.core.config import FORCED_CHAT_MODEL, settings
+from app.core.config import FORCED_CHAT_MODEL
 from app.services.llm_adapters.base import ChatResponse, ModelConfig
 from app.services.llm_gateway.call_logging import CallLoggingMixin
 from app.services.llm_gateway.chat_dispatch import ChatDispatchMixin

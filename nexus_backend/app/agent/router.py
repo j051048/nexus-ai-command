@@ -1000,8 +1000,9 @@ async def _llm_classify_intent(
     Falls back to MODERATE if LLM fails.
     Returns: (complexity, intent_summary, domains, multi_intent)
     """
-    from app.core.config import FORCED_CHAT_MODEL
     from langchain_openai import ChatOpenAI
+
+    from app.core.config import FORCED_CHAT_MODEL
 
     prompt = f"""请分析以下用户输入，返回 JSON：
 - complexity: simple(闲聊问候) / moderate(单一工具查询) / complex(多步骤分析) / critical(审批、金钱、敏感人事操作)

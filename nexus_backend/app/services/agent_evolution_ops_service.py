@@ -10,7 +10,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-
 AGENT_EVOLUTION_TABLES = [
     "agent_prompt_versions",
     "agent_improvement_proposals",
