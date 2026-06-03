@@ -22,6 +22,7 @@ from app.agent.state import (
     AgentState,
     ThinkingStep,
 )
+from app.core.config import FORCED_CHAT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +183,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
     ]
 
     # Use the high-tier model for task decomposition
-    model = config.model  # Use the main model for complex decomposition
+    model = FORCED_CHAT_MODEL
 
     # Resolve model via LLM gateway
     resolved = None
@@ -198,7 +199,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
 
     if resolved:
         llm = ChatOpenAI(
-            model=resolved.get("model", model),
+            model=FORCED_CHAT_MODEL,
             api_key=resolved.get("api_key", config.api_key),
             base_url=resolved.get("base_url", config.base_url),
             temperature=0.3,

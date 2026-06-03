@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAISettings, useSaveAISettings, useTestAIConnection, DEFAULT_MODELS, type BehaviorPreferences } from '@/hooks/useAISettings';
+import { useAISettings, useSaveAISettings, useTestAIConnection, DEFAULT_MODELS, DEFAULT_AI_MODEL, normalizeAIModel, type BehaviorPreferences } from '@/hooks/useAISettings';
 import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
 import {
@@ -44,7 +44,7 @@ export function AISettingsPanel() {
 
   const [baseUrl, setBaseUrl] = useState('https://api.apiyi.com/v1');
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gemini-3-flash-preview');
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_AI_MODEL);
   const [customModel, setCustomModel] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -58,14 +58,9 @@ export function AISettingsPanel() {
       setBaseUrl(settings.base_url || 'https://api.apiyi.com/v1');
       setApiKey(settings.api_key || '');
 
-      const isCustom = !DEFAULT_MODELS.some(m => m.value === settings.model);
-      if (isCustom && settings.model) {
-        setSelectedModel('custom');
-        setCustomModel(settings.model);
-        setShowCustomInput(true);
-      } else {
-        setSelectedModel(settings.model || 'gemini-3-flash-preview');
-      }
+      setSelectedModel(normalizeAIModel(settings.model));
+      setCustomModel('');
+      setShowCustomInput(false);
 
       if (settings.behavior_preferences) {
         setBehaviorPrefs(settings.behavior_preferences);
@@ -92,7 +87,7 @@ export function AISettingsPanel() {
   };
 
   const handleSave = async () => {
-    const model = getEffectiveModel();
+    const model = normalizeAIModel(getEffectiveModel());
     if (!model) {
       toast.error('请选择或输入模型名称');
       return;
@@ -116,7 +111,7 @@ export function AISettingsPanel() {
   };
 
   const handleTest = async () => {
-    const model = getEffectiveModel();
+    const model = normalizeAIModel(getEffectiveModel());
     if (!baseUrl) {
       toast.error('请输入 Base URL');
       addLog('error', '测试失败: Base URL 不能为空');
@@ -157,7 +152,7 @@ export function AISettingsPanel() {
 
   const handleSaveBehavior = async () => {
     try {
-      const model = getEffectiveModel() || 'gemini-3-flash-preview';
+      const model = normalizeAIModel(getEffectiveModel());
       await saveSettings.mutateAsync({
         base_url: baseUrl,
         api_key: apiKey || null,

@@ -103,7 +103,7 @@ export function ProjectManagement() {
                         { role: "system", content: "You are an expert Project Manager AI. Access the 'create_project' tool immediately to fulfill this request. Do not ask for confirmation, just do it based on valid assumptions." },
                         { role: "user", content: `帮我创建一个项目，需求是：${aiPrompt}` }
                     ],
-                    model: "gpt-4o",
+                    model: "deepseek-v4-flash",
                     agent: "default"
                 })
             });

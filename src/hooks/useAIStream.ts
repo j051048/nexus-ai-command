@@ -442,7 +442,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: aiSettings.model || 'gemini-3-flash-preview',
+                model: 'deepseek-v4-flash',
                 messages: messagesWithContext,
                 stream: true,
             }),

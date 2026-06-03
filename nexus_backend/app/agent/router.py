@@ -1000,6 +1000,7 @@ async def _llm_classify_intent(
     Falls back to MODERATE if LLM fails.
     Returns: (complexity, intent_summary, domains, multi_intent)
     """
+    from app.core.config import FORCED_CHAT_MODEL
     from langchain_openai import ChatOpenAI
 
     prompt = f"""请分析以下用户输入，返回 JSON：
@@ -1028,7 +1029,7 @@ async def _llm_classify_intent(
 
         if resolved:
             llm = ChatOpenAI(
-                model=resolved.get("model") or config.mini_model,
+                model=FORCED_CHAT_MODEL,
                 api_key=resolved.get("api_key") or config.api_key,
                 base_url=resolved.get("base_url") or config.base_url,
                 temperature=0.0,
@@ -1039,7 +1040,7 @@ async def _llm_classify_intent(
             )
         else:
             llm = ChatOpenAI(
-                model=config.mini_model,
+                model=FORCED_CHAT_MODEL,
                 api_key=config.api_key,
                 base_url=config.base_url,
                 temperature=0.0,

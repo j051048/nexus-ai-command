@@ -11,6 +11,8 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
+from app.core.config import FORCED_CHAT_MODEL
+
 logger = logging.getLogger(__name__)
 
 # 占位回退方案 — 任何异常时优雅降级
@@ -103,8 +105,7 @@ class DeepReflector:
 
         try:
             llm = ChatOpenAI(
-                model=getattr(config, "mini_model", None)
-                or getattr(config, "model", "deepseek-v4-flash"),
+                model=FORCED_CHAT_MODEL,
                 api_key=config.api_key,
                 base_url=config.base_url,
                 temperature=0.7,
@@ -203,8 +204,7 @@ class DeepReflector:
 
         try:
             llm = ChatOpenAI(
-                model=getattr(config, "mini_model", None)
-                or getattr(config, "model", "deepseek-v4-flash"),
+                model=FORCED_CHAT_MODEL,
                 api_key=config.api_key,
                 base_url=config.base_url,
                 temperature=0.3,

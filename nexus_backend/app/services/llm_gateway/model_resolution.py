@@ -10,7 +10,7 @@ import fnmatch
 import re
 import time
 
-from app.core.config import settings
+from app.core.config import FORCED_CHAT_MODEL, settings
 from app.core.database import supabase
 from app.services.encryption_service import encryption_service
 from app.services.llm_adapters.base import BaseModelAdapter, ModelConfig
@@ -19,7 +19,7 @@ from app.services.llm_circuit_breaker import circuit_breaker_manager
 from app.services.token_service import token_counter
 
 logger = logging.getLogger(__name__)
-LOW_COST_DEFAULT_MODEL = "deepseek-v4-flash"
+LOW_COST_DEFAULT_MODEL = FORCED_CHAT_MODEL
 
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
@@ -31,7 +31,7 @@ def _is_valid_uuid(val: str | None) -> bool:
 
 
 def _default_chat_model() -> str:
-    return (getattr(settings, "AI_DEFAULT_MODEL", "") or LOW_COST_DEFAULT_MODEL).strip()
+    return LOW_COST_DEFAULT_MODEL
 
 
 def _expensive_model_patterns() -> list[str]:

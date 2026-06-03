@@ -217,7 +217,7 @@ const NAV_CONFIG: NavItem[] = [
 
   // AI 能力域
   { icon: <Sparkles size={18} />, label: "AI 作战系统", href: "ai-operating-system", group: "AI 中心" },
-  { icon: <Brain size={18} />, label: "Agent 进化", href: "agent-improvement-center", roles: ["boss", "founder"], group: "AI 中心" },
+  { icon: <Brain size={18} />, label: "Agent 进化中心", href: "agent-improvement-center", roles: ["boss", "founder"], group: "AI 中心" },
   { icon: <BookOpen size={18} />, label: "知识库", href: "knowledge", group: "AI 中心" },
   { icon: <Rocket size={18} />, label: "VMD", href: "vmd", group: "AI 中心" },
   { icon: <Puzzle size={18} />, label: "插件", href: "plugins", group: "AI 中心" },

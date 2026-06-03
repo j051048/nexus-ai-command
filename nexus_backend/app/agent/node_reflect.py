@@ -27,6 +27,7 @@ from app.agent.node_helpers import (
     scan_content,
 )
 from app.agent.safety_guards import has_irreversible_tool
+from app.core.config import FORCED_CHAT_MODEL
 
 
 def _normalize_number(text: str) -> float | None:
@@ -968,7 +969,7 @@ async def critic_node(state: AgentState) -> dict:
             critic_api_key = resolved_critic.get("api_key") or config.api_key
             critic_base_url = resolved_critic.get("base_url") or config.base_url
             critic_llm = ChatOpenAI(
-                model=resolved_critic.get("model", config.mini_model),
+                model=FORCED_CHAT_MODEL,
                 api_key=critic_api_key,
                 base_url=critic_base_url,
                 temperature=0.1,
@@ -979,7 +980,7 @@ async def critic_node(state: AgentState) -> dict:
             )
         else:
             critic_llm = ChatOpenAI(
-                model=config.mini_model,
+                model=FORCED_CHAT_MODEL,
                 api_key=config.api_key,
                 base_url=config.base_url,
                 temperature=0.1,

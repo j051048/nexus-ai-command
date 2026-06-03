@@ -6,6 +6,7 @@ from collections import Counter
 from langchain_openai import ChatOpenAI
 
 from app.agent.node_helpers import logger
+from app.core.config import FORCED_CHAT_MODEL
 
 
 def _tool_signature(msg) -> str:
@@ -49,7 +50,7 @@ async def plan_with_self_consistency(
     async def _single_sample(i: int):
         """Single sampling call for parallel execution."""
         sample_llm = ChatOpenAI(
-            model=(resolved_config or {}).get("model") or model or config.model,
+            model=FORCED_CHAT_MODEL,
             api_key=(resolved_config or {}).get("api_key") or config.api_key,
             base_url=(resolved_config or {}).get("base_url") or config.base_url,
             temperature=0.7,

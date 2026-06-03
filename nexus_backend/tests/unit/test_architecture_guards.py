@@ -151,14 +151,27 @@ def test_llm_gateway_has_ab_routing_policy():
 
 def test_llm_gateway_defaults_to_low_cost_deepseek_policy():
     config = read("nexus_backend/app/core/config.py")
+    llm_gateway_init = read("nexus_backend/app/services/llm_gateway/__init__.py")
     model_resolution = read("nexus_backend/app/services/llm_gateway/model_resolution.py")
+    openai_adapter = read("nexus_backend/app/services/llm_adapters/openai_compatible.py")
+    node_helpers = read("nexus_backend/app/agent/node_helpers.py")
+    node_reflect = read("nexus_backend/app/agent/node_reflect.py")
     chat_router = read("nexus_backend/app/routers/chat.py")
     models_yaml = read("nexus_backend/config/models.yaml")
 
     assert 'default="deepseek-v4-flash"' in config
+    assert 'FORCED_CHAT_MODEL = "deepseek-v4-flash"' in config
+    assert "force_low_cost_chat_model" in config
+    assert "gemini-*" in config
     assert "LLM_FORCE_DEFAULT_MODEL" in config
     assert "LLM_EXPENSIVE_MODEL_BLOCKLIST" in config
-    assert "LOW_COST_DEFAULT_MODEL = \"deepseek-v4-flash\"" in model_resolution
+    assert "LOW_COST_DEFAULT_MODEL = FORCED_CHAT_MODEL" in model_resolution
+    assert "default_model = FORCED_CHAT_MODEL" in llm_gateway_init
+    assert "model=FORCED_CHAT_MODEL" in llm_gateway_init
+    assert '"model": FORCED_CHAT_MODEL' in openai_adapter
+    assert "model_code=FORCED_CHAT_MODEL" in openai_adapter
+    assert "_resolved_model = FORCED_CHAT_MODEL" in node_helpers
+    assert "model=FORCED_CHAT_MODEL" in node_reflect
     assert "_apply_cost_policy" in model_resolution
     assert "_should_override_chat_model" in chat_router
     assert "[LLMCostPolicy]" in chat_router

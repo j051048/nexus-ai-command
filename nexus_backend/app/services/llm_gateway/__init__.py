@@ -13,7 +13,7 @@ as the original monolithic module.
 
 import time
 
-from app.core.config import settings
+from app.core.config import FORCED_CHAT_MODEL, settings
 from app.services.llm_adapters.base import ChatResponse, ModelConfig
 from app.services.llm_gateway.call_logging import CallLoggingMixin
 from app.services.llm_gateway.chat_dispatch import ChatDispatchMixin
@@ -94,7 +94,7 @@ def get_llm(
     from app.services.llm_helpers import get_langchain_llm_sync
 
     # Resolve model_tier shorthand
-    default_model = settings.AI_DEFAULT_MODEL or "deepseek-v4-flash"
+    default_model = FORCED_CHAT_MODEL
     _TIER_MAP = {
         "mini": default_model,
         "economy": default_model,
@@ -108,7 +108,7 @@ def get_llm(
         return get_langchain_llm_sync(
             api_key=resolved_config["api_key"],
             base_url=resolved_config["base_url"],
-            model=resolved_config.get("model") or resolved_model,
+            model=FORCED_CHAT_MODEL,
             temperature=resolved_config.get(
                 "temperature", kwargs.pop("temperature", 0.7)
             ),
@@ -128,7 +128,7 @@ def get_llm(
                 return get_langchain_llm_sync(
                     api_key=config_obj.api_key,
                     base_url=config_obj.api_base_url,
-                    model=config_obj.model_id or config_obj.model_code,
+                    model=FORCED_CHAT_MODEL,
                     temperature=config_obj.default_temperature,
                     streaming=kwargs.pop("streaming", False),
                     timeout=getattr(config_obj, "timeout_ms", 60000) / 1000,

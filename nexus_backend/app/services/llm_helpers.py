@@ -10,7 +10,7 @@ import logging
 import os
 import re
 
-from app.core.config import settings
+from app.core.config import FORCED_CHAT_MODEL, settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +38,7 @@ _WEAK_MODEL_CODES = {
 # Models that contain weak-sounding substrings but are actually capable.
 # Exact matches checked first, then prefix patterns for version resilience.
 _STRONG_MODEL_OVERRIDES = {
-    "deepseek-v4-flash",
-    "gemini-3-flash-preview",
-    "gemini-3.1-flash-preview",
-    "gemini-2.0-flash",
-    "gemini-2.5-flash-preview-05-20",
+    FORCED_CHAT_MODEL,
     "claude-3.5-sonnet",  # contains no weak pattern but guard future renames
 }
 
@@ -50,11 +46,7 @@ _STRONG_MODEL_OVERRIDES = {
 # despite containing weak substrings (e.g. "flash").
 # This avoids needing to update the whitelist for every new version.
 _STRONG_MODEL_PREFIXES = (
-    "deepseek-v4-flash",
-    "gemini-2.0-flash",  # gemini-2.0-flash, gemini-2.0-flash-001, ...
-    "gemini-2.5-flash",  # gemini-2.5-flash-preview-*, ...
-    "gemini-3-flash",  # gemini-3-flash-preview, ...
-    "gemini-3.1-flash",  # gemini-3.1-flash-preview, ...
+    FORCED_CHAT_MODEL,
 )
 
 # Pre-compiled regex: match weak patterns as whole segments between `-` or
@@ -70,8 +62,7 @@ def is_weak_model(model_name: str) -> bool:
     Covers common weak model families: mini, flash, turbo-mini, haiku,
     lite, nano, small, instant, and specific model codes known to be
     economy-tier.  Strong model overrides (exact or prefix) are
-    whitelisted to avoid false positives (e.g. gemini-2.0-flash is
-    capable despite 'flash').
+    whitelisted to avoid false positives for the forced production model.
 
     Weak patterns are matched as whole `-`-delimited segments to prevent
     false positives like "gemini" matching "mini".
@@ -169,7 +160,7 @@ def _build_tier_fallback(tier: str, scene_code: str = "") -> dict | None:
         return {
             "api_key": api_key,
             "base_url": base_url,
-            "model": config.get("model", settings.AI_DEFAULT_MODEL),
+            "model": FORCED_CHAT_MODEL,
             "temperature": config.get("temperature", 0.7),
             "timeout": config.get("timeout", 60.0),
             "supports_tools": config.get("supports_tools", True),
@@ -217,7 +208,7 @@ async def resolve_model_config(
                         model_code, org_id, config, system_prompt, messages, tools
                     )
 
-                resolved_model = config.model_id or config.model_code
+                resolved_model = FORCED_CHAT_MODEL
 
                 # Guard: if power/flagship tier but Gateway returned a weak model,
                 # fall through to tier-aware hardcoded fallback instead.
@@ -252,7 +243,7 @@ async def resolve_model_config(
     return {
         "api_key": settings.OPENAI_API_KEY,
         "base_url": getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
-        "model": getattr(settings, "AI_DEFAULT_MODEL", "deepseek-v4-flash"),
+        "model": FORCED_CHAT_MODEL,
         "temperature": 0.7,
         "timeout": 60.0,
         "supports_tools": True,
@@ -319,7 +310,7 @@ def get_langchain_llm_sync(
     from langchain_openai import ChatOpenAI
 
     return ChatOpenAI(
-        model=model,
+        model=FORCED_CHAT_MODEL,
         api_key=api_key,
         base_url=base_url,
         temperature=temperature,

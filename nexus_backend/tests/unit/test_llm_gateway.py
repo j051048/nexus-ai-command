@@ -190,6 +190,12 @@ class TestModelConfigCaching:
 class TestResolveModelPriority:
     """测试模型解析优先级链"""
 
+    def test_default_chat_model_ignores_env_override(self):
+        """Even stale deployment env settings should resolve to DeepSeek Flash."""
+        from app.services.llm_gateway.model_resolution import _default_chat_model
+
+        assert _default_chat_model() == "deepseek-v4-flash"
+
     @pytest.mark.asyncio
     async def test_resolve_no_db_uses_default_chat_model(self):
         """No DB connection should fall back to the low-cost default chat model."""

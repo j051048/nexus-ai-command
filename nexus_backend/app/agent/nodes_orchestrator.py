@@ -34,7 +34,7 @@ from app.tools import get_tool
 
 logger = logging.getLogger(__name__)
 
-from app.core.config import settings
+from app.core.config import FORCED_CHAT_MODEL, settings
 
 _MAX_SUB_TASKS = settings.ORCHESTRATOR_MAX_SUB_TASKS
 _MAX_CONCURRENCY = settings.ORCHESTRATOR_MAX_CONCURRENCY
@@ -71,10 +71,10 @@ async def _create_orchestrator_llm(
     except Exception:
         logger.debug("LLM gateway unavailable in orchestrator, using fallback")
 
-    fallback_model = config.mini_model if use_mini else config.model
+    fallback_model = FORCED_CHAT_MODEL
     if resolved:
         return ChatOpenAI(
-            model=resolved.get("model", fallback_model),
+            model=FORCED_CHAT_MODEL,
             api_key=resolved.get("api_key", config.api_key),
             base_url=resolved.get("base_url", config.base_url),
             temperature=temperature,

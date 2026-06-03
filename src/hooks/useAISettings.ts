@@ -20,19 +20,15 @@ export interface AISettings {
   behavior_preferences?: BehaviorPreferences;
 }
 
+export const DEFAULT_AI_MODEL = 'deepseek-v4-flash';
+
+export function normalizeAIModel(_model?: string | null) {
+  return DEFAULT_AI_MODEL;
+}
+
 export const DEFAULT_MODELS = [
-  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (日常默认)' },
-  { value: 'deepseek-v3', label: 'DeepSeek-V3 (推荐: 极速且聪明)' },
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (推荐: 查阅超大文档)' },
-  { value: 'qwen-plus-latest', label: '通义千问 Plus (适合: 报告与邮件润色)' },
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (高级: 修改代码与架构)' },
-  { value: 'deepseek-reasoner', label: 'DeepSeek R1/Reasoner (高级: 深度数据排查与战略推演)' },
-  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (实验: 最强多模态预览)' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o mini (快速稳定备选)' },
-  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (优质短文客服装)' },
-  { value: 'o3-mini', label: 'o3-mini (复杂逻辑推演备选)' },
-  { value: 'qwen-vl-plus', label: 'Qwen-VL-Plus (性价比视觉 OCR)' },
-  { value: 'custom', label: '自定义模型...' },
+  { value: DEFAULT_AI_MODEL, label: 'DeepSeek V4 Flash (统一生产默认)' },
+  { value: 'custom', label: '自定义模型（生产调用仍强制 DeepSeek）' },
 ];
 
 export function useAISettings() {
@@ -97,7 +93,7 @@ export function useSaveAISettings() {
           .update({
             base_url: settings.base_url,
             api_key: settings.api_key,
-            model: settings.model,
+            model: normalizeAIModel(settings.model),
             ...(settings.behavior_preferences !== undefined && { behavior_preferences: settings.behavior_preferences }),
             updated_at: new Date().toISOString(),
           })
@@ -115,7 +111,7 @@ export function useSaveAISettings() {
             organization_id: organizationId,
             base_url: settings.base_url,
             api_key: settings.api_key,
-            model: settings.model,
+            model: normalizeAIModel(settings.model),
             ...(settings.behavior_preferences !== undefined && { behavior_preferences: settings.behavior_preferences }),
           })
           .select()
@@ -161,7 +157,7 @@ export function useTestAIConnection() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: settings.model,
+          model: normalizeAIModel(settings.model),
           messages: [
             { role: 'user', content: 'Say "Connection successful!" in one short sentence.' }
           ],

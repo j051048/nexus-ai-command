@@ -21,6 +21,8 @@ except ImportError:
 
 from pydantic import Field, field_validator
 
+FORCED_CHAT_MODEL = "deepseek-v4-flash"
+
 
 class Settings(BaseSettings):
     """
@@ -98,7 +100,7 @@ class Settings(BaseSettings):
         description="Force chat/completion traffic to AI_DEFAULT_MODEL unless explicitly disabled.",
     )
     LLM_EXPENSIVE_MODEL_BLOCKLIST: str = Field(
-        default="gemini-*-pro*,gemini-pro,gpt-4*,claude-3-opus*,claude-3.5-sonnet*,claude-3-5-sonnet*",
+        default="gemini-*,gpt-4*,claude-3-opus*,claude-3.5-sonnet*,claude-3-5-sonnet*,o3*,o4*",
         description="Comma-separated fnmatch patterns that are never used for chat traffic by default.",
     )
 
@@ -545,6 +547,19 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
+
+    @field_validator("AI_DEFAULT_MODEL", "AI_MINI_MODEL", "AI_STRONG_MODEL", mode="before")
+    @classmethod
+    def force_low_cost_chat_model(cls, v):
+        """Force all chat model env overrides back to the production cost baseline."""
+        raw = (v or "").strip() if isinstance(v, str) else ""
+        if raw and raw != FORCED_CHAT_MODEL:
+            logging.getLogger(__name__).warning(
+                "[LLMCostPolicy] Ignoring configured chat model %s; forcing %s",
+                raw,
+                FORCED_CHAT_MODEL,
+            )
+        return FORCED_CHAT_MODEL
 
     def validate_production_config(self) -> list[str]:
         """Validate critical configuration for production"""

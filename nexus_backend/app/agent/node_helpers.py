@@ -989,6 +989,7 @@ def _get_llm(
 
     #25: Injects trace_id as default header for full-chain propagation.
     """
+    from app.core.config import FORCED_CHAT_MODEL
     from app.core.trace_context import get_request_id, get_trace_id
 
     # Auto-resolve from pre-resolved configs if tier specified but no explicit resolved_config
@@ -1007,7 +1008,7 @@ def _get_llm(
     callbacks = _get_langfuse_callbacks(user_id=config.user_id)
 
     if resolved_config:
-        _resolved_model = resolved_config.get("model") or model or config.model
+        _resolved_model = FORCED_CHAT_MODEL
         _resolved_base = resolved_config.get("base_url") or config.base_url
         logger.info(
             "[_get_llm] model=%s base_url=%s timeout=%s streaming=%s",
@@ -1027,7 +1028,7 @@ def _get_llm(
             callbacks=callbacks,
         )
     return ChatOpenAI(
-        model=model or config.model,
+        model=FORCED_CHAT_MODEL,
         api_key=config.api_key,
         base_url=config.base_url,
         temperature=config.temperature,
@@ -1045,7 +1046,7 @@ def _get_fallback_llm(
 
     Returns None if no fallback is configured.
     """
-    from app.core.config import settings
+    from app.core.config import FORCED_CHAT_MODEL, settings
 
     if not settings.AI_FALLBACK_API_KEY or not settings.AI_FALLBACK_BASE_URL:
         return None
@@ -1061,7 +1062,7 @@ def _get_fallback_llm(
         default_headers["X-Request-ID"] = request_id
 
     return ChatOpenAI(
-        model=model or config.model,
+        model=FORCED_CHAT_MODEL,
         api_key=settings.AI_FALLBACK_API_KEY,
         base_url=settings.AI_FALLBACK_BASE_URL,
         temperature=config.temperature,

@@ -14,6 +14,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 
+from app.core.config import FORCED_CHAT_MODEL
 from app.services.llm_adapters.base import (
     BaseModelAdapter,
     ChatRequest,
@@ -55,7 +56,7 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
         messages.extend(request.messages)
 
         payload = {
-            "model": self.config.model_id or self.config.model_code,
+            "model": FORCED_CHAT_MODEL,
             "messages": messages,
             "temperature": (
                 request.temperature
@@ -105,7 +106,7 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
             from app.services.token_service import token_counter
 
             call_cost = token_counter.estimate_cost(
-                input_tokens, output_tokens, self.config.model_code
+                input_tokens, output_tokens, FORCED_CHAT_MODEL
             )
         except Exception:
             pass
@@ -135,15 +136,13 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                 system_prompt=request.system_prompt or "",
                 messages=request.messages,
                 tools=request.tools,
-                model=self.config.model_code,
+                model=FORCED_CHAT_MODEL,
             )
-            output_tokens = token_counter.count_tokens(
-                output_text, self.config.model_code
-            )
+            output_tokens = token_counter.count_tokens(output_text, FORCED_CHAT_MODEL)
             if output_tokens == 0 and request.max_tokens:
                 output_tokens = max(1, min(request.max_tokens, 1024))
             call_cost = token_counter.estimate_cost(
-                input_tokens, output_tokens, self.config.model_code
+                input_tokens, output_tokens, FORCED_CHAT_MODEL
             )
             return {
                 "input_tokens": input_tokens,
@@ -215,14 +214,14 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                     logger.error(
                         f"OpenAI-compatible API error ({response.status_code}): {error_text}",
                         extra={
-                            "model_code": self.config.model_code,
+                            "model_code": FORCED_CHAT_MODEL,
                             "request_id": request_id,
                         },
                     )
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     return ChatResponse(
                         request_id=request_id,
-                        model_code=self.config.model_code,
+                        model_code=FORCED_CHAT_MODEL,
                         content=f"API Error {response.status_code}: {error_text}",
                         finish_reason="error",
                         exec_time_ms=exec_time_ms,
@@ -244,7 +243,7 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
 
                 return ChatResponse(
                     request_id=request_id,
-                    model_code=self.config.model_code,
+                    model_code=FORCED_CHAT_MODEL,
                     content=content,
                     tool_calls=tool_calls,
                     usage=usage,
@@ -257,11 +256,11 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
             exec_time_ms = int((time.monotonic() - start_time) * 1000)
             logger.error(
                 f"OpenAI-compatible API timeout after {exec_time_ms}ms",
-                extra={"model_code": self.config.model_code, "request_id": request_id},
+                extra={"model_code": FORCED_CHAT_MODEL, "request_id": request_id},
             )
             return ChatResponse(
                 request_id=request_id,
-                model_code=self.config.model_code,
+                model_code=FORCED_CHAT_MODEL,
                 content="Request timed out",
                 finish_reason="error",
                 exec_time_ms=exec_time_ms,
@@ -270,11 +269,11 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
             exec_time_ms = int((time.monotonic() - start_time) * 1000)
             logger.error(
                 f"OpenAI-compatible adapter error: {e}",
-                extra={"model_code": self.config.model_code, "request_id": request_id},
+                extra={"model_code": FORCED_CHAT_MODEL, "request_id": request_id},
             )
             return ChatResponse(
                 request_id=request_id,
-                model_code=self.config.model_code,
+                model_code=FORCED_CHAT_MODEL,
                 content=f"Adapter error: {str(e)}",
                 finish_reason="error",
                 exec_time_ms=exec_time_ms,
@@ -312,7 +311,7 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                     exec_time_ms = int((time.monotonic() - start_time) * 1000)
                     yield ChatResponse(
                         request_id=request_id,
-                        model_code=self.config.model_code,
+                        model_code=FORCED_CHAT_MODEL,
                         content=f"API Error {response.status_code}: {error_text}",
                         finish_reason="error",
                         exec_time_ms=exec_time_ms,
@@ -400,7 +399,7 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                         exec_time_ms = int((time.monotonic() - start_time) * 1000)
                         yield ChatResponse(
                             request_id=request_id,
-                            model_code=self.config.model_code,
+                            model_code=FORCED_CHAT_MODEL,
                             content=delta_content,
                             tool_calls=(
                                 accumulated_tool_calls
@@ -417,7 +416,7 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
             logger.error(f"OpenAI-compatible streaming timeout after {exec_time_ms}ms")
             yield ChatResponse(
                 request_id=request_id,
-                model_code=self.config.model_code,
+                model_code=FORCED_CHAT_MODEL,
                 content="Stream timed out",
                 finish_reason="error",
                 exec_time_ms=exec_time_ms,
@@ -427,7 +426,7 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
             logger.error(f"OpenAI-compatible streaming error: {e}")
             yield ChatResponse(
                 request_id=request_id,
-                model_code=self.config.model_code,
+                model_code=FORCED_CHAT_MODEL,
                 content=f"Stream error: {str(e)}",
                 finish_reason="error",
                 exec_time_ms=exec_time_ms,

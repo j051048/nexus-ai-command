@@ -219,7 +219,7 @@ export const aiClient = {
     }) as Promise<{ decision: string; reason: string }>;
   },
 
-  async chat(messages: { role: string; content: string; [key: string]: unknown }[], model = 'gpt-4o') {
+  async chat(messages: { role: string; content: string; [key: string]: unknown }[], model = 'deepseek-v4-flash') {
     return this.fetch('api/chat', {
       method: 'POST',
       body: JSON.stringify({ messages, model }),

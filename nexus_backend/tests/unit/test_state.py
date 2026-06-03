@@ -97,8 +97,8 @@ class TestAgentConfig:
     def test_defaults(self):
         config = AgentConfig(user_id="u-1")
         assert config.session_id == "default"
-        assert config.model == "gpt-4o"
-        assert config.mini_model == "gpt-4o-mini"
+        assert config.model == "deepseek-v4-flash"
+        assert config.mini_model == "deepseek-v4-flash"
         assert config.max_iterations == 5
         assert config.temperature == 0.5
         assert config.user_role == "employee"
@@ -119,8 +119,8 @@ class TestAgentConfig:
 
     def test_get_model_for_complexity(self):
         config = AgentConfig(user_id="u-1", model="gpt-4o", mini_model="gpt-4o-mini")
-        assert config.get_model_for_complexity(QueryComplexity.SIMPLE) == "gpt-4o-mini"
-        assert config.get_model_for_complexity(QueryComplexity.MODERATE) == "gpt-4o-mini"
+        assert config.get_model_for_complexity(QueryComplexity.SIMPLE) == "deepseek-v4-flash"
+        assert config.get_model_for_complexity(QueryComplexity.MODERATE) == "deepseek-v4-flash"
 
     def test_confidence_threshold_bounds(self):
         with pytest.raises(ValidationError):

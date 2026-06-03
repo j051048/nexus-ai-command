@@ -85,13 +85,16 @@ export function MobileLayout() {
   // 渲染主内容区：首页/工作台使用专属移动端页面，其他路由用 Outlet
   const renderContent = () => {
     const path = location.pathname;
+    const renderActionInbox = () => {
+      return <InboxPage />;
+    };
 
     // 行动台是移动端默认首页，和桌面统一使用同一套行动模型。
     if (path === '/dashboard') {
       return (
         <div className="space-y-4 px-4 pb-24 pt-4">
           <MobileActionCardStack />
-          <InboxPage />
+          {renderActionInbox()}
         </div>
       );
     }

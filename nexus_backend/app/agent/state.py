@@ -197,6 +197,12 @@ class AgentConfig(BaseModel):
             return "employee"
         return v
 
+    @field_validator("model", "mini_model", mode="before")
+    @classmethod
+    def force_runtime_chat_model(cls, v: str) -> str:
+        """Runtime Agent calls are pinned to the production low-cost model."""
+        return "deepseek-v4-flash"
+
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
         """Dynamic model routing based on query complexity (4-tier).
 

@@ -229,7 +229,7 @@ ${tasks.map(t => `- [${t.status}] ${t.title}`).join('\n')}
             },
             { role: 'user', content: context }
           ],
-          model: 'gpt-4o',
+          model: 'deepseek-v4-flash',
           agent: 'default',
         }),
       });
@@ -341,7 +341,7 @@ ${timeline.slice(0, 10).map(t => `- [${t.event_type}] ${t.title}: ${t.content} (
             },
             { role: 'user', content: context }
           ],
-          model: 'gpt-4o',
+          model: 'deepseek-v4-flash',
           agent: 'default',
         }),
       });
