@@ -39,4 +39,5 @@ def test_customer_acceptance_selectors_match_runtime_components():
     assert "page.getByTestId('chat-input')" in acceptance
     assert "page.getByTestId('sidebar-main')" in acceptance
     assert '<Navigate to="/dashboard" replace />' in app
-    assert '<Navigate to="/dashboard" replace />' in boss_dashboard
+    assert "RoleAccessHint" in boss_dashboard
+    assert 'redirectTo="/dashboard"' in boss_dashboard

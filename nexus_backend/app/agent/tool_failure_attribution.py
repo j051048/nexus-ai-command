@@ -27,15 +27,16 @@ def classify_tool_failure(tool_record: Any) -> ToolFailureAttribution:
     if isinstance(tool_record, Mapping):
         name = _as_text(tool_record.get("tool_name") or tool_record.get("name"))
         result = _as_text(tool_record.get("result") or tool_record.get("error"))
-        error_type = _as_text(tool_record.get("error_type") or tool_record.get("status"))
+        error_type = _as_text(
+            tool_record.get("error_type") or tool_record.get("status")
+        )
     else:
         name = _as_text(
             getattr(tool_record, "tool_name", None)
             or getattr(tool_record, "name", None)
         )
         result = _as_text(
-            getattr(tool_record, "result", None)
-            or getattr(tool_record, "error", None)
+            getattr(tool_record, "result", None) or getattr(tool_record, "error", None)
         )
         error_type = _as_text(
             getattr(tool_record, "error_type", None)
@@ -96,8 +97,7 @@ def classify_tool_failure(tool_record: Any) -> ToolFailureAttribution:
             "Retry with backoff or use cached context when available.",
         )
     if "fatal" in error_type or any(
-        token in haystack
-        for token in ("business rule", "conflict", "already exists")
+        token in haystack for token in ("business rule", "conflict", "already exists")
     ):
         return ToolFailureAttribution(
             "business_rule",
@@ -106,7 +106,9 @@ def classify_tool_failure(tool_record: Any) -> ToolFailureAttribution:
             "business",
             "Explain the blocker and offer the next valid business action.",
         )
-    if any(token in haystack for token in ("tool not found", "unknown tool", "unsupported")):
+    if any(
+        token in haystack for token in ("tool not found", "unknown tool", "unsupported")
+    ):
         return ToolFailureAttribution(
             "llm_planning",
             0.8,

@@ -7,6 +7,16 @@ from httpx import ASGITransport, AsyncClient
 from app.main import app as _fastapi_app
 
 
+@pytest.fixture(autouse=True)
+def isolate_process_local_rate_limits():
+    """Prevent one test's requests from exhausting another test's limits."""
+    from app.core.rate_limiter import reset_rate_limit_state
+
+    reset_rate_limit_state()
+    yield
+    reset_rate_limit_state()
+
+
 @pytest.fixture
 async def client():
     async with AsyncClient(transport=ASGITransport(app=_fastapi_app), base_url="http://test") as ac:

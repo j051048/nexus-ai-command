@@ -87,7 +87,10 @@ MULTI_AGENT_PROTOCOL = {
             "steps": [
                 {"agent": "vmd_agent", "responsibility": "discover signal"},
                 {"agent": "sales_agent", "responsibility": "draft next best action"},
-                {"agent": "director_agent", "responsibility": "monitor SLA and outcome"},
+                {
+                    "agent": "director_agent",
+                    "responsibility": "monitor SLA and outcome",
+                },
             ],
         },
     ],
@@ -151,7 +154,11 @@ class AgentEvolutionOpsService:
             "context_diff": {
                 "baseline_quality": context_pack.get("coverage_score", 0),
                 "candidate_policy": "require evidence_pack with quality_score >= 0.70",
-                "added_guards": ["permission_scope", "freshness_score", "conflict_flag"],
+                "added_guards": [
+                    "permission_scope",
+                    "freshness_score",
+                    "conflict_flag",
+                ],
             },
             "tool_diff": {
                 "baseline_mode": "manual recommendation",
@@ -165,18 +172,25 @@ class AgentEvolutionOpsService:
             },
         }
 
-    def build_low_quality_queue(self, runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def build_low_quality_queue(
+        self, runs: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         queue: list[dict[str, Any]] = []
         for item in runs[:80]:
             status = str(item.get("status") or "").lower()
             error = str(item.get("error") or item.get("error_message") or "").strip()
-            metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+            metadata = (
+                item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+            )
             retry_count = int(metadata.get("retry_count") or 0)
             if status in {"failed", "error", "cancelled"} or error or retry_count >= 2:
                 queue.append(
                     {
-                        "id": item.get("id") or item.get("run_id") or f"run-{len(queue)+1}",
-                        "reason": error or f"status={status or 'unknown'} retry_count={retry_count}",
+                        "id": item.get("id")
+                        or item.get("run_id")
+                        or f"run-{len(queue)+1}",
+                        "reason": error
+                        or f"status={status or 'unknown'} retry_count={retry_count}",
                         "priority": "high" if error or retry_count >= 3 else "medium",
                         "suggested_action": "convert_to_eval_case",
                         "source": "agent_runs",
@@ -235,9 +249,15 @@ class AgentEvolutionOpsService:
     ) -> dict[str, Any]:
         completed = sum(1 for event in events if event.get("event_type") == "completed")
         accepted = sum(1 for event in events if event.get("event_type") == "accepted")
-        failed = sum(1 for run in runs if str(run.get("status") or "").lower() in {"failed", "error"})
+        failed = sum(
+            1
+            for run in runs
+            if str(run.get("status") or "").lower() in {"failed", "error"}
+        )
         total = max(1, len(events) + len(runs))
-        score = max(0.0, min(1.0, (completed * 1.0 + accepted * 0.6 - failed * 0.8) / total))
+        score = max(
+            0.0, min(1.0, (completed * 1.0 + accepted * 0.6 - failed * 0.8) / total)
+        )
         return {
             "name": "business_reward_model_v1",
             "score": round(score, 4),
@@ -282,11 +302,15 @@ class AgentEvolutionOpsService:
         ci_score = float(agent_ci.get("score") or 0)
         reward_score = float(reward_model.get("score") or 0)
         blocked = redteam.get("open_high", 0) > 0
-        confidence = round(max(0, min(100, ci_score * 60 + reward_score * 25 + (0 if blocked else 15))))
+        confidence = round(
+            max(0, min(100, ci_score * 60 + reward_score * 25 + (0 if blocked else 15)))
+        )
         return {
             "customer_visible": True,
             "confidence_score": confidence,
-            "confidence_level": "high" if confidence >= 80 else "medium" if confidence >= 55 else "low",
+            "confidence_level": (
+                "high" if confidence >= 80 else "medium" if confidence >= 55 else "low"
+            ),
             "audit_story": (
                 f"{len(proposals)} proposals reviewed, CI score {ci_score:.2f}, "
                 f"reward score {reward_score:.2f}, open high red-team findings {redteam.get('open_high', 0)}."
@@ -312,11 +336,23 @@ class AgentEvolutionOpsService:
                     "approval_required": proposal.get("approval_required", True),
                     "gray_percentage": proposal.get("gray_percentage") or 0,
                     "rollback_plan": "restore previous prompt_version and disable candidate tool policy",
-                    "allowed_actions": ["approve", "reject", "gray_release", "rollback"],
+                    "allowed_actions": [
+                        "approve",
+                        "reject",
+                        "gray_release",
+                        "rollback",
+                    ],
                 }
             )
         return {
-            "states": ["proposed", "approved", "gray_release", "published", "rolled_back", "rejected"],
+            "states": [
+                "proposed",
+                "approved",
+                "gray_release",
+                "published",
+                "rolled_back",
+                "rejected",
+            ],
             "requires_human_approval": True,
             "records": normalized,
         }

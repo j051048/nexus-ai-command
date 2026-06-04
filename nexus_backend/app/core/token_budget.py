@@ -12,6 +12,7 @@ G5: Token 燃烧秒级熔断 — 单会话成本上限
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass
 from enum import StrEnum
@@ -110,6 +111,10 @@ class TokenBudgetManager:
 
     async def _get_redis(self):
         """Lazily get Redis client from cache_service."""
+        if settings.ENV == "test" or os.getenv("PYTEST_CURRENT_TEST"):
+            return None
+        if self._redis_unavailable:
+            return None
         if self._redis_client is not None:
             return self._redis_client
         try:
@@ -121,6 +126,11 @@ class TokenBudgetManager:
         except Exception as e:
             self._redis_unavailable = True
             logger.warning("[TokenBudget] Redis client init failed: %s", e)
+
+    def _disable_redis(self) -> None:
+        """Stop reusing a Redis client after a connection or event-loop failure."""
+        self._redis_client = None
+        self._redis_unavailable = True
 
     def _allow_memory_fallback(self) -> bool:
         return (
@@ -145,7 +155,10 @@ class TokenBudgetManager:
                 results = await pipe.execute()
                 return float(results[0])
             except Exception as e:
-                logger.warning(f"[TokenBudget] Redis incr failed — fail-closed: {e}")
+                self._disable_redis()
+                logger.warning("[TokenBudget] Redis incr failed: %s", e)
+                if self._allow_memory_fallback():
+                    return await self._memory_store.incr_by(key, amount, ttl)
                 return float("inf")
         if self._allow_memory_fallback():
             logger.warning(
@@ -163,9 +176,10 @@ class TokenBudgetManager:
                 val = await redis.get(key)
                 return float(val) if val else 0
             except Exception as e:
-                logger.warning(
-                    "[TokenBudget] Redis get failed for %s: %s — fail-closed", key, e
-                )
+                self._disable_redis()
+                logger.warning("[TokenBudget] Redis get failed for %s: %s", key, e)
+                if self._allow_memory_fallback():
+                    return await self._memory_store.get_val(key)
                 return float("inf")
         if self._allow_memory_fallback():
             logger.warning(

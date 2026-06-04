@@ -45,9 +45,7 @@ _STRONG_MODEL_OVERRIDES = {
 # Prefix patterns: any model starting with these is considered strong
 # despite containing weak substrings (e.g. "flash").
 # This avoids needing to update the whitelist for every new version.
-_STRONG_MODEL_PREFIXES = (
-    FORCED_CHAT_MODEL,
-)
+_STRONG_MODEL_PREFIXES = (FORCED_CHAT_MODEL,)
 
 # Pre-compiled regex: match weak patterns as whole segments between `-` or
 # at string boundaries.  E.g. "mini" matches "gpt-4o-mini" but NOT "gemini".

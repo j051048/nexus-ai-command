@@ -77,6 +77,11 @@ def _redis_is_required() -> bool:
     return _IS_PRODUCTION and not _ALLOW_MEMORY_RATE_LIMIT
 
 
+def _use_redis_backend() -> bool:
+    """Use distributed counters outside deterministic test runs."""
+    return redis_client is not None and settings.ENV != "test"
+
+
 def _rate_limit_backend_unavailable_meta(limit: int, window: int = 60) -> dict:
     return {
         "remaining": 0,
@@ -169,7 +174,7 @@ class SlidingWindowRateLimiter:
         检查是否允许请求。
         返回 (is_allowed, metadata)
         """
-        if redis_client:
+        if _use_redis_backend():
             return await self._check_redis(key)
         if _redis_is_required():
             logger.error(
@@ -311,7 +316,7 @@ class RateLimiter:
         key = self._get_key(request, user_id)
 
         # Use Redis if available
-        if redis_client:
+        if _use_redis_backend():
             return await self._check_redis(key)
         if _redis_is_required():
             logger.error(
@@ -441,6 +446,21 @@ _per_tenant_minute_limiter = SlidingWindowRateLimiter(
 _per_tenant_hour_limiter = SlidingWindowRateLimiter(
     rate=settings.TENANT_RATE_LIMIT_PER_HOUR, window_seconds=3600, prefix="rl:tenant:hr"
 )
+
+
+def reset_rate_limit_state() -> None:
+    """Clear process-local limiter state without touching distributed counters."""
+    rate_limiter.tokens.clear()
+    rate_limiter.last_update.clear()
+    _per_user_limiter._memory_store.clear()
+    _per_ip_limiter._memory_store.clear()
+    _per_tenant_minute_limiter._memory_store.clear()
+    _per_tenant_hour_limiter._memory_store.clear()
+    for limiter in _endpoint_limiters.values():
+        limiter._memory_store.clear()
+    for limiter in RateLimitMiddleware._category_limiters.values():
+        limiter.tokens.clear()
+        limiter.last_update.clear()
 
 
 def _get_endpoint_limiter(path: str) -> SlidingWindowRateLimiter | None:

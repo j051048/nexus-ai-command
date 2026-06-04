@@ -548,7 +548,9 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
-    @field_validator("AI_DEFAULT_MODEL", "AI_MINI_MODEL", "AI_STRONG_MODEL", mode="before")
+    @field_validator(
+        "AI_DEFAULT_MODEL", "AI_MINI_MODEL", "AI_STRONG_MODEL", mode="before"
+    )
     @classmethod
     def force_low_cost_chat_model(cls, v):
         """Force all chat model env overrides back to the production cost baseline."""

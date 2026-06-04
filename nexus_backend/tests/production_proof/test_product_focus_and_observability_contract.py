@@ -21,7 +21,9 @@ def test_core_product_focus_is_guarded_by_module_tiers():
     assert "MODULE_TIER_LABELS" in flags
     assert "MODULE_FOCUS_POLICY" in flags
     assert "THIRD_PARTY_FIRST_MODULES" in flags
-    assert "外部系统 / 低频入口" in mobile_workbench or "澶栭儴绯荤粺" in mobile_workbench
+    assert (
+        "外部系统 / 低频入口" in mobile_workbench or "澶栭儴绯荤粺" in mobile_workbench
+    )
 
 
 def test_agent_quality_and_business_audit_are_customer_visible():
@@ -31,11 +33,11 @@ def test_agent_quality_and_business_audit_are_customer_visible():
     dashboard_router = read("nexus_backend/app/routers/dashboard.py")
     action_analytics = read("src/pages/ActionAnalyticsPage.tsx")
 
-    assert "AI 价值仪表盘" in ops_page or "AI 浠峰€间华琛ㄧ洏" in ops_page
+    assert "AI 价值与信任仪表盘" in ops_page
     assert "audit_summary" in ops_page
     assert "reward_model" in improvement_page
     assert "redteam_center" in improvement_page
-    assert "build_trust_report" in ops_service
+    assert "build_trust_center_report" in ops_service
     assert "agent_ci_score" in ops_service
     assert "/roi" in dashboard_router
     assert "/ai-weekly-report" in dashboard_router

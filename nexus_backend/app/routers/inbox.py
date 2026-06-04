@@ -114,12 +114,12 @@ def _approval_to_action_item(item: dict[str, Any]) -> ActionItem:
         "未知提交人",
     )
     amount = item.get("amount")
-    amount_text = f" ¥{amount:,.0f}" if isinstance(amount, (int, float)) else ""
+    amount_text = f" ¥{amount:,.0f}" if isinstance(amount, int | float) else ""
     description = _as_text(
         item.get("description") or item.get("details") or item.get("reason"),
         "",
     )
-    numeric_amount = float(amount) if isinstance(amount, (int, float)) else 0.0
+    numeric_amount = float(amount) if isinstance(amount, int | float) else 0.0
     risk_flags: list[str] = []
     if numeric_amount >= 10000:
         risk_flags.append("金额超过 10,000 元，建议核对预算与发票依据")
@@ -222,12 +222,10 @@ def _customer_risk_to_action_item(item: dict[str, Any]) -> ActionItem:
     name = _as_text(item.get("name"), "未命名客户")
     updated_at = item.get("updated_at") or item.get("created_at")
     updated_dt = _parse_datetime(updated_at)
-    stale_days = (
-        max(0, (datetime.now(UTC) - updated_dt).days) if updated_dt else None
-    )
+    stale_days = max(0, (datetime.now(UTC) - updated_dt).days) if updated_dt else None
     estimated_value = item.get("estimated_value")
     numeric_value = (
-        float(estimated_value) if isinstance(estimated_value, (int, float)) else 0.0
+        float(estimated_value) if isinstance(estimated_value, int | float) else 0.0
     )
     stage = _as_text(item.get("stage"), "未标记")
     risk_breakdown = {
@@ -385,9 +383,7 @@ async def _load_unread_notifications(
 
 async def _load_customer_risks(client: Any, limit: int) -> list[ActionItem]:
     try:
-        stale_before = (
-            (datetime.now(UTC) - timedelta(days=30)).date().isoformat()
-        )
+        stale_before = (datetime.now(UTC) - timedelta(days=30)).date().isoformat()
         res = (
             await client.table("customers")
             .select("id,name,stage,estimated_value,updated_at,created_at")

@@ -126,7 +126,7 @@ class WebhookService:
             for row in res.data or []:
                 sub = WebhookSubscription(
                     id=row["id"],
-                    org_id=row["org_id"],
+                    org_id=row["organization_id"],
                     url=row["url"],
                     events=row.get("events", []),
                     secret=row.get("secret_hash", ""),  # stored as hash
@@ -215,7 +215,6 @@ class WebhookService:
                     .insert(
                         {
                             "id": sub_id,
-                            "org_id": org_id,
                             "organization_id": org_id,
                             "url": url,
                             "events": events,
@@ -366,7 +365,6 @@ class WebhookService:
                 {
                     "id": delivery.id,
                     "subscription_id": delivery.subscription_id,
-                    "org_id": delivery.org_id,
                     "organization_id": delivery.org_id,
                     "event": delivery.event,
                     "payload": delivery.payload,

@@ -48,14 +48,16 @@ async def _ensure_migration_table() -> bool:
         # 尝试创建表（如果不存在）
         await supabase.rpc(
             "exec_sql",
-            {"query": """
+            {
+                "query": """
                 CREATE TABLE IF NOT EXISTS public.migration_history (
                     id SERIAL PRIMARY KEY,
                     migration_name TEXT NOT NULL UNIQUE,
                     applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                     checksum TEXT
                 );
-                """},
+                """
+            },
         ).execute()
         return True
     except Exception:

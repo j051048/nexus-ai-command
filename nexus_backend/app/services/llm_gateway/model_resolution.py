@@ -52,7 +52,9 @@ def _should_force_default(scene_code: str | None) -> bool:
     return bool(getattr(settings, "LLM_FORCE_DEFAULT_MODEL", True))
 
 
-def _apply_cost_policy(model_code: str | None, scene_code: str | None, reason: str) -> str | None:
+def _apply_cost_policy(
+    model_code: str | None, scene_code: str | None, reason: str
+) -> str | None:
     if not model_code:
         return model_code
     default_model = _default_chat_model()

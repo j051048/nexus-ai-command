@@ -17,15 +17,58 @@ class AgentEvalBaselineService:
         if detected != "general_assistant":
             return detected
         lowered = text.lower()
-        if any(token in lowered for token in ("approval", "approve", "reject", "reimbursement", "审批", "报销", "批准", "驳回")):
+        if any(
+            token in lowered
+            for token in (
+                "approval",
+                "approve",
+                "reject",
+                "reimbursement",
+                "审批",
+                "报销",
+                "批准",
+                "驳回",
+            )
+        ):
             return "approval_decision"
-        if any(token in lowered for token in ("tender", "rfp", "score criteria", "招标", "投标", "评分")):
+        if any(
+            token in lowered
+            for token in ("tender", "rfp", "score criteria", "招标", "投标", "评分")
+        ):
             return "tender_support"
-        if any(token in lowered for token in ("battlecard", "thermo", "agilent", "shimadzu", "compare", "竞品", "战卡", "对比")):
+        if any(
+            token in lowered
+            for token in (
+                "battlecard",
+                "thermo",
+                "agilent",
+                "shimadzu",
+                "compare",
+                "竞品",
+                "战卡",
+                "对比",
+            )
+        ):
             return "battlecard"
-        if any(token in lowered for token in ("contract", "renewal", "expire", "合同", "续签", "到期")):
+        if any(
+            token in lowered
+            for token in ("contract", "renewal", "expire", "合同", "续签", "到期")
+        ):
             return "renewal_or_contract"
-        if any(token in lowered for token in ("crm", "customer", "lead", "follow-up", "visit", "客户", "线索", "跟进", "拜访")):
+        if any(
+            token in lowered
+            for token in (
+                "crm",
+                "customer",
+                "lead",
+                "follow-up",
+                "visit",
+                "客户",
+                "线索",
+                "跟进",
+                "拜访",
+            )
+        ):
             return "crm_followup"
         return detected
 

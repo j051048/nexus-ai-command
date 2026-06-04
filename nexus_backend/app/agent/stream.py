@@ -207,8 +207,10 @@ async def _run_agent_stream_impl(
         api_key=config.get("api_key", "") or settings.OPENAI_API_KEY,
         base_url=config.get("base_url", "https://api.openai.com/v1")
         or settings.AI_BASE_URL,
-        model=config.get("model", settings.AI_DEFAULT_MODEL) or settings.AI_DEFAULT_MODEL,
-        mini_model=config.get("mini_model", settings.AI_MINI_MODEL) or settings.AI_MINI_MODEL,
+        model=config.get("model", settings.AI_DEFAULT_MODEL)
+        or settings.AI_DEFAULT_MODEL,
+        mini_model=config.get("mini_model", settings.AI_MINI_MODEL)
+        or settings.AI_MINI_MODEL,
         system_confirmed=system_confirmed,
         confirmed_tool=confirmed_tool,
         user_role=user_role,
@@ -999,9 +1001,7 @@ async def _run_agent_stream_impl(
                                     }
                                 }
                             )
-                            yield _sse_content(
-                                "\n\n⚠️ 回复已达到输出上限，已自动截断。"
-                            )
+                            yield _sse_content("\n\n⚠️ 回复已达到输出上限，已自动截断。")
                             break
                     elif kind == "on_chain_end":
                         data = event.get("data", {})

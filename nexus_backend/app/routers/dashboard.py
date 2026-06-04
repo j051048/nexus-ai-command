@@ -474,16 +474,14 @@ async def ai_weekly_report(
         rows = res.data or []
         actions_executed = len(rows)
         successful_actions = len(
-            [
-                r
-                for r in rows
-                if r.get("status") in ("done", "success", "completed")
-            ]
+            [r for r in rows if r.get("status") in ("done", "success", "completed")]
         )
         for row in rows:
             if row.get("status") in ("failed", "error"):
                 category = row.get("error_type") or "unknown"
-                failures_by_category[category] = failures_by_category.get(category, 0) + 1
+                failures_by_category[category] = (
+                    failures_by_category.get(category, 0) + 1
+                )
         top_failed_scenarios = [
             {"category": category, "count": count}
             for category, count in sorted(
@@ -511,9 +509,7 @@ async def ai_weekly_report(
     try:
         roi_res = (
             await client.table("ai_roi_daily")
-            .select(
-                "estimated_minutes_saved,estimated_labor_cost_saved,metric_date"
-            )
+            .select("estimated_minutes_saved,estimated_labor_cost_saved,metric_date")
             .gte("metric_date", week_start.date().isoformat())
             .execute()
         )
@@ -530,9 +526,7 @@ async def ai_weekly_report(
         estimated_savings = successful_actions * 20
 
     success_rate = (
-        round(successful_actions / actions_executed * 100, 1)
-        if actions_executed
-        else 0
+        round(successful_actions / actions_executed * 100, 1) if actions_executed else 0
     )
     report = {
         "generated_at": now.isoformat(),

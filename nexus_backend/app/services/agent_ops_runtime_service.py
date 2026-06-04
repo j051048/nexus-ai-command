@@ -59,19 +59,31 @@ DEFAULT_PERSONAS = [
         "id": "boss_copilot",
         "role": "Boss Copilot",
         "style": "numbers_first, concise, risk_prioritized",
-        "must_do": ["lead with business impact", "show confidence", "list unresolved risks"],
+        "must_do": [
+            "lead with business impact",
+            "show confidence",
+            "list unresolved risks",
+        ],
     },
     {
         "id": "sales_copilot",
         "role": "Scientific Instrument Sales Copilot",
         "style": "action_oriented, relationship_aware, evidence_backed",
-        "must_do": ["name next action", "cite customer context", "avoid invented budget"],
+        "must_do": [
+            "name next action",
+            "cite customer context",
+            "avoid invented budget",
+        ],
     },
     {
         "id": "tender_copilot",
         "role": "Tender Copilot",
         "style": "precise, compliance_first, evidence_chain_required",
-        "must_do": ["extract score criteria", "flag missing evidence", "separate facts from assumptions"],
+        "must_do": [
+            "extract score criteria",
+            "flag missing evidence",
+            "separate facts from assumptions",
+        ],
     },
 ]
 
@@ -131,19 +143,27 @@ class AgentOpsRuntimeService:
             failures = [
                 item
                 for item in recent
-                if str(item.get("status") or "").lower() in {"failed", "error", "cancelled"}
+                if str(item.get("status") or "").lower()
+                in {"failed", "error", "cancelled"}
                 or item.get("error")
                 or item.get("error_message")
             ]
             total = max(1, len(recent))
             success_rate = round((total - len(failures)) / total, 4)
-            score = round(max(1.0, min(5.0, 1 + success_rate * 4 - min(len(failures), 3) * 0.25)), 2)
+            score = round(
+                max(1.0, min(5.0, 1 + success_rate * 4 - min(len(failures), 3) * 0.25)),
+                2,
+            )
             flags = []
             if len(failures) >= 3:
                 flags.append("consecutive_failures")
             if success_rate < 0.8:
                 flags.append("low_success_rate")
-            if any("rate" in str(item.get("error") or item.get("error_message") or "").lower() for item in failures):
+            if any(
+                "rate"
+                in str(item.get("error") or item.get("error_message") or "").lower()
+                for item in failures
+            ):
                 flags.append("rate_limited")
             if not flags:
                 flags.append("healthy")
@@ -156,13 +176,17 @@ class AgentOpsRuntimeService:
                     "failure_count": len(failures),
                     "flags": flags,
                     "last_status": recent[0].get("status") if recent else "idle",
-                    "recommended_action": "repair_proposal" if "low_success_rate" in flags else "monitor",
+                    "recommended_action": (
+                        "repair_proposal" if "low_success_rate" in flags else "monitor"
+                    ),
                 }
             )
         return health
 
     def build_heartbeat(self, health: list[dict[str, Any]]) -> dict[str, Any]:
-        critical = [item for item in health if item["score"] < 3 or item["failure_count"] >= 3]
+        critical = [
+            item for item in health if item["score"] < 3 or item["failure_count"] >= 3
+        ]
         return {
             "status": "attention_required" if critical else "ok",
             "checked_at": datetime.now(UTC).isoformat(),
@@ -224,19 +248,35 @@ class AgentOpsRuntimeService:
             {
                 "id": "crm_risk_daily_chain",
                 "var": focus_var,
-                "steps": ["scan_stale_customers", "score_customer_health", "draft_next_best_action", "write_inbox_item"],
+                "steps": [
+                    "scan_stale_customers",
+                    "score_customer_health",
+                    "draft_next_best_action",
+                    "write_inbox_item",
+                ],
                 "output_contract": "action_items + evidence_ids + owner + due_date",
             },
             {
                 "id": "tender_response_chain",
                 "var": focus_var,
-                "steps": ["parse_tender", "build_score_matrix", "generate_battlecard", "compliance_review", "boss_summary"],
+                "steps": [
+                    "parse_tender",
+                    "build_score_matrix",
+                    "generate_battlecard",
+                    "compliance_review",
+                    "boss_summary",
+                ],
                 "output_contract": "score_matrix + risk_flags + response_outline",
             },
             {
                 "id": "ai_weekly_report_chain",
                 "var": focus_var,
-                "steps": ["collect_agent_health", "collect_roi", "collect_redteam", "summarize_business_value"],
+                "steps": [
+                    "collect_agent_health",
+                    "collect_roi",
+                    "collect_redteam",
+                    "summarize_business_value",
+                ],
                 "output_contract": "weekly_report + trust_summary + next_actions",
             },
         ]
@@ -256,7 +296,9 @@ class AgentOpsRuntimeService:
             "routing_hint": f"Bias retrieval, scoring, and chain outputs toward: {focus_var}",
         }
 
-    def build_operating_memory(self, runs: list[dict[str, Any]], events: list[dict[str, Any]]) -> dict[str, Any]:
+    def build_operating_memory(
+        self, runs: list[dict[str, Any]], events: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         return {
             "stores": [
                 "agent_run_state",
@@ -274,17 +316,39 @@ class AgentOpsRuntimeService:
 
     def build_instance_fleet(self, health: list[dict[str, Any]]) -> dict[str, Any]:
         fleet = [
-            {"id": "vmd_scientific_sales", "mission": "industry marketing and lead nurturing", "budget": "medium", "risk": "low"},
-            {"id": "tender_support", "mission": "tender scoring and compliance", "budget": "high", "risk": "medium"},
-            {"id": "renewal_risk", "mission": "contract renewal and churn prevention", "budget": "medium", "risk": "high"},
-            {"id": "boss_weekly_report", "mission": "AI behavior and value reporting", "budget": "low", "risk": "low"},
+            {
+                "id": "vmd_scientific_sales",
+                "mission": "industry marketing and lead nurturing",
+                "budget": "medium",
+                "risk": "low",
+            },
+            {
+                "id": "tender_support",
+                "mission": "tender scoring and compliance",
+                "budget": "high",
+                "risk": "medium",
+            },
+            {
+                "id": "renewal_risk",
+                "mission": "contract renewal and churn prevention",
+                "budget": "medium",
+                "risk": "high",
+            },
+            {
+                "id": "boss_weekly_report",
+                "mission": "AI behavior and value reporting",
+                "budget": "low",
+                "risk": "low",
+            },
         ]
         health_by_skill = {item["skill"]: item for item in health}
         return {
             "instances": [
                 {
                     **item,
-                    "health": health_by_skill.get(item["id"], {"score": 4.2, "flags": ["synthetic_baseline"]}),
+                    "health": health_by_skill.get(
+                        item["id"], {"score": 4.2, "flags": ["synthetic_baseline"]}
+                    ),
                     "permissions": "tenant_scoped, HITL for high-risk side effects",
                 }
                 for item in fleet
@@ -335,7 +399,14 @@ class AgentOpsRuntimeService:
             "governance": {
                 "proposal_count": len(proposals),
                 "self_mutation_allowed": False,
-                "required_release_flow": ["simulate", "agent_ci", "redteam", "human_approval", "gray_release", "rollback_ready"],
+                "required_release_flow": [
+                    "simulate",
+                    "agent_ci",
+                    "redteam",
+                    "human_approval",
+                    "gray_release",
+                    "rollback_ready",
+                ],
             },
         }
 
@@ -507,7 +578,9 @@ class AgentOpsRuntimeService:
             )
             persisted["persona_profiles"] += 1
 
-        for capability in (payload.get("external_capabilities") or {}).get("capabilities", []):
+        for capability in (payload.get("external_capabilities") or {}).get(
+            "capabilities", []
+        ):
             await (
                 db.table("agent_external_capabilities")
                 .upsert(

@@ -170,11 +170,11 @@ class TestLLMGatewayTenantIsolation:
 
         service = LLMGatewayService()
 
-        # 没有 DB 连接时应返回 None
+        # 没有 DB 连接时应回退到强制成本策略模型
         with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
             result = await service._resolve_model("chat", "default", "org-tenant-A")
 
-        assert result is None  # 无 DB 返回 None
+        assert result == "deepseek-v4-flash"
 
     async def test_load_model_config_no_db(self):
         """无 DB 时 load_model_config 应返回 None"""

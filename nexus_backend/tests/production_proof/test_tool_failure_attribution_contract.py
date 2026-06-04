@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[3]
+
 
 def test_tool_failure_attribution_contract_is_available():
     from app.agent.tool_failure_attribution import classify_tool_failure
@@ -16,9 +21,7 @@ def test_tool_failure_attribution_contract_is_available():
 
 
 def test_agent_graph_uses_tool_failure_attribution():
-    from pathlib import Path
-
-    graph = Path("nexus_backend/app/agent/graph.py").read_text(encoding="utf-8")
+    graph = (ROOT / "nexus_backend/app/agent/graph.py").read_text(encoding="utf-8")
     assert "classify_tool_failure" in graph
     assert "retryable=" in graph
     assert "confidence=" in graph
