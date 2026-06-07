@@ -7,6 +7,12 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_frontend_api_clients_have_single_default_transport():
+    """Frontend API calls must use one single default transport.
+
+    ``httpClient`` owns auth, tenant, CSRF, idempotency and error handling.
+    ``aiClient`` may wrap that transport for AI ergonomics, but it must not
+    create another axios instance with divergent defaults.
+    """
     http_client = ROOT / "src" / "lib" / "httpClient.ts"
     assert http_client.exists()
     content = http_client.read_text(encoding="utf-8", errors="replace")
@@ -15,8 +21,11 @@ def test_frontend_api_clients_have_single_default_transport():
     ai_client = ROOT / "src" / "api" / "aiClient.ts"
     assert ai_client.exists()
     ai_content = ai_client.read_text(encoding="utf-8", errors="replace")
-    assert "httpClient" in ai_content, "aiClient must delegate to httpClient instead of creating a second transport"
+    assert (
+        "httpClient" in ai_content
+    ), "aiClient must delegate to httpClient instead of creating a second transport"
     assert "httpClient.request" in ai_content
+    assert "axios.create" not in ai_content
 
 
 def test_complex_business_operations_have_transaction_rpc_contract():
