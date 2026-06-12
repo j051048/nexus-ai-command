@@ -27,6 +27,170 @@ env:
   PYTHON_VERSION: "3.11"
 
 jobs:
+  frontend-static:
+    name: "0A. Frontend Static Gate"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Lint code
+        run: npm run lint
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: Build frontend
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_BUILD_PROFILE: ci
+          VITE_SUPABASE_URL: "https://placeholder.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "placeholder-key"
+      - name: Bundle budget
+        run: npm run check:bundle
+      - name: Text quality
+        run: npm run check:text
+
+  backend-static:
+    name: "0B. Backend Static Gate"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./nexus_backend
+    env:
+      ENV: test
+      SUPABASE_URL: "https://placeholder.supabase.co"
+      SUPABASE_SERVICE_KEY: "placeholder-key"
+      OPENAI_API_KEY: "sk-placeholder"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements-dev.txt
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Ruff
+        run: ruff check app/ --output-format=github
+      - name: Black
+        run: black --check app/
+      - name: Mypy focused backend type check
+        run: |
+          mypy \
+            app/core/config.py \
+            app/core/rate_limiter.py \
+            app/core/token_budget.py \
+            app/services/agent_eval_baseline_service.py \
+            app/services/agent_ops_runtime_service.py \
+            --ignore-missing-imports \
+            --no-strict-optional \
+            --follow-imports=skip \
+            --show-error-codes
+
+  supply-chain-security:
+    name: "0C. Supply Chain and Secret Scan"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements.txt
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Python dependency audit
+        run: |
+          pip install --upgrade pip pip-audit
+          pip-audit -r nexus_backend/requirements.txt --strict
+      - name: npm critical dependency audit
+        run: npm audit --omit=dev --audit-level=critical
+      - name: Hardcoded secret pattern scan
+        run: python scripts/scan_hardcoded_secrets.py
+      - name: Trivy critical filesystem gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+  openapi-contract:
+    name: "0D. OpenAPI Contract"
+    runs-on: ubuntu-latest
+    env:
+      ENV: test
+      SUPABASE_URL: "https://placeholder.supabase.co"
+      SUPABASE_SERVICE_KEY: "placeholder-key"
+      OPENAI_API_KEY: "sk-placeholder"
+      PYTHONPATH: ${{ github.workspace }}/nexus_backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements-dev.txt
+      - name: Install backend dependencies
+        working-directory: ./nexus_backend
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Validate OpenAPI contract
+        run: python scripts/check_openapi_contract.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: openapi-contract
+          path: openapi-contract.generated.json
+          retention-days: 7
+
+  backend-docker-smoke:
+    name: "0E. Backend Docker Build Smoke"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend Docker image
+        run: docker build -t nexus-backend-smoke:${{ github.sha }} .
+      - name: Run /health/live smoke
+        run: |
+          docker run -d --rm \
+            --name nexus-backend-smoke \
+            -p 8000:8000 \
+            -e ENV=test \
+            -e SUPABASE_URL=https://placeholder.supabase.co \
+            -e SUPABASE_SERVICE_KEY=placeholder-key \
+            -e SUPABASE_JWT_SECRET=test-secret-key-for-smoke-only \
+            -e LANGGRAPH_CHECKPOINTER=memory \
+            -e ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= \
+            -e HEALTH_CHECK_TOKEN=smoke-health-token-at-least-24-chars \
+            -e OPENAI_API_KEY=sk-placeholder \
+            nexus-backend-smoke:${{ github.sha }}
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/health/live; then
+              docker stop nexus-backend-smoke
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs nexus-backend-smoke
+          docker stop nexus-backend-smoke
+          exit 1
   # ═══════════════════════════════════════════════════════════════
   # 1. 前端单元测试 + 覆盖率
   # ═══════════════════════════════════════════════════════════════
@@ -325,10 +489,44 @@ jobs:
   # ═══════════════════════════════════════════════════════════════
   # Quality Gate — 质量门禁
   # ═══════════════════════════════════════════════════════════════
+  frontend-accessibility:
+    name: "10. Accessibility Smoke"
+    runs-on: ubuntu-latest
+    needs: [frontend-static]
+    if: ${{ !inputs.skip_e2e }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build frontend
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_BUILD_PROFILE: ci
+          VITE_SUPABASE_URL: "https://placeholder.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "placeholder-key"
+      - name: Run accessibility smoke
+        run: npx playwright test e2e/accessibility-smoke.spec.ts --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-accessibility-report
+          path: playwright-report/
+          retention-days: 7
+
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
     needs:
+      - frontend-static
+      - backend-static
+      - supply-chain-security
+      - openapi-contract
+      - backend-docker-smoke
       - frontend-unit
       - frontend-workflow
       - backend-unit
@@ -338,6 +536,7 @@ jobs:
       - backend-performance
       - backend-e2e
       - playwright-e2e
+      - frontend-accessibility
     if: always()
     steps:
       - name: Evaluate quality gates
@@ -349,6 +548,11 @@ jobs:
           echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           echo "| # | Suite | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 0A | Frontend Static Gate | ${{ needs.frontend-static.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 0B | Backend Static Gate | ${{ needs.backend-static.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 0C | Supply Chain and Secret Scan | ${{ needs.supply-chain-security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 0D | OpenAPI Contract | ${{ needs.openapi-contract.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 0E | Backend Docker Build Smoke | ${{ needs.backend-docker-smoke.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 1 | Frontend Unit | ${{ needs.frontend-unit.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 2 | Workflow Designer | ${{ needs.frontend-workflow.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 3 | Backend Unit | ${{ needs.backend-unit.result }} |" >> $GITHUB_STEP_SUMMARY
@@ -358,7 +562,10 @@ jobs:
           echo "| 7 | Performance | ${{ needs.backend-performance.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 8 | Backend E2E | ${{ needs.backend-e2e.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 9 | Playwright E2E | ${{ needs.playwright-e2e.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 10 | Accessibility Smoke | ${{ needs.frontend-accessibility.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          FAILED=0
 
           # ── 覆盖率门禁 ──
           echo "## Coverage" >> $GITHUB_STEP_SUMMARY
@@ -369,19 +576,72 @@ jobs:
 
           FE_PASS="N/A"
           if [ -n "$FE_COV" ] && [ "$FE_COV" != "0" ]; then
-            FE_PASS=$(echo "$FE_COV >= 60" | bc -l 2>/dev/null && echo "Yes" || echo "No")
+            if awk "BEGIN {exit !($FE_COV >= 60)}"; then
+              FE_PASS="Yes"
+            else
+              FE_PASS="No"
+              echo "::error::GATE FAILED: Frontend coverage ${FE_COV}% is below 60%"
+              FAILED=1
+            fi
+          else
+            echo "::error::GATE FAILED: Frontend coverage is missing"
+            FAILED=1
           fi
           echo "| Frontend | ${FE_COV:-N/A}% | 60% | $FE_PASS |" >> $GITHUB_STEP_SUMMARY
 
           BE_PASS="N/A"
           if [ -n "$BE_COV" ] && [ "$BE_COV" != "0" ]; then
-            BE_PASS=$(echo "$BE_COV >= 50" | bc -l 2>/dev/null && echo "Yes" || echo "No")
+            if awk "BEGIN {exit !($BE_COV >= 50)}"; then
+              BE_PASS="Yes"
+            else
+              BE_PASS="No"
+              echo "::error::GATE FAILED: Backend coverage ${BE_COV}% is below 50%"
+              FAILED=1
+            fi
+          else
+            echo "::error::GATE FAILED: Backend coverage is missing"
+            FAILED=1
           fi
           echo "| Backend | ${BE_COV:-N/A}% | 50% | $BE_PASS |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # ── 硬性门禁 ──
-          FAILED=0
+          SKIP_E2E="${{ inputs.skip_e2e }}"
+
+          require_success() {
+            local name="$1"
+            local result="$2"
+            if [[ "$result" != "success" ]]; then
+              echo "::error::GATE FAILED: ${name} result is ${result}"
+              FAILED=1
+            fi
+          }
+
+          require_e2e_success_or_manual_skip() {
+            local name="$1"
+            local result="$2"
+            if [[ "$SKIP_E2E" == "true" && "$result" == "skipped" ]]; then
+              echo "::notice::GATE ALLOWED: ${name} skipped by workflow_dispatch input"
+              return
+            fi
+            require_success "$name" "$result"
+          }
+
+          require_success "Frontend static gate" "${{ needs.frontend-static.result }}"
+          require_success "Backend static gate" "${{ needs.backend-static.result }}"
+          require_success "Supply chain and secret scan" "${{ needs.supply-chain-security.result }}"
+          require_success "OpenAPI contract" "${{ needs.openapi-contract.result }}"
+          require_success "Backend Docker build smoke" "${{ needs.backend-docker-smoke.result }}"
+          require_success "Frontend unit tests" "${{ needs.frontend-unit.result }}"
+          require_success "Workflow designer tests" "${{ needs.frontend-workflow.result }}"
+          require_success "Backend unit tests" "${{ needs.backend-unit.result }}"
+          require_success "Backend integration tests" "${{ needs.backend-integration.result }}"
+          require_success "AI Agent matrix tests" "${{ needs.backend-agent.result }}"
+          require_success "Security tests" "${{ needs.backend-security.result }}"
+          require_success "Performance tests" "${{ needs.backend-performance.result }}"
+          require_e2e_success_or_manual_skip "Backend E2E tests" "${{ needs.backend-e2e.result }}"
+          require_e2e_success_or_manual_skip "Playwright E2E tests" "${{ needs.playwright-e2e.result }}"
+          require_e2e_success_or_manual_skip "Accessibility smoke" "${{ needs.frontend-accessibility.result }}"
 
           # 安全测试必须通过
           if [[ "${{ needs.backend-security.result }}" == "failure" ]]; then

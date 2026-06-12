@@ -66,6 +66,7 @@ test-results/
 test-reports/
 nexus_backend/test-reports/
 vitest-results.json
+openapi-contract.generated.json
 
 # Coverage reports
 coverage/
