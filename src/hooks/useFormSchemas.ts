@@ -59,7 +59,7 @@ export function useFormSchemaByType(approvalType: string) {
   return useQuery<FormSchema>({
     queryKey: ['form-schemas', 'by-type', approvalType],
     queryFn: () =>
-      aiClient.fetch<FormSchema>(`api/form-schemas/by-type/${approvalType}`),
+      aiClient.fetch<FormSchema>(`api/form-schemas/by-type/${approvalType}`, { _silentError: true }),
     enabled: !!approvalType,
     retry: false, // 没有自定义 schema 时返回 404，不重试
   });

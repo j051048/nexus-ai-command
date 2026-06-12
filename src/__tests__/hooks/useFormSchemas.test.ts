@@ -119,6 +119,6 @@ describe('useFormSchemas', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(result.current.data?.approval_type).toBe('expense');
-    expect(mockFetch).toHaveBeenCalledWith('api/form-schemas/by-type/expense');
+    expect(mockFetch).toHaveBeenCalledWith('api/form-schemas/by-type/expense', { _silentError: true });
   });
 });

@@ -45,6 +45,25 @@ function buildUrl(endpoint: string): string {
   return `${cleanBase}/${cleanEndpoint}`;
 }
 
+function normalizeApiErrorMessage(status?: number, message?: string): string {
+  const trimmed = message?.trim() || '';
+  const normalized = trimmed.toLowerCase();
+  if (
+    status === 404
+    && (
+      !trimmed
+      || normalized === 'not found'
+      || normalized === '404'
+      || normalized.includes('not found')
+      || normalized.startsWith('api request failed (404)')
+    )
+  ) {
+    return '请求的接口不存在或暂未启用，请刷新页面或联系管理员';
+  }
+  if (trimmed) return trimmed;
+  return status ? `请求失败 (${status})` : '请求失败，请重试';
+}
+
 function handleErrorResponse(status: number, errorMessage: string, silent?: boolean, retryAfter?: number): void {
   if (silent) return;
 
@@ -62,6 +81,9 @@ function handleErrorResponse(status: number, errorMessage: string, silent?: bool
       break;
     case 403:
       toast.error('没有权限执行此操作', { id: 'no-permission' });
+      break;
+    case 404:
+      toast.error(normalizeApiErrorMessage(status, errorMessage), { id: 'api-not-found' });
       break;
     case 422:
       toast.error(errorMessage || '请求参数有误');
@@ -114,7 +136,7 @@ async function parseErrorMessage(response: Response): Promise<string> {
     const text = await response.text().catch(() => response.statusText);
     errorMessage += `: ${text.slice(0, 100)}`;
   }
-  return errorMessage;
+  return normalizeApiErrorMessage(response.status, errorMessage);
 }
 
 function parseAxiosErrorMessage(error: AxiosError<unknown>): string {
@@ -125,14 +147,14 @@ function parseAxiosErrorMessage(error: AxiosError<unknown>): string {
     message?: string;
   } | undefined;
 
-  if (data?.error?.message) return data.error.message;
-  if (typeof data?.detail === 'string') return data.detail;
+  if (data?.error?.message) return normalizeApiErrorMessage(status, data.error.message);
+  if (typeof data?.detail === 'string') return normalizeApiErrorMessage(status, data.detail);
   if (Array.isArray(data?.detail)) {
     const detail = data.detail.map((item) => item.msg).filter(Boolean).join(', ');
-    if (detail) return detail;
+    if (detail) return normalizeApiErrorMessage(status, detail);
   }
-  if (data?.message) return data.message;
-  return status ? `API Request Failed (${status})` : error.message || 'API Request Failed';
+  if (data?.message) return normalizeApiErrorMessage(status, data.message);
+  return normalizeApiErrorMessage(status, status ? `API Request Failed (${status})` : error.message || 'API Request Failed');
 }
 
 function normalizeJsonBody(body: BodyInit | null | undefined, contentType: string | undefined): unknown {
