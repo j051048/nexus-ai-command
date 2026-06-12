@@ -458,9 +458,9 @@ def reset_rate_limit_state() -> None:
     _per_tenant_hour_limiter._memory_store.clear()
     for limiter in _endpoint_limiters.values():
         limiter._memory_store.clear()
-    for limiter in RateLimitMiddleware._category_limiters.values():
-        limiter.tokens.clear()
-        limiter.last_update.clear()
+    for category_limiter in RateLimitMiddleware._category_limiters.values():
+        category_limiter.tokens.clear()
+        category_limiter.last_update.clear()
 
 
 def _get_endpoint_limiter(path: str) -> SlidingWindowRateLimiter | None:

@@ -158,13 +158,13 @@ class TokenBudgetManager:
                 self._disable_redis()
                 logger.warning("[TokenBudget] Redis incr failed: %s", e)
                 if self._allow_memory_fallback():
-                    return await self._memory_store.incr_by(key, amount, ttl)
+                    return float(await self._memory_store.incr_by(key, amount, ttl))
                 return float("inf")
         if self._allow_memory_fallback():
             logger.warning(
                 "[TokenBudget] Redis unavailable; using process-local memory fallback"
             )
-            return await self._memory_store.incr_by(key, amount, ttl)
+            return float(await self._memory_store.incr_by(key, amount, ttl))
         logger.error("[TokenBudget] Redis unavailable in production; fail-closed")
         return float("inf")
 
@@ -179,13 +179,13 @@ class TokenBudgetManager:
                 self._disable_redis()
                 logger.warning("[TokenBudget] Redis get failed for %s: %s", key, e)
                 if self._allow_memory_fallback():
-                    return await self._memory_store.get_val(key)
+                    return float(await self._memory_store.get_val(key))
                 return float("inf")
         if self._allow_memory_fallback():
             logger.warning(
                 "[TokenBudget] Redis unavailable; reading process-local memory fallback"
             )
-            return await self._memory_store.get_val(key)
+            return float(await self._memory_store.get_val(key))
         logger.error("[TokenBudget] Redis unavailable in production; fail-closed")
         return float("inf")
 
