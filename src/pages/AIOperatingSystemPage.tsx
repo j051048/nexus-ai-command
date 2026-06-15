@@ -2,46 +2,39 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AGENT_TEMPLATES,
-  AI_NATIVE_SCENES,
   AI_OPERATING_CAPABILITIES,
   AUTONOMOUS_ACTION_POLICIES,
   DEMO_WORKSPACE_ARTIFACTS,
   EVENT_TRIGGER_BLUEPRINTS,
-  ROLE_WORKBENCH_PROFILES,
-  SEVEN_DAY_SUCCESS_PATH,
-  type OperatingCapability,
 } from '@/config/aiOperatingSystem';
 import { useAIOperatingOverview, useDefineAgentFromSop, useRunAgentSimulation } from '@/hooks/useAIOperatingSystem';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import {
+  Activity,
   ArrowRight,
+  Bot,
+  Check,
   CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  Clock3,
+  FileCheck2,
   GitBranch,
+  Library,
   Loader2,
   Network,
   PlayCircle,
+  Radar,
   ShieldCheck,
   Sparkles,
+  WandSparkles,
+  Zap,
 } from 'lucide-react';
-
-const STATUS_LABEL = {
-  live: '已上线',
-  ready: '可落地',
-  next: '下一步',
-};
-
-const PRIORITY_TONE = {
-  P0: 'border-red-500/30 bg-red-500/10 text-red-600',
-  P1: 'border-orange-500/30 bg-orange-500/10 text-orange-600',
-  P2: 'border-blue-500/30 bg-blue-500/10 text-blue-600',
-  P3: 'border-violet-500/30 bg-violet-500/10 text-violet-600',
-  P4: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600',
-  P5: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-600',
-  P6: 'border-slate-500/30 bg-slate-500/10 text-slate-600',
-};
 
 const DEFAULT_SIMULATION_MESSAGES = [
   '30天未跟进客户自动生成拜访提醒和邮件草稿',
@@ -50,11 +43,18 @@ const DEFAULT_SIMULATION_MESSAGES = [
 ].join('\n');
 
 const DEFAULT_SOP_TEXT = [
-  '当科学仪器客户 30 天没有跟进记录时，Agent 需要查询客户阶段、最近拜访、项目预算和历史沟通。',
-  '如果客户处于报价或招投标阶段，先生成跟进邮件草稿和下一步任务，不直接外发。',
-  '如果涉及合同金额、审批结论、付款、删除或批量外发，必须进入人工确认。',
-  '每次建议都要引用客户、项目、合同、文档或行动事件作为证据。',
+  '当科学仪器客户 30 天没有跟进记录时，查询客户阶段、最近拜访、项目预算和历史沟通。',
+  '客户处于报价或招投标阶段时，生成邮件草稿和下一步任务，但不直接外发。',
+  '涉及合同、审批、付款、删除或批量外发时，必须进入人工确认。',
+  '每次建议必须引用客户、项目、合同、文档或行动事件作为证据。',
 ].join('\n');
+
+const RELEASE_STEPS = [
+  { label: '定义 SOP', icon: FileCheck2 },
+  { label: '仿真验证', icon: PlayCircle },
+  { label: '人工审阅', icon: ShieldCheck },
+  { label: '灰度上线', icon: Zap },
+];
 
 function triggerAI(prompt: string) {
   window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
@@ -65,73 +65,80 @@ function formatPercent(value?: number) {
   return `${Math.round(value * 100)}%`;
 }
 
-function CapabilityCard({ item }: { item: OperatingCapability }) {
-  const Icon = item.icon;
-  return (
-    <article className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', PRIORITY_TONE[item.priority])}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className={PRIORITY_TONE[item.priority]}>
-              {item.priority}
-            </Badge>
-            <Badge variant={item.status === 'live' ? 'default' : 'secondary'}>
-              {STATUS_LABEL[item.status]}
-            </Badge>
-          </div>
-          <h3 className="mt-2 text-base font-semibold">{item.title}</h3>
-        </div>
-      </div>
-      <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.description}</p>
-      <div className="mt-3 rounded-md bg-muted/50 p-3 text-xs leading-5 text-muted-foreground">
-        <span className="font-medium text-foreground">落地证据：</span>
-        {item.proof}
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline">
-          <Link to={item.href}>
-            打开入口
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => triggerAI(item.aiPrompt)}>
-          <Sparkles className="mr-2 h-4 w-4" />
-          让 AI 生成方案
-        </Button>
-      </div>
-    </article>
-  );
+function statusTone(status?: string) {
+  if (status === 'completed' || status === 'success') return 'text-emerald-600 bg-emerald-500/10';
+  if (status === 'failed' || status === 'error') return 'text-red-600 bg-red-500/10';
+  return 'text-amber-700 bg-amber-500/10';
 }
 
 export default function AIOperatingSystemPage() {
+  const [activeTab, setActiveTab] = useState('command');
   const [simulationInput, setSimulationInput] = useState(DEFAULT_SIMULATION_MESSAGES);
   const [sopInput, setSopInput] = useState(DEFAULT_SOP_TEXT);
   const overview = useAIOperatingOverview(30);
   const simulation = useRunAgentSimulation();
   const agentDefinition = useDefineAgentFromSop();
 
-  const p0p3 = AI_OPERATING_CAPABILITIES.filter((item) => ['P0', 'P1', 'P2', 'P3'].includes(item.priority));
-  const p4p6 = AI_OPERATING_CAPABILITIES.filter((item) => ['P4', 'P5', 'P6'].includes(item.priority));
-
-  const liveMetrics = useMemo(() => {
+  const metrics = useMemo(() => {
     const data = overview.data;
     return [
-      { label: 'Agent 成功率', value: formatPercent(data?.agent.success_rate), hint: `${data?.agent.total_runs ?? 0} 次运行` },
-      { label: '行动完成率', value: formatPercent(data?.actions.completion_rate), hint: `${data?.actions.total_events ?? 0} 条事件` },
-      { label: '图谱节点', value: String(data?.graph.summary.node_count ?? 0), hint: `${data?.graph.summary.edge_count ?? 0} 条关系` },
-      { label: 'Token 消耗', value: String(data?.agent.total_tokens ?? 0), hint: `$${data?.agent.total_cost_usd ?? 0}` },
+      {
+        label: 'Agent 成功率',
+        value: formatPercent(data?.agent.success_rate),
+        meta: `${data?.agent.total_runs ?? 0} 次运行`,
+        icon: Activity,
+      },
+      {
+        label: '行动完成率',
+        value: formatPercent(data?.actions.completion_rate),
+        meta: `${data?.actions.completed ?? 0}/${data?.actions.total_events ?? 0} 已闭环`,
+        icon: CheckCircle2,
+      },
+      {
+        label: '信任评分',
+        value: String(data?.trust.confidence_score ?? 0),
+        meta: data?.trust.confidence_level ?? '待评估',
+        icon: ShieldCheck,
+      },
+      {
+        label: '本月价值',
+        value: `¥${data?.value.estimated_value_cny ?? 0}`,
+        meta: `节省 ${data?.value.saved_hours ?? 0} 小时`,
+        icon: Radar,
+      },
+    ];
+  }, [overview.data]);
+
+  const actionQueue = useMemo(() => {
+    const data = overview.data;
+    return [
+      {
+        priority: '高',
+        title: data?.agent.failed ? `${data.agent.failed} 次 Agent 运行需要复盘` : '验证首个 Agent 发布流程',
+        detail: data?.agent.failed ? '检查失败工具、上下文与回退路径' : '先完成 SOP 定义和仿真验证',
+        action: '进入仿真',
+        tab: 'release',
+      },
+      {
+        priority: '中',
+        title: data?.actions.total_events ? `${data.actions.total_events - data.actions.completed} 个行动尚未闭环` : '配置第一条自动行动策略',
+        detail: '低风险自动执行，高风险保留人工确认',
+        action: '查看策略',
+        tab: 'operations',
+      },
+      {
+        priority: '中',
+        title: data?.graph.summary.node_count ? `业务图谱已有 ${data.graph.summary.node_count} 个节点` : '补齐客户与项目上下文',
+        detail: '让 Agent 的建议具备实体关系和证据来源',
+        action: '查看图谱',
+        tab: 'operations',
+      },
     ];
   }, [overview.data]);
 
   const runSimulation = () => {
     simulation.mutate({
-      messages: simulationInput
-        .split('\n')
-        .map((item) => item.trim())
-        .filter(Boolean),
+      messages: simulationInput.split('\n').map((item) => item.trim()).filter(Boolean),
       candidate_policy: '低风险动作自动执行；审批、合同、外发、付款、删除和批量动作进入人工确认。',
     });
   };
@@ -145,413 +152,339 @@ export default function AIOperatingSystemPage() {
   };
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 p-6">
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
+    <main className="min-h-full bg-muted/20">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold text-primary">
               <Sparkles className="h-4 w-4" />
-              Nexus AI Operating System
+              NEXUS AI OPERATING SYSTEM
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">科学仪器销售团队的 AI 作战室</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              这里把 P0-P6 从产品蓝图升级为运营控制台：实时读取 Agent 运行、行动事件和业务知识图谱，并提供可灰度的 Agent 仿真沙盒。
-            </p>
+            <h1 className="mt-2 text-2xl font-semibold">科学仪器销售团队的 AI 作战室</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />系统运行中
+              </span>
+              <span>30 天运营窗口</span>
+              <span>{overview.data?.agent.total_runs ?? 0} 次 Agent 运行</span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link to="/vmd">进入 VMD 超级场景</Link>
+            <Button variant="outline" onClick={() => triggerAI('基于当前运营数据，生成今天最值得推进的三个科学仪器销售动作。')}>
+              <WandSparkles className="mr-2 h-4 w-4" />今日建议
             </Button>
             <Button asChild variant="secondary">
-              <Link to="/agent-improvement-center">Agent 进化中心</Link>
+              <Link to="/agent-improvement-center">进化中心</Link>
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => triggerAI('基于当前 Agent 运行、行动事件和业务知识图谱，生成今天的科学仪器销售作战建议。')}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              生成今日作战建议
+            <Button asChild>
+              <Link to="/vmd">进入 VMD<ArrowRight className="ml-2 h-4 w-4" /></Link>
             </Button>
           </div>
-        </div>
+        </header>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
-          {liveMetrics.map((metric) => (
-            <div key={metric.label} className="rounded-lg border bg-background/60 p-3">
-              <div className="text-xs text-muted-foreground">{metric.label}</div>
-              <div className="mt-2 text-xl font-semibold">{metric.value}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{metric.hint}</div>
-            </div>
-          ))}
-        </div>
+        <section className="grid border-b py-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="核心指标">
+          {metrics.map((metric, index) => {
+            const Icon = metric.icon;
+            return (
+              <div key={metric.label} className={cn('flex items-center gap-3 py-3 sm:px-4 lg:py-1', index > 0 && 'lg:border-l')}>
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground">{metric.label}</div>
+                  <div className="mt-0.5 flex items-baseline gap-2">
+                    <span className="text-xl font-semibold">{metric.value}</span>
+                    <span className="truncate text-xs text-muted-foreground">{metric.meta}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+
         {overview.isError && (
-          <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
-            真实运营数据暂时不可用，页面已保留产品蓝图。请确认 `/api/ai-operating-system/overview` 可访问。
+          <div className="mt-4 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
+            <CircleAlert className="h-4 w-4" />运营数据暂不可用，操作工作流仍可使用。
           </div>
         )}
-      </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <section className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">AI 价值与信任仪表盘</h2>
-          </div>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            这里把“用了多少 token”翻译成老板和业务主管能理解的节省时间、自动化跟进、风险复核和可信度。
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-md border bg-background/60 p-3">
-              <div className="text-xs text-muted-foreground">折算业务价值</div>
-              <div className="mt-2 text-xl font-semibold">¥{overview.data?.value.estimated_value_cny ?? 0}</div>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {overview.data?.value.roi_story ?? '等待真实行动事件进入后自动生成 ROI 叙事。'}
-              </p>
-            </div>
-            <div className="rounded-md border bg-background/60 p-3">
-              <div className="text-xs text-muted-foreground">Agent 信任评分</div>
-              <div className="mt-2 flex items-end gap-2">
-                <span className="text-xl font-semibold">{overview.data?.trust.confidence_score ?? 0}</span>
-                <Badge variant="outline">{overview.data?.trust.confidence_level ?? '待评估'}</Badge>
-              </div>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {overview.data?.trust.audit_summary ?? '暂无足够运行数据生成审计摘要。'}
-              </p>
-            </div>
-            <div className="rounded-md border bg-background/60 p-3">
-              <div className="text-xs text-muted-foreground">自动跟进行动</div>
-              <div className="mt-2 text-xl font-semibold">{overview.data?.value.automated_followups ?? 0}</div>
-              <p className="mt-1 text-xs text-muted-foreground">来自 CRM 行动事件的采纳、完成或命令执行记录。</p>
-            </div>
-            <div className="rounded-md border bg-background/60 p-3">
-              <div className="text-xs text-muted-foreground">人工复核率</div>
-              <div className="mt-2 text-xl font-semibold">{formatPercent(overview.data?.trust.human_review_rate)}</div>
-              <p className="mt-1 text-xs text-muted-foreground">复核率高说明护栏谨慎，复核率低说明自动化更充分。</p>
-            </div>
-          </div>
-        </section>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-5">
+          <TabsList className="grid h-10 w-full grid-cols-4 bg-muted/70 md:w-auto md:min-w-[520px]">
+            <TabsTrigger value="command">作战总览</TabsTrigger>
+            <TabsTrigger value="release">Agent 发布</TabsTrigger>
+            <TabsTrigger value="operations">运行监控</TabsTrigger>
+            <TabsTrigger value="library">能力库</TabsTrigger>
+          </TabsList>
 
-        <section className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">SOP → AOP 自然语言定义器</h2>
-          </div>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            业务人员可以直接粘贴销售 SOP、投标流程或客户跟进规范，系统会生成 Agent 触发规则、工具链、护栏和测试用例。
-          </p>
-          <Textarea
-            className="mt-3 min-h-32"
-            value={sopInput}
-            onChange={(event) => setSopInput(event.target.value)}
-          />
-          <Button className="mt-3" onClick={defineAgent} disabled={agentDefinition.isPending}>
-            {agentDefinition.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            生成 Agent 定义
-          </Button>
-          {agentDefinition.data && (
-            <div className="mt-4 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{agentDefinition.data.scenario}</Badge>
-                <Badge variant="outline">置信度 {formatPercent(agentDefinition.data.confidence)}</Badge>
-                <Badge variant="outline">{agentDefinition.data.autonomy_level}</Badge>
+          <TabsContent value="command" className="mt-4 space-y-4">
+            <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+              <div className="rounded-lg border bg-background">
+                <div className="flex items-center justify-between border-b px-4 py-3">
+                  <div>
+                    <h2 className="font-semibold">今日作战队列</h2>
+                    <p className="mt-0.5 text-xs text-muted-foreground">按风险与业务影响排序</p>
+                  </div>
+                  <Badge variant="secondary">{actionQueue.length} 项</Badge>
+                </div>
+                <div className="divide-y">
+                  {actionQueue.map((item, index) => (
+                    <button
+                      key={item.title}
+                      type="button"
+                      className="grid w-full grid-cols-[28px_1fr_auto] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                      onClick={() => setActiveTab(item.tab)}
+                    >
+                      <span className={cn('flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold', index === 0 ? 'bg-red-500/10 text-red-600' : 'bg-amber-500/10 text-amber-700')}>
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">{item.title}</span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">{item.detail}</span>
+                      </span>
+                      <span className="hidden items-center gap-1 text-xs font-medium text-primary sm:flex">
+                        {item.action}<ChevronRight className="h-4 w-4" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="rounded-md border bg-background/60 p-3">
-                <div className="text-sm font-medium">触发规则</div>
-                <div className="mt-2 space-y-2">
-                  {agentDefinition.data.intent_rules.slice(0, 3).map((rule) => (
-                    <div key={rule.name} className="text-sm leading-5 text-muted-foreground">
-                      {rule.trigger}
+
+              <div className="rounded-lg border bg-background p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold">AI 价值与信任仪表盘</h2>
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="mt-5 space-y-5">
+                  <div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>运行可信度</span>
+                      <span className="font-semibold">{overview.data?.trust.confidence_score ?? 0}/100</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-md border bg-background/60 p-3">
-                <div className="text-sm font-medium">工具链</div>
-                <p className="mt-2 text-sm text-muted-foreground">{agentDefinition.data.tools.join(' → ')}</p>
-              </div>
-              <div className="rounded-md border bg-background/60 p-3">
-                <div className="text-sm font-medium">护栏</div>
-                <div className="mt-2 space-y-1">
-                  {agentDefinition.data.guardrails.slice(0, 3).map((guardrail) => (
-                    <div key={guardrail} className="text-sm leading-5 text-muted-foreground">
-                      {guardrail}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Network className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">真实运营数据</h2>
-          </div>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            这块数据来自 `agent_runs`、`action_events` 和业务实体表，用来证明 AI 作战系统不是静态蓝图。
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-md border bg-background/60 p-3">
-              <div className="text-sm font-medium">Agent 生命周期</div>
-              <div className="mt-2 text-xs leading-5 text-muted-foreground">
-                完成 {overview.data?.agent.completed ?? 0} 次，失败 {overview.data?.agent.failed ?? 0} 次，失败率 {formatPercent(overview.data?.agent.failure_rate)}。
-              </div>
-            </div>
-            <div className="rounded-md border bg-background/60 p-3">
-              <div className="text-sm font-medium">行动闭环</div>
-              <div className="mt-2 text-xs leading-5 text-muted-foreground">
-                采纳 {overview.data?.actions.accepted ?? 0} 次，完成 {overview.data?.actions.completed ?? 0} 次，忽略 {overview.data?.actions.ignored ?? 0} 次。
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            {(overview.data?.recent_runs ?? []).slice(0, 4).map((run) => (
-              <div key={run.id || run.run_id} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{run.input_summary || run.run_id || '未命名运行'}</span>
-                  <Badge variant="outline">{run.status || 'unknown'}</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <PlayCircle className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">Agent 仿真沙盒</h2>
-          </div>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            输入历史用户消息或灰度样例，对比“只推荐”和“低风险自动执行”的行为差异，先仿真再上线。
-          </p>
-          <Textarea
-            className="mt-3 min-h-28"
-            value={simulationInput}
-            onChange={(event) => setSimulationInput(event.target.value)}
-          />
-          <Button className="mt-3" onClick={runSimulation} disabled={simulation.isPending}>
-            {simulation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-            运行仿真
-          </Button>
-          {simulation.data && (
-            <div className="mt-4 space-y-3">
-              <div className="grid gap-2 md:grid-cols-4">
-                <Badge variant="secondary">样例 {simulation.data.summary.case_count}</Badge>
-                <Badge variant="secondary">自动化 {formatPercent(simulation.data.summary.automation_rate)}</Badge>
-                <Badge variant="secondary">人工确认 {formatPercent(simulation.data.summary.hitl_rate)}</Badge>
-                <Badge variant="outline">{simulation.data.summary.recommendation}</Badge>
-              </div>
-              {simulation.data.cases.slice(0, 3).map((item) => (
-                <div key={item.id} className="rounded-md border bg-background/60 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-medium">{item.detected_intent}</span>
-                    <Badge variant={item.candidate.mode === 'auto' ? 'default' : 'secondary'}>
-                      {item.candidate.mode === 'auto' ? '自动执行' : '人工确认'}
-                    </Badge>
+                    <Progress value={overview.data?.trust.confidence_score ?? 0} className="mt-2 h-2" />
                   </div>
-                  <p className="mt-2 text-sm leading-5 text-muted-foreground">{item.message}</p>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    工具链：{item.suggested_tools.join(' → ')}；风险分 {item.risk_score}
+                  <div className="grid grid-cols-3 gap-3 border-y py-4 text-center">
+                    <div><div className="text-lg font-semibold">{overview.data?.value.automated_followups ?? 0}</div><div className="text-xs text-muted-foreground">自动跟进</div></div>
+                    <div><div className="text-lg font-semibold">{overview.data?.value.risk_reviews ?? 0}</div><div className="text-xs text-muted-foreground">风险复核</div></div>
+                    <div><div className="text-lg font-semibold">{formatPercent(overview.data?.trust.human_review_rate)}</div><div className="text-xs text-muted-foreground">人工复核</div></div>
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>{overview.data?.trust.audit_summary ?? '等待更多真实运行数据形成审计结论。'}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold">P0-P3：AI 原生能力底座</h2>
-            <p className="text-sm text-muted-foreground">
-              先做深超级场景，再补 Agent 可测试、可定义、可观测、可自动执行。
-            </p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {p0p3.map((item) => (
-              <CapabilityCard key={item.title} item={item} />
-            ))}
-          </div>
-        </div>
-
-        <aside className="space-y-4">
-          <section className="rounded-lg border bg-card p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <GitBranch className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold">Context Graph 最小闭环</h2>
-            </div>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              当前图谱会注入 Agent Context：客户、线索、项目、合同、审批、文档和行动事件会被串成关系，而不是只做文档检索。
-            </p>
-            <div className="mt-3 grid gap-2">
-              {(overview.data?.graph.nodes ?? []).slice(0, 6).map((node) => (
-                <div key={node.id} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>{node.label}</span>
-                    <Badge variant="outline">{node.type}</Badge>
-                  </div>
-                </div>
-              ))}
-              {!overview.data?.graph.nodes?.length && (
-                <div className="rounded-md border bg-background/60 px-3 py-2 text-sm text-muted-foreground">
-                  暂无真实图谱节点，导入客户、项目、合同或行动事件后会自动出现。
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-lg border bg-card p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold">自主行动策略</h2>
-            </div>
-            <div className="mt-3 space-y-3">
-              {AUTONOMOUS_ACTION_POLICIES.map((policy) => (
-                <div key={policy.level} className="rounded-md border bg-background/60 p-3">
-                  <div className="font-medium">{policy.level}</div>
-                  <p className="mt-1 text-sm leading-5 text-muted-foreground">{policy.scope}</p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">{policy.guardrail}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
-      </section>
-
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold">P4-P6：产品形态与增长闭环</h2>
-          <p className="text-sm text-muted-foreground">
-            让用户第一眼知道该做什么，让售前能演示，让团队按角色长期留下来。
-          </p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {p4p6.map((item) => (
-            <CapabilityCard key={item.title} item={item} />
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-3">
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <h2 className="font-semibold">AI-Native 场景</h2>
-          <div className="mt-3 space-y-3">
-            {AI_NATIVE_SCENES.map((scene) => {
-              const Icon = scene.icon;
-              return (
-                <div key={scene.title} className="rounded-md border bg-background/60 p-3">
-                  <div className="flex items-center gap-2 font-medium">
-                    <Icon className="h-4 w-4 text-primary" />
-                    {scene.title}
-                  </div>
-                  <p className="mt-1 text-sm leading-5 text-muted-foreground">{scene.flow}</p>
-                  <Badge className="mt-2" variant="outline">{scene.metric}</Badge>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <h2 className="font-semibold">7 天成功路径</h2>
-          <div className="mt-3 space-y-2">
-            {SEVEN_DAY_SUCCESS_PATH.map((step) => (
-              <div key={step} className="flex gap-2 rounded-md border bg-background/60 p-3 text-sm leading-5">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                <span>{step}</span>
               </div>
-            ))}
-          </div>
-        </div>
+            </section>
 
-        <div id="demo-space" className="rounded-lg border bg-card p-4 shadow-sm">
-          <h2 className="font-semibold">科学仪器 Demo 空间</h2>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            售前演示不从空库开始，而是从一套能讲完整闭环的行业样板间开始。
-          </p>
-          <div className="mt-3 space-y-3">
-            {DEMO_WORKSPACE_ARTIFACTS.map((artifact) => (
-              <div key={artifact.title} className="rounded-md border bg-background/60 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{artifact.title}</span>
-                  <Badge variant="secondary">{artifact.count}</Badge>
+            <section className="rounded-lg border bg-background">
+              <div className="flex flex-col gap-3 border-b px-4 py-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="font-semibold">Agent 发布路径</h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">每次变更都经过定义、验证、审阅和灰度</p>
                 </div>
-                <p className="mt-1 text-sm leading-5 text-muted-foreground">{artifact.example}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold">行业 Agent 模板库</h2>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/industry-knowledge">打开行业资产</Link>
-            </Button>
-          </div>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {AGENT_TEMPLATES.map((template) => (
-              <div key={template.id} className="rounded-md border bg-background/60 p-3">
-                <div className="font-medium">{template.title}</div>
-                <p className="mt-1 text-sm leading-5 text-muted-foreground">{template.scenario}</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {template.installs.map((item) => (
-                    <span key={item} className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-                <Button className="mt-3" size="sm" variant="ghost" onClick={() => triggerAI(template.aiPrompt)}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  生成安装方案
+                <Button size="sm" onClick={() => setActiveTab('release')}>
+                  开始发布<ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="grid gap-px bg-border md:grid-cols-4">
+                {RELEASE_STEPS.map((step, index) => {
+                  const Icon = step.icon;
+                  return (
+                    <div key={step.label} className="flex items-center gap-3 bg-background px-4 py-4">
+                      <div className={cn('flex h-8 w-8 items-center justify-center rounded-md', index === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div><div className="text-xs text-muted-foreground">步骤 {index + 1}</div><div className="text-sm font-medium">{step.label}</div></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
 
-        <div id="role-workbench" className="rounded-lg border bg-card p-4 shadow-sm">
-          <h2 className="font-semibold">角色化作战台</h2>
-          <div className="mt-3 space-y-3">
-            {ROLE_WORKBENCH_PROFILES.map((profile) => (
-              <div key={profile.role} className="rounded-md border bg-background/60 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium">{profile.role}</span>
-                  <span className="text-xs text-muted-foreground">{profile.focus}</span>
+            <section id="demo-space" className="rounded-lg border bg-background">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <div>
+                  <h2 className="font-semibold">科学仪器 Demo 空间</h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">用于售前演示与新团队练习</p>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {profile.firstScreen.map((item) => (
-                    <span key={item} className="rounded-full bg-muted px-2 py-0.5 text-xs">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-                <Button className="mt-3" size="sm" variant="ghost" onClick={() => triggerAI(profile.aiDefault)}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  使用默认 AI
+                <Button variant="ghost" size="sm" onClick={() => triggerAI('启动科学仪器销售 Demo：从客户线索开始，依次展示竞品战卡、投标分析和跟进闭环。')}>
+                  启动演示<PlayCircle className="ml-2 h-4 w-4" />
                 </Button>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+              <div className="grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+                {DEMO_WORKSPACE_ARTIFACTS.map((artifact) => (
+                  <div key={artifact.title} className="px-4 py-3">
+                    <div className="text-xl font-semibold">{artifact.count}</div>
+                    <div className="text-sm font-medium">{artifact.title}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </TabsContent>
 
-      <section className="rounded-lg border bg-card p-4 shadow-sm">
-        <h2 className="font-semibold">事件驱动 Agent 触发蓝图</h2>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {EVENT_TRIGGER_BLUEPRINTS.map((trigger) => (
-            <div key={trigger} className="rounded-md border bg-background/60 p-3 text-sm leading-6">
-              {trigger}
-            </div>
-          ))}
-        </div>
-      </section>
+          <TabsContent value="release" className="mt-4">
+            <section className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-lg border bg-background">
+                <div className="border-b px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">1</span>
+                    <h2 className="font-semibold">SOP → AOP 自然语言定义器</h2>
+                  </div>
+                  <p className="mt-1 pl-8 text-xs text-muted-foreground">粘贴业务规则，生成触发器、工具链和安全边界</p>
+                </div>
+                <div className="p-4">
+                  <Textarea className="min-h-40 resize-y text-sm leading-6" value={sopInput} onChange={(event) => setSopInput(event.target.value)} aria-label="Agent SOP" />
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-xs text-muted-foreground">模式：受控自动化</span>
+                    <Button onClick={defineAgent} disabled={agentDefinition.isPending}>
+                      {agentDefinition.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                      生成 Agent 定义
+                    </Button>
+                  </div>
+                  {agentDefinition.data && (
+                    <div className="mt-4 border-t pt-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge>{agentDefinition.data.scenario}</Badge>
+                        <Badge variant="outline">置信度 {formatPercent(agentDefinition.data.confidence)}</Badge>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div><div className="text-xs text-muted-foreground">触发规则</div><div className="mt-1 text-lg font-semibold">{agentDefinition.data.intent_rules.length}</div></div>
+                        <div><div className="text-xs text-muted-foreground">工具</div><div className="mt-1 text-lg font-semibold">{agentDefinition.data.tools.length}</div></div>
+                        <div><div className="text-xs text-muted-foreground">测试用例</div><div className="mt-1 text-lg font-semibold">{agentDefinition.data.test_cases.length}</div></div>
+                      </div>
+                      <div className="mt-4">
+                        <div className="text-sm font-medium">触发规则</div>
+                        <div className="mt-2 divide-y rounded-md border">
+                          {agentDefinition.data.intent_rules.slice(0, 3).map((rule) => (
+                            <div key={rule.name} className="flex items-start gap-2 px-3 py-2 text-sm">
+                              <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>{rule.trigger}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-background">
+                <div className="border-b px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-semibold">2</span>
+                    <h2 className="font-semibold">Agent 仿真沙盒</h2>
+                  </div>
+                  <p className="mt-1 pl-8 text-xs text-muted-foreground">用历史消息验证自动化边界与风险</p>
+                </div>
+                <div className="p-4">
+                  <Textarea className="min-h-40 resize-y text-sm leading-6" value={simulationInput} onChange={(event) => setSimulationInput(event.target.value)} aria-label="仿真消息" />
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-xs text-muted-foreground">每行一条测试消息</span>
+                    <Button onClick={runSimulation} disabled={simulation.isPending}>
+                      {simulation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                      运行仿真
+                    </Button>
+                  </div>
+                  {simulation.data && (
+                    <div className="mt-4 border-t pt-4">
+                      <div className="grid grid-cols-3 gap-3">
+                        <div><div className="text-xs text-muted-foreground">样例</div><div className="mt-1 text-lg font-semibold">{simulation.data.summary.case_count}</div></div>
+                        <div><div className="text-xs text-muted-foreground">自动化率</div><div className="mt-1 text-lg font-semibold">{formatPercent(simulation.data.summary.automation_rate)}</div></div>
+                        <div><div className="text-xs text-muted-foreground">人工确认</div><div className="mt-1 text-lg font-semibold">{formatPercent(simulation.data.summary.hitl_rate)}</div></div>
+                      </div>
+                      <div className="mt-4 divide-y rounded-md border">
+                        {simulation.data.cases.slice(0, 3).map((item) => (
+                          <div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 px-3 py-2">
+                            <div className="min-w-0"><div className="truncate text-sm font-medium">{item.message}</div><div className="mt-0.5 text-xs text-muted-foreground">{item.detected_intent} · 风险 {item.risk_score}</div></div>
+                            <Badge variant={item.candidate.mode === 'auto' ? 'default' : 'secondary'}>{item.candidate.mode === 'auto' ? '自动' : '确认'}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="operations" className="mt-4">
+            <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-lg border bg-background">
+                <div className="flex items-center justify-between border-b px-4 py-3">
+                  <div><h2 className="font-semibold">真实运营数据</h2><p className="mt-0.5 text-xs text-muted-foreground">最近 Agent 运行与行动闭环</p></div>
+                  <Badge variant="outline">近 30 天</Badge>
+                </div>
+                <div className="grid grid-cols-4 border-b text-center">
+                  {[
+                    ['完成', overview.data?.agent.completed ?? 0],
+                    ['失败', overview.data?.agent.failed ?? 0],
+                    ['采纳', overview.data?.actions.accepted ?? 0],
+                    ['忽略', overview.data?.actions.ignored ?? 0],
+                  ].map(([label, value]) => <div key={String(label)} className="border-r px-2 py-3 last:border-r-0"><div className="text-lg font-semibold">{value}</div><div className="text-xs text-muted-foreground">{label}</div></div>)}
+                </div>
+                <div className="divide-y">
+                  {(overview.data?.recent_runs ?? []).slice(0, 8).map((run) => (
+                    <div key={run.id || run.run_id} className="flex items-center gap-3 px-4 py-3">
+                      <span className={cn('flex h-8 w-8 items-center justify-center rounded-md', statusTone(run.status))}><Bot className="h-4 w-4" /></span>
+                      <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{run.input_summary || run.run_id || '未命名运行'}</div><div className="mt-0.5 text-xs text-muted-foreground">{run.updated_at || '时间未记录'}</div></div>
+                      <Badge variant="outline">{run.status || 'unknown'}</Badge>
+                    </div>
+                  ))}
+                  {!overview.data?.recent_runs?.length && <div className="px-4 py-10 text-center text-sm text-muted-foreground">暂无运行记录</div>}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-background">
+                  <div className="flex items-center gap-2 border-b px-4 py-3"><Network className="h-4 w-4 text-primary" /><h2 className="font-semibold">Context Graph</h2></div>
+                  <div className="grid grid-cols-2 border-b text-center"><div className="border-r p-3"><div className="text-xl font-semibold">{overview.data?.graph.summary.node_count ?? 0}</div><div className="text-xs text-muted-foreground">实体节点</div></div><div className="p-3"><div className="text-xl font-semibold">{overview.data?.graph.summary.edge_count ?? 0}</div><div className="text-xs text-muted-foreground">业务关系</div></div></div>
+                  <div className="flex flex-wrap gap-2 p-4">
+                    {Object.entries(overview.data?.graph.summary.entity_counts ?? {}).slice(0, 8).map(([key, value]) => <Badge key={key} variant="secondary">{key} {value}</Badge>)}
+                    {!Object.keys(overview.data?.graph.summary.entity_counts ?? {}).length && <span className="text-sm text-muted-foreground">导入客户、项目和合同后生成关系图谱。</span>}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-background">
+                  <div className="flex items-center gap-2 border-b px-4 py-3"><GitBranch className="h-4 w-4 text-primary" /><h2 className="font-semibold">自主行动策略</h2></div>
+                  <div className="divide-y">
+                    {AUTONOMOUS_ACTION_POLICIES.map((policy) => <div key={policy.level} className="px-4 py-3"><div className="flex items-center justify-between"><span className="text-sm font-medium">{policy.level}</span><ChevronRight className="h-4 w-4 text-muted-foreground" /></div><div className="mt-1 text-xs text-muted-foreground">{policy.scope}</div></div>)}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="library" className="mt-4 space-y-4">
+            <section className="rounded-lg border bg-background">
+              <div className="flex items-center gap-2 border-b px-4 py-3"><Library className="h-4 w-4 text-primary" /><h2 className="font-semibold">Agent 模板</h2></div>
+              <div className="grid gap-px bg-border md:grid-cols-2">
+                {AGENT_TEMPLATES.map((template) => (
+                  <button key={template.id} type="button" className="flex items-center gap-3 bg-background px-4 py-4 text-left hover:bg-muted/40" onClick={() => triggerAI(template.aiPrompt)}>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Bot className="h-4 w-4" /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{template.title}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{template.outcomeMetric}</span></span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-lg border bg-background">
+                <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">能力地图</h2><Badge variant="secondary">P0-P6</Badge></div>
+                <div className="divide-y">
+                  {AI_OPERATING_CAPABILITIES.map((item) => {
+                    const Icon = item.icon;
+                    return <div key={item.title} className="grid grid-cols-[36px_1fr_auto] items-center gap-3 px-4 py-3"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted"><Icon className="h-4 w-4" /></span><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{item.title}</span><Badge variant="outline" className="h-5 px-1.5 text-[10px]">{item.priority}</Badge></div><div className="mt-0.5 truncate text-xs text-muted-foreground">{item.owner} · {item.status === 'live' ? '已上线' : item.status === 'ready' ? '可配置' : '规划中'}</div></div><Button asChild variant="ghost" size="icon" title={`打开${item.title}`}><Link to={item.href}><ArrowRight className="h-4 w-4" /></Link></Button></div>;
+                  })}
+                </div>
+              </div>
+              <div className="rounded-lg border bg-background">
+                <div className="flex items-center gap-2 border-b px-4 py-3"><Clock3 className="h-4 w-4 text-primary" /><h2 className="font-semibold">事件触发器</h2></div>
+                <div className="divide-y">
+                  {EVENT_TRIGGER_BLUEPRINTS.map((trigger, index) => <div key={trigger} className="flex items-start gap-3 px-4 py-3"><span className="mt-0.5 text-xs font-semibold text-primary">{String(index + 1).padStart(2, '0')}</span><span className="text-sm leading-5">{trigger}</span></div>)}
+                </div>
+              </div>
+            </section>
+          </TabsContent>
+        </Tabs>
+      </div>
     </main>
   );
 }
