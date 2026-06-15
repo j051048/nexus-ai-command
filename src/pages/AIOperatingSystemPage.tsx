@@ -531,7 +531,7 @@ export default function AIOperatingSystemPage() {
                 </div>
               </div>
               <div className="rounded-lg border bg-background">
-                <div className="flex items-center gap-2 border-b px-4 py-3"><Clock3 className="h-4 w-4 text-primary" /><h2 className="font-semibold">事件触发器</h2></div>
+                <div className="flex items-center gap-2 border-b px-4 py-3"><Clock3 className="h-4 w-4 text-primary" /><h2 className="font-semibold">事件驱动 Agent 触发蓝图</h2></div>
                 <div className="divide-y">
                   {EVENT_TRIGGER_BLUEPRINTS.map((trigger, index) => <div key={trigger} className="flex items-start gap-3 px-4 py-3"><span className="mt-0.5 text-xs font-semibold text-primary">{String(index + 1).padStart(2, '0')}</span><span className="text-sm leading-5">{trigger}</span></div>)}
                 </div>
