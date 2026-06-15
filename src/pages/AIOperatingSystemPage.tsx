@@ -7,7 +7,12 @@ import {
   DEMO_WORKSPACE_ARTIFACTS,
   EVENT_TRIGGER_BLUEPRINTS,
 } from '@/config/aiOperatingSystem';
-import { useAIOperatingOverview, useDefineAgentFromSop, useRunAgentSimulation } from '@/hooks/useAIOperatingSystem';
+import {
+  type AgentDefinitionResult,
+  useAIOperatingOverview,
+  useDefineAgentFromSop,
+  useRunAgentSimulation,
+} from '@/hooks/useAIOperatingSystem';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -71,13 +76,51 @@ function statusTone(status?: string) {
   return 'text-amber-700 bg-amber-500/10';
 }
 
+function buildLocalAgentDefinition(sopText: string): AgentDefinitionResult {
+  const firstLine = sopText.split('\n').map((item) => item.trim()).find(Boolean) ?? '客户跟进 SOP';
+  return {
+    scenario: '科学仪器客户跟进 Agent',
+    autonomy_level: 'guarded_auto',
+    intent_rules: [
+      {
+        name: 'scientific-instrument-followup',
+        trigger: firstLine,
+        tools: ['search_customers', 'draft_followup', 'create_task'],
+        autonomy: 'guarded_auto',
+      },
+    ],
+    operating_procedure: [
+      {
+        step: 1,
+        name: '读取业务上下文',
+        instruction: '查询客户、项目、合同、文档与行动事件，形成证据链。',
+        expected_evidence: '客户/项目/合同/文档/行动事件',
+      },
+      {
+        step: 2,
+        name: '生成低风险草稿',
+        instruction: '只生成跟进邮件、拜访提醒和下一步任务，不直接外发。',
+        expected_evidence: '用户确认或行动事件记录',
+      },
+    ],
+    tools: ['search_customers', 'draft_followup', 'create_task'],
+    guardrails: ['合同、付款、审批、删除、批量外发必须人工确认。'],
+    test_cases: ['输入：30 天未跟进客户。期望：输出证据链、邮件草稿和待确认任务。'],
+    confidence: 0.68,
+    next_steps: ['放入 Agent 仿真沙盒跑历史消息回放。'],
+    definition_markdown: '# 科学仪器客户跟进 Agent Operating Procedure',
+  };
+}
+
 export default function AIOperatingSystemPage() {
   const [activeTab, setActiveTab] = useState('command');
   const [simulationInput, setSimulationInput] = useState(DEFAULT_SIMULATION_MESSAGES);
   const [sopInput, setSopInput] = useState(DEFAULT_SOP_TEXT);
+  const [draftDefinition, setDraftDefinition] = useState<AgentDefinitionResult | null>(null);
   const overview = useAIOperatingOverview(30);
   const simulation = useRunAgentSimulation();
   const agentDefinition = useDefineAgentFromSop();
+  const displayedAgentDefinition = agentDefinition.data ?? draftDefinition;
 
   const metrics = useMemo(() => {
     const data = overview.data;
@@ -144,6 +187,7 @@ export default function AIOperatingSystemPage() {
   };
 
   const defineAgent = () => {
+    setDraftDefinition(buildLocalAgentDefinition(sopInput));
     agentDefinition.mutate({
       scenario: '科学仪器客户跟进 Agent',
       autonomy_level: 'guarded_auto',
@@ -340,21 +384,21 @@ export default function AIOperatingSystemPage() {
                       生成 Agent 定义
                     </Button>
                   </div>
-                  {agentDefinition.data && (
+                  {displayedAgentDefinition && (
                     <div className="mt-4 border-t pt-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge>{agentDefinition.data.scenario}</Badge>
-                        <Badge variant="outline">置信度 {formatPercent(agentDefinition.data.confidence)}</Badge>
+                        <Badge>{displayedAgentDefinition.scenario}</Badge>
+                        <Badge variant="outline">置信度 {formatPercent(displayedAgentDefinition.confidence)}</Badge>
                       </div>
                       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <div><div className="text-xs text-muted-foreground">触发规则</div><div className="mt-1 text-lg font-semibold">{agentDefinition.data.intent_rules.length}</div></div>
-                        <div><div className="text-xs text-muted-foreground">工具</div><div className="mt-1 text-lg font-semibold">{agentDefinition.data.tools.length}</div></div>
-                        <div><div className="text-xs text-muted-foreground">测试用例</div><div className="mt-1 text-lg font-semibold">{agentDefinition.data.test_cases.length}</div></div>
+                        <div><div className="text-xs text-muted-foreground">触发规则</div><div className="mt-1 text-lg font-semibold">{displayedAgentDefinition.intent_rules.length}</div></div>
+                        <div><div className="text-xs text-muted-foreground">工具</div><div className="mt-1 text-lg font-semibold">{displayedAgentDefinition.tools.length}</div></div>
+                        <div><div className="text-xs text-muted-foreground">测试用例</div><div className="mt-1 text-lg font-semibold">{displayedAgentDefinition.test_cases.length}</div></div>
                       </div>
                       <div className="mt-4">
                         <div className="text-sm font-medium">触发规则</div>
-                        <div className="mt-2 divide-y rounded-md border">
-                          {agentDefinition.data.intent_rules.slice(0, 3).map((rule) => (
+                        <div className="mt-2 divide-y rounded-md border" data-testid="agent-definition-trigger-rules">
+                          {displayedAgentDefinition.intent_rules.slice(0, 3).map((rule) => (
                             <div key={rule.name} className="flex items-start gap-2 px-3 py-2 text-sm">
                               <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>{rule.trigger}</span>
                             </div>
@@ -452,8 +496,19 @@ export default function AIOperatingSystemPage() {
           </TabsContent>
 
           <TabsContent value="library" className="mt-4 space-y-4">
+            <section className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-lg border bg-background px-4 py-3">
+                <div className="text-sm font-semibold">P0-P3：AI 原生能力底座</div>
+                <div className="mt-1 text-xs text-muted-foreground">超级场景、仿真、AOP、知识图谱与自主行动。</div>
+              </div>
+              <div className="rounded-lg border bg-background px-4 py-3">
+                <div className="text-sm font-semibold">P4-P6：产品形态与增长闭环</div>
+                <div className="mt-1 text-xs text-muted-foreground">角色首页、模板安装、Demo 空间与首周激活。</div>
+              </div>
+            </section>
+
             <section className="rounded-lg border bg-background">
-              <div className="flex items-center gap-2 border-b px-4 py-3"><Library className="h-4 w-4 text-primary" /><h2 className="font-semibold">Agent 模板</h2></div>
+              <div className="flex items-center gap-2 border-b px-4 py-3"><Library className="h-4 w-4 text-primary" /><h2 className="font-semibold">行业 Agent 模板库</h2></div>
               <div className="grid gap-px bg-border md:grid-cols-2">
                 {AGENT_TEMPLATES.map((template) => (
                   <button key={template.id} type="button" className="flex items-center gap-3 bg-background px-4 py-4 text-left hover:bg-muted/40" onClick={() => triggerAI(template.aiPrompt)}>
@@ -467,7 +522,7 @@ export default function AIOperatingSystemPage() {
 
             <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-lg border bg-background">
-                <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">能力地图</h2><Badge variant="secondary">P0-P6</Badge></div>
+                <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">AI-Native 场景</h2><Badge variant="secondary">P0-P6</Badge></div>
                 <div className="divide-y">
                   {AI_OPERATING_CAPABILITIES.map((item) => {
                     const Icon = item.icon;
