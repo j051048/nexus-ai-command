@@ -94,7 +94,9 @@ class PluginMarketplaceService:
             "rating": None,
             "metadata_source": "builtin",
             "config_schema": {
-                "recipients": _field("text", "收件人", required=True, placeholder="多个邮箱用逗号分隔"),
+                "recipients": _field(
+                    "text", "收件人", required=True, placeholder="多个邮箱用逗号分隔"
+                ),
                 "send_time": _field("text", "发送时间", placeholder="18:00"),
             },
         },
@@ -143,7 +145,9 @@ class PluginMarketplaceService:
             "rating": None,
             "metadata_source": "builtin",
             "config_schema": {
-                "report_type": _field("text", "默认报表类型", placeholder="weekly/monthly"),
+                "report_type": _field(
+                    "text", "默认报表类型", placeholder="weekly/monthly"
+                ),
             },
         },
         {
@@ -264,11 +268,16 @@ class PluginMarketplaceService:
             "connection_status": "configured",
         }
 
-    async def uninstall_plugin(self, org_id: str, plugin_id: str, db: Any = None) -> bool:
+    async def uninstall_plugin(
+        self, org_id: str, plugin_id: str, db: Any = None
+    ) -> bool:
         self._require_plugin(plugin_id)
         if db:
             await self._execute(
-                db.table("installed_plugins").delete().eq("organization_id", org_id).eq("plugin_id", plugin_id)
+                db.table("installed_plugins")
+                .delete()
+                .eq("organization_id", org_id)
+                .eq("plugin_id", plugin_id)
             )
             logger.info("Plugin %s uninstalled for org %s", plugin_id, org_id)
         return True
@@ -297,14 +306,19 @@ class PluginMarketplaceService:
             "connection_status": "configured",
         }
 
-    async def get_installed_plugins(self, org_id: str, db: Any = None) -> list[dict[str, Any]]:
+    async def get_installed_plugins(
+        self, org_id: str, db: Any = None
+    ) -> list[dict[str, Any]]:
         installed: list[dict[str, Any]] = []
         if not db:
             return installed
 
         try:
             result = await self._execute(
-                db.table("installed_plugins").select("*").eq("organization_id", org_id).eq("is_active", True)
+                db.table("installed_plugins")
+                .select("*")
+                .eq("organization_id", org_id)
+                .eq("is_active", True)
             )
             for row in result.data or []:
                 plugin = self._plugin_map.get(row["plugin_id"])
@@ -330,7 +344,9 @@ class PluginMarketplaceService:
             raise ValueError(f"插件不存在: {plugin_id}")
         return dict(plugin)
 
-    def _validate_config(self, plugin: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    def _validate_config(
+        self, plugin: dict[str, Any], config: dict[str, Any]
+    ) -> dict[str, Any]:
         schema = plugin.get("config_schema") or {}
         cleaned: dict[str, Any] = {}
         for key, field_def in schema.items():
@@ -345,11 +361,15 @@ class PluginMarketplaceService:
                     "webhook_url",
                 }:
                     if not str(value).startswith(("https://", "http://")):
-                        raise ValueError(f"{field_def.get('label', key)} 必须是 http(s) 地址")
+                        raise ValueError(
+                            f"{field_def.get('label', key)} 必须是 http(s) 地址"
+                        )
                 cleaned[key] = value
         return cleaned
 
-    def _connection_status(self, plugin: dict[str, Any], install_row: dict[str, Any] | None) -> str:
+    def _connection_status(
+        self, plugin: dict[str, Any], install_row: dict[str, Any] | None
+    ) -> str:
         if not install_row:
             return "not_installed"
         config = install_row.get("config") or {}
