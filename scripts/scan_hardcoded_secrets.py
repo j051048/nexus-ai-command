@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 import re
-import sys
+import subprocess
 from pathlib import Path
 
 
@@ -65,6 +65,11 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ),
 ]
 
+FORBIDDEN_TRACKED_PATHS = {
+    ".codex/config.toml",
+    ".mcp.json",
+}
+
 
 def _should_skip(path: Path) -> bool:
     if any(part in SKIP_DIRS for part in path.parts):
@@ -85,8 +90,26 @@ def _allowed(relative: Path, pattern_name: str, line: str) -> bool:
     return False
 
 
+def _tracked_forbidden_paths() -> list[str]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", *sorted(FORBIDDEN_TRACKED_PATHS)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return []
+    if result.returncode != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
 def main() -> int:
     findings: list[str] = []
+
+    for tracked_path in _tracked_forbidden_paths():
+        findings.append(f"{tracked_path}: tracked_local_secret_config")
 
     for current_root, dirs, files in os.walk(ROOT):
         dirs[:] = [name for name in dirs if name not in SKIP_DIRS]

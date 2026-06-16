@@ -79,6 +79,7 @@ htmlcov/
 .ruff_cache/
 
 # AI Tools
+.codex/
 .claude/
 .agent/
 
