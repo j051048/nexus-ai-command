@@ -14,7 +14,15 @@ from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.services.agent_operational_hardening import get_agent_operational_hardening
 from app.services.business_context_graph import build_business_context_graph
+from app.services.core_agent_runtime_v2 import get_core_agent_runtime_v2
+from app.services.enterprise_operating_foundation import (
+    get_enterprise_operating_foundation,
+)
+from app.services.erpnext_inspired_operating_model import (
+    get_erpnext_inspired_operating_model,
+)
 
 router = APIRouter(prefix="/api/ai-operating-system", tags=["AI Operating System"])
 
@@ -490,6 +498,65 @@ async def get_ai_context_graph(
         _db(request), org_id=org_id, user_id=user_id
     )
     return api_success(data=graph)
+
+
+@router.get("/erpnext-inspired-model")
+async def get_erpnext_inspired_model(
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    model = get_erpnext_inspired_operating_model()
+    return api_success(
+        data={
+            **model,
+            "requested_by": user_id,
+            "organization_id": org_id,
+        }
+    )
+
+
+@router.get("/enterprise-operating-foundation")
+async def get_enterprise_operating_foundation_model(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    trace_id = getattr(request.state, "trace_id", None)
+    return api_success(
+        data=get_enterprise_operating_foundation(
+            user_id=user_id,
+            organization_id=org_id,
+            trace_id=trace_id,
+        )
+    )
+
+
+@router.get("/core-agent-runtime-v2")
+async def get_core_agent_runtime_v2_model(
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    return api_success(
+        data={
+            **get_core_agent_runtime_v2(),
+            "requested_by": user_id,
+            "organization_id": org_id,
+        }
+    )
+
+
+@router.get("/agent-operational-hardening")
+async def get_agent_operational_hardening_model(
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
+):
+    return api_success(
+        data={
+            **get_agent_operational_hardening(),
+            "requested_by": user_id,
+            "organization_id": org_id,
+        }
+    )
 
 
 @router.post("/simulate")
