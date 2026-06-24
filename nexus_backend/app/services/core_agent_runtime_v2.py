@@ -223,7 +223,11 @@ SKILL_RUNTIME_MANIFESTS: list[dict[str, Any]] = [
         "when_to_use": "用户上传招标文件、评分标准或要求生成技术响应时。",
         "context_mode": "fork",
         "default_model": "deepseek-v4-flash",
-        "allowed_tools": ["parse_tender_document", "score_tender_response", "fill_template"],
+        "allowed_tools": [
+            "parse_tender_document",
+            "score_tender_response",
+            "fill_template",
+        ],
         "hooks": ["BeforeToolUse", "AfterToolUse", "RunStop"],
     },
     {
@@ -250,7 +254,11 @@ SKILL_RUNTIME_MANIFESTS: list[dict[str, Any]] = [
         "when_to_use": "用户要求生成销售、审批、Agent 行为或业务价值周报时。",
         "context_mode": "inline",
         "default_model": "deepseek-v4-flash",
-        "allowed_tools": ["generate_customer_360", "fill_template", "export_audit_packet"],
+        "allowed_tools": [
+            "generate_customer_360",
+            "fill_template",
+            "export_audit_packet",
+        ],
         "hooks": ["BeforeContextBuild", "RunStop"],
     },
 ]
@@ -311,22 +319,40 @@ def get_core_agent_runtime_v2() -> dict[str, Any]:
 
 def validate_core_agent_runtime_v2() -> dict[str, Any]:
     checks = {
-        "AgentRuntimeLoop": isinstance(build_initial_agent_runtime_loop_state(), AgentRuntimeLoopState),
+        "AgentRuntimeLoop": isinstance(
+            build_initial_agent_runtime_loop_state(), AgentRuntimeLoopState
+        ),
         "ToolLifecycleV2": all(
             stage in TOOL_LIFECYCLE_V2_STAGES
-            for stage in ["validate_input", "classify_risk", "check_permission", "summarize_for_context"]
+            for stage in [
+                "validate_input",
+                "classify_risk",
+                "check_permission",
+                "summarize_for_context",
+            ]
         ),
-        "DeferredToolSchema": DEFERRED_TOOL_SCHEMA_POLICY["full_schema_loaded_by"] == "ToolSearch",
+        "DeferredToolSchema": DEFERRED_TOOL_SCHEMA_POLICY["full_schema_loaded_by"]
+        == "ToolSearch",
         "AgentRecoveryPolicy": any(
-            policy["transition"] == "force_deepseek_v4_flash" for policy in AGENT_RECOVERY_POLICIES
+            policy["transition"] == "force_deepseek_v4_flash"
+            for policy in AGENT_RECOVERY_POLICIES
         ),
-        "PromptSectionRegistry": {item["cache_scope"] for item in PROMPT_SECTION_REGISTRY}
+        "PromptSectionRegistry": {
+            item["cache_scope"] for item in PROMPT_SECTION_REGISTRY
+        }
         >= {"global", "tenant", "session", "turn"},
-        "ContextCompressionPipeline": [item["stage"] for item in CONTEXT_COMPRESSION_PIPELINE]
+        "ContextCompressionPipeline": [
+            item["stage"] for item in CONTEXT_COMPRESSION_PIPELINE
+        ]
         == ["snip", "micro", "collapse", "auto_compact"],
-        "PermissionDecisionV2": {item["decision"] for item in PERMISSION_DECISION_V2_OUTCOMES}
+        "PermissionDecisionV2": {
+            item["decision"] for item in PERMISSION_DECISION_V2_OUTCOMES
+        }
         == {"allow", "ask", "deny", "passthrough"},
-        "SkillRuntime": all(skill["default_model"] == "deepseek-v4-flash" for skill in SKILL_RUNTIME_MANIFESTS),
+        "SkillRuntime": all(
+            skill["default_model"] == "deepseek-v4-flash"
+            for skill in SKILL_RUNTIME_MANIFESTS
+        ),
     }
     return {
         "passed": all(checks.values()),

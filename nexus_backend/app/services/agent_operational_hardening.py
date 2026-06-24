@@ -77,13 +77,21 @@ RUNTIME_V2_MAIN_CHAIN_ADOPTION: list[dict[str, Any]] = [
     {
         "chain": "LangGraph node_execute",
         "entrypoint": "app.agent.node_execute",
-        "required_fields": ["tool_lifecycle_stage", "permission_decision", "tool_summary"],
+        "required_fields": [
+            "tool_lifecycle_stage",
+            "permission_decision",
+            "tool_summary",
+        ],
         "rollout_state": "contract_ready",
     },
     {
         "chain": "SSE stream",
         "entrypoint": "app.agent.stream",
-        "required_fields": ["runtime_transition_event", "resume_cursor", "last_stable_state"],
+        "required_fields": [
+            "runtime_transition_event",
+            "resume_cursor",
+            "last_stable_state",
+        ],
         "rollout_state": "contract_ready",
     },
 ]
@@ -93,7 +101,11 @@ TOOL_LIFECYCLE_V2_ROLLOUT: list[dict[str, Any]] = [
         "phase": "read_only_tools",
         "tool_types": ["read_only"],
         "strategy": "parallel execution with schema summary",
-        "required_stages": ["validate_input", "check_permission", "summarize_for_context"],
+        "required_stages": [
+            "validate_input",
+            "check_permission",
+            "summarize_for_context",
+        ],
     },
     {
         "phase": "draft_tools",
@@ -105,26 +117,46 @@ TOOL_LIFECYCLE_V2_ROLLOUT: list[dict[str, Any]] = [
         "phase": "write_tools",
         "tool_types": ["write", "external"],
         "strategy": "serial execution gated by HITL and audit event",
-        "required_stages": ["classify_risk", "check_permission", "pre_tool_hook", "post_tool_hook"],
+        "required_stages": [
+            "classify_risk",
+            "check_permission",
+            "pre_tool_hook",
+            "post_tool_hook",
+        ],
     },
 ]
 
 DEFERRED_TOOL_SCHEMA_RUNTIME: dict[str, Any] = {
     "default_loaded_tool_count": 12,
-    "selection_inputs": ["user_intent", "current_route", "selected_records", "role", "enabled_apps"],
+    "selection_inputs": [
+        "user_intent",
+        "current_route",
+        "selected_records",
+        "role",
+        "enabled_apps",
+    ],
     "tool_search_contract": {
         "name": "ToolSearch",
         "returns": ["name", "description", "input_schema", "risk_level", "tool_type"],
         "max_results": 8,
     },
-    "success_metrics": ["tool_selection_accuracy", "prompt_token_reduction", "wrong_tool_rate"],
+    "success_metrics": [
+        "tool_selection_accuracy",
+        "prompt_token_reduction",
+        "wrong_tool_rate",
+    ],
 }
 
 CONTEXT_COMPRESSION_EVAL_CASES: list[dict[str, Any]] = [
     {
         "case": "long_customer_timeline",
         "compression_stage": "micro",
-        "must_preserve": ["customer_id", "last_contact_date", "next_action", "evidence_links"],
+        "must_preserve": [
+            "customer_id",
+            "last_contact_date",
+            "next_action",
+            "evidence_links",
+        ],
     },
     {
         "case": "large_tender_document",
@@ -134,7 +166,12 @@ CONTEXT_COMPRESSION_EVAL_CASES: list[dict[str, Any]] = [
     {
         "case": "multi_step_approval",
         "compression_stage": "auto_compact",
-        "must_preserve": ["approval_id", "decision_history", "hitl_status", "blocked_reason"],
+        "must_preserve": [
+            "approval_id",
+            "decision_history",
+            "hitl_status",
+            "blocked_reason",
+        ],
     },
 ]
 
@@ -143,7 +180,11 @@ SKILL_RUNTIME_ACTIVATION_RULES: list[dict[str, Any]] = [
         "skill": "scientific_instrument_bid_support",
         "signals": ["tender", "bid", "招标", "投标", "评分矩阵"],
         "context_mode": "fork",
-        "allowed_tools": ["parse_tender_document", "score_tender_response", "fill_template"],
+        "allowed_tools": [
+            "parse_tender_document",
+            "score_tender_response",
+            "fill_template",
+        ],
     },
     {
         "skill": "customer_churn_recovery",
@@ -161,7 +202,11 @@ SKILL_RUNTIME_ACTIVATION_RULES: list[dict[str, Any]] = [
         "skill": "weekly_business_report",
         "signals": ["周报", "业务价值", "Agent行为", "report"],
         "context_mode": "inline",
-        "allowed_tools": ["generate_customer_360", "fill_template", "export_audit_packet"],
+        "allowed_tools": [
+            "generate_customer_360",
+            "fill_template",
+            "export_audit_packet",
+        ],
     },
 ]
 
@@ -181,7 +226,11 @@ AGENT_REPLAY_BEHAVIOR_EVALS: list[dict[str, Any]] = [
     {
         "flow": "tender_support_replay",
         "input": "根据招标文件生成评分矩阵和技术响应草稿",
-        "expected_tools": ["parse_tender_document", "score_tender_response", "fill_template"],
+        "expected_tools": [
+            "parse_tender_document",
+            "score_tender_response",
+            "fill_template",
+        ],
         "expected_policy": "human_review_before_export",
     },
 ]
@@ -257,7 +306,9 @@ def enforce_model_policy(
 ) -> ModelPolicyDecision:
     normalized = (requested_model or "").strip()
     if environment == "production" and (
-        not normalized or normalized in EXPENSIVE_MODEL_DENYLIST or "gemini" in normalized.lower()
+        not normalized
+        or normalized in EXPENSIVE_MODEL_DENYLIST
+        or "gemini" in normalized.lower()
     ):
         return ModelPolicyDecision(
             requested_model=requested_model,
@@ -291,11 +342,15 @@ def select_skill_for_message(message: str) -> dict[str, Any] | None:
     return None
 
 
-def evaluate_compression_quality(preserved_keys: list[str], required_keys: list[str]) -> dict[str, Any]:
+def evaluate_compression_quality(
+    preserved_keys: list[str], required_keys: list[str]
+) -> dict[str, Any]:
     preserved = set(preserved_keys)
     required = set(required_keys)
     missing = sorted(required - preserved)
-    score = round((len(required) - len(missing)) / len(required), 4) if required else 1.0
+    score = (
+        round((len(required) - len(missing)) / len(required), 4) if required else 1.0
+    )
     return {
         "passed": score >= 0.9 and not missing,
         "quality_score": score,
@@ -325,9 +380,14 @@ def build_agent_run_replay_debugger_snapshot(
         "run_id": run_id,
         "prompt_sections": prompt_sections or [],
         "selected_tools": selected_tools or [],
-        "permission_decisions": [explain_permission_decision(decision) for decision in (permission_decisions or [])],
+        "permission_decisions": [
+            explain_permission_decision(decision)
+            for decision in (permission_decisions or [])
+        ],
         "compression_events": [],
-        "model_policy_decisions": [asdict(enforce_model_policy(None, source="agent_run_replay_debugger"))],
+        "model_policy_decisions": [
+            asdict(enforce_model_policy(None, source="agent_run_replay_debugger"))
+        ],
         "cost_estimate": {"model": LOW_COST_DEFAULT_MODEL, "estimated_usd": 0},
         "recovery_transitions": [],
         "final_answer": None,
@@ -367,24 +427,43 @@ def validate_agent_operational_hardening() -> dict[str, Any]:
     checks = {
         "runtime_v2_main_chain": len(RUNTIME_V2_MAIN_CHAIN_ADOPTION) >= 3,
         "tool_lifecycle_v2_rollout": all(
-            "check_permission" in phase["required_stages"] or phase["tool_types"] == ["draft_only"]
+            "check_permission" in phase["required_stages"]
+            or phase["tool_types"] == ["draft_only"]
             for phase in TOOL_LIFECYCLE_V2_ROLLOUT
         ),
-        "deferred_tool_schema_runtime": DEFERRED_TOOL_SCHEMA_RUNTIME["tool_search_contract"]["name"] == "ToolSearch",
-        "model_policy_enforcer": gemini_decision.resolved_model == LOW_COST_DEFAULT_MODEL
+        "deferred_tool_schema_runtime": DEFERRED_TOOL_SCHEMA_RUNTIME[
+            "tool_search_contract"
+        ]["name"]
+        == "ToolSearch",
+        "model_policy_enforcer": gemini_decision.resolved_model
+        == LOW_COST_DEFAULT_MODEL
         and gemini_decision.allowed is False,
-        "context_compression_eval": all(case["must_preserve"] for case in CONTEXT_COMPRESSION_EVAL_CASES),
-        "skill_runtime_activation": all(rule["allowed_tools"] for rule in SKILL_RUNTIME_ACTIVATION_RULES),
-        "agent_replay_behavior_eval": all(case["expected_tools"] for case in AGENT_REPLAY_BEHAVIOR_EVALS),
+        "context_compression_eval": all(
+            case["must_preserve"] for case in CONTEXT_COMPRESSION_EVAL_CASES
+        ),
+        "skill_runtime_activation": all(
+            rule["allowed_tools"] for rule in SKILL_RUNTIME_ACTIVATION_RULES
+        ),
+        "agent_replay_behavior_eval": all(
+            case["expected_tools"] for case in AGENT_REPLAY_BEHAVIOR_EVALS
+        ),
         "memory_write_governance": all(
             policy["write_policy"] == "deny"
             for policy in MEMORY_WRITE_GOVERNANCE
-            if policy["memory_type"] in {"sensitive_personal_data", "credential_or_secret"}
+            if policy["memory_type"]
+            in {"sensitive_personal_data", "credential_or_secret"}
         ),
-        "permission_decision_explainability": {item["decision"] for item in PERMISSION_DECISION_EXPLAINABILITY}
+        "permission_decision_explainability": {
+            item["decision"] for item in PERMISSION_DECISION_EXPLAINABILITY
+        }
         == {"allow", "ask", "deny", "passthrough"},
         "agent_run_replay_debugger": set(AGENT_RUN_REPLAY_DEBUGGER_FIELDS)
-        >= {"prompt_sections", "selected_tools", "permission_decisions", "model_policy_decisions"},
+        >= {
+            "prompt_sections",
+            "selected_tools",
+            "permission_decisions",
+            "model_policy_decisions",
+        },
     }
     return {
         "passed": all(checks.values()),

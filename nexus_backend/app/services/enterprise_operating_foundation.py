@@ -81,7 +81,11 @@ BUSINESS_APP_MANIFESTS: list[dict[str, Any]] = [
         "routes": ["/documents", "/reports"],
         "apis": ["/api/documents", "/api/reports"],
         "tables": ["documents", "reports", "knowledge_chunks"],
-        "agent_tools": ["fill_template", "generate_customer_360", "export_audit_packet"],
+        "agent_tools": [
+            "fill_template",
+            "generate_customer_360",
+            "export_audit_packet",
+        ],
         "demo_pack": "document_template_demo",
         "quality_gates": ["template_render_contract", "export_security_scan"],
     },
@@ -175,7 +179,13 @@ DOCUMENT_TEMPLATE_CENTER: list[dict[str, Any]] = [
     {
         "key": "customer_360_pdf",
         "title": "客户 360 PDF",
-        "source_objects": ["customer", "contact", "project", "contract", "action_event"],
+        "source_objects": [
+            "customer",
+            "contact",
+            "project",
+            "contract",
+            "action_event",
+        ],
         "output_formats": ["pdf", "docx"],
         "requires_human_review": False,
     },
@@ -224,7 +234,11 @@ def build_nexus_execution_context(
         role=role,
         trace_id=trace_id,
         allowed_apps=allowed_apps
-        or [manifest["key"] for manifest in BUSINESS_APP_MANIFESTS if manifest["key"] != "document_template_center"],
+        or [
+            manifest["key"]
+            for manifest in BUSINESS_APP_MANIFESTS
+            if manifest["key"] != "document_template_center"
+        ],
     )
 
 
@@ -260,12 +274,15 @@ def get_enterprise_operating_foundation(
 
 def validate_enterprise_operating_foundation() -> dict[str, Any]:
     high_risk_without_hitl = [
-        action["key"] for action in AI_SERVER_ACTIONS if action["risk_level"] == "high" and not action["requires_hitl"]
+        action["key"]
+        for action in AI_SERVER_ACTIONS
+        if action["risk_level"] == "high" and not action["requires_hitl"]
     ]
     prompt_policy_leaks = [
         policy["model"] + "." + policy["field"]
         for policy in FIELD_PROMPT_POLICIES
-        if policy["classification"] in {"credential", "financial_secret"} and policy["prompt_visibility"] != "blocked"
+        if policy["classification"] in {"credential", "financial_secret"}
+        and policy["prompt_visibility"] != "blocked"
     ]
     incomplete_manifests = [
         manifest["key"]
