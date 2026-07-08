@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AIOperatingSystemStrip } from '@/components/product/AIOperatingSystemStrip';
+import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AITrustBadge, type AITrustLevel } from '@/components/ai/AITrustBadge';
 import { WorkEmptyState, WorkErrorState, WorkLoadingState } from '@/components/common/WorkState';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -130,18 +131,19 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
   if (!nextItem) return null;
 
   return (
-    <section className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+    <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Sparkles className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">建议先处理：{nextItem.title}</div>
+            <div className="truncate text-sm font-medium">今日行动台 · 建议先处理：{nextItem.title}</div>
             <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>{items.length} 个待处理</span>
               <span>{urgent.length} 个紧急</span>
               <span>{crmRisk.length} 个客户风险</span>
+              <span>基于 AI 证据链排序</span>
             </div>
           </div>
         </div>
@@ -466,7 +468,7 @@ export default function InboxPage() {
                           <div className="grid gap-2 text-xs md:grid-cols-2">
                             {evidence.length > 0 && (
                               <div className="space-y-1.5">
-                                <div className="font-medium text-foreground">证据</div>
+                                <div className="font-medium text-foreground">AI 证据链</div>
                                 {evidence.map((entry) => (
                                   <div key={`${item.id}-${entry.label}`} className="flex gap-2">
                                     <span className="shrink-0 text-muted-foreground">{entry.label}:</span>

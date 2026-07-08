@@ -41,6 +41,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AITrustBadge } from '@/components/ai/AITrustBadge';
+import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 
 // 合同类型
 const CONTRACT_TYPES: Record<string, string> = {
@@ -109,7 +110,7 @@ function ContractAIInsightLayer({ contracts }: { contracts: Contract[] }) {
   const trustLevel = expiring.length > 0 || pendingReview.length > 0 ? 'medium' : 'high';
   const nextContract = expiring[0] || pendingReview[0] || highValue[0] || contracts[0];
 
-  const nextTitle = nextContract ? `下一步合同动作：${nextContract.title}` : '下一步合同动作';
+  const nextTitle = nextContract ? `下一步合同动作：${nextContract.title}` : 'AI 合同风控摘要';
   const nextReason = expiring[0]
     ? `${expiring[0].title} 30 天内到期，建议确认续签、回款和客户负责人。`
     : pendingReview[0]

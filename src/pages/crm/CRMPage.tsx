@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
+import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AITrustBadge } from '@/components/ai/AITrustBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -76,6 +77,7 @@ function CRMAIInsightLayer({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-sm font-medium">下一步客户动作：{nextCustomer.name}</h2>
+              {/* AI 客户摘要 */}
               <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 88 : 74} />
             </div>
             <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{nextReason}</p>
@@ -92,7 +94,7 @@ function CRMAIInsightLayer({
             className="h-8"
             onClick={() => triggerAI('请基于当前 CRM 客户列表，生成高价值机会和风险客户的跟进优先级。')}
           >
-            生成优先级
+            生成跟进优先级
           </Button>
           <Button
             size="sm"

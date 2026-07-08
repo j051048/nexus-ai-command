@@ -6,6 +6,11 @@ function triggerAI(prompt: string) {
   window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
 }
 
+/**
+ * AI 作战操作系统首屏引导条。
+ *
+ * 核心能力入口：VMD 超级场景、Agent 生命周期管理、业务上下文层。
+ */
 export function AIOperatingSystemStrip() {
   return (
     <section className="rounded-lg border bg-muted/20 px-3 py-2.5">
@@ -13,16 +18,16 @@ export function AIOperatingSystemStrip() {
         <div className="flex min-w-0 items-center gap-2.5">
           <Sparkles className="h-4 w-4 shrink-0 text-primary" />
           <div className="min-w-0">
-            <h2 className="text-sm font-medium">AI 作战系统</h2>
+            <h2 className="text-sm font-medium">AI 作战操作系统</h2>
             <p className="truncate text-xs text-muted-foreground">
-              VMD、Agent 仿真、SOP→AOP 和业务知识图谱都在这里。
+              VMD 超级场景、Agent 生命周期、业务上下文层和 SOP→AOP 都在这里。
             </p>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button asChild size="sm" variant="outline" className="h-8">
             <Link to="/ai-operating-system">
-              打开
+              打开作战系统
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>

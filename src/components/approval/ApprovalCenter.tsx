@@ -18,6 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
 import { AITrustBadge } from '@/components/ai/AITrustBadge';
+import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 
 function triggerAI(prompt: string) {
@@ -55,6 +56,7 @@ function ApprovalAIRiskPanel({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-sm font-medium">下一步审批动作</h2>
+              {/* AI 审批风控建议 */}
               <AITrustBadge level={trustLevel} score={score} />
             </div>
             <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{summary}</p>
