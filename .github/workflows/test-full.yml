@@ -91,6 +91,14 @@ jobs:
             --no-strict-optional \
             --follow-imports=skip \
             --show-error-codes
+      - name: QA last-mile contracts
+        working-directory: ${{ github.workspace }}
+        env:
+          RUN_REAL_STAGING_GOLDEN_PATHS: "0"
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          STAGING_TEST_TOKEN: ${{ secrets.STAGING_TEST_TOKEN }}
+          STAGING_ORG_ID: ${{ secrets.STAGING_ORG_ID }}
+        run: python scripts/qa_last_mile_gate.py
 
   supply-chain-security:
     name: "0C. Supply Chain and Secret Scan"
@@ -121,6 +129,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=critical
       - name: Hardcoded secret pattern scan
         run: python scripts/scan_hardcoded_secrets.py
+      - name: Security severity policy gate
+        run: python scripts/security_severity_gate.py
       - name: Trivy critical filesystem gate
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -479,6 +489,11 @@ jobs:
         run: npx playwright test --project=chromium
         env:
           E2E_MODE: full
+      - name: Run visual regression snapshots
+        if: ${{ vars.RUN_VISUAL_REGRESSION == 'true' }}
+        run: npx playwright test e2e/visual-regression.spec.ts --project=chromium
+        env:
+          RUN_VISUAL_REGRESSION: "1"
 
       - uses: actions/upload-artifact@v4
         if: always()

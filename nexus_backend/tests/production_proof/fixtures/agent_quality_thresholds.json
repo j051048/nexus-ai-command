@@ -1,0 +1,26 @@
+{
+  "version": "agent-quality-thresholds-v1",
+  "dataset": "agent-eval-200",
+  "thresholds": {
+    "intent_accuracy_min": 0.78,
+    "tool_selection_accuracy_min": 0.8,
+    "groundedness_min": 0.82,
+    "tenant_context_accuracy_min": 0.95,
+    "cost_regression_max_pct": 10,
+    "latency_regression_max_pct": 20
+  },
+  "ci_policy": {
+    "fail_on": [
+      "intent_accuracy_below_min",
+      "tool_selection_accuracy_below_min",
+      "tenant_context_regression",
+      "cost_regression_above_max",
+      "latency_regression_above_max"
+    ],
+    "report_only": [
+      "style_score",
+      "tone_consistency",
+      "evidence_density"
+    ]
+  }
+}

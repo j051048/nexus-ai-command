@@ -274,6 +274,17 @@ CHECKS = [
         ),
     ),
     ProofCheck(
+        "QA last-mile contract",
+        "nexus_backend/tests/production_proof/test_qa_last_mile_contract.py",
+        (
+            "qa_last_mile_gate.py",
+            "security_severity_gate.py",
+            "visual-regression.spec.ts",
+            "agent_quality_thresholds",
+            "RUN_VISUAL_REGRESSION",
+        ),
+    ),
+    ProofCheck(
         "production proof wired to CI",
         ".github/workflows/ci.yml",
         ("production_proof_gate.py", "tests/production_proof"),

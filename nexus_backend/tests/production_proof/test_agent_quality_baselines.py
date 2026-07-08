@@ -63,6 +63,18 @@ def test_agent_eval_dataset_is_large_and_balanced(agent_eval_cases_200):
         assert "respects_tenant_context" in case["assertions"]
 
 
+def test_agent_quality_thresholds_are_release_gate_ready(agent_quality_thresholds):
+    thresholds = agent_quality_thresholds["thresholds"]
+    assert agent_quality_thresholds["dataset"] == "agent-eval-200"
+    assert thresholds["intent_accuracy_min"] >= 0.75
+    assert thresholds["tool_selection_accuracy_min"] >= 0.80
+    assert thresholds["groundedness_min"] >= 0.80
+    assert thresholds["tenant_context_accuracy_min"] >= 0.95
+    assert thresholds["cost_regression_max_pct"] <= 10
+    assert thresholds["latency_regression_max_pct"] <= 20
+    assert "intent_accuracy_below_min" in agent_quality_thresholds["ci_policy"]["fail_on"]
+
+
 def test_agent_eval_dataset_runs_against_operating_system_router(agent_eval_cases_200):
     from app.services.agent_eval_baseline_service import agent_eval_baseline_service
 

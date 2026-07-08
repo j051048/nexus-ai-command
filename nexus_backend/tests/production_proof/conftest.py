@@ -14,7 +14,6 @@ from typing import Any
 
 import pytest
 
-
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
@@ -49,3 +48,8 @@ def llm_replay_cassette():
 @pytest.fixture
 def agent_eval_cases_200():
     return load_fixture("agent_eval_cases_200.json")
+
+
+@pytest.fixture
+def agent_quality_thresholds():
+    return load_fixture("agent_quality_thresholds.json")
