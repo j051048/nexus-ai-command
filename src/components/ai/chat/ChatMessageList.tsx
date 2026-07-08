@@ -139,7 +139,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   // Shared footer content (status, trace, confirmations, etc.)
   const footerContent = (
     <>
-      {(isAiTyping || trace.isActive || trace.steps.length > 0) && !showTrace && (
+      {(isAiTyping || trace.isActive) && !showTrace && (
         <WorkflowStepper 
           steps={trace.steps} 
           isActive={isAiTyping || trace.isActive} 
@@ -312,7 +312,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
           className="mx-4 mb-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5"
         >
           <Zap className="w-3 h-3" />
-          查看思考过程 ({trace.steps.length} 步)
+          查看执行记录 ({trace.steps.length} 步)
         </button>
       )}
 

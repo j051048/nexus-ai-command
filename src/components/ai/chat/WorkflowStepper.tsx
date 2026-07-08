@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Circle, Loader2, Sparkles } from 'lucide-react';
+import { CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TraceStep } from '@/hooks/useAgentTrace';
 
@@ -9,72 +9,71 @@ interface WorkflowStepperProps {
   onOpenTrace: () => void;
 }
 
-export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({ steps, isActive, onOpenTrace }) => {
-  // Filter only significant steps (thinking and tool calls)
-  const displaySteps = steps.filter(s => s.type !== 'tool_result').slice(-4);
-  
-  if (displaySteps.length === 0 && !isActive) return null;
+function stepLabel(step?: TraceStep) {
+  if (!step) return '准备处理';
+  if (step.name) return step.name;
+  if (step.type === 'tool_call') return '调用工具';
+  if (step.type === 'thinking') return '理解任务';
+  return '处理中';
+}
+
+export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
+  steps,
+  isActive,
+  onOpenTrace,
+}) => {
+  const displaySteps = steps.filter((step) => step.type !== 'tool_result');
+  const runningStep = [...displaySteps].reverse().find((step) => step.status === 'running');
+  const completedCount = displaySteps.filter((step) => step.status === 'success').length;
+  const totalCount = Math.max(displaySteps.length, isActive ? completedCount + 1 : completedCount);
+
+  if (!isActive && displaySteps.length === 0) return null;
 
   return (
-    <div className="mx-4 mb-4 p-4 rounded-2xl border border-primary/20 bg-primary/5 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-          <span className="text-sm font-bold text-foreground/80">正在执行流水线任务</span>
-        </div>
-        <button 
-          onClick={onOpenTrace}
-          className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline"
-        >
-          查看详情日志
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {displaySteps.map((step, idx) => (
-          <React.Fragment key={idx}>
-            {idx > 0 && (
-              <div className={cn(
-                "h-[2px] flex-1 rounded-full",
-                step.status === 'success' ? "bg-primary" : "bg-muted"
-              )} />
+    <div className="mx-4 mb-3 rounded-xl border bg-card/90 px-3 py-2.5 shadow-sm animate-in fade-in slide-in-from-bottom-1 duration-300">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div
+            className={cn(
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+              isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
             )}
-            <div className="flex flex-col items-center gap-2 group relative">
-              <div className={cn(
-                "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 border",
-                step.status === 'success' ? "bg-primary border-primary text-white" : 
-                step.status === 'running' ? "bg-primary/20 border-primary/40 text-primary animate-pulse shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]" :
-                "bg-muted border-border text-muted-foreground"
-              )}>
-                {step.status === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4" />
-                ) : step.status === 'running' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Circle className="w-3 h-3 fill-current opacity-30" />
-                )}
-              </div>
-              <span className={cn(
-                "text-[10px] font-bold whitespace-nowrap absolute -bottom-6 opacity-0 group-hover:opacity-100 transition-opacity",
-                step.status === 'running' && "opacity-100 text-primary"
-              )}>
-                {step.name || (step.type === 'thinking' ? '思考中' : '处理中')}
-              </span>
+          >
+            {isActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span>{isActive ? 'AI 正在处理' : 'AI 已完成'}</span>
             </div>
-          </React.Fragment>
-        ))}
-        {isActive && (
-          <>
-            <div className="h-[2px] flex-1 rounded-full bg-muted animate-pulse" />
-            <div className="w-8 h-8 rounded-xl bg-muted border border-border flex items-center justify-center animate-pulse">
-               <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+            <p className="truncate text-xs text-muted-foreground">
+              {isActive ? stepLabel(runningStep) : `已完成 ${completedCount} 个执行步骤`}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3">
+          {totalCount > 0 && (
+            <div className="hidden items-center gap-1.5 sm:flex" aria-label={`已完成 ${completedCount} / ${totalCount}`}>
+              {Array.from({ length: Math.min(totalCount, 5) }).map((_, index) => (
+                <span
+                  key={index}
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    index < completedCount ? 'bg-primary' : 'bg-muted-foreground/25',
+                  )}
+                />
+              ))}
             </div>
-          </>
-        )}
+          )}
+          <button
+            onClick={onOpenTrace}
+            className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+          >
+            执行记录
+          </button>
+        </div>
       </div>
-      
-      {/* Spacer for the absolute labels */}
-      <div className="h-4" />
     </div>
   );
 };

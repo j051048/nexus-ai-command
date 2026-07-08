@@ -23,7 +23,6 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AIOperatingSystemStrip } from '@/components/product/AIOperatingSystemStrip';
-import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AITrustBadge, type AITrustLevel } from '@/components/ai/AITrustBadge';
 import { WorkEmptyState, WorkErrorState, WorkLoadingState } from '@/components/common/WorkState';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -117,46 +116,52 @@ function getTrustLevel(item: InboxActionItem): AITrustLevel {
   return 'high';
 }
 
+function triggerAI(prompt: string) {
+  window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
+}
+
 function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
   const urgent = items.filter((item) => item.priority === 'urgent');
-  const high = items.filter((item) => item.priority === 'high');
   const crmRisk = items.filter((item) => item.source === 'crm');
-  const nextItem = urgent[0] || high[0] || items[0];
-  const trustLevel: AITrustLevel = urgent.length > 0 ? 'medium' : 'high';
+  const nextItem = urgent[0] || items.find((item) => item.priority === 'high') || items[0];
+
+  if (!nextItem) return null;
 
   return (
-    <AIInsightPanel
-      title="AI 优先级解释"
-      icon={Sparkles}
-      trustLevel={trustLevel}
-      score={urgent.length > 0 ? 72 : 91}
-      summary={
-        <>
-          {items.length === 0
-            ? '当前没有待处理行动项，可以把时间用于推进高价值客户和关键项目。'
-            : `今天共有 ${items.length} 个行动项，其中 ${urgent.length} 个紧急、${high.length} 个高优先级、${crmRisk.length} 个客户风险。`}
-          {nextItem ? ` 建议先处理：${nextItem.title}` : ''}
-        </>
-      }
-      context={['收件箱', '审批/客户/通知', '按风险和截止时间排序']}
-      evidence={[
-        { label: '待处理', value: `${items.length} 项` },
-        { label: '紧急', value: `${urgent.length} 项` },
-        { label: '客户风险', value: `${crmRisk.length} 项` },
-      ]}
-      risks={urgent.length > 0 ? ['存在紧急行动项', '建议人审高风险操作'] : []}
-      actions={[
-        {
-          label: '解释排序',
-          variant: 'default',
-          prompt: '请解释当前行动台的优先级排序，并给我一个今天的处理顺序。',
-        },
-        {
-          label: '生成今日计划',
-          prompt: '请把当前行动台整理成一份今天可以照着执行的工作计划。',
-        },
-      ]}
-    />
+    <section className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">建议先处理：{nextItem.title}</div>
+            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>{items.length} 个待处理</span>
+              <span>{urgent.length} 个紧急</span>
+              <span>{crmRisk.length} 个客户风险</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8"
+            onClick={() => triggerAI('请用 3 条以内解释当前行动台为什么这样排序。')}
+          >
+            为什么这样排
+          </Button>
+          <Button
+            size="sm"
+            className="h-8"
+            onClick={() => triggerAI('请把当前行动台整理成一份今天可以照着执行的工作计划。')}
+          >
+            生成计划
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -171,14 +176,14 @@ function RoleGuidanceStrip({ role }: { role?: string | null }) {
       : ['清空个人待办', '记录客户拜访', '补齐审批材料'];
 
   return (
-    <section className="rounded-lg border bg-muted/30 p-3">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div className="text-sm font-medium">{title}</div>
-        <div className="flex flex-wrap gap-1.5">
+    <section className="rounded-lg border bg-muted/20 px-3 py-2">
+      <div className="flex flex-col gap-2 text-sm md:flex-row md:items-center md:justify-between">
+        <div className="font-medium">{title}</div>
+        <div className="flex min-w-0 flex-wrap gap-2 text-xs text-muted-foreground">
           {items.map((item) => (
-            <Badge key={item} variant="outline" className="bg-background/70">
+            <span key={item} className="rounded-full bg-background px-2 py-1">
               {item}
-            </Badge>
+            </span>
           ))}
         </div>
       </div>
@@ -269,38 +274,43 @@ export default function InboxPage() {
     handleActionEvent(item, delta > 0 ? 'accepted' : 'ignored');
   };
 
+  const totalCount = data?.summary.total ?? 0;
+  const urgentCount = data?.summary.urgent ?? 0;
+  const highCount = data?.summary.high ?? 0;
+  const isAllClear = !isLoading && !isError && activeTab === 'all' && visibleItems.length === 0;
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
             <Sparkles className="h-4 w-4" />
-            今日行动台
+            收件箱
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">今天应该先处理什么</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{isAllClear ? '今天已清空' : '今天'}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            聚合审批、客户风险、通知和 AI 规则建议，按优先级帮你排队。
+            {isAllClear ? '没有必须处理的事项。' : `${totalCount} 个待处理，按风险和截止时间排序。`}
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-center md:min-w-[260px]">
-          <div className="rounded-lg border bg-card p-3">
-            <div className="text-xl font-bold">{data?.summary.total ?? 0}</div>
+        <div className="flex flex-wrap gap-4 text-sm md:justify-end">
+          <div>
+            <div className="text-lg font-semibold">{totalCount}</div>
             <div className="text-xs text-muted-foreground">待处理</div>
           </div>
-          <div className="rounded-lg border bg-card p-3">
-            <div className="text-xl font-bold text-destructive">{data?.summary.urgent ?? 0}</div>
+          <div>
+            <div className="text-lg font-semibold text-destructive">{urgentCount}</div>
             <div className="text-xs text-muted-foreground">紧急</div>
           </div>
-          <div className="rounded-lg border bg-card p-3">
-            <div className="text-xl font-bold text-orange-600">{data?.summary.high ?? 0}</div>
+          <div>
+            <div className="text-lg font-semibold text-orange-600">{highCount}</div>
             <div className="text-xs text-muted-foreground">高优先级</div>
           </div>
         </div>
       </header>
 
-      {!isLoading && !isError && <ActionInboxInsightStrip items={items} />}
-      <RoleGuidanceStrip role={role} />
-      <AIOperatingSystemStrip />
+      {!isLoading && !isError && items.length > 0 && <ActionInboxInsightStrip items={items} />}
+      {!isLoading && !isError && items.length === 0 && <RoleGuidanceStrip role={role} />}
+      {!isLoading && !isError && items.length === 0 && <AIOperatingSystemStrip />}
 
       <nav className="flex flex-wrap gap-2 border-b pb-3">
         {tabs.map((tab) => {
@@ -459,10 +469,16 @@ export default function InboxPage() {
       {!isLoading && !isError && visibleItems.length === 0 && (
         <WorkEmptyState
           icon={<CheckCircle2 className="h-6 w-6" />}
-          title="当前筛选下没有待办"
-          description="可以切回全部行动，或让 AI 生成下一步工作计划。"
-          actionLabel="查看全部行动"
-          onAction={() => setActiveTab('all')}
+          title={activeTab === 'all' ? '今天已清空' : '这个分类没有待办'}
+          description={activeTab === 'all' ? 'AI 可以帮你生成下一步工作计划。' : '切回全部行动查看其他事项。'}
+          actionLabel={activeTab === 'all' ? '生成今日计划' : '查看全部行动'}
+          onAction={() => {
+            if (activeTab === 'all') {
+              triggerAI('请根据我的收件箱、客户风险和审批情况，生成一份今天的工作计划。');
+              return;
+            }
+            setActiveTab('all');
+          }}
         />
       )}
     </div>
