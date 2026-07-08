@@ -231,6 +231,17 @@ CHECKS = [
         ("MODULE_TIER_LABELS", "reward_model", "audit_summary"),
     ),
     ProofCheck(
+        "GraphRAG P0-P2 foundation contract",
+        "nexus_backend/tests/production_proof/test_graph_rag_p0_p2_contract.py",
+        (
+            "BusinessGraphDocument",
+            "vector_hybrid_search",
+            "supports_relationship_embeddings",
+            "allow_dangerous_requests",
+            "pending_write_count",
+        ),
+    ),
+    ProofCheck(
         "production proof wired to CI",
         ".github/workflows/ci.yml",
         ("production_proof_gate.py", "tests/production_proof"),
@@ -240,9 +251,10 @@ CHECKS = [
 
 def validate_golden_flow_count() -> tuple[bool, str]:
     flows = json.loads(
-        (ROOT / "nexus_backend/tests/production_proof/fixtures/golden_business_flows.json").read_text(
-            encoding="utf-8"
-        )
+        (
+            ROOT
+            / "nexus_backend/tests/production_proof/fixtures/golden_business_flows.json"
+        ).read_text(encoding="utf-8")
     )
     if len(flows) < 5:
         return False, "golden flow count below 5"
@@ -251,9 +263,10 @@ def validate_golden_flow_count() -> tuple[bool, str]:
 
 def validate_agent_eval_case_count() -> tuple[bool, str]:
     cases = json.loads(
-        (ROOT / "nexus_backend/tests/production_proof/fixtures/agent_eval_cases_200.json").read_text(
-            encoding="utf-8"
-        )
+        (
+            ROOT
+            / "nexus_backend/tests/production_proof/fixtures/agent_eval_cases_200.json"
+        ).read_text(encoding="utf-8")
     )
     if len(cases) < 200:
         return False, "agent eval case count below 200"

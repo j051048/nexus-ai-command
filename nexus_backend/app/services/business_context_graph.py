@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from app.services.graph_rag_models import BusinessGraphDocument
+
 
 @dataclass(frozen=True)
 class GraphQuerySpec:
@@ -246,10 +248,16 @@ async def build_business_context_graph(
     edges = _build_edges(rows_by_type)
     prompt_context = _prompt_context(nodes, edges)
     density = round(len(edges) / max(len(nodes), 1), 2) if nodes else 0
+    graph_document = BusinessGraphDocument.from_business_context_graph(
+        {"nodes": nodes, "edges": edges, "prompt_context": prompt_context},
+        org_id=org_id,
+        source="business_context_graph",
+    )
 
     return {
         "nodes": nodes,
         "edges": edges,
+        "graph_document": graph_document.to_dict(),
         "summary": {
             "node_count": len(nodes),
             "edge_count": len(edges),
