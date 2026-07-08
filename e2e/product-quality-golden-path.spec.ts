@@ -57,6 +57,49 @@ async function setupProductQualityMocks(page: Page, role = 'boss') {
     await fulfillJson(route, { success: true, data: { recorded: true } });
   });
 
+  await page.route('**/api/crm/stats*', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        stats: {
+          total_customers: 1,
+          new_this_month: 1,
+          conversion_rate: 20,
+          total_estimated_value: 580000,
+          churned: 0,
+        },
+      },
+    });
+  });
+
+  await page.route('**/api/crm/customers**', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await fulfillJson(route, {});
+      return;
+    }
+    await fulfillJson(route, {
+      success: true,
+      data: [
+        {
+          id: 'cust-1',
+          organization_id: 'org-123',
+          name: '华东实验室',
+          company: '华东实验室有限公司',
+          industry: '医疗',
+          stage: 'opportunity',
+          source: 'referral',
+          estimated_value: 580000,
+          assigned_to: null,
+          tags: [],
+          metadata: {},
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ],
+      total: 1,
+    });
+  });
+
   await page.route('**/api/contracts**', async (route) => {
     await fulfillJson(route, {
       success: true,
