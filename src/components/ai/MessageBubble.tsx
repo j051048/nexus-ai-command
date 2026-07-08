@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { StreamingMarkdown } from './StreamingMarkdown';
-import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw, Pencil, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SyntaxProps {
   children?: React.ReactNode;
@@ -148,6 +148,34 @@ function tryExtractBareGenUI(text: string): { component: string; props: Record<s
   return null;
 }
 
+function stripMarkdownLight(text: string) {
+  return text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#>*_`[\]()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildAssistantDigest(content: string) {
+  const lines = content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const conclusion = stripMarkdownLight(
+    lines.find((line) => !/^[-*\d.]+\s*$/.test(line) && !line.startsWith('|')) || content,
+  ).slice(0, 180);
+  const actionLines = lines
+    .filter((line) => /下一步|建议|优先|需要|请|行动|处理|复核|生成/.test(line))
+    .slice(0, 3)
+    .map(stripMarkdownLight)
+    .filter(Boolean);
+
+  return {
+    conclusion: conclusion || 'AI 已生成回复。',
+    actions: actionLines.length > 0 ? actionLines : ['展开查看完整依据，再选择下一步操作。'],
+  };
+}
+
 interface MessageBubbleProps {
   message: AIMessage;
   onCopy: (content: string) => void;
@@ -180,6 +208,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showFullAssistantResult, setShowFullAssistantResult] = useState(false);
   const [editContent, setEditContent] = useState('');
   const isUser = message.role === 'user';
   const isStreamingNow = !!(isTyping && isLatest);
@@ -188,6 +217,11 @@ export const MessageBubble = React.memo(function MessageBubble({
   const bareGenUI = useMemo(
     () => (!isUser && message.content) ? tryExtractBareGenUI(message.content) : null,
     [isUser, message.content]
+  );
+  const shouldCompactAssistantResult = !isUser && !isStreamingNow && !bareGenUI && message.content.length > 900;
+  const assistantDigest = useMemo(
+    () => shouldCompactAssistantResult ? buildAssistantDigest(message.content) : null,
+    [shouldCompactAssistantResult, message.content],
   );
 
   // Memoize markdown components to avoid re-creating on every render
@@ -453,6 +487,30 @@ export const MessageBubble = React.memo(function MessageBubble({
                 sublabel="Nexus AI 处理中"
               />
             </div>
+          ) : shouldCompactAssistantResult && assistantDigest && !showFullAssistantResult ? (
+            <div data-testid="assistant-compact-result" className="space-y-3">
+              <div className="rounded-xl border bg-background/70 p-3">
+                <div className="text-xs font-semibold text-primary">结论</div>
+                <p className="mt-1 text-sm leading-6">{assistantDigest.conclusion}</p>
+              </div>
+              <div className="rounded-xl border bg-background/70 p-3">
+                <div className="text-xs font-semibold text-primary">下一步</div>
+                <ul className="mt-1 space-y-1 text-sm leading-6 text-muted-foreground">
+                  {assistantDigest.actions.map((action, index) => (
+                    <li key={`${message.id}-action-${index}`}>{action}</li>
+                  ))}
+                </ul>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2 text-xs"
+                onClick={() => setShowFullAssistantResult(true)}
+              >
+                展开完整依据
+                <ChevronDown className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
+            </div>
           ) : (
             (() => {
               // Layer 0: Use memoized bare JSON detection result
@@ -467,6 +525,17 @@ export const MessageBubble = React.memo(function MessageBubble({
                 isStreaming={isStreamingNow}
                 components={markdownComponents}
               />
+              {shouldCompactAssistantResult && showFullAssistantResult && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mt-3 h-8 px-2 text-xs"
+                  onClick={() => setShowFullAssistantResult(false)}
+                >
+                  收起依据
+                  <ChevronUp className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           )}
         </div>

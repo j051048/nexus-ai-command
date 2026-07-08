@@ -47,6 +47,7 @@ import {
   Warehouse,
   Fingerprint,
   PlusCircle,
+  ListTodo,
   Activity,
   Server,
   Brain,
@@ -137,7 +138,7 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: 'CRM', path: '/crm', icon: Users, keywords: ['crm', '客户', '线索', '商机', '销售'], group: '核心空间' },
   { label: '工作台', path: '/workbench', icon: Workflow, keywords: ['项目', '审批', '合同', 'oa', 'hr', '流程'], group: '核心空间' },
   { label: '数据', path: '/data', icon: BarChart3, keywords: ['报表', '数据', '目标', 'dashboard', '经营'], group: '核心空间' },
-  { label: 'AI 中心', path: '/ai-center', icon: Sparkles, keywords: ['ai', 'agent', '知识库', '模型', '插件'], group: '核心空间' },
+  { label: 'AI 作战室', path: '/ai-center', icon: Sparkles, keywords: ['ai', 'agent', '知识库', '模型', '插件', 'ai中心'], group: '核心空间' },
   { label: 'AI 作战操作系统', path: '/ai-operating-system', icon: Sparkles, keywords: ['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'agent sandbox', 'sop', 'aop', '知识图谱', 'demo', '角色化'], group: '核心空间' },
   { label: 'Agent 进化中心', path: '/agent-improvement-center', icon: Brain, keywords: ['agent', 'prompt registry', 'context quality', 'harness', 'hermes', '自我进化', 'memory hygiene'], group: '核心空间' },
   { label: '领导驾驶舱', path: '/boss-dashboard', icon: Crown, keywords: ['boss', '管理', '概览'], group: '核心功能' },
@@ -240,6 +241,18 @@ const PAGE_SUGGESTIONS: Record<string, Array<{ label: string; prompt: string }>>
     { label: '查看待审批', prompt: '有哪些待我审批的事项？' },
     { label: '审批趋势分析', prompt: '分析最近的审批通过率和趋势' },
   ],
+  '/workbench': [
+    { label: '今日推进顺序', prompt: '请根据审批、合同和项目状态，生成今天工作台的推进顺序。' },
+    { label: '查找堵点', prompt: '请帮我找出当前工作台里最可能阻塞成交或交付的事项。' },
+  ],
+  '/contracts': [
+    { label: '合同风险清单', prompt: '请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单。' },
+    { label: '续签提醒', prompt: '请找出 30 天内到期或需要续签的合同，并生成跟进话术。' },
+  ],
+  '/tender-analysis': [
+    { label: '标书审阅清单', prompt: '请给我一份投标文件审阅清单，优先检查否决项、技术偏离和评分风险。' },
+    { label: '生成投标策略', prompt: '请根据招标文件评分标准，生成投标响应策略和材料准备清单。' },
+  ],
   '/sales': [
     { label: '本周业绩', prompt: '总结本周的销售业绩情况' },
     { label: '商机预测', prompt: '预测本月的商机转化情况' },
@@ -286,6 +299,7 @@ function detectIntent(query: string): IntentType {
 
 // AI quick actions shown at the top of the command list
 const AI_QUICK_ACTIONS = [
+  { label: '生成今日计划', prompt: '请根据收件箱、客户风险、审批、合同和项目，生成今天可以照着执行的工作计划。', icon: ListTodo },
   { label: '生成今日日报', prompt: '帮我生成今天的工作日报', icon: FileText },
   { label: '查看待审批事项', prompt: '有哪些待审批的事项？', icon: FileCheck },
   { label: '本周业绩总结', prompt: '帮我总结本周的业绩情况', icon: BarChart3 },
@@ -309,6 +323,18 @@ const EXECUTION_COMMANDS = [
     path: '/contracts',
     prompt: '请基于当前合同台账，输出到期、金额、付款条款和客户主体的风险清单。',
     icon: FileText,
+  },
+  {
+    label: '创建合同',
+    path: '/contracts',
+    prompt: '请帮我创建合同草稿，并先询问合同标题、客户、金额、起止日期、付款条款和负责人。',
+    icon: FileText,
+  },
+  {
+    label: '发起投标分析',
+    path: '/tender-analysis',
+    prompt: '请打开投标分析流程，并提示我上传招标文件，然后优先检查否决项、技术偏离和评分风险。',
+    icon: FileSearch,
   },
   {
     label: '发起审批',

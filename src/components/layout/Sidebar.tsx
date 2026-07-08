@@ -189,7 +189,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Contact size={18} />, label: "CRM", href: "crm", group: "primary" },
   { icon: <Briefcase size={18} />, label: "工作台", href: "workbench", group: "primary" },
   { icon: <BarChart3 size={18} />, label: "数据", href: "data", group: "primary" },
-  { icon: <Bot size={18} />, label: "AI 中心", href: "ai-center", group: "primary" },
+  { icon: <Bot size={18} />, label: "AI 作战室", href: "ai-center", group: "primary" },
 
   // 业务域分组
   { icon: <TrendingUp size={18} />, label: "销售管道", href: "sales", group: "客户增长" },
@@ -435,7 +435,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
             >
               <span className="flex items-center gap-1.5">
                 <Puzzle size={10} />
-                更多模块
+                更多能力
               </span>
               {showModuleManager ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
             </button>

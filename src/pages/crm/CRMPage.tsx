@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
-import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
+import { AITrustBadge } from '@/components/ai/AITrustBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -56,68 +56,55 @@ function CRMAIInsightLayer({
   const topRisk = staleCustomers[0]?.customer;
   const topRiskDays = staleCustomers[0]?.staleDays ?? 0;
   const trustLevel = staleCustomers.length > 3 ? 'medium' : 'high';
-  const evidenceCards = [
-    {
-      label: '长期未跟进',
-      value: `${staleCustomers.length} 个`,
-      hint: topRisk ? `${topRisk.name} 已 ${topRiskDays} 天未更新` : '暂无 30 天以上停滞客户',
-    },
-    {
-      label: '高价值机会',
-      value: `${highValueOpen.length} 个`,
-      hint: '预计金额超过 ¥50,000 且尚未关闭',
-    },
-    {
-      label: 'AI 风险依据',
-      value: topRisk ? '需复核' : '稳定',
-      hint: '综合阶段、金额、最近更新时间生成',
-    },
-  ];
+  const nextCustomer = topRisk || highValueOpen[0] || customers[0];
+
+  if (!nextCustomer) return null;
+
+  const nextReason = topRisk
+    ? `${topRisk.name} 已 ${topRiskDays} 天未更新，建议确认下一步。`
+    : highValueOpen[0]
+      ? `${highValueOpen[0].name} 是高价值机会，建议推进报价或拜访。`
+      : '当前客户池暂无明显风险，可以补充新线索或复盘成交路径。';
 
   return (
-    <AIInsightPanel
-      title="AI 客户摘要"
-      icon={Sparkles}
-      trustLevel={trustLevel}
-      score={trustLevel === 'high' ? 88 : 74}
-      summary={
-        <>
-          当前客户池共 {Number(stats?.total_customers ?? customers.length)} 个客户，
-          {highValueOpen.length} 个高价值机会仍在推进中
-          {topRisk ? `，${topRisk.name} 已较久未更新，建议优先确认下一步。` : '，暂无明显长期停滞客户。'}
-        </>
-      }
-      context={['CRM', '客户健康分', '跟进节奏']}
-      evidence={evidenceCards.map((card) => ({
-        label: card.label,
-        value: (
-          <>
-            <span className="text-lg font-semibold">{card.value}</span>
-            <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{card.hint}</span>
-          </>
-        ),
-      }))}
-      risks={
-        topRisk
-          ? [
-              `${topRisk.name} ${topRiskDays} 天未跟进`,
-              `阶段：${topRisk.stage || '未标记'}`,
-              `预计金额 ¥${Number(topRisk.estimated_value ?? 0).toLocaleString()}`,
-            ]
-          : []
-      }
-      actions={[
-        {
-          label: '生成跟进优先级',
-          variant: 'default',
-          prompt: '请基于当前 CRM 客户列表，生成高价值机会和风险客户的跟进优先级。',
-        },
-        {
-          label: '晨会摘要',
-          prompt: '请帮我写一份今天的 CRM 销售晨会摘要，包含新增、机会、风险和下一步动作。',
-        },
-      ]}
-    />
+    <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-sm font-medium">下一步客户动作：{nextCustomer.name}</h2>
+              <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 88 : 74} />
+            </div>
+            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{nextReason}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <div className="hidden gap-3 text-xs text-muted-foreground sm:flex">
+            <span>{Number(stats?.total_customers ?? customers.length)} 客户</span>
+            <span>{staleCustomers.length} 停滞</span>
+            <span>{highValueOpen.length} 高价值</span>
+          </div>
+          <Button
+            size="sm"
+            className="h-8"
+            onClick={() => triggerAI('请基于当前 CRM 客户列表，生成高价值机会和风险客户的跟进优先级。')}
+          >
+            生成优先级
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8"
+            onClick={() => triggerAI('请帮我写一份今天的 CRM 销售晨会摘要，包含新增、机会、风险和下一步动作。')}
+          >
+            晨会摘要
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 

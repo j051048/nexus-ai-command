@@ -40,7 +40,7 @@ import { useContracts, useContractDetail, useCreateContract, useDeleteContract, 
 import { useAuth } from '@/components/auth/AuthContext';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
+import { AITrustBadge } from '@/components/ai/AITrustBadge';
 
 // 合同类型
 const CONTRACT_TYPES: Record<string, string> = {
@@ -92,6 +92,10 @@ function daysUntil(dateStr: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function triggerAI(prompt: string) {
+  window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
+}
+
 function ContractAIInsightLayer({ contracts }: { contracts: Contract[] }) {
   const expiring = contracts.filter((contract) => {
     const days = daysUntil(contract.end_date);
@@ -103,61 +107,94 @@ function ContractAIInsightLayer({ contracts }: { contracts: Contract[] }) {
     .sort((a, b) => Number(b.amount) - Number(a.amount))
     .slice(0, 1);
   const trustLevel = expiring.length > 0 || pendingReview.length > 0 ? 'medium' : 'high';
+  const nextContract = expiring[0] || pendingReview[0] || highValue[0] || contracts[0];
+
+  const nextTitle = nextContract ? `下一步合同动作：${nextContract.title}` : '下一步合同动作';
+  const nextReason = expiring[0]
+    ? `${expiring[0].title} 30 天内到期，建议确认续签、回款和客户负责人。`
+    : pendingReview[0]
+      ? `${pendingReview[0].title} 正在审核中，建议先检查金额、付款条款和客户主体。`
+      : highValue[0]
+        ? `${highValue[0].title} 金额最高，建议复核关键条款和交付节点。`
+        : '暂无合同风险，先创建合同或让 AI 生成合同台账检查清单。';
 
   return (
-    <AIInsightPanel
-      title="AI 合同风控摘要"
-      icon={Sparkles}
-      trustLevel={trustLevel}
-      score={trustLevel === 'high' ? 90 : 76}
-      summary={
-        <>
-          当前合同池中有 {pendingReview.length} 份待审核、{expiring.length} 份 30 天内到期
-          {highValue[0] ? `，最高金额合同为 ${highValue[0].title}。` : '。'}
-        </>
-      }
-      context={['合同台账', '到期日', '金额/客户主体']}
-      evidence={[
-        {
-          label: '到期风险',
-          value: (
-            <>
-              <span className="text-lg font-semibold">{expiring.length}</span>
-              <span className="mt-1 block text-xs font-normal text-muted-foreground">建议优先触发续签或回款确认。</span>
-            </>
-          ),
-        },
-        {
-          label: '待审核合同',
-          value: (
-            <>
-              <span className="text-lg font-semibold">{pendingReview.length}</span>
-              <span className="mt-1 block text-xs font-normal text-muted-foreground">金额、付款条款和客户主体需进入人审。</span>
-            </>
-          ),
-        },
-        {
-          label: 'AI 证据',
-          value: highValue[0]
-            ? `${highValue[0].customer_name || '未关联客户'} / ${formatAmount(Number(highValue[0].amount))}`
-            : '暂无高金额合同',
-        },
-      ]}
-      risks={[
-        ...(expiring.length > 0 ? ['存在 30 天内到期合同'] : []),
-        ...(pendingReview.length > 0 ? ['存在待审核合同'] : []),
-      ]}
-      actions={[
-        {
-          label: '生成风险清单',
-          prompt: '请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单和处理优先级。',
-        },
-        {
-          label: '今日合同计划',
-          prompt: '请把当前即将到期和待审核合同整理成今天的合同处理计划。',
-        },
-      ]}
-    />
+    <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-sm font-medium">{nextTitle}</h2>
+              <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 90 : 76} />
+            </div>
+            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{nextReason}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <div className="hidden gap-3 text-xs text-muted-foreground sm:flex">
+            <span>待审 {pendingReview.length}</span>
+            <span>到期 {expiring.length}</span>
+            <span>最高 {highValue[0] ? formatAmount(Number(highValue[0].amount)) : '--'}</span>
+          </div>
+          <Button
+            size="sm"
+            className="h-8"
+            onClick={() => triggerAI('请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单和处理优先级。')}
+          >
+            生成风险清单
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8"
+            onClick={() => triggerAI('请把当前即将到期和待审核合同整理成今天的合同处理计划。')}
+          >
+            今日计划
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContractDetailActionStrip({ contract }: { contract: Contract }) {
+  const days = daysUntil(contract.end_date);
+  const statusLabel = CONTRACT_STATUS[contract.status]?.label || contract.status;
+  const isExpiring = contract.status === 'active' && days !== null && days >= 0 && days <= 30;
+  const isPending = contract.status === 'pending_review';
+  const riskLabel = isExpiring ? `${days} 天后到期` : isPending ? '待审核' : '正常';
+  const nextAction = isExpiring
+    ? '先确认续签、回款和客户负责人。'
+    : isPending
+      ? '先复核金额、付款条款和客户主体。'
+      : '可生成回款提醒或复查关键条款。';
+  const buttonLabel = isExpiring ? '生成续签邮件' : isPending ? '生成审核要点' : '创建回款提醒';
+  const prompt = isExpiring
+    ? `请为合同「${contract.title}」生成续签跟进邮件，包含到期日、客户主体、金额和下一步确认事项。`
+    : isPending
+      ? `请为合同「${contract.title}」生成审核要点，重点检查金额、付款条款、客户主体和交付风险。`
+      : `请为合同「${contract.title}」创建回款提醒文案，列出负责人、金额、时间和沟通话术。`;
+
+  return (
+    <section data-testid="contract-detail-next-action" className="mt-4 rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className={cn('text-xs', CONTRACT_STATUS[contract.status]?.color)}>{statusLabel}</Badge>
+            <Badge variant={isExpiring || isPending ? 'destructive' : 'secondary'}>{riskLabel}</Badge>
+            <span className="text-xs text-muted-foreground">{formatAmount(Number(contract.amount), contract.currency)}</span>
+          </div>
+          <p className="mt-2 line-clamp-1 text-sm font-medium">{nextAction}</p>
+        </div>
+        <Button size="sm" className="h-8 shrink-0" onClick={() => triggerAI(prompt)}>
+          <Sparkles className="mr-2 h-4 w-4" />
+          {buttonLabel}
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -528,6 +565,8 @@ export function ContractManagement() {
                 <SheetTitle className="text-lg">{selectedContract.title}</SheetTitle>
                 <SheetDescription>{selectedContract.contract_number || '无编号'}</SheetDescription>
               </SheetHeader>
+
+              <ContractDetailActionStrip contract={selectedContract} />
 
               <ScrollArea className="mt-6 h-[calc(100dvh-120px)]">
                 <div className="space-y-6 pr-4">

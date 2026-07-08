@@ -46,6 +46,13 @@ interface ProductSpaceHubProps {
   primaryHref: string;
   primaryLabel: string;
   links: SpaceLink[];
+  nextAction?: {
+    title: string;
+    description: string;
+    primaryHref: string;
+    primaryLabel: string;
+    secondary?: Array<{ label: string; href: string }>;
+  };
   afterLinks?: ReactNode;
 }
 
@@ -56,6 +63,7 @@ function ProductSpaceHub({
   primaryHref,
   primaryLabel,
   links,
+  nextAction,
   afterLinks,
 }: ProductSpaceHubProps) {
   return (
@@ -75,6 +83,34 @@ function ProductSpaceHub({
           <Link to={primaryHref}>{primaryLabel}</Link>
         </Button>
       </section>
+
+      {nextAction && (
+        <section data-testid="space-next-action" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-medium">{nextAction.title}</h2>
+                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                  {nextAction.description}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Button asChild size="sm" className="h-8">
+                <Link to={nextAction.primaryHref}>{nextAction.primaryLabel}</Link>
+              </Button>
+              {nextAction.secondary?.map((item) => (
+                <Button key={item.href} asChild size="sm" variant="outline" className="h-8">
+                  <Link to={item.href}>{item.label}</Link>
+                </Button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {links.map((item) => {
@@ -98,7 +134,7 @@ function ProductSpaceHub({
                   <h2 className="font-semibold leading-6 group-hover:text-primary">
                     {item.title}
                   </h2>
-                  <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                  <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">
                     {item.description}
                   </p>
                 </div>
@@ -222,6 +258,16 @@ export function WorkspaceHubPage() {
       description="项目、审批、合同、OA、人事、财务和流程都放在这里。默认导航不再堆满入口，但高频业务仍然可以一步进入。"
       primaryHref="/projects"
       primaryLabel="进入项目"
+      nextAction={{
+        title: '今天先推进一个业务流',
+        description: '从待审批、到期合同和项目节点里选一个先闭环，其他能力放在下方按需进入。',
+        primaryHref: '/approval',
+        primaryLabel: '处理审批',
+        secondary: [
+          { label: '看合同', href: '/contracts' },
+          { label: '看项目', href: '/projects' },
+        ],
+      }}
       links={[
         {
           title: '项目管理',
@@ -280,12 +326,6 @@ export function WorkspaceHubPage() {
           tone: 'bg-slate-500/10 text-slate-600',
         },
       ]}
-      afterLinks={
-        <div className="space-y-4">
-          <IndustryExpertPanel />
-          <IntegrationStrategyPanel />
-        </div>
-      }
     />
   );
 }

@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   Bell,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   ExternalLink,
   FileCheck,
@@ -195,6 +197,8 @@ export default function InboxPage() {
   const navigate = useNavigate();
   const { role } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('all');
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [showLaterItems, setShowLaterItems] = useState(false);
   const touchStartX = useRef(0);
   const { data, isLoading, isError, refetch } = useInboxActions(50);
   const executeAction = useExecuteInboxAction();
@@ -278,6 +282,12 @@ export default function InboxPage() {
   const urgentCount = data?.summary.urgent ?? 0;
   const highCount = data?.summary.high ?? 0;
   const isAllClear = !isLoading && !isError && activeTab === 'all' && visibleItems.length === 0;
+  const actionItems = activeTab === 'all' && !showLaterItems
+    ? visibleItems.filter((item) => item.priority !== 'low')
+    : visibleItems;
+  const laterItemCount = activeTab === 'all'
+    ? visibleItems.filter((item) => item.priority === 'low').length
+    : 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
@@ -351,7 +361,7 @@ export default function InboxPage() {
 
       {!isLoading && !isError && visibleItems.length > 0 && (
         <section className="space-y-3">
-          {visibleItems.map((item) => {
+          {actionItems.map((item) => {
             const meta = SOURCE_META[item.source];
             const Icon = meta.icon;
             const time = formatTime(item.due_at || item.created_at);
@@ -359,6 +369,10 @@ export default function InboxPage() {
             const riskFlags = getRiskFlags(item).slice(0, 3);
             const trustLevel = getTrustLevel(item);
             const riskScore = typeof item.metadata?.risk_score === 'number' ? item.metadata.risk_score : undefined;
+            const expanded = expandedItemId === item.id;
+            const primaryCommand = item.actions.find((command) => command.variant === 'primary') || item.actions[0];
+            const secondaryCommands = item.actions.filter((command) => command.id !== primaryCommand?.id);
+            const showPriority = item.priority === 'urgent' || item.priority === 'high';
             return (
               <article
                 key={item.id}
@@ -371,98 +385,150 @@ export default function InboxPage() {
                 }}
                 className="rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-accent/30"
               >
-                <div className="flex gap-4">
+                <div className="flex gap-3">
                   <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', meta.tone)}>
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{meta.label}</Badge>
-                      <Badge variant="outline" className={PRIORITY_CLASS[item.priority]}>
-                        {PRIORITY_LABEL[item.priority]}
-                      </Badge>
-                      <AITrustBadge level={trustLevel} score={riskScore ? 100 - riskScore : undefined} />
-                      {time && (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5" />
-                          {time}
-                        </span>
-                      )}
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">{meta.label}</Badge>
+                          {showPriority && (
+                            <Badge variant="outline" className={PRIORITY_CLASS[item.priority]}>
+                              {PRIORITY_LABEL[item.priority]}
+                            </Badge>
+                          )}
+                          {time && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3.5 w-3.5" />
+                              {time}
+                            </span>
+                          )}
+                        </div>
+                        <h2 className="mt-2 text-base font-semibold leading-snug">{item.title}</h2>
+                        {item.description && (
+                          <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{item.description}</p>
+                        )}
+                        {item.reason && <p className="mt-1 line-clamp-1 text-xs text-primary">{item.reason}</p>}
+                      </div>
+
+                      <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
+                        {primaryCommand && (
+                          <Button
+                            key={primaryCommand.id}
+                            size="sm"
+                            variant={
+                              primaryCommand.variant === 'danger'
+                                ? 'destructive'
+                                : primaryCommand.variant === 'primary'
+                                  ? 'default'
+                                  : 'outline'
+                            }
+                            onClick={() => handleCommand(item, primaryCommand)}
+                          >
+                            {primaryCommand.label}
+                            {primaryCommand.kind === 'navigate' && <ExternalLink className="ml-1.5 h-3.5 w-3.5" />}
+                          </Button>
+                        )}
+                        <Button
+                          data-testid={`inbox-action-accept-${item.id}`}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleActionEvent(item, 'accepted')}
+                        >
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                          采纳
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setExpandedItemId(expanded ? null : item.id)}
+                        >
+                          {expanded ? '收起' : '详情'}
+                          {expanded ? (
+                            <ChevronDown className="ml-1.5 h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <h2 className="mt-2 text-base font-semibold leading-snug">{item.title}</h2>
-                    {item.description && (
-                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
-                    )}
-                    {item.reason && <p className="mt-2 text-xs text-primary">{item.reason}</p>}
-                    {(evidence.length > 0 || riskFlags.length > 0) && (
-                      <div className="mt-3 grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs md:grid-cols-2">
-                        {evidence.length > 0 && (
-                          <div className="space-y-1.5">
-                            <div className="font-medium text-foreground">AI 证据链</div>
-                            {evidence.map((entry) => (
-                              <div key={`${item.id}-${entry.label}`} className="flex gap-2">
-                                <span className="shrink-0 text-muted-foreground">{entry.label}:</span>
-                                <span className="min-w-0 truncate text-foreground">{entry.value}</span>
+
+                    {expanded && (
+                      <div className="mt-3 space-y-3 rounded-lg border bg-muted/20 p-3">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span>AI 判断</span>
+                          <AITrustBadge level={trustLevel} score={riskScore ? 100 - riskScore : undefined} />
+                        </div>
+
+                        {(evidence.length > 0 || riskFlags.length > 0) && (
+                          <div className="grid gap-2 text-xs md:grid-cols-2">
+                            {evidence.length > 0 && (
+                              <div className="space-y-1.5">
+                                <div className="font-medium text-foreground">证据</div>
+                                {evidence.map((entry) => (
+                                  <div key={`${item.id}-${entry.label}`} className="flex gap-2">
+                                    <span className="shrink-0 text-muted-foreground">{entry.label}:</span>
+                                    <span className="min-w-0 truncate text-foreground">{entry.value}</span>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
+                            {riskFlags.length > 0 && (
+                              <div className="space-y-1.5">
+                                <div className="font-medium text-foreground">风险</div>
+                                {riskFlags.map((flag) => (
+                                  <div key={`${item.id}-${flag}`} className="flex gap-2">
+                                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                                    <span className="text-muted-foreground">{flag}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
-                        {riskFlags.length > 0 && (
-                          <div className="space-y-1.5">
-                            <div className="font-medium text-foreground">风险提示</div>
-                            {riskFlags.map((flag) => (
-                              <div key={`${item.id}-${flag}`} className="flex gap-2">
-                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-                                <span className="text-muted-foreground">{flag}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+
+                        <div className="flex flex-wrap gap-2">
+                          {secondaryCommands.map((command) => (
+                            <Button
+                              key={command.id}
+                              size="sm"
+                              variant={command.variant === 'danger' ? 'destructive' : 'outline'}
+                              onClick={() => handleCommand(item, command)}
+                            >
+                              {command.label}
+                              {command.kind === 'navigate' && <ExternalLink className="ml-1.5 h-3.5 w-3.5" />}
+                            </Button>
+                          ))}
+                          <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'completed')}>
+                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                            标记完成
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'ignored')}>
+                            忽略
+                          </Button>
+                        </div>
                       </div>
                     )}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {item.actions.map((command) => (
-                        <Button
-                          key={command.id}
-                          size="sm"
-                          variant={
-                            command.variant === 'primary'
-                              ? 'default'
-                              : command.variant === 'danger'
-                                ? 'destructive'
-                                : 'outline'
-                          }
-                          onClick={() => handleCommand(item, command)}
-                        >
-                          {command.label}
-                          {command.kind === 'navigate' && <ExternalLink className="ml-1.5 h-3.5 w-3.5" />}
-                        </Button>
-                      ))}
-                      <Button
-                        data-testid={`inbox-action-accept-${item.id}`}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleActionEvent(item, 'accepted')}
-                      >
-                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                        采纳
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'completed')}>
-                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                        标记完成
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'ignored')}>
-                        忽略
-                      </Button>
-                    </div>
-                    <div className="mt-2 text-[11px] text-muted-foreground md:hidden">
-                      右滑采纳，左滑忽略
-                    </div>
+
+                    <div className="mt-2 text-[11px] text-muted-foreground md:hidden">右滑采纳，左滑忽略</div>
                   </div>
                 </div>
               </article>
             );
           })}
+
+          {activeTab === 'all' && laterItemCount > 0 && (
+            <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">
+                {showLaterItems ? '已显示稍后事项' : `${laterItemCount} 个低优先级事项已收起`}
+              </span>
+              <Button size="sm" variant="ghost" onClick={() => setShowLaterItems((value) => !value)}>
+                {showLaterItems ? '收起稍后' : '查看稍后'}
+              </Button>
+            </div>
+          )}
         </section>
       )}
 

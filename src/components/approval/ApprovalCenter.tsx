@@ -13,11 +13,16 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from '@/components/common/PullToRefreshIndicator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AIQuickActions } from '@/components/ai/AIQuickActions';
-import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
+import { AITrustBadge } from '@/components/ai/AITrustBadge';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
+
+function triggerAI(prompt: string) {
+  window.dispatchEvent(new CustomEvent('proactive-chat', { detail: { message: prompt } }));
+}
 
 function ApprovalAIRiskPanel({
   isBoss,
@@ -29,32 +34,48 @@ function ApprovalAIRiskPanel({
   mine: number;
 }) {
   const riskLevel = pending >= 10 ? '低' : pending >= 3 ? '需复核' : '高';
+  const trustLevel = pending >= 10 ? 'low' : pending >= 3 ? 'medium' : 'high';
+  const score = pending >= 10 ? 62 : pending >= 3 ? 78 : 92;
+  const Icon = pending > 0 ? AlertTriangle : ShieldCheck;
+  const summary = isBoss
+    ? pending > 0
+      ? `${pending} 条待处理，优先看大额、说明不足或停滞申请。`
+      : '当前没有积压审批，可以让 AI 生成审批规则建议。'
+    : mine > 0
+      ? `${mine} 条我发起的审批需要关注进度或补材料。`
+      : '暂无需要跟进的审批。';
 
   return (
-    <AIInsightPanel
-      title="AI 审批风控建议"
-      icon={pending > 0 ? AlertTriangle : ShieldCheck}
-      trustLevel={pending >= 10 ? 'low' : pending >= 3 ? 'medium' : 'high'}
-      score={pending >= 10 ? 62 : pending >= 3 ? 78 : 92}
-      summary={
-        isBoss
-          ? `当前有 ${pending} 条待处理审批。AI 会优先提示大额、说明不足、长时间停滞的申请，建议先处理异常项。`
-          : `你发起的审批中有 ${mine} 条需要关注。AI 会提醒补充材料、跟踪进度和催办节点。`
-      }
-      context={['审批中心', isBoss ? '管理视角' : '个人视角', `风险 ${riskLevel}`]}
-      evidence={[
-        { label: '待处理', value: <span className="text-lg font-semibold">{pending}</span> },
-        { label: '我发起的', value: <span className="text-lg font-semibold">{mine}</span> },
-      ]}
-      risks={pending >= 10 ? ['待处理审批积压', '建议先处理大额和停滞申请'] : pending >= 3 ? ['存在待复核审批'] : []}
-      actions={[
-        {
-          label: '分析风险',
-          variant: 'default',
-          prompt: '请分析当前审批中心的风险项，按金额、说明完整度和停滞时间给出处理顺序。',
-        },
-      ]}
-    />
+    <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-sm font-medium">下一步审批动作</h2>
+              <AITrustBadge level={trustLevel} score={score} />
+            </div>
+            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{summary}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <div className="hidden gap-3 text-xs text-muted-foreground sm:flex">
+            <span>待处理 {pending}</span>
+            <span>我发起 {mine}</span>
+            <span>风险 {riskLevel}</span>
+          </div>
+          <Button
+            size="sm"
+            className="h-8"
+            onClick={() => triggerAI('请分析当前审批中心的风险项，按金额、说明完整度和停滞时间给出处理顺序。')}
+          >
+            分析风险
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 

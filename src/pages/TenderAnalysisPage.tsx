@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ListChecks, Bot, Loader2, Upload, AlertCircle, CheckCircle2, FileText, ArrowRight, ChevronUp, ChevronDown, Clock, Eye, RotateCcw } from "lucide-react";
+import { ListChecks, Bot, Loader2, Upload, AlertCircle, CheckCircle2, FileText, ArrowRight, ChevronUp, ChevronDown, Clock, Eye, RotateCcw, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getApiBaseUrl } from '@/lib/apiConfig';
 import { toast } from "sonner";
@@ -30,6 +30,100 @@ interface ExtractedData {
     summary?: string;
 }
 
+interface TenderReportSection {
+    id: string;
+    title: string;
+    content: string;
+    defaultOpen?: boolean;
+}
+
+function stripMarkdownTitle(line: string) {
+    return line.replace(/^#{1,6}\s*/, '').trim();
+}
+
+function buildTenderReportSections(report: string): TenderReportSection[] {
+    const chunks = report
+        .split(/\n(?=#{3,6}\s)/g)
+        .map((chunk) => chunk.trim())
+        .filter(Boolean);
+    const sections = chunks.length > 1
+        ? chunks.map((chunk, index) => {
+            const [firstLine, ...rest] = chunk.split('\n');
+            return {
+                id: `section-${index}`,
+                title: stripMarkdownTitle(firstLine || `段落 ${index + 1}`),
+                content: rest.join('\n').trim() || chunk,
+            };
+        })
+        : [{ id: 'full-report', title: '完整报告', content: report }];
+
+    const classified: TenderReportSection[] = [
+        {
+            id: 'next-actions',
+            title: '下一步行动',
+            content: [
+                '1. 先人工复核否决项和关键评分条款。',
+                '2. 补齐技术偏离说明、证明材料和报价依据。',
+                '3. 再让 AI 生成投标响应策略和材料清单。',
+            ].join('\n'),
+            defaultOpen: true,
+        },
+    ];
+
+    const used = new Set<number>();
+    const pick = (title: string, pattern: RegExp) => {
+        const picked = sections
+            .map((section, index) => ({ section, index }))
+            .filter(({ section }) => pattern.test(section.title) || pattern.test(section.content));
+        picked.forEach(({ index }) => used.add(index));
+        classified.push({
+            id: title,
+            title,
+            content: picked.map(({ section }) => `### ${section.title}\n${section.content}`).join('\n\n') || '暂无明显发现。',
+            defaultOpen: false,
+        });
+    };
+
+    pick('否决项', /否决|redline|废标|资格|必须|不得/i);
+    pick('扣分风险', /扣分|偏离|deviation|风险|评分|响应/i);
+    pick('需补材料', /材料|证明|附件|资质|补齐|证据|文件/i);
+
+    const remaining = sections.filter((_, index) => !used.has(index));
+    if (remaining.length > 0) {
+        classified.push({
+            id: 'evidence',
+            title: '完整依据',
+            content: remaining.map((section) => `### ${section.title}\n${section.content}`).join('\n\n'),
+            defaultOpen: false,
+        });
+    }
+
+    return classified;
+}
+
+function TenderReportSections({ report }: { report: string }) {
+    const sections = buildTenderReportSections(report);
+
+    return (
+        <div className="space-y-2">
+            {sections.map((section) => (
+                <details
+                    key={section.id}
+                    open={section.defaultOpen}
+                    className="rounded-lg border bg-background"
+                >
+                    <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium">
+                        {section.title}
+                    </summary>
+                    <pre className="whitespace-pre-wrap border-t px-3 py-2 font-sans text-sm leading-relaxed text-foreground">
+                        {section.content}
+                    </pre>
+                </details>
+            ))}
+        </div>
+    );
+}
+
 export function TenderAnalysisPage() {
     const { user } = useUser();
     const [file, setFile] = useState<File | null>(null);
@@ -43,7 +137,7 @@ export function TenderAnalysisPage() {
     // History feature state
     const [historyDocs, setHistoryDocs] = useState<HistoryDoc[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
-    const [showHistory, setShowHistory] = useState(true);
+    const [showHistory, setShowHistory] = useState(false);
     const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
     const steps = [
@@ -420,6 +514,26 @@ export function TenderAnalysisPage() {
         }
     };
 
+    const latestReadyDoc = historyDocs.find((doc) => doc.status === 'ready' || doc.status === 'success');
+    const nextActionTitle = analyzing
+        ? 'AI 正在审阅标书'
+        : report
+            ? '下一步投标动作：复核报告'
+            : latestReadyDoc
+                ? `下一步投标动作：查看 ${latestReadyDoc.name}`
+                : file
+                    ? `下一步投标动作：诊断 ${file.name}`
+                    : '下一步投标动作：上传招标文件';
+    const nextActionHint = analyzing
+        ? steps[currentStep] || '正在生成诊断报告'
+        : report
+            ? '先看否决项、技术偏离和评分风险，再决定是否进入方案撰写。'
+            : latestReadyDoc
+                ? '已有历史分析可复用，先打开最新报告，避免重复上传。'
+                : file
+                    ? '文件已就绪，开始 AI 诊断后会自动提取否决项和扣分项。'
+                    : '支持 PDF / Word / DOCX。先上传文件，复杂报告和历史记录默认放在后面。';
+
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-20">
             <div className="flex flex-col gap-2">
@@ -427,8 +541,50 @@ export function TenderAnalysisPage() {
                     <ListChecks className="w-8 h-8 text-primary" />
                     智能标书审阅
                 </h1>
-                <p className="text-muted-foreground">基于 AI 专家系统，快速识别招标文件中的扣分项与否决项</p>
+                <p className="text-muted-foreground">快速识别否决项、扣分项和下一步投标风险。</p>
             </div>
+
+            <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <Sparkles className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                            <h2 className="truncate text-sm font-medium">{nextActionTitle}</h2>
+                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{nextActionHint}</p>
+                        </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <Button
+                            size="sm"
+                            className="h-8"
+                            disabled={analyzing || (!file && !latestReadyDoc && !report)}
+                            onClick={() => {
+                                if (file && !report) {
+                                    handleStartAnalysis();
+                                    return;
+                                }
+                                if (latestReadyDoc && !report) {
+                                    handleLoadFromHistory(latestReadyDoc);
+                                    return;
+                                }
+                                setShowHistory(true);
+                            }}
+                        >
+                            {file && !report ? '开始诊断' : latestReadyDoc && !report ? '打开最新报告' : '查看记录'}
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8"
+                            onClick={() => document.getElementById('tender-input')?.click()}
+                        >
+                            选择文件
+                        </Button>
+                    </div>
+                </div>
+            </section>
 
             {/* History Panel */}
             <Card className="border border-border/50">
@@ -591,15 +747,11 @@ export function TenderAnalysisPage() {
                         <CardContent id="analysis-report-content" className="bg-background p-6 rounded-lg border shadow-sm mx-6 mb-6">
                             <AICopilotInsight
                                 title="标书深度分析结论"
-                                context="基于 Gemini-3 Pro 的全文扫描与条款比对"
+                                context="基于 AI 全文扫描与条款比对"
                                 insights={[]}
                                 className="border-0 shadow-none bg-transparent p-0 mb-4"
                             />
-                            <div className="markdown-body prose dark:prose-invert max-w-none">
-                                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-                                    {report}
-                                </pre>
-                            </div>
+                            <TenderReportSections report={report} />
                         </CardContent>
                     </Card>
                 )}
