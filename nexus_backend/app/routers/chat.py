@@ -3,6 +3,7 @@ import fnmatch
 import logging
 import os
 from collections import defaultdict
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -15,6 +16,10 @@ from app.core.pii_redactor import redact_value
 from app.core.prompt_firewall import prompt_firewall
 from app.core.trace_logger import TraceLogger
 from app.models.schemas import ChatRequest
+from app.services.chat_response_acceleration_service import (
+    ChatLatencyTrace,
+    chat_response_acceleration_service,
+)
 from app.services.chat_service import ChatService
 from app.services.content_moderation import check_user_input, check_user_input_advanced
 from app.services.token_service import validate_request_tokens
@@ -98,6 +103,9 @@ async def chat(
     - Agent System Prompt Selection
     - Streaming Response via LangGraph agent
     """
+    acceleration_trace = ChatLatencyTrace(trace_id=str(uuid4()))
+    acceleration_trace.mark("request_received")
+    path_decision = None
 
     # 1. Identity & Profile Check
     # P0 Multi-tenancy: Use scoped client from request state
@@ -165,6 +173,23 @@ async def chat(
             if not is_safe:
                 return StreamingResponse(
                     _error_stream(f"⚠️ 安全拦截: {warning}"),
+                    media_type="text/event-stream; charset=utf-8",
+                )
+
+            path_decision = chat_response_acceleration_service.classify_chat_path(
+                message=last_msg.content,
+                agent=request.agent,
+                image_urls=last_msg.image_urls,
+                confirmed_tool=request.confirmed_tool,
+            )
+            acceleration_trace.route = path_decision.path
+            acceleration_trace.mark("intent_route")
+            if path_decision.can_answer:
+                return StreamingResponse(
+                    chat_response_acceleration_service.stream_fast_path(
+                        path_decision,
+                        trace=acceleration_trace,
+                    ),
                     media_type="text/event-stream; charset=utf-8",
                 )
 
@@ -285,13 +310,26 @@ async def chat(
             cached = await semantic_cache_service.get_cache(last_user_msg, user_id)
             if cached:
                 logger.info(f"[Chat] Semantic cache hit for user={user_id}")
+                acceleration_trace.route = "fast_path"
+                acceleration_trace.mark("semantic_cache_hit")
 
                 async def _cache_stream(text: str):
                     import json
 
                     # P0-8: 首帧先发心跳,避免代理在 LLM 缓存查询耗时期间断连
                     yield ": keepalive\n\n"
+                    yield chat_response_acceleration_service.progress_sse(
+                        "semantic_cache_hit",
+                        detail="llm_bypassed",
+                        trace=acceleration_trace.to_dict(),
+                    )
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n"
+                    acceleration_trace.mark("semantic_cache_done")
+                    yield chat_response_acceleration_service.progress_sse(
+                        "done",
+                        detail="served_from_semantic_cache",
+                        trace=acceleration_trace.to_dict(),
+                    )
                     yield "data: [DONE]\n\n"
 
                 return StreamingResponse(
@@ -327,6 +365,12 @@ async def chat(
 
     async def _guarded_stream():
         try:
+            acceleration_trace.mark("agent_stream_start")
+            yield chat_response_acceleration_service.progress_sse(
+                "agent_path_selected",
+                detail=path_decision.reason if path_decision else "default",
+                trace=acceleration_trace.to_dict(),
+            )
             async for chunk in run_agent_stream(
                 messages=raw_messages,
                 config=ai_config,

@@ -151,10 +151,12 @@ class ChatService:
             return f"Error: Tool {name} not found."
 
         # 1. RBAC Check
+        user_role_for_cache = None
         if tool.required_role not in ["all", "ai_assistant"]:
             user_role = await ChatService._get_cached_user_role(
                 user_id, db_client=db_client
             )
+            user_role_for_cache = user_role
             if tool.required_role == "boss" and user_role not in ["boss", "founder"]:
                 return f"⛔ Permission Denied: Tool requires [Boss] role. You are [{user_role}]."
             elif tool.required_role == "manager" and user_role not in [
@@ -174,6 +176,39 @@ class ChatService:
             logger.info(f"[HITL Gate] Tool {name} blocked - awaiting user confirmation")
             return confirmation_msg
 
+        cache_policy = None
+        try:
+            from app.services.chat_response_acceleration_service import (
+                chat_response_acceleration_service,
+            )
+
+            org_id = (
+                config.get("org_id")
+                if isinstance(config, dict)
+                else getattr(config, "org_id", None)
+            )
+            cache_policy = (
+                chat_response_acceleration_service.build_tool_result_cache_policy(
+                    tool_name=name,
+                    args=args,
+                    user_id=user_id,
+                    org_id=org_id,
+                    user_role=user_role_for_cache,
+                    tool=tool,
+                )
+            )
+            cached_result = (
+                await chat_response_acceleration_service.get_cached_tool_result(
+                    cache_policy
+                )
+            )
+            if cached_result is not None:
+                logger.info("[ToolResultCache] hit for tool=%s user=%s", name, user_id)
+                return cached_result
+        except Exception as e:
+            logger.debug("[ToolResultCache] lookup skipped for %s: %s", name, e)
+            cache_policy = None
+
         # 3. Retry Logic with timeout
         for attempt in range(3):
             try:
@@ -181,6 +216,18 @@ class ChatService:
                     tool.run(args, user_id, config=config),
                     timeout=30.0,  # 30s timeout per tool execution
                 )
+                if cache_policy is not None:
+                    try:
+                        await chat_response_acceleration_service.set_cached_tool_result(
+                            cache_policy,
+                            result,
+                        )
+                    except Exception as e:
+                        logger.debug(
+                            "[ToolResultCache] write skipped for %s: %s",
+                            name,
+                            e,
+                        )
                 return result
             except TimeoutError:
                 return f"Error: Tool {name} timed out after 30 seconds."
