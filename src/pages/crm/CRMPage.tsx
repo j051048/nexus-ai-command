@@ -88,6 +88,7 @@ function CRMAIInsightLayer({
             <span>{Number(stats?.total_customers ?? customers.length)} 客户</span>
             <span>{staleCustomers.length} 停滞</span>
             <span>{highValueOpen.length} 高价值</span>
+            <span>AI 风险依据</span>
           </div>
           <Button
             size="sm"

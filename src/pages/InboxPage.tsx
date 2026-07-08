@@ -144,6 +144,7 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
               <span>{urgent.length} 个紧急</span>
               <span>{crmRisk.length} 个客户风险</span>
               <span>基于 AI 证据链排序</span>
+              <span>AI 优先级解释</span>
             </div>
           </div>
         </div>
