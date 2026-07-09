@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -152,8 +151,12 @@ def test_llm_gateway_has_ab_routing_policy():
 def test_llm_gateway_defaults_to_low_cost_deepseek_policy():
     config = read("nexus_backend/app/core/config.py")
     llm_gateway_init = read("nexus_backend/app/services/llm_gateway/__init__.py")
-    model_resolution = read("nexus_backend/app/services/llm_gateway/model_resolution.py")
-    openai_adapter = read("nexus_backend/app/services/llm_adapters/openai_compatible.py")
+    model_resolution = read(
+        "nexus_backend/app/services/llm_gateway/model_resolution.py"
+    )
+    openai_adapter = read(
+        "nexus_backend/app/services/llm_adapters/openai_compatible.py"
+    )
     node_helpers = read("nexus_backend/app/agent/node_helpers.py")
     node_reflect = read("nexus_backend/app/agent/node_reflect.py")
     chat_router = read("nexus_backend/app/routers/chat.py")
@@ -451,7 +454,7 @@ def test_golden_customer_acceptance_chain_covers_productized_ai_workflows():
 
     assert "golden path covers action inbox" in acceptance
     assert "今日重点" in acceptance
-    assert "参考依据" in acceptance
+    assert "查看依据" in acceptance
     assert "记录拜访" in acceptance
     assert "/industry-knowledge" in acceptance
     assert "/action-analytics" in acceptance
@@ -1065,7 +1068,9 @@ def test_agent_evolution_engine_is_wired_end_to_end():
         "agent_trust_reports",
     ]:
         assert token in evolution_migration
-    assert "CREATE TABLE IF NOT EXISTS public.agent_eval_cases" not in evolution_migration
+    assert (
+        "CREATE TABLE IF NOT EXISTS public.agent_eval_cases" not in evolution_migration
+    )
     for token in [
         "ADD COLUMN IF NOT EXISTS organization_id",
         "column_name = 'org_id'",

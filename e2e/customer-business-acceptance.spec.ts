@@ -556,7 +556,7 @@ test.describe('Customer business acceptance flows', () => {
     await page.goto('/dashboard');
     await expectHealthyPage(page);
     await expect(page.getByText('今日重点')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('查看依据')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: '查看依据' })).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: '跳过引导' }).click({ timeout: 5000 }).catch(() => undefined);
     await page.locator('[data-testid^="inbox-action-menu-"]').first().click();
     await page.locator('[data-testid^="inbox-action-accept-"]').first().click();

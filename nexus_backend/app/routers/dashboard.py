@@ -561,7 +561,7 @@ async def agent_slo_cost_summary(
     days: int = 7,
 ):
     """Agent SLO and model-cost summary for production reliability reviews."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import UTC, datetime, timedelta
 
     client = get_request_db(request)
     if not client:
@@ -570,9 +570,7 @@ async def agent_slo_cost_summary(
         )
 
     days = min(max(days, 1), 30)
-    start_time = (
-        datetime.now(timezone.utc) - timedelta(days=days)
-    ).isoformat()
+    start_time = (datetime.now(UTC) - timedelta(days=days)).isoformat()
 
     try:
         user_res = (
@@ -593,7 +591,9 @@ async def agent_slo_cost_summary(
     try:
         query = (
             client.table("agent_runs")
-            .select("status,duration_ms,cost_usd,total_cost,input_tokens,output_tokens,started_at,updated_at")
+            .select(
+                "status,duration_ms,cost_usd,total_cost,input_tokens,output_tokens,started_at,updated_at"
+            )
             .gte("started_at", start_time)
         )
         if org_id:
@@ -606,7 +606,9 @@ async def agent_slo_cost_summary(
     try:
         query = (
             client.table("llm_call_log")
-            .select("model_code,input_tokens,output_tokens,total_tokens,call_cost,exec_time_ms,status,create_time")
+            .select(
+                "model_code,input_tokens,output_tokens,total_tokens,call_cost,exec_time_ms,status,create_time"
+            )
             .gte("create_time", start_time)
         )
         if org_id:

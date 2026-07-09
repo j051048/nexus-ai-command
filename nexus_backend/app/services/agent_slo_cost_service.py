@@ -6,7 +6,6 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-
 EXPENSIVE_MODEL_MARKERS = (
     "gemini",
     "gpt-4",
@@ -96,8 +95,7 @@ def summarize_agent_slo_cost(
         int(
             call.get("total_tokens")
             or (
-                int(call.get("input_tokens") or 0)
-                + int(call.get("output_tokens") or 0)
+                int(call.get("input_tokens") or 0) + int(call.get("output_tokens") or 0)
             )
         )
         for call in llm_calls

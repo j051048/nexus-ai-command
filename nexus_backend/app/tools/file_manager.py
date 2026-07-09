@@ -160,10 +160,10 @@ def _parse_pdf(file_bytes: bytes) -> str:
     try:
         import io
 
-        import PyPDF2
+        from pypdf import PdfReader
 
-        reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
-        return "\n".join(page.extract_text() for page in reader.pages)
+        reader = PdfReader(io.BytesIO(file_bytes))
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
     except Exception:
         return ""
 
