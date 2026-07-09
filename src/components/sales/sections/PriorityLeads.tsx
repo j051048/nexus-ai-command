@@ -59,7 +59,7 @@ export function PriorityLeads({ leads }: PriorityLeadsProps) {
                         <div className="flex gap-2 mt-5">
                             <button className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95">
                                 <Phone className="w-3.5 h-3.5" />
-                                立即突击
+                                立即联系
                             </button>
                             <button className="px-3.5 py-2.5 rounded-xl bg-secondary text-foreground text-[10px] hover:bg-secondary/80 border border-border transition-all active:scale-95">
                                 <Mail className="w-3.5 h-3.5" />

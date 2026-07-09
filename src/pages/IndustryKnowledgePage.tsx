@@ -62,7 +62,7 @@ export default function IndustryKnowledgePage() {
             科学仪器行业知识资产
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
-            把行业经验沉淀成可复用的 AI 作战资产
+            把行业经验沉淀成可复用的知识资产
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
             资产库覆盖竞品战卡、招投标评分、科研客户决策链和技术拜访复盘。销售、售前和管理层可以直接调用模板，让 AI 进入科学仪器行业语境。

@@ -120,12 +120,12 @@ function AgentIllustration() {
       {/* Agent tags orbiting around */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 -translate-y-1 flex gap-1">
         <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 text-[10px] font-medium border border-blue-500/20">
-          销售指挥官
+          销售助手
         </span>
       </div>
       <div className="absolute bottom-5 left-8">
         <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[10px] font-medium border border-green-500/20">
-          绩效教练
+          绩效助手
         </span>
       </div>
       <div className="absolute bottom-5 right-8">
@@ -191,7 +191,7 @@ const steps: WelcomeTourStep[] = [
   {
     title: '输入 @ 选择专属 AI 助手',
     description:
-      '在聊天框输入 @，可选择不同专业助手：销售指挥官、绩效教练、审批助手等，各司其职更高效。',
+      '在聊天框输入 @，可选择不同专业助手：销售助手、绩效助手、审批助手等，各司其职更高效。',
     icon: <AtSign className="w-5 h-5" />,
     illustration: <AgentIllustration />,
   },

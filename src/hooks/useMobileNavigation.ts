@@ -51,7 +51,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard': '收件箱',
   '/workbench': '工作台',
   '/data': '数据',
-  '/ai-center': 'AI 中心',
+  '/ai-center': '助手',
   '/boss-dashboard': '总控中心',
   '/approval': '工作台',
   '/sales': '销售管道',

@@ -45,10 +45,13 @@ export async function getBusinessContext(userId: string, role: string, scene?: s
 function resolveScene(agent?: string, userRole?: string): string {
   if (!agent) return userRole === 'boss' ? 'boss' : 'default';
   const map: Record<string, string> = {
+    '@销售助手': 'sales',
     '@销售指挥官': 'sales',
     'sales_commander': 'sales',
+    '@流程助手': 'approval',
     '@审批管家': 'approval',
     'approval_manager': 'approval',
+    '@绩效助手': 'performance',
     '@绩效教练': 'performance',
     'performance_coach': 'performance',
     '@总裁助理': 'boss',

@@ -144,9 +144,9 @@ const translations: Record<Locale, Translations> = {
     'ai.placeholder': '输入指令或提问...',
     'ai.thinking': 'AI 正在思考...',
     'ai.selectAgent': '选择 AI 助手',
-    'ai.salesAgent': '销售指挥官',
-    'ai.performanceAgent': '绩效教练',
-    'ai.assistantAgent': '企业小助手',
+    'ai.salesAgent': '销售助手',
+    'ai.performanceAgent': '绩效助手',
+    'ai.assistantAgent': '流程助手',
     'ai.knowledgeAgent': '知识助手',
 
     // AI Chat

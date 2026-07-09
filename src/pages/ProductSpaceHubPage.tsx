@@ -396,15 +396,15 @@ export function DataHubPage() {
 export function AICenterPage() {
   return (
     <ProductSpaceHub
-      eyebrow="AI 中心"
-      title="把 Agent、知识和治理放在一起"
-      description="AI 中心承载知识库、VMD、插件、模型和工具治理。聊天仍然随处可用，但配置和治理集中管理。"
+      eyebrow="助手"
+      title="把知识、助手和治理放在一起"
+      description="这里承载知识库、VMD、插件、模型和工具治理。聊天仍然随处可用，但配置和治理集中管理。"
       primaryHref="/knowledge"
       primaryLabel="打开知识库"
       links={[
         {
-          title: 'AI 作战操作系统',
-          description: '集中管理 P0-P6：超级场景、Agent 沙盒、SOP 定义、知识图谱、价值证明和角色化体验。',
+          title: '助手工作台',
+          description: '集中管理核心场景、仿真沙盒、流程定义、业务图谱、价值证明和角色化体验。',
           href: '/ai-operating-system',
           icon: Sparkles,
           tone: 'bg-fuchsia-500/10 text-fuchsia-600',

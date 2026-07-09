@@ -79,7 +79,7 @@ export const GlobalAIBall: React.FC<GlobalAIBallProps> = ({
               isHovered && "opacity-100 translate-x-0"
             )}>
               <div className="flex items-center gap-2">
-                <span>唤醒指挥部</span>
+                <span>打开助手</span>
                 <div className="flex items-center gap-0.5 opacity-60 bg-muted px-1 rounded">
                   <Command className="w-2 h-2" />
                   <span>A</span>
@@ -92,7 +92,7 @@ export const GlobalAIBall: React.FC<GlobalAIBallProps> = ({
           </button>
         </TooltipTrigger>
         <TooltipContent side="right" className="bg-primary text-primary-foreground border-none font-bold">
-          AI 数字化指挥部 (Alt+A)
+          助手面板 (Alt+A)
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

@@ -40,7 +40,6 @@ import { useContracts, useContractDetail, useCreateContract, useDeleteContract, 
 import { useAuth } from '@/components/auth/AuthContext';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { AITrustBadge } from '@/components/ai/AITrustBadge';
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 
 // 合同类型
@@ -120,44 +119,30 @@ function ContractAIInsightLayer({ contracts }: { contracts: Contract[] }) {
         : '暂无合同风险，先创建合同或让 AI 生成合同台账检查清单。';
 
   return (
-    <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-sm font-medium">{nextTitle}</h2>
-              <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 90 : 76} />
-            </div>
-            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{nextReason}</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
-          <div className="hidden gap-3 text-xs text-muted-foreground sm:flex">
-            <span>待审 {pendingReview.length}</span>
-            <span>到期 {expiring.length}</span>
-            <span>最高 {highValue[0] ? formatAmount(Number(highValue[0].amount)) : '--'}</span>
-          </div>
-          <Button
-            size="sm"
-            className="h-8"
-            onClick={() => triggerAI('请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单和处理优先级。')}
-          >
-            生成风险清单
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8"
-            onClick={() => triggerAI('请把当前即将到期和待审核合同整理成今天的合同处理计划。')}
-          >
-            今日计划
-          </Button>
-        </div>
-      </div>
-    </section>
+    <AIInsightPanel
+      variant="compact"
+      title={nextTitle}
+      summary={nextReason}
+      trustLevel={trustLevel}
+      score={trustLevel === 'high' ? 90 : 76}
+      stats={[
+        { label: '待审', value: pendingReview.length },
+        { label: '到期', value: expiring.length },
+        { label: '最高', value: highValue[0] ? formatAmount(Number(highValue[0].amount)) : '--' },
+      ]}
+      actions={[
+        {
+          label: '生成风险清单',
+          prompt: '请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单和处理优先级。',
+          variant: 'default',
+        },
+        {
+          label: '今日计划',
+          prompt: '请把当前即将到期和待审核合同整理成今天的合同处理计划。',
+          variant: 'outline',
+        },
+      ]}
+    />
   );
 }
 

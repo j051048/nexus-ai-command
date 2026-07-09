@@ -555,9 +555,10 @@ test.describe('Customer business acceptance flows', () => {
 
     await page.goto('/dashboard');
     await expectHealthyPage(page);
-    await expect(page.getByText('今日行动台')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('AI 证据链')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('今日重点')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('查看依据')).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: '跳过引导' }).click({ timeout: 5000 }).catch(() => undefined);
+    await page.locator('[data-testid^="inbox-action-menu-"]').first().click();
     await page.locator('[data-testid^="inbox-action-accept-"]').first().click();
 
     await page.goto('/crm');
@@ -581,7 +582,7 @@ test.describe('Customer business acceptance flows', () => {
 
     await page.goto('/ai-operating-system');
     await expectHealthyPage(page);
-    await expect(page.getByText('科学仪器销售团队的 AI 作战室')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('科学仪器销售团队的助手工作台')).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('heading', { name: 'AI 价值与信任仪表盘' })).toBeVisible();
     await page.getByRole('tab', { name: '运行监控' }).click();
     await expect(page.getByText('真实运营数据')).toBeVisible();
@@ -590,7 +591,7 @@ test.describe('Customer business acceptance flows', () => {
     await expect(page.getByRole('heading', { name: 'SOP → AOP 自然语言定义器' }).first()).toBeVisible();
     await page.getByRole('button', { name: '生成 Agent 定义' }).click();
     await expect(page.getByTestId('agent-definition-trigger-rules')).toBeVisible({ timeout: 10000 });
-    await page.getByRole('tab', { name: '作战总览' }).click();
+    await page.getByRole('tab', { name: '工作台总览' }).click();
     await expect(page.locator('#demo-space').getByRole('heading', { name: '科学仪器 Demo 空间' })).toBeVisible();
   });
 });

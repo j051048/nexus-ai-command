@@ -68,46 +68,31 @@ function CRMAIInsightLayer({
       : '当前客户池暂无明显风险，可以补充新线索或复盘成交路径。';
 
   return (
-    <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-sm font-medium">下一步客户动作：{nextCustomer.name}</h2>
-              {/* AI 客户摘要 */}
-              <AITrustBadge level={trustLevel} score={trustLevel === 'high' ? 88 : 74} />
-            </div>
-            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{nextReason}</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
-          <div className="hidden gap-3 text-xs text-muted-foreground sm:flex">
-            <span>{Number(stats?.total_customers ?? customers.length)} 客户</span>
-            <span>{staleCustomers.length} 停滞</span>
-            <span>{highValueOpen.length} 高价值</span>
-            <span>AI 风险依据</span>
-          </div>
-          <Button
-            size="sm"
-            className="h-8"
-            onClick={() => triggerAI('请基于当前 CRM 客户列表，生成高价值机会和风险客户的跟进优先级。')}
-          >
-            生成跟进优先级
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8"
-            onClick={() => triggerAI('请帮我写一份今天的 CRM 销售晨会摘要，包含新增、机会、风险和下一步动作。')}
-          >
-            晨会摘要
-          </Button>
-        </div>
-      </div>
-    </section>
+    <AIInsightPanel
+      variant="compact"
+      title={`下一步客户动作：${nextCustomer.name}`}
+      summary={nextReason}
+      trustLevel={trustLevel}
+      score={trustLevel === 'high' ? 88 : 74}
+      stats={[
+        { label: `${Number(stats?.total_customers ?? customers.length)} 客户`, value: '' },
+        { label: `${staleCustomers.length} 停滞`, value: '' },
+        { label: `${highValueOpen.length} 高价值`, value: '' },
+        { label: 'AI 风险依据', value: '' },
+      ]}
+      actions={[
+        {
+          label: '生成跟进优先级',
+          prompt: '请基于当前 CRM 客户列表，生成高价值机会和风险客户的跟进优先级。',
+          variant: 'default',
+        },
+        {
+          label: '晨会摘要',
+          prompt: '请帮我写一份今天的 CRM 销售晨会摘要，包含新增、机会、风险和下一步动作。',
+          variant: 'outline',
+        },
+      ]}
+    />
   );
 }
 

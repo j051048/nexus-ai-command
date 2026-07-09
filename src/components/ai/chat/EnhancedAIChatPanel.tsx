@@ -28,21 +28,21 @@ interface EnhancedAIChatPanelProps {
 const agentTags = [
   {
     id: 'sales',
-    name: '@销售指挥官',
+    name: '@销售助手',
     color: 'text-blue-500 bg-blue-500/10',
     description: '销售策略、商机分析、客户洞察',
     icon: <Zap className="w-3 h-3" />,
   },
   {
     id: 'performance',
-    name: '@绩效教练',
+    name: '@绩效助手',
     color: 'text-green-500 bg-green-500/10',
     description: '目标追踪、绩效分析、激励建议',
     icon: <ThumbsUp className="w-3 h-3" />,
   },
   {
     id: 'approval',
-    name: '@企业小助手',
+    name: '@流程助手',
     color: 'text-orange-500 bg-orange-500/10',
     description: '审批流程、报销查询、政策咨询',
     icon: <Lightbulb className="w-3 h-3" />,

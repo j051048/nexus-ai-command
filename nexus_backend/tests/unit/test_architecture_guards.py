@@ -450,8 +450,8 @@ def test_golden_customer_acceptance_chain_covers_productized_ai_workflows():
     acceptance = read("e2e/customer-business-acceptance.spec.ts")
 
     assert "golden path covers action inbox" in acceptance
-    assert "今日行动台" in acceptance
-    assert "AI 证据链" in acceptance
+    assert "今日重点" in acceptance
+    assert "参考依据" in acceptance
     assert "记录拜访" in acceptance
     assert "/industry-knowledge" in acceptance
     assert "/action-analytics" in acceptance
@@ -472,7 +472,7 @@ def test_p2_product_depth_round_is_wired():
     assert "行动趋势" in analytics_page
     assert "团队动作榜" in analytics_page
     assert "Customer360Panel" in crm_detail
-    assert "客户 360 作战视图" in crm_detail
+    assert "客户 360 视图" in crm_detail
     assert "竞品态势" in crm_detail
     assert "报价 / 招投标" in crm_detail
     assert "MobileNativeCapturePanel" in mobile_capture
@@ -772,7 +772,7 @@ def test_unified_action_inbox_is_wired():
     assert "/api/inbox/actions" in hook
     assert "**/api/inbox/actions**" in e2e_mocks
     assert "/events" in e2e_mocks
-    assert "今日行动台" in inbox_page
+    assert "今日重点" in inbox_page
     assert "data?.summary.total" in inbox_page
     assert "handleCommand" in inbox_page
     assert "handleActionEvent" in inbox_page
@@ -789,7 +789,7 @@ def test_navigation_is_consolidated_into_five_product_spaces():
     assert 'label: "CRM", href: "crm", group: "primary"' in sidebar
     assert 'label: "工作台", href: "workbench", group: "primary"' in sidebar
     assert 'label: "数据", href: "data", group: "primary"' in sidebar
-    assert 'label: "AI 中心", href: "ai-center", group: "primary"' in sidebar
+    assert 'label: "助手", href: "ai-center", group: "primary"' in sidebar
     assert "SPACE_MATCH_PREFIXES" in sidebar
     assert "WorkspaceHubPage" in lazy_imports
     assert "DataHubPage" in lazy_imports
@@ -800,7 +800,7 @@ def test_navigation_is_consolidated_into_five_product_spaces():
     assert "核心空间" in command_bar
     assert "把日常运营收进一个空间" in hub_page
     assert "看趋势，而不是翻模块" in hub_page
-    assert "把 Agent、知识和治理放在一起" in hub_page
+    assert "把知识、助手和治理放在一起" in hub_page
 
 
 def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
@@ -833,9 +833,9 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     assert "ContractAIInsightLayer" in contract_page
     assert "AI 合同风控摘要" in contract_page
     assert "ActionInboxInsightStrip" in inbox_page
-    assert "AI 优先级解释" in inbox_page
+    assert "查看依据" in inbox_page
     assert "RoleGuidanceStrip" in inbox_page
-    assert "AI 证据链" in inbox_page
+    assert "参考依据" in inbox_page
     assert "risk_flags" in inbox_page
     assert "MobileActionCardStack" in mobile_actions
     assert "语音拜访速记" in mobile_actions
@@ -929,7 +929,7 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "DEMO_WORKSPACE_ARTIFACTS" in model
     assert "ROLE_WORKBENCH_PROFILES" in model
 
-    assert "科学仪器销售团队的 AI 作战室" in page
+    assert "科学仪器销售团队的助手工作台" in page
     assert "真实运营数据" in page
     assert "AI 价值与信任仪表盘" in page
     assert "SOP → AOP 自然语言定义器" in page
@@ -945,19 +945,19 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "事件驱动 Agent 触发蓝图" in page
 
     assert "AIOperatingSystemStrip" in strip
-    assert "AI 作战操作系统" in strip
-    assert "打开作战系统" in strip
-    assert "VMD 超级场景" in strip
-    assert "Agent 生命周期" in strip
-    assert "业务上下文层" in strip
+    assert "助手工作台" in strip
+    assert "打开工作台" in strip
+    assert "营销场景" in strip
+    assert "助手管理" in strip
+    assert "业务知识" in strip
     assert "<AIOperatingSystemStrip />" in inbox
 
     assert "AIOperatingSystemPage" in lazy_imports
     assert 'path="ai-operating-system"' in core_routes
     assert (
-        'label: "AI 作战系统", href: "ai-operating-system", group: "AI 中心"' in sidebar
+        'label: "助手工作台", href: "ai-operating-system", group: "智能助手"' in sidebar
     )
-    assert "AI 作战操作系统" in command_bar
+    assert "助手工作台" in command_bar
     assert "/ai-operating-system" in acceptance
 
     assert "/api/ai-operating-system" in router

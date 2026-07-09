@@ -57,7 +57,7 @@ BUSINESS_APP_MANIFESTS: list[dict[str, Any]] = [
     },
     {
         "key": "ai_operating_system",
-        "title": "AI 作战系统",
+        "title": "助手工作台",
         "routes": ["/ai-operating-system", "/agent-improvement-center"],
         "apis": ["/api/ai-operating-system"],
         "tables": ["agent_runs", "agent_ci_runs", "agent_improvement_proposals"],

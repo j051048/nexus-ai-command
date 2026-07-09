@@ -58,7 +58,7 @@ export const AI_OPERATING_CAPABILITIES: OperatingCapability[] = [
   {
     priority: 'P0',
     title: 'VMD + 科学仪器超级场景',
-    description: '把线索发现、客户 360、竞品战卡、招投标评分和跟进动作收进一个行业作战闭环。',
+    description: '把线索发现、客户 360、竞品对比、招投标评分和跟进动作收进一个行业闭环。',
     owner: '增长负责人',
     status: 'live',
     icon: Rocket,
@@ -74,7 +74,7 @@ export const AI_OPERATING_CAPABILITIES: OperatingCapability[] = [
     status: 'live',
     icon: PlayCircle,
     href: '/ai-operating-system',
-    proof: 'AI 作战系统已接入 /simulate 仿真接口',
+    proof: '助手工作台已接入 /simulate 仿真接口',
     aiPrompt: '设计 12 条用于测试销售跟进 Agent 的仿真对话，并给出评分标准。',
   },
   {
@@ -113,7 +113,7 @@ export const AI_OPERATING_CAPABILITIES: OperatingCapability[] = [
   {
     priority: 'P2',
     title: '纯 AI-Native 场景',
-    description: '线索跟进、投标支持、竞品分析不再只是 CRUD 页面加按钮，而是对话 + GenUI 的作战流。',
+    description: '线索跟进、投标支持、竞品分析不再只是 CRUD 页面加按钮，而是对话 + GenUI 的业务流。',
     owner: '产品负责人',
     status: 'ready',
     icon: MessageSquareText,
@@ -134,14 +134,14 @@ export const AI_OPERATING_CAPABILITIES: OperatingCapability[] = [
   },
   {
     priority: 'P4',
-    title: '首屏作战台与角色首页',
+    title: '首屏行动台与角色首页',
     description: '首页回答“今天推进谁、哪个项目有风险、AI 已经做了什么、我下一步点哪里”。',
     owner: '产品设计',
     status: 'live',
     icon: Radar,
     href: '/dashboard',
     proof: '行动台取代传统 Dashboard',
-    aiPrompt: '根据我的角色生成今天的作战台：客户、项目风险、AI 自动推进、待确认动作。',
+    aiPrompt: '根据我的角色生成今天的行动台：客户、项目风险、自动推进、待确认动作。',
   },
   {
     priority: 'P4',
@@ -179,7 +179,7 @@ export const AI_OPERATING_CAPABILITIES: OperatingCapability[] = [
   {
     priority: 'P6',
     title: '角色化体验',
-    description: 'Boss、销售、售前、运营、管理员看到不同作战台、不同默认 AI、不同价值指标。',
+    description: 'Boss、销售、售前、运营、管理员看到不同首页、不同默认助手、不同价值指标。',
     owner: '增长产品',
     status: 'ready',
     icon: UserRoundCog,
@@ -191,19 +191,19 @@ export const AI_OPERATING_CAPABILITIES: OperatingCapability[] = [
 
 export const AI_NATIVE_SCENES = [
   {
-    title: '线索跟进作战流',
+    title: '线索跟进业务流',
     flow: '客户风险 → AI 拜访提醒 → 跟进邮件 → 行动事件',
     metric: '30 天未跟进客户下降 60%',
     icon: Target,
   },
   {
-    title: '投标支持作战流',
+    title: '投标支持业务流',
     flow: '标书上传 → 评分拆解 → 风险项 → 技术方案草稿',
     metric: '投标准备周期缩短 40%',
     icon: Gauge,
   },
   {
-    title: '竞品战卡作战流',
+    title: '竞品对比业务流',
     flow: '客户型号 → 竞品参数 → 差异话术 → 现场问答',
     metric: '售前响应时间缩短 50%',
     icon: ShieldCheck,
@@ -279,7 +279,7 @@ export const SEVEN_DAY_SUCCESS_PATH = [
   'Day 4：跑 20 条历史消息仿真，确认自动执行和人工确认边界',
   'Day 5：上线行动台，要求团队每天处理高优先级动作',
   'Day 6：查看 AI 价值仪表盘，复盘节省时间和推进商机',
-  'Day 7：邀请管理层看 Demo 空间和本组织真实作战数据',
+  'Day 7：邀请管理层看 Demo 空间和本组织真实业务数据',
 ];
 
 export const DEMO_WORKSPACE_ARTIFACTS: DemoWorkspaceArtifact[] = [

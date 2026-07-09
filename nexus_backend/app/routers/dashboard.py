@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.core.auth import get_current_user_id
 from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
+from app.services.agent_slo_cost_service import summarize_agent_slo_cost
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
@@ -551,3 +552,70 @@ async def ai_weekly_report(
         ],
     }
     return api_success(data=report)
+
+
+@router.get("/agent-slo-cost")
+async def agent_slo_cost_summary(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    days: int = 7,
+):
+    """Agent SLO and model-cost summary for production reliability reviews."""
+    from datetime import datetime, timedelta, timezone
+
+    client = get_request_db(request)
+    if not client:
+        raise api_error(
+            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
+        )
+
+    days = min(max(days, 1), 30)
+    start_time = (
+        datetime.now(timezone.utc) - timedelta(days=days)
+    ).isoformat()
+
+    try:
+        user_res = (
+            await client.table("users")
+            .select("org_id,organization_id")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        user_row = user_res.data or {}
+        org_id = user_row.get("organization_id") or user_row.get("org_id")
+    except Exception:
+        org_id = None
+
+    agent_runs: list[dict] = []
+    llm_calls: list[dict] = []
+
+    try:
+        query = (
+            client.table("agent_runs")
+            .select("status,duration_ms,cost_usd,total_cost,input_tokens,output_tokens,started_at,updated_at")
+            .gte("started_at", start_time)
+        )
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        res = await query.limit(500).execute()
+        agent_runs = res.data or []
+    except Exception as e:
+        logger.info("Agent SLO run query unavailable: %s", e)
+
+    try:
+        query = (
+            client.table("llm_call_log")
+            .select("model_code,input_tokens,output_tokens,total_tokens,call_cost,exec_time_ms,status,create_time")
+            .gte("create_time", start_time)
+        )
+        if org_id:
+            query = query.eq("tenant_id", org_id)
+        res = await query.limit(1000).execute()
+        llm_calls = res.data or []
+    except Exception as e:
+        logger.info("Agent SLO LLM call query unavailable: %s", e)
+
+    summary = summarize_agent_slo_cost(agent_runs=agent_runs, llm_calls=llm_calls)
+    summary["window_days"] = days
+    return api_success(data=summary)

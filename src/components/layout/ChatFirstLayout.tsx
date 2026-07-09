@@ -7,7 +7,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
-import { PanelRightClose, PanelRightOpen, Clock } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Clock, Sparkles } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { TrialBanner } from '@/components/billing/TrialBanner';
 import { useWebSocketPush } from '@/hooks/useWebSocketPush';
@@ -16,6 +16,45 @@ import { GlobalAIBall } from '@/components/ai/GlobalAIBall';
 
 interface ChatFirstLayoutProps {
     children?: React.ReactNode;
+}
+
+function AssistantStatusPill({
+    isChatOpen,
+    onOpen,
+}: {
+    isChatOpen: boolean;
+    onOpen: () => void;
+}) {
+    const [isWorking, setIsWorking] = useState(false);
+
+    useEffect(() => {
+        let timer: ReturnType<typeof window.setTimeout> | undefined;
+        const handler = () => {
+            setIsWorking(true);
+            timer = window.setTimeout(() => setIsWorking(false), 3200);
+        };
+        window.addEventListener('proactive-chat', handler);
+        return () => {
+            window.removeEventListener('proactive-chat', handler);
+            if (timer) window.clearTimeout(timer);
+        };
+    }, []);
+
+    return (
+        <button
+            type="button"
+            onClick={onOpen}
+            className="hidden items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.04] px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground md:flex"
+            aria-label="打开助手面板"
+        >
+            <span className="relative flex h-2 w-2">
+                {isWorking && <span className="absolute inline-flex h-full w-full rounded-full bg-primary/40 animate-ping" />}
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary/70" />
+            </span>
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <span>{isWorking ? '助手正在整理请求' : isChatOpen ? '助手已开启' : '助手待命'}</span>
+        </button>
+    );
 }
 
 export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
@@ -32,7 +71,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
         if (path.includes('performance-dashboard')) return '战绩看板';
         if (path.includes('dashboard')) return '收件箱';
         if (path.includes('workbench')) return '工作台';
-        if (path.includes('ai-center')) return 'AI 中心';
+        if (path.includes('ai-center')) return '助手';
         if (path.includes('data')) return '数据';
         if (path.includes('crm')) return 'CRM';
         if (path.includes('sales')) return '销售管道';
@@ -103,6 +142,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
+                            <AssistantStatusPill isChatOpen={isChatOpen} onOpen={() => setIsChatOpen(true)} />
                             <NotificationCenter />
                             <Button
                                 variant="ghost"

@@ -6,15 +6,15 @@ export type AITrustLevel = 'high' | 'medium' | 'low';
 
 const TRUST_META: Record<AITrustLevel, { label: string; className: string }> = {
   high: {
-    label: '高置信',
+    label: '把握较高',
     className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   },
   medium: {
-    label: '需复核',
+    label: '建议复核',
     className: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   },
   low: {
-    label: '低置信',
+    label: '需确认',
     className: 'border-destructive/30 bg-destructive/10 text-destructive',
   },
 };

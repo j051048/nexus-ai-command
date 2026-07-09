@@ -285,6 +285,31 @@ CHECKS = [
         ),
     ),
     ProofCheck(
+        "P0 source size guard",
+        "scripts/check_source_size.mjs",
+        ("SOURCE_SIZE_GATE_OK", "MANAGED_DEBT", "src/pages/OACenter.tsx"),
+    ),
+    ProofCheck(
+        "Agent eval regression gate",
+        "scripts/agent_eval_regression_gate.py",
+        (
+            "AGENT_EVAL_REGRESSION_OK",
+            "baseline_scores.json",
+            "agent_quality_thresholds.json",
+            "regression_tolerance = 0.02",
+        ),
+    ),
+    ProofCheck(
+        "Agent SLO and cost observability",
+        "nexus_backend/app/services/agent_slo_cost_service.py",
+        (
+            "agent_success_rate_min",
+            "agent_p95_duration_ms_max",
+            "expensive_model_share_max",
+            "daily_cost_usd_max",
+        ),
+    ),
+    ProofCheck(
         "production proof wired to CI",
         ".github/workflows/ci.yml",
         ("production_proof_gate.py", "tests/production_proof"),

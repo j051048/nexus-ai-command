@@ -26,6 +26,7 @@ env:
   PYTHON_VERSION: "3.11"
   FRONTEND_COVERAGE_MIN: "7"
   BACKEND_COVERAGE_MIN: "30"
+  BACKEND_COVERAGE_NEXT_TARGET: "45"
 
 jobs:
   frontend-static:
@@ -42,6 +43,8 @@ jobs:
         run: npm run lint
       - name: TypeScript check
         run: npx tsc --noEmit
+      - name: Source size guard
+        run: npm run check:size
       - name: Build frontend
         run: npm run build
         env:
@@ -124,7 +127,7 @@ jobs:
       - name: Python dependency audit
         run: |
           pip install --upgrade pip pip-audit
-          pip-audit -r nexus_backend/requirements.txt --strict || true
+          pip-audit -r nexus_backend/requirements.txt --strict
       - name: npm critical dependency audit
         run: npm audit --omit=dev --audit-level=critical
       - name: Hardcoded secret pattern scan
@@ -379,6 +382,9 @@ jobs:
 
       - name: Run agent tests (intent matrix + plan/execute/reflect)
         run: pytest tests/agent/ -v --retries 2 --retry-delay 1
+      - name: Agent eval regression gate
+        working-directory: ${{ github.workspace }}
+        run: python scripts/agent_eval_regression_gate.py
 
   # ═══════════════════════════════════════════════════════════════
   # 6. 安全测试（Prompt 注入 + XSS/CSRF + 权限矩阵）
@@ -621,6 +627,8 @@ jobs:
             FAILED=1
           fi
           echo "| Backend | ${BE_COV:-N/A}% | ${BE_MIN}% | $BE_PASS |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Next backend coverage target: ${BACKEND_COVERAGE_NEXT_TARGET}%" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # ── 硬性门禁 ──

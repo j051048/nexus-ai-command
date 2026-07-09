@@ -72,7 +72,7 @@ export function TopPerformers({ performers }: TopPerformersProps) {
                             )}>
                                 {performer.score}
                             </p>
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mt-0.5">XP Score</p>
+                            <p className="text-[10px] font-bold tracking-wider text-muted-foreground mt-0.5">绩效分</p>
                         </div>
                     </div>
                 ))}

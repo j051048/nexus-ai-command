@@ -2,13 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ListChecks, Bot, Loader2, Upload, AlertCircle, CheckCircle2, FileText, ArrowRight, ChevronUp, ChevronDown, Clock, Eye, RotateCcw, Sparkles } from "lucide-react";
+import { ListChecks, Bot, Loader2, Upload, AlertCircle, CheckCircle2, FileText, ArrowRight, ChevronUp, ChevronDown, Clock, Eye, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getApiBaseUrl } from '@/lib/apiConfig';
 import { toast } from "sonner";
 import { httpClient } from '@/lib/httpClient';
 import { useUser } from "@/contexts/UserContext";
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
+import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 
 interface HistoryDoc {
     id: string;
@@ -544,47 +545,41 @@ export function TenderAnalysisPage() {
                 <p className="text-muted-foreground">快速识别否决项、扣分项和下一步投标风险。</p>
             </div>
 
-            <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                            <Sparkles className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                            <h2 className="truncate text-sm font-medium">{nextActionTitle}</h2>
-                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{nextActionHint}</p>
-                        </div>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <Button
-                            size="sm"
-                            className="h-8"
-                            disabled={analyzing || (!file && !latestReadyDoc && !report)}
-                            onClick={() => {
-                                if (file && !report) {
-                                    handleStartAnalysis();
-                                    return;
-                                }
-                                if (latestReadyDoc && !report) {
-                                    handleLoadFromHistory(latestReadyDoc);
-                                    return;
-                                }
-                                setShowHistory(true);
-                            }}
-                        >
-                            {file && !report ? '开始诊断' : latestReadyDoc && !report ? '打开最新报告' : '查看记录'}
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8"
-                            onClick={() => document.getElementById('tender-input')?.click()}
-                        >
-                            选择文件
-                        </Button>
-                    </div>
-                </div>
-            </section>
+            <AIInsightPanel
+                variant="compact"
+                icon={ListChecks}
+                title={nextActionTitle}
+                summary={nextActionHint}
+                trustLevel={report || latestReadyDoc ? 'high' : file ? 'medium' : 'low'}
+                score={report || latestReadyDoc ? 88 : file ? 74 : 52}
+                stats={[
+                    { label: '历史', value: `${historyDocs.length} 份` },
+                    { label: '状态', value: analyzing ? '诊断中' : report ? '已生成' : file ? '待诊断' : '待上传' },
+                ]}
+                actions={[
+                    {
+                        label: file && !report ? '开始诊断' : latestReadyDoc && !report ? '打开最新报告' : '查看记录',
+                        variant: 'default',
+                        disabled: analyzing || (!file && !latestReadyDoc && !report),
+                        onClick: () => {
+                            if (file && !report) {
+                                handleStartAnalysis();
+                                return;
+                            }
+                            if (latestReadyDoc && !report) {
+                                handleLoadFromHistory(latestReadyDoc);
+                                return;
+                            }
+                            setShowHistory(true);
+                        },
+                    },
+                    {
+                        label: '选择文件',
+                        variant: 'outline',
+                        onClick: () => document.getElementById('tender-input')?.click(),
+                    },
+                ]}
+            />
 
             {/* History Panel */}
             <Card className="border border-border/50">

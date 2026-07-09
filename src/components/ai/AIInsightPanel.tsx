@@ -27,6 +27,17 @@ export interface AIInsightAction {
   payload?: unknown;
   evidence?: AIInsightEvidence[];
   onClick?: () => void;
+  /** 显式禁用按钮（如缺少前置文件、诊断进行中）。 */
+  disabled?: boolean;
+}
+
+/**
+ * 紧凑统计项：用于嵌入型洞察条右侧的数字摘要（待处理/到期/最高额…）。
+ * 仅在 variant="compact" 下渲染，避免占用 default 版的纵向空间。
+ */
+export interface AIInsightStat {
+  label: string;
+  value: ReactNode;
 }
 
 interface AIInsightPanelProps {
@@ -39,6 +50,15 @@ interface AIInsightPanelProps {
   risks?: string[];
   context?: string[];
   actions?: AIInsightAction[];
+  /**
+   * 布局密度。
+   * - default：页首主洞察，p-4 + 三列证据网格 + 多按钮，适合收件箱顶部。
+   * - compact：页内嵌入窄横幅，px-3 py-2.5 + 单行统计 + 1-2 按钮，适合
+   *   审批/合同/CRM/标书等业务页面顶部，不占用过多纵向空间。
+   */
+  variant?: 'default' | 'compact';
+  /** compact 专属：右侧摘要统计（待处理 N / 到期 N …）。default 下忽略。 */
+  stats?: AIInsightStat[];
   className?: string;
 }
 
@@ -56,8 +76,11 @@ export function AIInsightPanel({
   risks = [],
   context = [],
   actions = [],
+  variant = 'default',
+  stats = [],
   className,
 }: AIInsightPanelProps) {
+  const isCompact = variant === 'compact';
   const navigate = useNavigate();
   const [executingAction, setExecutingAction] = useState<string | null>(null);
 
@@ -95,8 +118,72 @@ export function AIInsightPanel({
     if (action.prompt) triggerAI(action.prompt);
   };
 
+  // ── compact 变体：页内嵌入窄横幅（审批/合同/CRM/标书等页面顶部）──
+  if (isCompact) {
+    return (
+      <section
+        data-testid="ai-insight-panel"
+        className={cn(
+          'rounded-lg border border-primary/15 border-l-2 border-l-primary/45 bg-gradient-to-r from-primary/[0.04] via-card to-card px-3 py-2.5 shadow-sm',
+          className,
+        )}
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Icon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="border-primary/20 bg-primary/5 text-[11px] text-primary">
+                  建议
+                </Badge>
+                <h2 className="truncate text-sm font-medium">{title}</h2>
+                <AITrustBadge level={trustLevel} score={score} />
+              </div>
+              {summary && (
+                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{summary}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
+            {stats.length > 0 && (
+              <div className="hidden gap-3 text-xs text-muted-foreground sm:flex">
+                {stats.map((s) => (
+                  <span key={s.label}>{s.label} {s.value}</span>
+                ))}
+              </div>
+            )}
+            {actions.map((action) => {
+              const actionKey = action.actionId || action.label;
+              return (
+                <Button
+                  key={actionKey}
+                  size="sm"
+                  variant={action.variant ?? 'outline'}
+                  className="h-8"
+                  disabled={action.disabled || executingAction === actionKey}
+                  onClick={() => handleAction(action)}
+                >
+                  {executingAction === actionKey ? '执行中...' : action.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ── default 变体：页首主洞察（收件箱顶部等，p-4 + 证据网格）──
   return (
-    <section data-testid="ai-insight-panel" className={cn('rounded-lg border bg-card p-4 shadow-sm', className)}>
+    <section
+      data-testid="ai-insight-panel"
+      className={cn(
+        'rounded-lg border border-primary/15 border-l-2 border-l-primary/45 bg-gradient-to-r from-primary/[0.04] via-card to-card p-4 shadow-sm',
+        className,
+      )}
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -104,6 +191,9 @@ export function AIInsightPanel({
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="border-primary/20 bg-primary/5 text-[11px] text-primary">
+                建议
+              </Badge>
               <h2 className="font-semibold">{title}</h2>
               <AITrustBadge level={trustLevel} score={score} />
             </div>
@@ -129,7 +219,7 @@ export function AIInsightPanel({
                   key={actionKey}
                   size="sm"
                   variant={action.variant ?? 'outline'}
-                  disabled={executingAction === actionKey}
+                  disabled={action.disabled || executingAction === actionKey}
                   onClick={() => handleAction(action)}
                 >
                   {executingAction === actionKey ? '执行中...' : action.label}
@@ -153,7 +243,7 @@ export function AIInsightPanel({
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
               <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
                 <AlertTriangle className="h-3.5 w-3.5" />
-                需人工关注
+                需要你确认
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {risks.map((risk) => (

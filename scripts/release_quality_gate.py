@@ -409,7 +409,7 @@ CHECKS = [
         "P1",
         "action inbox feedback UI",
         "src/pages/InboxPage.tsx",
-        ("useRecordInboxActionEvent", "handleActionEvent", "AI 证据链", "采纳", "忽略"),
+        ("useRecordInboxActionEvent", "handleActionEvent", "参考依据", "采纳", "忽略"),
     ),
     GateCheck(
         "P1",
@@ -453,7 +453,7 @@ CHECKS = [
             'label: "CRM"',
             'label: "工作台"',
             'label: "数据"',
-            'label: "AI 中心"',
+            'label: "助手"',
             "SPACE_MATCH_PREFIXES",
         ),
     ),
@@ -491,7 +491,7 @@ CHECKS = [
         "P1",
         "embedded action inbox AI layer",
         "src/pages/InboxPage.tsx",
-        ("ActionInboxInsightStrip", "AIInsightPanel", "RoleGuidanceStrip", "生成今日计划"),
+        ("ActionInboxInsightStrip", "AIInsightPanel", "RoleGuidanceStrip", "安排今天"),
     ),
     GateCheck(
         "P1",
@@ -691,7 +691,7 @@ CHECKS = [
         "P2",
         "CRM customer 360 detail",
         "src/pages/crm/CustomerDetailSheet.tsx",
-        ("Customer360Panel", "客户 360 作战视图", "竞品态势", "报价 / 招投标"),
+        ("Customer360Panel", "客户 360 视图", "竞品态势", "报价 / 招投标"),
     ),
     GateCheck(
         "P2",
@@ -749,7 +749,7 @@ CHECKS = [
         "AI operating system page",
         "src/pages/AIOperatingSystemPage.tsx",
         (
-            "科学仪器销售团队的 AI 作战室",
+            "科学仪器销售团队的助手工作台",
             "真实运营数据",
             "AI 价值与信任仪表盘",
             "SOP → AOP 自然语言定义器",
@@ -769,11 +769,11 @@ CHECKS = [
         "AI operating system first-screen strip",
         "src/components/product/AIOperatingSystemStrip.tsx",
         (
-            "AI 作战操作系统",
-            "打开作战系统",
-            "VMD 超级场景",
-            "Agent 生命周期",
-            "业务上下文层",
+            "助手工作台",
+            "打开工作台",
+            "营销场景",
+            "助手管理",
+            "业务知识",
         ),
     ),
     GateCheck(
@@ -1239,7 +1239,7 @@ CHECKS = [
         "e2e/customer-business-acceptance.spec.ts",
         (
             "/ai-operating-system",
-            "科学仪器销售团队的 AI 作战室",
+            "科学仪器销售团队的助手工作台",
             "AI 价值与信任仪表盘",
             "Agent 仿真沙盒",
             "生成 Agent 定义",

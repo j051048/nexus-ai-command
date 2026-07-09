@@ -138,9 +138,9 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: 'CRM', path: '/crm', icon: Users, keywords: ['crm', '客户', '线索', '商机', '销售'], group: '核心空间' },
   { label: '工作台', path: '/workbench', icon: Workflow, keywords: ['项目', '审批', '合同', 'oa', 'hr', '流程'], group: '核心空间' },
   { label: '数据', path: '/data', icon: BarChart3, keywords: ['报表', '数据', '目标', 'dashboard', '经营'], group: '核心空间' },
-  { label: 'AI 作战室', path: '/ai-center', icon: Sparkles, keywords: ['ai', 'agent', '知识库', '模型', '插件', 'ai中心'], group: '核心空间' },
-  { label: 'AI 作战操作系统', path: '/ai-operating-system', icon: Sparkles, keywords: ['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'agent sandbox', 'sop', 'aop', '知识图谱', 'demo', '角色化'], group: '核心空间' },
-  { label: 'Agent 进化中心', path: '/agent-improvement-center', icon: Brain, keywords: ['agent', 'prompt registry', 'context quality', 'harness', 'hermes', '自我进化', 'memory hygiene'], group: '核心空间' },
+  { label: '助手', path: '/ai-center', icon: Sparkles, keywords: ['ai', 'agent', '知识库', '模型', '插件', 'ai中心', '助手中心'], group: '核心空间' },
+  { label: '助手工作台', path: '/ai-operating-system', icon: Sparkles, keywords: ['助手工作台', 'agent sandbox', 'sop', 'aop', '知识图谱', 'demo', '角色化', '业务流程'], group: '核心空间' },
+  { label: '助手优化', path: '/agent-improvement-center', icon: Brain, keywords: ['agent', '进化中心', 'prompt registry', 'context quality', 'harness', 'hermes', '自我进化', 'memory hygiene'], group: '核心空间' },
   { label: '领导驾驶舱', path: '/boss-dashboard', icon: Crown, keywords: ['boss', '管理', '概览'], group: '核心功能' },
   { label: '待办中心', path: '/inbox', icon: Bell, keywords: ['待办', 'inbox', '收件箱', '审批', '通知', '异常'], group: '核心功能' },
   { label: '审批中心', path: '/approval', icon: FileCheck, keywords: ['审批', 'approval', '请假', '报销'], group: '核心功能' },
@@ -161,7 +161,7 @@ const COMMAND_ITEMS: NavCommandItem[] = [
 
   // 招投标
   { label: '标书分析', path: '/tender-analysis', icon: FileSearch, keywords: ['标书', 'tender', '招标', '投标'], group: '招投标' },
-  { label: '竞标作战卡', path: '/battlecards', icon: Swords, keywords: ['竞标', 'battlecard', '竞品'], group: '招投标' },
+  { label: '竞品对比卡', path: '/battlecards', icon: Swords, keywords: ['竞标', 'battlecard', '竞品', '作战卡'], group: '招投标' },
 
   // 知识与培训
   { label: '知识库', path: '/knowledge', icon: BookOpen, keywords: ['知识', 'knowledge', '文档', 'rag'], group: '知识与培训' },

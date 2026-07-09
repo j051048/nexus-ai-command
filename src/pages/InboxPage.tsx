@@ -12,18 +12,23 @@ import {
   AlertTriangle,
   Bell,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   Clock,
   ExternalLink,
   FileCheck,
   Filter,
+  MoreHorizontal,
   Sparkles,
   UserRoundSearch,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { AIOperatingSystemStrip } from '@/components/product/AIOperatingSystemStrip';
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AITrustBadge, type AITrustLevel } from '@/components/ai/AITrustBadge';
@@ -131,42 +136,31 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
   if (!nextItem) return null;
 
   return (
-    <section data-testid="ai-insight-panel" className="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium">今日行动台 · 建议先处理：{nextItem.title}</div>
-            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>{items.length} 个待处理</span>
-              <span>{urgent.length} 个紧急</span>
-              <span>{crmRisk.length} 个客户风险</span>
-              <span>基于 AI 证据链排序</span>
-              <span>AI 优先级解释</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8"
-            onClick={() => triggerAI('请用 3 条以内解释当前行动台为什么这样排序。')}
-          >
-            为什么这样排
-          </Button>
-          <Button
-            size="sm"
-            className="h-8"
-            onClick={() => triggerAI('请把当前行动台整理成一份今天可以照着执行的工作计划。')}
-          >
-            生成计划
-          </Button>
-        </div>
-      </div>
-    </section>
+    <AIInsightPanel
+      variant="compact"
+      icon={Sparkles}
+      title={`今日重点 · 建议先处理：${nextItem.title}`}
+      summary="按风险和截止时间排序，可展开查看依据。"
+      trustLevel="high"
+      score={91}
+      stats={[
+        { label: '待处理', value: `${items.length} 个` },
+        { label: '紧急', value: `${urgent.length} 个` },
+        { label: '客户风险', value: `${crmRisk.length} 个` },
+      ]}
+      actions={[
+        {
+          label: '查看依据',
+          variant: 'outline',
+          prompt: '请用 3 条以内说明当前待办为什么这样排序，只给业务依据和建议动作。',
+        },
+        {
+          label: '安排今天',
+          variant: 'default',
+          prompt: '请把当前待办整理成一份今天可以照着执行的工作计划。',
+        },
+      ]}
+    />
   );
 }
 
@@ -175,7 +169,7 @@ function RoleGuidanceStrip({ role }: { role?: string | null }) {
   const isManager = role === 'manager';
   const title = isBoss ? '管理者今日视角' : isManager ? '团队负责人今日视角' : '个人执行视角';
   const items = isBoss
-    ? ['先看高风险审批和合同', '复盘客户跟进断点', '让 AI 生成经营摘要']
+    ? ['先看高风险审批和合同', '复盘客户跟进断点', '生成经营摘要']
     : isManager
       ? ['处理团队待审批', '推进高价值客户', '检查项目和合同节点']
       : ['清空个人待办', '记录客户拜访', '补齐审批材料'];
@@ -416,7 +410,7 @@ export default function InboxPage() {
                         {item.reason && <p className="mt-1 line-clamp-1 text-xs text-primary">{item.reason}</p>}
                       </div>
 
-                      <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
+                      <div className="flex shrink-0 items-center gap-2 md:justify-end">
                         {primaryCommand && (
                           <Button
                             key={primaryCommand.id}
@@ -434,34 +428,48 @@ export default function InboxPage() {
                             {primaryCommand.kind === 'navigate' && <ExternalLink className="ml-1.5 h-3.5 w-3.5" />}
                           </Button>
                         )}
-                        <Button
-                          data-testid={`inbox-action-accept-${item.id}`}
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleActionEvent(item, 'accepted')}
-                        >
-                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                          采纳
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setExpandedItemId(expanded ? null : item.id)}
-                        >
-                          {expanded ? '收起' : '详情'}
-                          {expanded ? (
-                            <ChevronDown className="ml-1.5 h-3.5 w-3.5" />
-                          ) : (
-                            <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
-                          )}
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              data-testid={`inbox-action-menu-${item.id}`}
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              aria-label={`${item.title} 更多操作`}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setExpandedItemId(expanded ? null : item.id)}>
+                              {expanded ? '收起详情' : '查看详情'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              data-testid={`inbox-action-accept-${item.id}`}
+                              onClick={() => handleActionEvent(item, 'accepted')}
+                            >
+                              标记有帮助
+                            </DropdownMenuItem>
+                            {secondaryCommands.map((command) => (
+                              <DropdownMenuItem key={command.id} onClick={() => handleCommand(item, command)}>
+                                {command.label}
+                              </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuItem onClick={() => handleActionEvent(item, 'completed')}>
+                              标记完成
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleActionEvent(item, 'ignored')}>
+                              忽略
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
 
                     {expanded && (
                       <div className="mt-3 space-y-3 rounded-lg border bg-muted/20 p-3">
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span>AI 判断</span>
+                          <span>建议依据</span>
                           <AITrustBadge level={trustLevel} score={riskScore ? 100 - riskScore : undefined} />
                         </div>
 
@@ -469,7 +477,7 @@ export default function InboxPage() {
                           <div className="grid gap-2 text-xs md:grid-cols-2">
                             {evidence.length > 0 && (
                               <div className="space-y-1.5">
-                                <div className="font-medium text-foreground">AI 证据链</div>
+                                <div className="font-medium text-foreground">参考依据</div>
                                 {evidence.map((entry) => (
                                   <div key={`${item.id}-${entry.label}`} className="flex gap-2">
                                     <span className="shrink-0 text-muted-foreground">{entry.label}:</span>
@@ -492,25 +500,8 @@ export default function InboxPage() {
                           </div>
                         )}
 
-                        <div className="flex flex-wrap gap-2">
-                          {secondaryCommands.map((command) => (
-                            <Button
-                              key={command.id}
-                              size="sm"
-                              variant={command.variant === 'danger' ? 'destructive' : 'outline'}
-                              onClick={() => handleCommand(item, command)}
-                            >
-                              {command.label}
-                              {command.kind === 'navigate' && <ExternalLink className="ml-1.5 h-3.5 w-3.5" />}
-                            </Button>
-                          ))}
-                          <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'completed')}>
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                            标记完成
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleActionEvent(item, 'ignored')}>
-                            忽略
-                          </Button>
+                        <div className="text-xs text-muted-foreground">
+                          其他操作已放入右上角更多菜单，避免打断当前判断。
                         </div>
                       </div>
                     )}
@@ -539,8 +530,8 @@ export default function InboxPage() {
         <WorkEmptyState
           icon={<CheckCircle2 className="h-6 w-6" />}
           title={activeTab === 'all' ? '今天已清空' : '这个分类没有待办'}
-          description={activeTab === 'all' ? 'AI 可以帮你生成下一步工作计划。' : '切回全部行动查看其他事项。'}
-          actionLabel={activeTab === 'all' ? '生成今日计划' : '查看全部行动'}
+          description={activeTab === 'all' ? '助手可以帮你生成下一步工作计划。' : '切回全部行动查看其他事项。'}
+          actionLabel={activeTab === 'all' ? '安排今天' : '查看全部行动'}
           onAction={() => {
             if (activeTab === 'all') {
               triggerAI('请根据我的收件箱、客户风险和审批情况，生成一份今天的工作计划。');

@@ -7,9 +7,9 @@ function triggerAI(prompt: string) {
 }
 
 /**
- * AI 作战操作系统首屏引导条。
+ * 助手工作台首屏引导条。
  *
- * 核心能力入口：VMD 超级场景、Agent 生命周期管理、业务上下文层。
+ * 核心能力入口：营销场景、助手管理、业务知识和流程定义。
  */
 export function AIOperatingSystemStrip() {
   return (
@@ -18,16 +18,16 @@ export function AIOperatingSystemStrip() {
         <div className="flex min-w-0 items-center gap-2.5">
           <Sparkles className="h-4 w-4 shrink-0 text-primary" />
           <div className="min-w-0">
-            <h2 className="text-sm font-medium">AI 作战操作系统</h2>
+            <h2 className="text-sm font-medium">助手工作台</h2>
             <p className="truncate text-xs text-muted-foreground">
-              VMD 超级场景、Agent 生命周期、业务上下文层和 SOP→AOP 都在这里。
+              营销场景、助手管理、业务知识和流程定义都在这里。
             </p>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button asChild size="sm" variant="outline" className="h-8">
             <Link to="/ai-operating-system">
-              打开作战系统
+              打开工作台
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
@@ -35,7 +35,7 @@ export function AIOperatingSystemStrip() {
             size="sm"
             variant="ghost"
             className="h-8"
-            onClick={() => triggerAI('把 Nexus 的 P0-P6 产品升级压缩成今天可执行的 5 个落地动作。')}
+            onClick={() => triggerAI('把 Nexus 本期重点改进压缩成今天可执行的 5 个落地动作。')}
           >
             生成计划
           </Button>

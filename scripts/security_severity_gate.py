@@ -20,7 +20,7 @@ SEVERITY_POLICY = {
 }
 
 REQUIRED_WORKFLOW_TOKENS = (
-    "pip-audit -r nexus_backend/requirements.txt --strict || true",
+    "pip-audit -r nexus_backend/requirements.txt --strict",
     "npm audit --omit=dev --audit-level=critical",
     "scan_hardcoded_secrets.py",
     "Trivy critical filesystem gate",

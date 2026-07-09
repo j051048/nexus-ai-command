@@ -65,7 +65,7 @@ export default function MobileTabBar({
           let badgeCount = 0;
           if (tab.id === 'home') badgeCount = pendingCount + unreadCount;
 
-          // AI 中心按钮 — 突出样式
+          // 助手按钮 — 突出样式
           if (tab.isCenter) {
             return (
               <button

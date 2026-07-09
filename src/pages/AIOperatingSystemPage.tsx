@@ -204,7 +204,7 @@ export default function AIOperatingSystemPage() {
               <Sparkles className="h-4 w-4" />
               NEXUS AI OPERATING SYSTEM
             </div>
-            <h1 className="mt-2 text-2xl font-semibold">科学仪器销售团队的 AI 作战室</h1>
+            <h1 className="mt-2 text-2xl font-semibold">科学仪器销售团队的助手工作台</h1>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />系统运行中
@@ -254,7 +254,7 @@ export default function AIOperatingSystemPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-5">
           <TabsList className="grid h-10 w-full grid-cols-4 bg-muted/70 md:w-auto md:min-w-[520px]">
-            <TabsTrigger value="command">作战总览</TabsTrigger>
+            <TabsTrigger value="command">工作台总览</TabsTrigger>
             <TabsTrigger value="release">Agent 发布</TabsTrigger>
             <TabsTrigger value="operations">运行监控</TabsTrigger>
             <TabsTrigger value="library">能力库</TabsTrigger>
@@ -265,7 +265,7 @@ export default function AIOperatingSystemPage() {
               <div className="rounded-lg border bg-background">
                 <div className="flex items-center justify-between border-b px-4 py-3">
                   <div>
-                    <h2 className="font-semibold">今日作战队列</h2>
+                    <h2 className="font-semibold">今日重点队列</h2>
                     <p className="mt-0.5 text-xs text-muted-foreground">按风险与业务影响排序</p>
                   </div>
                   <Badge variant="secondary">{actionQueue.length} 项</Badge>
@@ -522,7 +522,7 @@ export default function AIOperatingSystemPage() {
 
             <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-lg border bg-background">
-                <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">AI-Native 场景</h2><Badge variant="secondary">P0-P6</Badge></div>
+                <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">AI-Native 场景</h2><Badge variant="secondary">本期重点</Badge></div>
                 <div className="divide-y">
                   {AI_OPERATING_CAPABILITIES.map((item) => {
                     const Icon = item.icon;

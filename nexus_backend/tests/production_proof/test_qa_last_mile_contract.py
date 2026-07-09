@@ -79,6 +79,8 @@ def test_visual_regression_is_opt_in_but_ci_wired():
 def test_security_severity_gate_keeps_critical_as_hard_fail():
     gate = read("scripts/security_severity_gate.py")
     assert '"critical": "fail"' in gate
+    assert "pip-audit -r nexus_backend/requirements.txt --strict" in gate
+    assert "|| true" not in gate
     assert "npm audit --omit=dev --audit-level=critical" in gate
     assert "scan_hardcoded_secrets.py" in gate
     assert "Trivy critical filesystem gate" in gate
