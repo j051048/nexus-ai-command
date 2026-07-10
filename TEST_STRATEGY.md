@@ -57,6 +57,7 @@
 - `nexus_backend/tests/unit/test_tool_base.py`
 - `nexus_backend/tests/unit/test_prompt_firewall.py`
 - `nexus_backend/tests/unit/test_sanitize.py`
+- `nexus_backend/tests/unit/test_architecture_guards.py`
 
 ### 3. 集成测试
 - `nexus_backend/tests/integration/test_graph_flow.py`
