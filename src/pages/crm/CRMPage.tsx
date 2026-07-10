@@ -70,7 +70,7 @@ function CRMAIInsightLayer({
   return (
     <AIInsightPanel
       variant="compact"
-      title={`下一步客户动作：${nextCustomer.name}`}
+      title={`AI 客户摘要：${nextCustomer.name}`}
       summary={nextReason}
       trustLevel={trustLevel}
       score={trustLevel === 'high' ? 88 : 74}
