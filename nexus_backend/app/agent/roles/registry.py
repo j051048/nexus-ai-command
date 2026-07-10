@@ -45,7 +45,11 @@ class RoleConfig:
         from app.tools import get_all_tools_schema
 
         if not self.tool_whitelist:
-            return get_all_tools_schema()  # No whitelist = all tools
+            logger.warning(
+                "[RoleRegistry] Role %s has an empty tool whitelist; denying all tools",
+                self.agent_code,
+            )
+            return []
 
         all_schemas = get_all_tools_schema()
         return [s for s in all_schemas if s["function"]["name"] in self.tool_whitelist]

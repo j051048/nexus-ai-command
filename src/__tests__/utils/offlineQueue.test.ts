@@ -136,6 +136,12 @@ describe('offlineQueue', () => {
       body: '{}',
       timestamp: Date.now(),
       retries: 0,
+      organizationId: 'org-1',
+      userId: 'user-1',
+      sessionId: 'session-1',
+      identityKey: 'org-1:user-1:session-1',
+      idempotencyKey: 'idem-1',
+      state: 'pending' as const,
     } satisfies import('@/services/offlineQueue').QueuedOperation;
     expect(op.id).toBe('test');
     expect(op.method).toBe('POST');

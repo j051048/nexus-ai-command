@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
-from enum import Enum
+from dataclasses import dataclass
+from enum import Enum, StrEnum
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,37 @@ class ConfirmationType(Enum):
     BULK_OPERATION = "bulk"  # Batch operations affecting multiple records
     EXTERNAL = "external"  # Actions affecting external systems (email, webhook)
     PERMISSION_ESCALATION = "escalation"  # Actions requiring elevated privileges
+
+
+class ToolActionType(StrEnum):
+    """Declared business effect of a tool call."""
+
+    READ = "read"
+    PROPOSE = "propose"
+    MUTATE = "mutate"
+    EXTERNAL = "external"
+    IRREVERSIBLE = "irreversible"
+    UNKNOWN = "unknown"
+
+
+class ToolRiskLevel(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+@dataclass(frozen=True)
+class ToolPolicy:
+    """Machine-readable policy consumed by the execution harness."""
+
+    action_type: ToolActionType
+    risk_level: ToolRiskLevel
+    required_role: str
+    idempotency_strategy: str
+    supports_compensation: bool
+    evidence_requirements: tuple[str, ...]
+    offline_allowed: bool
 
 
 # P2-1: Thresholds for automatic confirmation triggers
@@ -87,6 +119,60 @@ class BaseTool(ABC):
         return False
 
     @property
+    def action_type(self) -> ToolActionType:
+        """Declare whether the tool reads, proposes, mutates or leaves Nexus.
+
+        Unknown is fail-closed and treated as side-effecting by the harness.
+        """
+        if self.is_irreversible:
+            return ToolActionType.IRREVERSIBLE
+        if self.supports_compensation:
+            return ToolActionType.MUTATE
+        return ToolActionType.UNKNOWN
+
+    @property
+    def risk_level(self) -> ToolRiskLevel:
+        if self.action_type == ToolActionType.IRREVERSIBLE:
+            return ToolRiskLevel.CRITICAL
+        if self.action_type in (ToolActionType.MUTATE, ToolActionType.EXTERNAL):
+            return ToolRiskLevel.HIGH
+        if self.action_type == ToolActionType.UNKNOWN:
+            return ToolRiskLevel.MEDIUM
+        return ToolRiskLevel.LOW
+
+    @property
+    def idempotency_strategy(self) -> str:
+        return "tool_call_id"
+
+    @property
+    def evidence_requirements(self) -> tuple[str, ...]:
+        return ()
+
+    @property
+    def offline_allowed(self) -> bool:
+        return False
+
+    @property
+    def policy(self) -> ToolPolicy:
+        return ToolPolicy(
+            action_type=self.action_type,
+            risk_level=self.risk_level,
+            required_role=self.required_role or "all",
+            idempotency_strategy=self.idempotency_strategy,
+            supports_compensation=self.supports_compensation,
+            evidence_requirements=self.evidence_requirements,
+            offline_allowed=self.offline_allowed,
+        )
+
+    @property
+    def has_side_effects(self) -> bool:
+        return self.action_type != ToolActionType.READ
+
+    @property
+    def cacheable(self) -> bool:
+        return self.action_type == ToolActionType.READ
+
+    @property
     def confirmation_message(self) -> str:
         """
         Message to show when confirmation is required.
@@ -158,6 +244,10 @@ class BaseTool(ABC):
         if self.is_irreversible:
             reasons.append(f"🔒 不可逆操作: {self.confirmation_message}")
             primary_type = primary_type or ConfirmationType.IRREVERSIBLE.value
+
+        if self.action_type == ToolActionType.EXTERNAL:
+            reasons.append("🌐 外部操作: 将向 Nexus 之外的系统发送数据或指令")
+            primary_type = primary_type or ConfirmationType.EXTERNAL.value
 
         # Check high-value amount
         amount = args.get("amount") or args.get("value") or args.get("total")

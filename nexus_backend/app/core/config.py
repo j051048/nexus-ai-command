@@ -409,6 +409,18 @@ class Settings(BaseSettings):
         default=False,
         description="Run DB migrations on app startup. Use CI/CD pipeline in production.",
     )
+    ENABLE_IN_PROCESS_AUTO_TRIGGER: bool = Field(
+        default=False,
+        description="Run legacy auto-trigger loop inside an API process. Keep disabled in multi-replica deployments.",
+    )
+    ENABLE_IN_PROCESS_PROACTIVE_SCHEDULER: bool = Field(
+        default=False,
+        description="Run legacy proactive cron loops inside an API process. Celery Beat is authoritative in production.",
+    )
+    ENABLE_IN_PROCESS_USER_SCHEDULER: bool = Field(
+        default=False,
+        description="Run user scheduled-task polling inside an API process. Celery Beat is authoritative in production.",
+    )
 
     # Security
     # P1 Fix #42: Key for encryption

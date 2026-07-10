@@ -135,29 +135,44 @@ async def lifespan(app: FastAPI):
     # Start auto-trigger service (3.2 主动监控)
     from app.services.auto_trigger_service import auto_trigger_service
 
-    try:
-        await auto_trigger_service.start()
-        logger.info("Auto-trigger service started")
-    except Exception as e:
-        logger.warning(f"Auto-trigger service start skipped: {e}")
+    if settings.ENABLE_IN_PROCESS_AUTO_TRIGGER:
+        try:
+            await auto_trigger_service.start()
+            logger.warning("Legacy in-process auto-trigger service enabled")
+        except Exception as e:
+            logger.warning(f"Auto-trigger service start skipped: {e}")
+    else:
+        logger.info(
+            "In-process auto-trigger loop disabled; Celery/event handlers are authoritative"
+        )
 
     # Start in-process scheduled task runner (replaces Celery Beat)
     from app.services.scheduled_task_runner import scheduled_task_runner
 
-    try:
-        await scheduled_task_runner.start()
-        logger.info("Scheduled task runner started")
-    except Exception as e:
-        logger.warning(f"Scheduled task runner start skipped: {e}")
+    if settings.ENABLE_IN_PROCESS_USER_SCHEDULER:
+        try:
+            await scheduled_task_runner.start()
+            logger.warning("Legacy in-process user scheduler enabled")
+        except Exception as e:
+            logger.warning(f"Scheduled task runner start skipped: {e}")
+    else:
+        logger.info(
+            "In-process user scheduler disabled; Celery Beat polling is authoritative"
+        )
 
     # P0-1: Start proactive scheduler
     from app.agent.proactive_scheduler import proactive_scheduler
 
-    try:
-        await proactive_scheduler.load_all_tasks()
-        logger.info("Proactive scheduler started")
-    except Exception as e:
-        logger.warning(f"Proactive scheduler start skipped: {e}")
+    if settings.ENABLE_IN_PROCESS_PROACTIVE_SCHEDULER:
+        try:
+            await proactive_scheduler.load_all_tasks()
+            logger.warning("Legacy in-process proactive scheduler enabled")
+        except Exception as e:
+            logger.warning(f"Proactive scheduler start skipped: {e}")
+    else:
+        logger.info(
+            "In-process proactive scheduler disabled; durable scheduled tasks are authoritative"
+        )
 
     # P0-3: Register default event triggers
     from app.agent.event_triggers import register_default_triggers
@@ -192,6 +207,10 @@ async def lifespan(app: FastAPI):
     with suppress(Exception):
         await auto_trigger_service.stop()
     await event_bus.stop()
+    with suppress(Exception):
+        from app.services.llm_gateway import llm_gateway
+
+        await llm_gateway.flush_logs()
     await audit_logger.force_flush()
     with suppress(Exception):
         await connection_pool_service.close()

@@ -22,15 +22,21 @@ def _make_mock_db(table_data=None):
         # select chain
         resp = MagicMock()
         resp.data = data
-        builder.select.return_value.eq.return_value.limit.return_value.execute = AsyncMock(return_value=resp)
+        builder.select.return_value.eq.return_value.limit.return_value.execute = (
+            AsyncMock(return_value=resp)
+        )
 
         # update chain
         update_resp = MagicMock()
         update_resp.data = data
-        builder.update.return_value.eq.return_value.execute = AsyncMock(return_value=update_resp)
+        builder.update.return_value.eq.return_value.execute = AsyncMock(
+            return_value=update_resp
+        )
 
         # insert chain
-        builder.insert.return_value.execute = AsyncMock(return_value=MagicMock(data=[{}]))
+        builder.insert.return_value.execute = AsyncMock(
+            return_value=MagicMock(data=[{}])
+        )
 
         return builder
 
@@ -43,10 +49,12 @@ class TestExportUserData:
 
     @pytest.mark.asyncio
     async def test_export_all_tables(self):
-        db = _make_mock_db({
-            "users": [{"id": "u-1", "name": "张三", "email": "z@test.com"}],
-            "conversations": [{"id": "c-1", "user_id": "u-1", "title": "对话1"}],
-        })
+        db = _make_mock_db(
+            {
+                "users": [{"id": "u-1", "name": "张三", "email": "z@test.com"}],
+                "conversations": [{"id": "c-1", "user_id": "u-1", "title": "对话1"}],
+            }
+        )
         svc = DSARService(db)
         result = await svc.export_user_data("u-1")
 
@@ -71,8 +79,12 @@ class TestExportUserData:
             else:
                 resp = MagicMock()
                 resp.data = []
-                builder.select.return_value.eq.return_value.limit.return_value.execute = AsyncMock(return_value=resp)
-            builder.insert.return_value.execute = AsyncMock(return_value=MagicMock(data=[{}]))
+                builder.select.return_value.eq.return_value.limit.return_value.execute = AsyncMock(
+                    return_value=resp
+                )
+            builder.insert.return_value.execute = AsyncMock(
+                return_value=MagicMock(data=[{}])
+            )
             return builder
 
         db.table = _table
@@ -106,14 +118,15 @@ class TestDeleteUserData:
 
     @pytest.mark.asyncio
     async def test_delete_audit_logs_retained(self):
-        """审计日志保留但用户引用匿名化"""
-        db = _make_mock_db({"audit_logs": [{"id": "al-1", "user_id": "u-1"}]})
+        """审计日志保留且不修改历史证据"""
+        db = _make_mock_db({"audit_logs": [{"id": "al-1", "actor_user_id": "u-1"}]})
         svc = DSARService(db)
         result = await svc.delete_user_data("u-1")
 
         audit_action = result["actions"]["audit_logs"]
-        assert audit_action["action"] == "user_reference_anonymized"
-        assert "legal obligation" in audit_action.get("note", "")
+        assert audit_action["action"] == "retained_immutable"
+        assert audit_action["records_affected"] == 0
+        assert audit_action["records_retained"] == 1
 
     @pytest.mark.asyncio
     async def test_delete_single_table_failure_continues(self):
@@ -129,8 +142,12 @@ class TestDeleteUserData:
             else:
                 resp = MagicMock()
                 resp.data = [{"id": "x"}]
-                builder.update.return_value.eq.return_value.execute = AsyncMock(return_value=resp)
-            builder.insert.return_value.execute = AsyncMock(return_value=MagicMock(data=[{}]))
+                builder.update.return_value.eq.return_value.execute = AsyncMock(
+                    return_value=resp
+                )
+            builder.insert.return_value.execute = AsyncMock(
+                return_value=MagicMock(data=[{}])
+            )
             return builder
 
         db.table = _table

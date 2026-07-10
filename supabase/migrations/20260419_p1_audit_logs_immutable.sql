@@ -9,8 +9,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS audit_logs_immutable ON public.audit_logs;
-CREATE TRIGGER audit_logs_immutable
-    BEFORE UPDATE OR DELETE ON public.audit_logs
-    FOR EACH ROW
-    EXECUTE FUNCTION prevent_audit_log_mutation();
+DO $$
+BEGIN
+    IF to_regclass('public.audit_logs') IS NOT NULL THEN
+        EXECUTE 'DROP TRIGGER IF EXISTS audit_logs_immutable ON public.audit_logs';
+        EXECUTE 'CREATE TRIGGER audit_logs_immutable '
+            'BEFORE UPDATE OR DELETE ON public.audit_logs '
+            'FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_mutation()';
+    END IF;
+END $$;

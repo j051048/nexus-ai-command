@@ -7,16 +7,17 @@ import { renderHook, act } from '@testing-library/react';
 const mockInit = vi.fn().mockResolvedValue(undefined);
 const mockGetCount = vi.fn().mockResolvedValue(0);
 const mockEnqueue = vi.fn().mockResolvedValue('mock-id-1');
-const mockReplay = vi.fn().mockResolvedValue({ success: 2, failed: 0 });
+const mockReplay = vi.fn().mockResolvedValue({ success: 2, failed: 0, blocked: 0, conflicts: 0 });
 const mockClear = vi.fn().mockResolvedValue(undefined);
+const identity = { organizationId: 'org-1', userId: 'user-1', sessionId: 'session-1' };
 
 vi.mock('@/services/offlineQueue', () => ({
   offlineQueue: {
     init: () => mockInit(),
-    getCount: () => mockGetCount(),
+    getCount: (queueIdentity: any) => mockGetCount(queueIdentity),
     enqueue: (op: any) => mockEnqueue(op),
-    replay: () => mockReplay(),
-    clear: () => mockClear(),
+    replay: (context: any) => mockReplay(context),
+    clear: (queueIdentity: any) => mockClear(queueIdentity),
   },
 }));
 
@@ -41,7 +42,7 @@ describe('useOfflineQueue', () => {
     mockGetCount.mockResolvedValueOnce(3);
 
     const { useOfflineQueue } = await import('@/hooks/useOfflineQueue');
-    const { result } = renderHook(() => useOfflineQueue());
+    const { result } = renderHook(() => useOfflineQueue(identity));
 
     // 等待初始化
     await act(async () => {
@@ -57,7 +58,7 @@ describe('useOfflineQueue', () => {
     Object.defineProperty(navigator, 'onLine', { value: true, writable: true, configurable: true });
 
     const { useOfflineQueue } = await import('@/hooks/useOfflineQueue');
-    const { result } = renderHook(() => useOfflineQueue());
+    const { result } = renderHook(() => useOfflineQueue(identity));
 
     expect(result.current.isOnline).toBe(true);
   });
@@ -68,7 +69,7 @@ describe('useOfflineQueue', () => {
     mockGetCount.mockResolvedValueOnce(1);
 
     const { useOfflineQueue } = await import('@/hooks/useOfflineQueue');
-    const { result } = renderHook(() => useOfflineQueue());
+    const { result } = renderHook(() => useOfflineQueue(identity));
 
     await act(async () => {
       await new Promise((r) => setTimeout(r, 50));
@@ -92,10 +93,10 @@ describe('useOfflineQueue', () => {
   });
 
   it('replay 调用 offlineQueue.replay', async () => {
-    mockReplay.mockResolvedValueOnce({ success: 3, failed: 1 });
+    mockReplay.mockResolvedValueOnce({ success: 3, failed: 1, blocked: 0, conflicts: 0 });
 
     const { useOfflineQueue } = await import('@/hooks/useOfflineQueue');
-    const { result } = renderHook(() => useOfflineQueue());
+    const { result } = renderHook(() => useOfflineQueue(identity));
 
     await act(async () => {
       await new Promise((r) => setTimeout(r, 50));
@@ -107,14 +108,14 @@ describe('useOfflineQueue', () => {
     });
 
     expect(mockReplay).toHaveBeenCalled();
-    expect(replayResult).toEqual({ success: 3, failed: 1 });
+    expect(replayResult).toEqual({ success: 3, failed: 1, blocked: 0, conflicts: 0 });
   });
 
   it('网络恢复时自动重放队列', async () => {
     Object.defineProperty(navigator, 'onLine', { value: false, writable: true, configurable: true });
 
     const { useOfflineQueue } = await import('@/hooks/useOfflineQueue');
-    const { result } = renderHook(() => useOfflineQueue());
+    const { result } = renderHook(() => useOfflineQueue(identity));
 
     await act(async () => {
       await new Promise((r) => setTimeout(r, 50));

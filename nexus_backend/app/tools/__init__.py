@@ -535,6 +535,12 @@ def get_tools_metadata(user_role: str = "all") -> list[dict]:
                 "related_tools": tool.related_tools,
                 "required_role": tool.required_role,
                 "is_irreversible": tool.is_irreversible,
+                "action_type": tool.policy.action_type.value,
+                "risk_level": tool.policy.risk_level.value,
+                "idempotency_strategy": tool.policy.idempotency_strategy,
+                "supports_compensation": tool.policy.supports_compensation,
+                "evidence_requirements": list(tool.policy.evidence_requirements),
+                "offline_allowed": tool.policy.offline_allowed,
                 "examples": tool.examples,
                 "gotchas": tool.gotchas,
             }

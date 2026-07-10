@@ -114,6 +114,10 @@ except Exception:
 
 # Periodic Tasks (Beat)
 celery_app.conf.beat_schedule = {
+    "user-scheduled-task-poller": {
+        "task": "app.tasks.scheduler.execute_user_scheduled_tasks",
+        "schedule": 60.0,
+    },
     "daily-arxiv-harvest": {
         "task": "app.tasks.scheduler.crawl_arxiv_leads",
         "schedule": 86400.0,  # Every 24 hours

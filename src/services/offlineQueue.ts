@@ -1,9 +1,18 @@
 /**
- * 离线操作队列
+ * Tenant-safe offline mutation queue.
  *
- * 使用 IndexedDB 存储离线时的 API 操作，
- * 网络恢复后自动重放（replay）。
+ * Authentication secrets are never persisted. Every queued operation is bound
+ * to the user, organization and login session that created it, and replay only
+ * targets same-origin /api endpoints with a stable idempotency key.
  */
+
+export interface OfflineQueueIdentity {
+  organizationId: string;
+  userId: string;
+  sessionId: string;
+}
+
+export type OfflineQueueState = 'pending' | 'blocked' | 'conflict' | 'dead_letter';
 
 export interface QueuedOperation {
   id: string;
@@ -13,20 +22,85 @@ export interface QueuedOperation {
   headers?: Record<string, string>;
   timestamp: number;
   retries: number;
+  organizationId: string;
+  userId: string;
+  sessionId: string;
+  identityKey: string;
+  idempotencyKey: string;
+  state: OfflineQueueState;
+  lastError?: string;
 }
+
+export interface ReplayContext {
+  identity: OfflineQueueIdentity;
+  getHeaders?: () => Record<string, string> | Promise<Record<string, string>>;
+}
+
+export interface ReplayResult {
+  success: number;
+  failed: number;
+  blocked: number;
+  conflicts: number;
+}
+
+type NewQueuedOperation = Omit<
+  QueuedOperation,
+  | 'id'
+  | 'timestamp'
+  | 'retries'
+  | 'organizationId'
+  | 'userId'
+  | 'sessionId'
+  | 'identityKey'
+  | 'idempotencyKey'
+  | 'state'
+  | 'lastError'
+> & {
+  identity: OfflineQueueIdentity;
+  idempotencyKey?: string;
+};
 
 const DB_NAME = 'nexus-offline-queue';
 const STORE_NAME = 'operations';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const MAX_RETRIES = 5;
+const SAFE_PERSISTED_HEADERS = new Set([
+  'accept',
+  'content-type',
+  'if-match',
+  'if-none-match',
+]);
+
+function identityKey(identity: OfflineQueueIdentity): string {
+  return `${identity.organizationId}:${identity.userId}:${identity.sessionId}`;
+}
+
+function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function sanitizePersistedHeaders(headers?: Record<string, string>): Record<string, string> {
+  if (!headers) return {};
+  return Object.fromEntries(
+    Object.entries(headers).filter(([name]) => SAFE_PERSISTED_HEADERS.has(name.toLowerCase())),
+  );
+}
+
+function validateOfflineUrl(rawUrl: string): string {
+  const url = new URL(rawUrl, window.location.origin);
+  if (url.origin !== window.location.origin || !url.pathname.startsWith('/api/')) {
+    throw new Error('Offline replay only supports same-origin /api endpoints');
+  }
+  return `${url.pathname}${url.search}`;
+}
 
 class OfflineQueue {
   private db: IDBDatabase | null = null;
   private initPromise: Promise<void> | null = null;
 
-  /**
-   * 打开 IndexedDB 数据库
-   */
   async init(): Promise<void> {
     if (this.db) return;
     if (this.initPromise) return this.initPromise;
@@ -34,13 +108,11 @@ class OfflineQueue {
     this.initPromise = new Promise<void>((resolve, reject) => {
       try {
         if (!('indexedDB' in window)) {
-          console.warn('IndexedDB not available');
           resolve();
           return;
         }
 
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-
         request.onupgradeneeded = () => {
           const db = request.result;
           if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -48,224 +120,191 @@ class OfflineQueue {
             store.createIndex('timestamp', 'timestamp', { unique: false });
           }
         };
-
         request.onsuccess = () => {
           this.db = request.result;
           resolve();
         };
-
-        request.onerror = () => {
-          console.error('Failed to open IndexedDB:', request.error);
-          reject(request.error);
-        };
-      } catch (err) {
-        console.error('IndexedDB init error:', err);
-        resolve(); // Resolve anyway to prevent blocking
+        request.onerror = () => reject(request.error);
+      } catch (error) {
+        console.error('IndexedDB init error:', error);
+        resolve();
       }
     });
 
     return this.initPromise;
   }
 
-  /**
-   * 确保数据库已初始化
-   */
   private async ensureDB(): Promise<IDBDatabase | null> {
     if (!this.db) await this.init();
     return this.db;
   }
 
-  /**
-   * 添加操作到队列
-   */
-  async enqueue(
-    operation: Omit<QueuedOperation, 'id' | 'timestamp' | 'retries'>
-  ): Promise<string> {
+  async enqueue(operation: NewQueuedOperation): Promise<string> {
     const db = await this.ensureDB();
     if (!db) throw new Error('IndexedDB not available');
 
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const id = newId();
     const entry: QueuedOperation = {
-      ...operation,
       id,
+      url: validateOfflineUrl(operation.url),
+      method: operation.method.toUpperCase(),
+      body: operation.body,
+      headers: sanitizePersistedHeaders(operation.headers),
       timestamp: Date.now(),
       retries: 0,
+      organizationId: operation.identity.organizationId,
+      userId: operation.identity.userId,
+      sessionId: operation.identity.sessionId,
+      identityKey: identityKey(operation.identity),
+      idempotencyKey: operation.idempotencyKey || newId(),
+      state: 'pending',
     };
 
     return new Promise<string>((resolve, reject) => {
-      try {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.add(entry);
-
-        request.onsuccess = () => resolve(id);
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        reject(err);
-      }
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const request = tx.objectStore(STORE_NAME).add(entry);
+      request.onsuccess = () => resolve(id);
+      request.onerror = () => reject(request.error);
     });
   }
 
-  /**
-   * 从队列移除操作
-   */
   async dequeue(id: string): Promise<void> {
     const db = await this.ensureDB();
     if (!db) return;
-
     return new Promise<void>((resolve, reject) => {
-      try {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.delete(id);
-
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        reject(err);
-      }
+      const request = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 
-  /**
-   * 获取所有排队的操作
-   */
-  async getAll(): Promise<QueuedOperation[]> {
+  async getAll(identity?: OfflineQueueIdentity): Promise<QueuedOperation[]> {
     const db = await this.ensureDB();
     if (!db) return [];
-
     return new Promise<QueuedOperation[]>((resolve, reject) => {
-      try {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const index = store.index('timestamp');
-        const request = index.getAll();
-
-        request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        console.error('getAll error:', err);
-        resolve([]);
-      }
+      const store = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME);
+      const request = store.index('timestamp').getAll();
+      request.onsuccess = () => {
+        const rows = (request.result || []) as QueuedOperation[];
+        const key = identity ? identityKey(identity) : null;
+        resolve(key ? rows.filter((row) => row.identityKey === key) : rows);
+      };
+      request.onerror = () => reject(request.error);
     });
   }
 
-  /**
-   * 获取队列长度
-   */
-  async getCount(): Promise<number> {
+  async getCount(identity?: OfflineQueueIdentity): Promise<number> {
+    if (identity) return (await this.getAll(identity)).length;
     const db = await this.ensureDB();
     if (!db) return 0;
-
     return new Promise<number>((resolve, reject) => {
-      try {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.count();
-
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        console.error('getCount error:', err);
-        resolve(0);
-      }
+      const request = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).count();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
     });
   }
 
-  /**
-   * 重放所有排队的操作
-   * 对每个操作：尝试 fetch，成功则 dequeue，失败则增加 retries
-   */
-  async replay(): Promise<{ success: number; failed: number }> {
-    const operations = await this.getAll();
-    let success = 0;
-    let failed = 0;
+  async replay(context: ReplayContext): Promise<ReplayResult> {
+    const operations = await this.getAll(context.identity);
+    const result: ReplayResult = { success: 0, failed: 0, blocked: 0, conflicts: 0 };
+    const runtimeHeaders = context.getHeaders ? await context.getHeaders() : {};
 
-    for (const op of operations) {
-      if (op.retries >= MAX_RETRIES) {
-        // 超过最大重试次数，移除
-        await this.dequeue(op.id);
-        failed++;
+    for (const operation of operations) {
+      if (operation.state !== 'pending') continue;
+      if (operation.retries >= MAX_RETRIES) {
+        await this.update(operation.id, {
+          state: 'dead_letter',
+          lastError: `Maximum retry count (${MAX_RETRIES}) reached`,
+        });
+        result.failed++;
         continue;
       }
 
       try {
-        const fetchOptions: RequestInit = {
-          method: op.method,
-          headers: op.headers,
+        const headers = {
+          ...operation.headers,
+          ...runtimeHeaders,
+          'X-Idempotency-Key': operation.idempotencyKey,
         };
-        if (op.body && op.method !== 'GET' && op.method !== 'HEAD') {
-          fetchOptions.body = op.body;
-        }
+        const response = await fetch(validateOfflineUrl(operation.url), {
+          method: operation.method,
+          headers,
+          body:
+            operation.body && !['GET', 'HEAD'].includes(operation.method)
+              ? operation.body
+              : undefined,
+          credentials: 'same-origin',
+        });
 
-        const res = await fetch(op.url, fetchOptions);
-
-        if (res.ok || res.status < 500) {
-          // 成功或客户端错误（不值得重试）
-          await this.dequeue(op.id);
-          success++;
+        if (response.ok) {
+          await this.dequeue(operation.id);
+          result.success++;
+        } else if ([401, 403].includes(response.status)) {
+          await this.update(operation.id, {
+            state: 'blocked',
+            lastError: `Authorization rejected (${response.status})`,
+          });
+          result.blocked++;
+        } else if ([409, 412, 422].includes(response.status)) {
+          await this.update(operation.id, {
+            state: 'conflict',
+            lastError: `Server rejected stale or conflicting data (${response.status})`,
+          });
+          result.conflicts++;
+        } else if (response.status === 429 || response.status >= 500) {
+          await this.update(operation.id, {
+            retries: operation.retries + 1,
+            lastError: `Retryable server response (${response.status})`,
+          });
+          result.failed++;
         } else {
-          // 服务器错误，增加 retries
-          await this.updateRetries(op.id, op.retries + 1);
-          failed++;
+          await this.update(operation.id, {
+            state: 'blocked',
+            lastError: `Non-retryable client response (${response.status})`,
+          });
+          result.blocked++;
         }
-      } catch {
-        // 网络错误，增加 retries
-        await this.updateRetries(op.id, op.retries + 1);
-        failed++;
+      } catch (error) {
+        await this.update(operation.id, {
+          retries: operation.retries + 1,
+          lastError: error instanceof Error ? error.message : 'Network error',
+        });
+        result.failed++;
       }
     }
 
-    return { success, failed };
+    return result;
   }
 
-  /**
-   * 更新操作的重试计数
-   */
-  private async updateRetries(id: string, retries: number): Promise<void> {
+  async updateRetries(id: string, retries: number): Promise<void> {
+    await this.update(id, { retries });
+  }
+
+  private async update(id: string, patch: Partial<QueuedOperation>): Promise<void> {
     const db = await this.ensureDB();
     if (!db) return;
-
     return new Promise<void>((resolve) => {
-      try {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const getReq = store.get(id);
-
-        getReq.onsuccess = () => {
-          const data = getReq.result;
-          if (data) {
-            data.retries = retries;
-            store.put(data);
-          }
-          resolve();
-        };
-
-        getReq.onerror = () => resolve();
-      } catch {
+      const store = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME);
+      const request = store.get(id);
+      request.onsuccess = () => {
+        if (request.result) store.put({ ...request.result, ...patch });
         resolve();
-      }
+      };
+      request.onerror = () => resolve();
     });
   }
 
-  /**
-   * 清空所有排队的操作
-   */
-  async clear(): Promise<void> {
+  async clear(identity?: OfflineQueueIdentity): Promise<void> {
     const db = await this.ensureDB();
     if (!db) return;
-
+    if (identity) {
+      await Promise.all((await this.getAll(identity)).map((operation) => this.dequeue(operation.id)));
+      return;
+    }
     return new Promise<void>((resolve, reject) => {
-      try {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.clear();
-
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        reject(err);
-      }
+      const request = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 }

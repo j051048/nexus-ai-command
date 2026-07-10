@@ -591,9 +591,18 @@ def check_contract_expiry():
     return _run_async(_run())
 
 
-# execute_user_scheduled_tasks: REMOVED — unified into ScheduledTaskRunner
-# (FastAPI in-process async loop) to eliminate double-scheduling.
-# See scheduled_task_runner.py for the single authoritative executor.
+@celery_app.task(base=NexusTask)
+@_with_redis_lock("execute_user_scheduled_tasks", lock_ttl=900)
+def execute_user_scheduled_tasks():
+    """Authoritative distributed poller for durable user scheduled tasks."""
+
+    async def _run():
+        from app.services.scheduled_task_runner import scheduled_task_runner
+
+        await scheduled_task_runner.run_once()
+        return "completed"
+
+    return _run_async(_run())
 
 
 @celery_app.task(base=NexusTask)
@@ -1254,13 +1263,13 @@ def aggregate_ai_roi_daily():
         try:
             tenant_res = (
                 await supabase.table("llm_call_log")
-                .select("org_id")
-                .gte("created_at", yesterday + "T00:00:00")
-                .lt("created_at", yesterday + "T23:59:59.999")
+                .select("tenant_id")
+                .gte("create_time", yesterday + "T00:00:00")
+                .lt("create_time", yesterday + "T23:59:59.999")
                 .execute()
             )
             org_ids = list(
-                {r["org_id"] for r in (tenant_res.data or []) if r.get("org_id")}
+                {r["tenant_id"] for r in (tenant_res.data or []) if r.get("tenant_id")}
             )
         except Exception:
             # Fallback: try tenant_usage_records
@@ -1364,10 +1373,10 @@ async def _aggregate_one_tenant(
     try:
         llm_res = (
             await supabase.table("llm_call_log")
-            .select("cost_usd, total_tokens, duration_ms")
-            .eq("org_id", org_id)
-            .gte("created_at", day_start)
-            .lt("created_at", day_end)
+            .select("call_cost, total_tokens, exec_time_ms")
+            .eq("tenant_id", org_id)
+            .gte("create_time", day_start)
+            .lt("create_time", day_end)
             .execute()
         )
         rows = llm_res.data or []
@@ -1376,9 +1385,9 @@ async def _aggregate_one_tenant(
         total_tokens = 0
         total_ms = 0
         for r in rows:
-            total_cost += float(r.get("cost_usd") or 0)
+            total_cost += float(r.get("call_cost") or 0)
             total_tokens += int(r.get("total_tokens") or 0)
-            total_ms += int(r.get("duration_ms") or 0)
+            total_ms += int(r.get("exec_time_ms") or 0)
         metrics["ai_cost_usd"] = round(total_cost, 4)
         metrics["total_tokens"] = total_tokens
         if rows:

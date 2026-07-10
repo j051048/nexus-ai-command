@@ -53,22 +53,15 @@ export default defineConfig(({ mode }) => ({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: /\/[^.]*$/,
+            urlPattern: ({ request, url }) =>
+              request.mode === "navigate" &&
+              !url.pathname.startsWith("/api/") &&
+              !url.pathname.startsWith("/auth/"),
             handler: "NetworkFirst",
             options: {
               cacheName: "html-cache",
               expiration: { maxEntries: 20, maxAgeSeconds: 24 * 60 * 60 },
               networkTimeoutSeconds: 3,
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/.*\/api\//,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              expiration: { maxEntries: 100, maxAgeSeconds: 5 * 60 },
-              networkTimeoutSeconds: 5,
               cacheableResponse: { statuses: [0, 200] },
             },
           },
@@ -96,16 +89,6 @@ export default defineConfig(({ mode }) => ({
             options: {
               cacheName: "font-cache",
               expiration: { maxEntries: 30, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-cache",
-              expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 },
-              networkTimeoutSeconds: 5,
               cacheableResponse: { statuses: [0, 200] },
             },
           },

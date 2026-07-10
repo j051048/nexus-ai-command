@@ -249,7 +249,13 @@ CHECKS = [
         "P3",
         "bundle budget script",
         "scripts/check_bundle_budget.mjs",
-        ("maxJsChunkBytes", "maxTotalJsBytes", "maxJsChunkCount", "vendor-jspdf-", "vendor-html2canvas-"),
+        (
+            "maxJsChunkBytes",
+            "maxTotalJsBytes",
+            "maxJsChunkCount",
+            "vendor-jspdf-",
+            "vendor-html2canvas-",
+        ),
     ),
     GateCheck(
         "P4",
@@ -473,7 +479,7 @@ CHECKS = [
         "P1",
         "embedded CRM AI layer",
         "src/pages/crm/CRMPage.tsx",
-        ("CRMAIInsightLayer", "AIInsightPanel", "AI 客户摘要", "生成跟进优先级"),
+        ("CRMAIInsightLayer", "AIInsightPanel", "下一步客户动作", "生成跟进优先级"),
     ),
     GateCheck(
         "P1",
@@ -485,7 +491,7 @@ CHECKS = [
         "P1",
         "embedded approval AI risk layer",
         "src/components/approval/ApprovalCenter.tsx",
-        ("ApprovalAIRiskPanel", "AIInsightPanel", "AI 审批风控建议", "分析风险"),
+        ("ApprovalAIRiskPanel", "AIInsightPanel", "下一步审批动作", "分析风险"),
     ),
     GateCheck(
         "P1",

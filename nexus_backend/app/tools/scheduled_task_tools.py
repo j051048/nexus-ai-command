@@ -56,6 +56,7 @@ def _compute_next_execution(
     day_of_week: int | None,
     interval_minutes: int | None,
     execute_at: str | None,
+    cron_expression: str | None = None,
 ) -> str | None:
     """Compute the next execution time based on schedule parameters.
 
@@ -64,6 +65,11 @@ def _compute_next_execution(
     """
     CN_TZ = timezone(timedelta(hours=8))
     now = datetime.now(CN_TZ)
+
+    if schedule_type == "cron" and cron_expression:
+        from croniter import croniter
+
+        return croniter(cron_expression, now).get_next(datetime).isoformat()
 
     if schedule_type == "once" and execute_at:
         return execute_at

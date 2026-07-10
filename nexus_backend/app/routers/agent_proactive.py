@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.agent.goal_tracker import goal_tracker
 from app.agent.proactive_scheduler import proactive_scheduler
-from app.core.auth import get_current_user_id
+from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,9 @@ class ScheduleTaskRequest(BaseModel):
 
 @router.post("/tasks")
 async def create_scheduled_task(
-    req: ScheduleTaskRequest, user_id: str = Depends(get_current_user_id)
+    req: ScheduleTaskRequest,
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
 ):
     """创建定时任务"""
     try:
@@ -38,6 +40,7 @@ async def create_scheduled_task(
                 "cron": req.cron,
                 "prompt": req.prompt,
                 "user_id": user_id,
+                "org_id": org_id,
                 "enabled": req.enabled,
             }
         )
@@ -49,11 +52,13 @@ async def create_scheduled_task(
 
 @router.delete("/tasks/{task_id}")
 async def stop_scheduled_task(
-    task_id: str, user_id: str = Depends(get_current_user_id)
+    task_id: str,
+    user_id: str = Depends(get_current_user_id),
+    org_id: str = Depends(get_current_org_id),
 ):
     """停止定时任务"""
     try:
-        await proactive_scheduler.stop_task(task_id)
+        await proactive_scheduler.stop_task(task_id, user_id=user_id, org_id=org_id)
         return api_success({}, "定时任务已停止")
     except Exception as e:
         logger.error(f"Stop scheduled task failed: {e}")

@@ -39,17 +39,22 @@ class ProactiveScheduler:
                 "enabled": true
             }
         """
-        # 保存到数据库
+        cron_expression = task_config["cron"]
+        next_execution_at = croniter(cron_expression, datetime.now()).get_next(datetime)
+        # Persist in the single durable scheduler table. Celery Beat polls this
+        # table, so API replicas never own long-lived cron loops.
         result = (
-            await supabase.table("agent_scheduled_tasks")
+            await supabase.table("user_scheduled_tasks")
             .insert(
                 {
                     "name": task_config["name"],
-                    "cron_expression": task_config["cron"],
-                    "prompt_template": task_config["prompt"],
+                    "cron_expression": cron_expression,
+                    "prompt": task_config["prompt"],
+                    "schedule_type": "cron",
                     "user_id": task_config["user_id"],
-                    "org_id": task_config.get("org_id"),
-                    "enabled": task_config.get("enabled", True),
+                    "organization_id": task_config.get("org_id"),
+                    "is_active": task_config.get("enabled", True),
+                    "next_execution_at": next_execution_at.isoformat(),
                     "created_at": datetime.utcnow().isoformat(),
                 }
             )
@@ -57,10 +62,6 @@ class ProactiveScheduler:
         )
 
         task_id = result.data[0]["id"]
-
-        # 启动后台任务
-        if task_config.get("enabled", True):
-            await self.start_task(task_id, task_config)
 
         return task_id
 
@@ -129,33 +130,27 @@ class ProactiveScheduler:
                 }
             ).execute()
 
-    async def stop_task(self, task_id: str):
+    async def stop_task(
+        self, task_id: str, user_id: str | None = None, org_id: str | None = None
+    ):
         """停止任务"""
+        query = (
+            supabase.table("user_scheduled_tasks")
+            .update({"is_active": False})
+            .eq("id", task_id)
+        )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        await query.execute()
         if task_id in self.running_tasks:
             self.running_tasks[task_id].cancel()
             del self.running_tasks[task_id]
 
     async def load_all_tasks(self):
-        """启动时加载所有启用的任务"""
-        result = (
-            await supabase.table("agent_scheduled_tasks")
-            .select("*")
-            .eq("enabled", True)
-            .execute()
-        )
-
-        for task in result.data:
-            await self.start_task(
-                task["id"],
-                {
-                    "cron": task["cron_expression"],
-                    "prompt": task["prompt_template"],
-                    "user_id": task["user_id"],
-                    "org_id": task["org_id"],
-                },
-            )
-
-        # 启动系统级扫描任务
+        """Legacy single-instance mode only; production uses Celery polling."""
+        logger.warning("Loading legacy in-process proactive system tasks")
         self._start_system_tasks()
 
     def _start_system_tasks(self):

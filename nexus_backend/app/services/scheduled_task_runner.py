@@ -1,12 +1,8 @@
-"""
-In-process Scheduled Task Runner
+"""Durable execution engine for user-defined scheduled tasks.
 
-Replaces Celery Beat for user_scheduled_tasks execution.
-Runs as an asyncio background loop inside the FastAPI process,
-checking every 60 seconds for due tasks.
-
-Distributed safety: uses DB-level locking (locked_by/locked_at columns)
-to prevent duplicate execution across multiple FastAPI instances.
+Celery Beat is the authoritative poller. The optional in-process loop exists
+only as an explicit legacy fallback. Due rows are claimed by a PostgreSQL RPC
+using ``FOR UPDATE SKIP LOCKED`` so multiple workers cannot execute one task.
 """
 
 import asyncio
@@ -52,6 +48,10 @@ class ScheduledTaskRunner:
                 await self._task
             self._task = None
         logger.info("[ScheduledTaskRunner] Stopped")
+
+    async def run_once(self) -> None:
+        """Claim and execute one batch; used by the authoritative Celery poller."""
+        await self._check_and_execute()
 
     async def _loop(self):
         # Wait a short while after startup to let DB connections stabilize
@@ -119,39 +119,17 @@ class ScheduledTaskRunner:
         now = datetime.now(CN_TZ)
         now_iso = now.isoformat()
 
-        # Step 1: Clean up stale locks (locked > 5 minutes ago = assumed dead)
-        stale_cutoff = (now - timedelta(minutes=5)).isoformat()
-        with contextlib.suppress(Exception):
-            await (
-                supabase.table("user_scheduled_tasks")
-                .update({"locked_by": None, "locked_at": None})
-                .eq("is_active", True)
-                .not_.is_("locked_by", "null")
-                .lt("locked_at", stale_cutoff)
-                .execute()
-            )
-
-        # Step 2: Atomically claim unlocked due tasks by setting locked_by
-        await (
-            supabase.table("user_scheduled_tasks")
-            .update({"locked_by": _INSTANCE_ID, "locked_at": now_iso})
-            .eq("is_active", True)
-            .is_("locked_by", "null")
-            .lte("next_execution_at", now_iso)
-            .or_("consecutive_failures.lt.3,consecutive_failures.is.null")
-            .execute()
-        )
-
-        # Step 3: Fetch only tasks locked by THIS instance
-        result = (
-            await supabase.table("user_scheduled_tasks")
-            .select("*")
-            .eq("locked_by", _INSTANCE_ID)
-            .eq("is_active", True)
-            .order("next_execution_at")
-            .limit(20)
-            .execute()
-        )
+        # The RPC claims only the returned rows in one transaction. A fixed
+        # five-row batch keeps the 15-minute stale-lock lease conservative even
+        # when every Agent run consumes its full timeout.
+        result = await supabase.rpc(
+            "claim_due_user_scheduled_tasks",
+            {
+                "p_worker_id": _INSTANCE_ID,
+                "p_due_before": now_iso,
+                "p_limit": 5,
+            },
+        ).execute()
 
         tasks = result.data or []
         if not tasks:
@@ -243,6 +221,7 @@ class ScheduledTaskRunner:
                 task.get("day_of_week"),
                 task.get("interval_minutes"),
                 None,
+                task.get("cron_expression"),
             )
 
         # 5. Update task record and release lock

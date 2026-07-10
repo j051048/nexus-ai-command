@@ -50,6 +50,44 @@ _CACHE_TTL = 300  # 5 minutes
 _usage_cache: dict[str, dict] = {}
 
 
+def _quota_configs_from_row(
+    row: dict, tenant_id: str, loaded_at: float
+) -> list[QuotaConfig]:
+    """Translate the persisted daily/monthly quota schema into runtime rules."""
+    quota_type = str(row.get("quota_type") or "tenant").lower()
+    if quota_type not in {"tenant", "model", "user"}:
+        logger.warning("Ignoring unsupported LLM quota scope: %s", quota_type)
+        return []
+    target_id = row.get("target_id")
+    model_code = str(target_id) if quota_type == "model" and target_id else None
+    user_id = str(target_id) if quota_type == "user" and target_id else None
+    overage_action = str(row.get("overage_action") or "warn")
+
+    configs: list[QuotaConfig] = []
+    for period in ("daily", "monthly"):
+        max_tokens = int(row.get(f"{period}_token_limit") or 0)
+        max_cost = float(row.get(f"{period}_cost_limit") or 0.0)
+        max_requests = (
+            int(row.get("daily_request_limit") or 0) if period == "daily" else 0
+        )
+        if max_tokens <= 0 and max_cost <= 0 and max_requests <= 0:
+            continue
+        configs.append(
+            QuotaConfig(
+                tenant_id=str(row.get("tenant_id") or tenant_id),
+                model_code=model_code,
+                user_id=user_id,
+                period=period,
+                max_tokens=max_tokens,
+                max_cost=max_cost,
+                max_requests=max_requests,
+                overage_action=overage_action,
+                loaded_at=loaded_at,
+            )
+        )
+    return configs
+
+
 def _cache_key(
     tenant_id: str, model_code: str | None = None, user_id: str | None = None
 ) -> str:
@@ -99,19 +137,7 @@ async def _load_quota_configs(tenant_id: str) -> list[QuotaConfig]:
         )
 
         for row in res.data or []:
-            configs.append(
-                QuotaConfig(
-                    tenant_id=row.get("tenant_id", tenant_id),
-                    model_code=row.get("model_code"),
-                    user_id=row.get("user_id"),
-                    period=row.get("period", "daily"),
-                    max_tokens=row.get("max_tokens", 0),
-                    max_cost=float(row.get("max_cost", 0.0)),
-                    max_requests=row.get("max_requests", 0),
-                    overage_action=row.get("overage_action", "warn"),
-                    loaded_at=now,
-                )
-            )
+            configs.extend(_quota_configs_from_row(row, tenant_id, now))
 
     except Exception as e:
         logger.warning(f"Failed to load quota configs for tenant {tenant_id}: {e}")

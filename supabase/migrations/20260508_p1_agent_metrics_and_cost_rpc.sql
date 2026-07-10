@@ -43,12 +43,12 @@ as $$
     coalesce(model_code, 'unknown') as model_code,
     count(*)::bigint as total_calls,
     coalesce(sum(total_tokens), 0)::bigint as total_tokens,
-    coalesce(sum(cost_usd), 0)::numeric as total_cost_usd,
-    coalesce(avg(duration_ms), 0)::numeric as avg_duration_ms
+    coalesce(sum(call_cost), 0)::numeric as total_cost_usd,
+    coalesce(avg(exec_time_ms), 0)::numeric as avg_duration_ms
   from public.llm_call_log
-  where org_id = p_org_id
-    and created_at >= p_start
-    and created_at < p_end
+  where tenant_id = p_org_id
+    and create_time >= p_start
+    and create_time < p_end
   group by coalesce(model_code, 'unknown')
   order by total_cost_usd desc;
 $$;

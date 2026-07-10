@@ -110,7 +110,7 @@ begin
     perform public.nexus_enable_org_rls('public.workflows'::regclass, 'organization_id');
   end if;
   if to_regclass('public.llm_call_log') is not null then
-    perform public.nexus_enable_org_rls('public.llm_call_log'::regclass, 'org_id');
+    perform public.nexus_enable_org_rls('public.llm_call_log'::regclass, 'tenant_id');
   end if;
   if to_regclass('public.tool_execution_audit') is not null then
     perform public.nexus_enable_org_rls('public.tool_execution_audit'::regclass, 'org_id');

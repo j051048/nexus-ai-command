@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { offlineQueue, QueuedOperation } from '@/services/offlineQueue';
+import {
+  offlineQueue,
+  OfflineQueueIdentity,
+  QueuedOperation,
+  ReplayResult,
+} from '@/services/offlineQueue';
 
 /**
  * 离线操作队列 Hook
@@ -13,7 +18,10 @@ import { offlineQueue, QueuedOperation } from '@/services/offlineQueue';
  *
  * 网络恢复时自动重放队列。
  */
-export function useOfflineQueue() {
+export function useOfflineQueue(
+  identity?: OfflineQueueIdentity,
+  getReplayHeaders?: () => Record<string, string> | Promise<Record<string, string>>,
+) {
   const [count, setCount] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isReplaying, setIsReplaying] = useState(false);
@@ -22,12 +30,12 @@ export function useOfflineQueue() {
   // 更新队列计数
   const refreshCount = useCallback(async () => {
     try {
-      const c = await offlineQueue.getCount();
+      const c = identity ? await offlineQueue.getCount(identity) : 0;
       setCount(c);
     } catch {
       // IndexedDB may not be available
     }
-  }, []);
+  }, [identity]);
 
   // 初始化队列
   useEffect(() => {
@@ -39,11 +47,11 @@ export function useOfflineQueue() {
     const handleOnline = () => {
       setIsOnline(true);
       // 自动重放队列
-      if (!replayingRef.current) {
+      if (identity && !replayingRef.current) {
         replayingRef.current = true;
         setIsReplaying(true);
         offlineQueue
-          .replay()
+          .replay({ identity, getHeaders: getReplayHeaders })
           .then(() => refreshCount())
           .finally(() => {
             replayingRef.current = false;
@@ -63,38 +71,54 @@ export function useOfflineQueue() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [refreshCount]);
+  }, [getReplayHeaders, identity, refreshCount]);
 
   // 入队操作
   const enqueue = useCallback(
-    async (operation: Omit<QueuedOperation, 'id' | 'timestamp' | 'retries'>) => {
-      const id = await offlineQueue.enqueue(operation);
+    async (
+      operation: Omit<
+        QueuedOperation,
+        | 'id'
+        | 'timestamp'
+        | 'retries'
+        | 'organizationId'
+        | 'userId'
+        | 'sessionId'
+        | 'identityKey'
+        | 'idempotencyKey'
+        | 'state'
+        | 'lastError'
+      > & { idempotencyKey?: string },
+    ) => {
+      if (!identity) throw new Error('Offline queue identity is required');
+      const id = await offlineQueue.enqueue({ ...operation, identity });
       await refreshCount();
       return id;
     },
-    [refreshCount]
+    [identity, refreshCount]
   );
 
   // 手动重放
   const replay = useCallback(async () => {
-    if (replayingRef.current) return { success: 0, failed: 0 };
+    const empty: ReplayResult = { success: 0, failed: 0, blocked: 0, conflicts: 0 };
+    if (replayingRef.current || !identity) return empty;
     replayingRef.current = true;
     setIsReplaying(true);
     try {
-      const result = await offlineQueue.replay();
+      const result = await offlineQueue.replay({ identity, getHeaders: getReplayHeaders });
       await refreshCount();
       return result;
     } finally {
       replayingRef.current = false;
       setIsReplaying(false);
     }
-  }, [refreshCount]);
+  }, [getReplayHeaders, identity, refreshCount]);
 
   // 清空队列
   const clear = useCallback(async () => {
-    await offlineQueue.clear();
+    if (identity) await offlineQueue.clear(identity);
     await refreshCount();
-  }, [refreshCount]);
+  }, [identity, refreshCount]);
 
   return {
     isOnline,

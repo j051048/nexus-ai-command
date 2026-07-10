@@ -170,12 +170,14 @@ async def get_vmd_roi(req: Request, user_id: str = Depends(get_current_user_id))
         month_start = datetime.now().replace(day=1).isoformat()[:10]
         cost_res = (
             await db.table("llm_call_log")
-            .select("cost")
+            .select("call_cost")
             .eq("tenant_id", tenant_id)
-            .gte("created_at", month_start)
+            .gte("create_time", month_start)
             .execute()
         )
-        total_cost_usd = sum(float(r.get("cost", 0)) for r in (cost_res.data or []))
+        total_cost_usd = sum(
+            float(r.get("call_cost", 0)) for r in (cost_res.data or [])
+        )
 
         # 3. 按场景统计已完成任务
         scene_counts: dict[str, int] = {}

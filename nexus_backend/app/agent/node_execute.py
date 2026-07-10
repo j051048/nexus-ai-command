@@ -197,60 +197,6 @@ def _build_param_error_hint(error: str) -> str:
     return "；".join(hints) if hints else "请检查参数是否正确"
 
 
-# ── P0-1: Confidence-Based Gating ────────────────────────────────────────────
-
-
-def _extract_param_confidence(logprobs: dict | None, param_name: str) -> float:
-    """Extract confidence score for a specific parameter from logprobs."""
-    if not logprobs:
-        return 1.0  # No logprobs available, assume confident
-    # Simplified: return average token probability
-    # Real implementation would parse token-level logprobs
-    return 0.95  # Placeholder
-
-
-def _is_mutation_tool(tool_name: str) -> bool:
-    """Check if tool performs write operations."""
-    mutation_keywords = [
-        "create",
-        "update",
-        "delete",
-        "send",
-        "post",
-        "put",
-        "remove",
-        "modify",
-    ]
-    return any(kw in tool_name.lower() for kw in mutation_keywords)
-
-
-def _check_tool_confidence(
-    tool_name: str, tool_args: dict, threshold: float, logprobs: dict | None = None
-) -> tuple[bool, str]:
-    """P0-1: Check tool call confidence, block low-confidence calls."""
-    # High-risk parameters that require high confidence
-    high_risk_params = [
-        "amount",
-        "user_id",
-        "status",
-        "stage",
-        "price",
-        "quantity",
-        "email",
-    ]
-
-    for param in high_risk_params:
-        if param in tool_args:
-            confidence = _extract_param_confidence(logprobs, param)
-            if confidence < threshold:
-                return (
-                    False,
-                    f"参数 {param} 置信度过低 ({confidence:.2f} < {threshold})",
-                )
-
-    return True, ""
-
-
 # ── P0-2: Dry-Run Mode ───────────────────────────────────────────────────────
 
 
@@ -590,27 +536,9 @@ async def _execute_single_tool(
         )
         return record
 
-    # 2b. P0-1: Confidence Gate — block low-confidence mutation tools
-    if _is_mutation_tool(record.tool_name):
-        passed, reason = _check_tool_confidence(
-            record.tool_name,
-            record.tool_args,
-            config.confidence_threshold,
-            logprobs=None,  # TODO: extract from LLM response metadata
-        )
-        if not passed:
-            record.status = "blocked"
-            record.result = f"⚠️ 置信度不足: {reason}，请确认参数后重试"
-            _log_decision(
-                trace_id,
-                f"exec_confidence_{record.tool_name}",
-                "blocked_confidence",
-                reason,
-            )
-            return record
-
-    # 2c. P0-2: Dry-Run Mode — simulate mutation tools
-    if config.dry_run and _is_mutation_tool(record.tool_name):
+    # 2b. Dry-run uses the declared tool policy, never name heuristics or
+    # placeholder confidence values.
+    if config.dry_run and tool.has_side_effects:
         simulated = _simulate_tool_result(record.tool_name, record.tool_args)
         record.status = "success"
         record.result = _json.dumps(simulated, ensure_ascii=False, indent=2)
@@ -619,7 +547,7 @@ async def _execute_single_tool(
         return record
 
     # 2d. P1-4: Pre-Flight Validation — business logic checks
-    if _is_mutation_tool(record.tool_name):
+    if tool.has_side_effects:
         try:
             from app.agent.preflight_rules import run_preflight_checks
 
@@ -636,7 +564,7 @@ async def _execute_single_tool(
             logger.error(f"[PreFlight] Check error for {record.tool_name}: {e}")
 
     # 2a. Query Result Cache — skip execution for read-only tools with same args
-    if not tool.is_irreversible and record.tool_name not in LONG_RUNNING_TOOLS:
+    if tool.cacheable and record.tool_name not in LONG_RUNNING_TOOLS:
         cached = _get_cached_result(record.tool_name, record.tool_args, config.org_id)
         if cached is not None:
             record.status = "success"

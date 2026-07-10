@@ -6,7 +6,6 @@ Handles buffered batch-insert of LLM call logs to the database.
 
 import logging
 import time
-import uuid
 
 from app.core.database import supabase
 from app.core.trace_context import get_trace_id
@@ -47,8 +46,10 @@ class CallLoggingMixin:
         _LOG_FLUSH_INTERVAL seconds have elapsed since the last flush.
         Failures are logged but never propagated.
         """
+        # Keep this payload aligned with the canonical llm_call_log schema.
+        # The table uses a database-generated bigserial id, so callers must not
+        # supply a UUID here.
         row = {
-            "id": str(uuid.uuid4()),
             "tenant_id": org_id,
             "model_code": model_code,
             "scene_code": scene_code,
@@ -59,9 +60,10 @@ class CallLoggingMixin:
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens,
-            "cost": cost,
-            "latency_ms": latency_ms,
-            "error_msg": error_msg,
+            "call_cost": cost,
+            "exec_time_ms": latency_ms,
+            "error_message": error_msg,
+            "create_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
         # #25: trace_id for end-to-end tracing
         trace_id = get_trace_id()
@@ -94,3 +96,7 @@ class CallLoggingMixin:
         except Exception as e:
             logger.warning(f"Failed to batch-insert {len(batch)} LLM call logs: {e}")
             self._log_buffer = batch + self._log_buffer
+
+    async def flush_logs(self) -> None:
+        """Flush pending call logs during graceful application shutdown."""
+        await self._flush_log_buffer()

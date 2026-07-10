@@ -12,7 +12,7 @@ Covered tables:
 """
 
 import asyncio
-import json
+import hashlib
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -37,7 +37,7 @@ _USER_ID_COLUMNS = {
     "approval_requests": "user_id",
     "sales_leads": "user_id",
     "documents": "user_id",
-    "audit_logs": "user_id",
+    "audit_logs": "actor_user_id",
 }
 
 # Fields that constitute PII and must be anonymized on deletion
@@ -127,7 +127,7 @@ class DSARService:
         - approval_requests: Anonymize details, keep for business record
         - sales_leads: Anonymize contact info
         - documents: Anonymize title/content
-        - audit_logs: RETAINED but user_id reference anonymized (legal obligation)
+        - audit_logs: RETAINED and immutable; erasure is recorded as a new event
 
         Returns a summary of actions taken.
         """
@@ -165,29 +165,28 @@ class DSARService:
                     }
 
                 elif table == "audit_logs":
-                    # Audit logs are RETAINED (legal requirement) but user ref anonymized
-                    resp = await (
-                        self.db.table(table)
-                        .update({"user_id": f"anon_{request_id[:8]}"})
+                    # Audit history is append-only. Never mutate prior evidence as
+                    # part of a DSAR operation; record erasure as a new audit event.
+                    resp = (
+                        await self.db.table(table)
+                        .select("id")
                         .eq(uid_col, user_id)
+                        .limit(10000)
                         .execute()
                     )
                     affected = len(resp.data) if resp.data else 0
                     summary["actions"][table] = {
-                        "action": "user_reference_anonymized",
-                        "records_affected": affected,
-                        "note": "Audit logs retained per legal obligation, user reference anonymized",
+                        "action": "retained_immutable",
+                        "records_affected": 0,
+                        "records_retained": affected,
+                        "note": "Audit history retained unchanged; erasure recorded as a new event",
                     }
 
                 elif pii_fields:
                     # Anonymize PII fields in other tables
                     update_data = {field: _ANON_PLACEHOLDER for field in pii_fields}
-                    resp = (
-                        await self.db.table(table)
-                        .update(update_data)
-                        .eq(uid_col, user_id)
-                        .execute()
-                    )
+                    resp = self.db.table(table).update(update_data).eq(uid_col, user_id)
+                    resp = await resp.execute()
                     affected = len(resp.data) if resp.data else 0
                     summary["actions"][table] = {
                         "action": "pii_anonymized",
@@ -210,12 +209,15 @@ class DSARService:
         summary["status"] = "completed" if not errors else "completed_with_errors"
 
         # Log the deletion action
+        subject_fingerprint = hashlib.sha256(
+            f"{request_id}:{user_id}".encode()
+        ).hexdigest()[:16]
         await self._log_audit(
-            user_id=f"anon_{request_id[:8]}",  # Already anonymized
+            user_id=None,
             action="dsar_delete",
             details={
                 "request_id": request_id,
-                "original_user_id_hash": str(hash(user_id))[-8:],
+                "subject_fingerprint": subject_fingerprint,
                 "tables_processed": list(summary["actions"].keys()),
             },
         )
@@ -223,16 +225,18 @@ class DSARService:
         return summary
 
     async def _log_audit(
-        self, user_id: str, action: str, details: dict[str, Any]
+        self, user_id: str | None, action: str, details: dict[str, Any]
     ) -> None:
         """Write a DSAR audit record."""
         try:
             await self.db.table("audit_logs").insert(
                 {
-                    "user_id": user_id,
+                    "actor_user_id": user_id,
                     "action": action,
-                    "details": json.dumps(details, ensure_ascii=False),
-                    "created_at": datetime.now(UTC).isoformat(),
+                    "target_table": "users",
+                    "details_json": details,
+                    "status": "success",
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             ).execute()
         except Exception as e:

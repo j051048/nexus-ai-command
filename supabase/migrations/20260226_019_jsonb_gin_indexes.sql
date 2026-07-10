@@ -30,12 +30,29 @@ CREATE INDEX IF NOT EXISTS idx_form_schemas_schema_gin
 CREATE INDEX IF NOT EXISTS idx_vmd_agent_configs_config_gin
   ON vmd_agent_configs USING GIN (config jsonb_path_ops);
 
--- 7. llm_call_logs.request_payload / response_payload — debugging & audit queries
-CREATE INDEX IF NOT EXISTS idx_llm_call_logs_request_gin
-  ON llm_call_logs USING GIN (request_payload jsonb_path_ops);
-
-CREATE INDEX IF NOT EXISTS idx_llm_call_logs_response_gin
-  ON llm_call_logs USING GIN (response_payload jsonb_path_ops);
+-- 7. Legacy llm_call_logs payload indexes. Some deployments never created
+-- this plural legacy table, so fresh migration replay must skip it safely.
+DO $$
+BEGIN
+  IF to_regclass('public.llm_call_logs') IS NOT NULL
+     AND EXISTS (
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'llm_call_logs'
+         AND column_name = 'request_payload'
+     ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_llm_call_logs_request_gin '
+      'ON public.llm_call_logs USING GIN (request_payload jsonb_path_ops)';
+  END IF;
+  IF to_regclass('public.llm_call_logs') IS NOT NULL
+     AND EXISTS (
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'llm_call_logs'
+         AND column_name = 'response_payload'
+     ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_llm_call_logs_response_gin '
+      'ON public.llm_call_logs USING GIN (response_payload jsonb_path_ops)';
+  END IF;
+END $$;
 
 -- 8. notification_items.data — notification payload filtering
 CREATE INDEX IF NOT EXISTS idx_notification_items_data_gin

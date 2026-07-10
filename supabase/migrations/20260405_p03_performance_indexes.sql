@@ -93,8 +93,8 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_asset_transfers_from_user ON public.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_asset_transfers_to_user ON public.asset_transfers(to_user_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_asset_transfers_operator ON public.asset_transfers(operator_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_attendance_records_org_id ON public.attendance_records(organization_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_org_id ON public.audit_logs(org_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_organization_id ON public.audit_logs(organization_id);
+-- audit_logs was historically provisioned outside migrations in some
+-- environments. Its canonical indexes are created after schema convergence.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_backup_records_created_by ON public.backup_records(created_by);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_backup_records_org_id ON public.backup_records(organization_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_badges_user_id ON public.badges(user_id);
