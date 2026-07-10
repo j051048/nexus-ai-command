@@ -14,7 +14,8 @@ export function getApiBaseUrl(): string {
   }
 
   // Fallback: localhost in dev, same origin in production
-  return window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1'
+    ? `http://${hostname}:8000`
     : window.location.origin;
 }
