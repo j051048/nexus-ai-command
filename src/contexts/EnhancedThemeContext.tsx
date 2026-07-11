@@ -154,8 +154,8 @@ const themePresets: ThemePreset[] = [
 // ==================== 默认设置 ====================
 
 const defaultSettings: ThemeSettings = {
-  mode: 'dark',
-  preset: 'default-dark',
+  mode: 'light',
+  preset: 'default-light',
   customColors: {},
   fontSize: 'base',
   radius: 'lg',

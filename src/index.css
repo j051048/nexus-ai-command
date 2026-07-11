@@ -2,8 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Project Nexus - AI Enterprise Command Center Design System */
-/* Dark mode: Cyberpunk-inspired | Light mode: Clean SaaS professional */
+/* Nexus Precision Operations design system. */
+/* Quiet enterprise surfaces, calibrated hierarchy, restrained motion. */
 
 /* ==================== A8: 移动端触控优化 ==================== */
 
@@ -35,49 +35,49 @@ html, body {
 @layer base {
   :root {
     /* Light Mode - Clean Professional SaaS Style */
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    --background: 220 14% 97%;
+    --foreground: 222 22% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --card-elevated: 210 20% 96%;
+    --card-foreground: 222 22% 14%;
+    --card-elevated: 220 14% 98%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 222 22% 14%;
 
     /* Primary - Professional Blue */
-    --primary: 217 91% 50%;
+    --primary: 217 66% 43%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 217 91% 60%;
+    --primary-glow: 217 66% 43%;
 
     /* Secondary */
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 222 47% 20%;
+    --secondary: 220 12% 94%;
+    --secondary-foreground: 222 18% 24%;
 
     /* Muted */
-    --muted: 210 15% 94%;
-    --muted-foreground: 215 16% 40%;
+    --muted: 220 12% 94%;
+    --muted-foreground: 218 10% 42%;
 
     /* Accent - Neutral interactive (derived from primary) */
-    --accent: 217 91% 96%;
-    --accent-foreground: 217 91% 30%;
-    --success: 142 69% 45%;
-    --success-glow: 142 69% 55%;
+    --accent: 217 35% 94%;
+    --accent-foreground: 217 55% 32%;
+    --success: 151 45% 36%;
+    --success-glow: 151 45% 36%;
 
     /* Warning Orange */
-    --warning: 36 100% 50%;
+    --warning: 36 84% 46%;
     --warning-foreground: 0 0% 0%;
 
     /* Destructive */
-    --destructive: 0 84% 55%;
+    --destructive: 0 67% 48%;
     --destructive-foreground: 0 0% 100%;
 
     /* UI Elements */
-    --border: 214 20% 88%;
-    --input: 214 20% 92%;
-    --ring: 217 91% 50%;
+    --border: 218 16% 86%;
+    --input: 218 16% 82%;
+    --ring: 217 66% 43%;
 
-    --radius: 0.875rem;
+    --radius: 0.5rem;
 
     /* Spacing System - 8px Grid */
     --spacing-xs: 0.25rem;   /* 4px */
@@ -87,55 +87,55 @@ html, body {
     --spacing-xl: 2rem;      /* 32px */
     --spacing-2xl: 3rem;     /* 48px */
 
-    /* Sidebar - Always Dark (even in light mode) */
-    --sidebar-background: 220 15% 13%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 217 91% 55%;
+    /* Sidebar shares the application surface instead of becoming a game rail. */
+    --sidebar-background: 0 0% 99%;
+    --sidebar-foreground: 222 18% 23%;
+    --sidebar-primary: 217 66% 43%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 20%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 10% 20%;
-    --sidebar-ring: 217 91% 50%;
+    --sidebar-accent: 220 12% 94%;
+    --sidebar-accent-foreground: 222 18% 18%;
+    --sidebar-border: 218 16% 88%;
+    --sidebar-ring: 217 66% 43%;
 
-    /* Gamification Colors */
-    --gold: 45 100% 50%;
-    --silver: 0 0% 65%;
-    --bronze: 30 60% 45%;
-    --xp-bar: 280 100% 55%;
+    /* Deprecated compatibility aliases; do not use in new business UI. */
+    --gold: 36 70% 42%;
+    --silver: 218 8% 52%;
+    --bronze: 25 40% 42%;
+    --xp-bar: 217 66% 43%;
 
     /* Gradients - Light Mode */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 50%) 0%, hsl(217 91% 60%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 69% 40%) 0%, hsl(142 69% 50%) 100%);
-    --gradient-warning: linear-gradient(135deg, hsl(36 100% 48%) 0%, hsl(36 100% 55%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(45 100% 45%) 0%, hsl(55 100% 55%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(210 20% 98%) 0%, hsl(210 20% 95%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
-    --gradient-cyber: linear-gradient(135deg, hsl(217 91% 50% / 0.08) 0%, hsl(142 69% 45% / 0.08) 100%);
+    --gradient-primary: hsl(var(--primary));
+    --gradient-success: hsl(var(--success));
+    --gradient-warning: hsl(var(--warning));
+    --gradient-gold: hsl(var(--warning));
+    --gradient-dark: hsl(var(--background));
+    --gradient-card: hsl(var(--card));
+    --gradient-cyber: hsl(var(--muted));
 
     /* Shadows - Light Mode (multi-layer, inspired by Stripe/Notion) */
-    --shadow-glow-primary: 0 4px 20px hsl(217 91% 50% / 0.15);
-    --shadow-glow-success: 0 4px 20px hsl(142 69% 45% / 0.15);
-    --shadow-glow-warning: 0 4px 20px hsl(36 100% 50% / 0.15);
-    --shadow-card: 0 0 0 1px hsl(0 0% 0% / 0.03), 0 2px 4px hsl(0 0% 0% / 0.04), 0 8px 24px hsl(0 0% 0% / 0.06);
-    --shadow-elevated: 0 0 0 1px hsl(0 0% 0% / 0.04), 0 4px 12px hsl(0 0% 0% / 0.06), 0 16px 48px hsl(0 0% 0% / 0.1);
+    --shadow-glow-primary: none;
+    --shadow-glow-success: none;
+    --shadow-glow-warning: none;
+    --shadow-card: 0 1px 2px hsl(222 22% 14% / 0.05);
+    --shadow-elevated: 0 10px 30px hsl(222 22% 14% / 0.12);
   }
 
   .dark {
-    /* Dark Mode - Cyberpunk Style */
-    --background: 0 0% 7%;
-    --foreground: 0 0% 95%;
+    /* Dark mode remains neutral and operational, never neon. */
+    --background: 222 18% 10%;
+    --foreground: 220 12% 91%;
 
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 95%;
-    --card-elevated: 0 0% 12%;
+    --card: 222 16% 12%;
+    --card-foreground: 220 12% 91%;
+    --card-elevated: 222 14% 14%;
 
     --popover: 0 0% 10%;
     --popover-foreground: 0 0% 95%;
 
     /* Tech Blue */
-    --primary: 211 100% 50%;
+    --primary: 214 68% 58%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 211 100% 60%;
+    --primary-glow: 214 68% 58%;
 
     /* Secondary */
     --secondary: 0 0% 15%;
@@ -165,9 +165,9 @@ html, body {
     --ring: 211 100% 50%;
 
     /* Sidebar - Dark */
-    --sidebar-background: 0 0% 8%;
+    --sidebar-background: 222 18% 10%;
     --sidebar-foreground: 0 0% 85%;
-    --sidebar-primary: 211 100% 50%;
+    --sidebar-primary: 214 68% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 95%;
@@ -190,11 +190,11 @@ html, body {
     --gradient-cyber: linear-gradient(135deg, hsl(211 100% 50% / 0.1) 0%, hsl(142 69% 50% / 0.1) 100%);
 
     /* Shadows - Dark Mode (multi-layer with brightness steps) */
-    --shadow-glow-primary: 0 0 20px hsl(211 100% 50% / 0.15);
-    --shadow-glow-success: 0 0 20px hsl(142 69% 50% / 0.15);
-    --shadow-glow-warning: 0 0 20px hsl(36 100% 50% / 0.15);
-    --shadow-card: 0 0 0 1px hsl(0 0% 100% / 0.04), 0 4px 12px hsl(0 0% 0% / 0.2), 0 8px 24px hsl(0 0% 0% / 0.25);
-    --shadow-elevated: 0 0 0 1px hsl(0 0% 100% / 0.06), 0 8px 24px hsl(0 0% 0% / 0.3), 0 16px 48px hsl(0 0% 0% / 0.35);
+    --shadow-glow-primary: none;
+    --shadow-glow-success: none;
+    --shadow-glow-warning: none;
+    --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.24);
+    --shadow-elevated: 0 12px 32px hsl(0 0% 0% / 0.32);
   }
 }
 
@@ -942,3 +942,53 @@ html, body {
   transition-duration: 0.01ms !important;
 }
 
+/* ==================== Precision Operations compatibility layer ==================== */
+/* Legacy feature screens may still reference expressive utilities. Keep their
+   behavior intact while rendering them with the restrained workbench language. */
+@layer utilities {
+  .glow-primary,
+  .glow-success,
+  .glow-warning,
+  .text-shadow-glow,
+  .text-shadow-glow-success {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .card-hover:hover,
+  .active-card:hover,
+  .hover-lift:hover,
+  .bento-card:hover,
+  .hover\:-translate-y-1:hover,
+  .hover\:-translate-y-0\.5:hover,
+  .group:hover .group-hover\:scale-110,
+  .group:hover .group-hover\:rotate-6,
+  .group:hover .group-hover\:rotate-12 {
+    transform: none !important;
+  }
+
+  .animate-blob,
+  .animate-glow-pulse,
+  .animate-attention-pulse,
+  .badge-unlock,
+  .bonus-popup,
+  .float,
+  .pulse-live {
+    animation: none !important;
+  }
+
+  .glass-card,
+  .glass-sidebar,
+  .glass-header,
+  .glass-premium,
+  .card-glass {
+    background: hsl(var(--card));
+    backdrop-filter: none;
+    border-color: hsl(var(--border));
+    box-shadow: none;
+  }
+
+  .command-capsule {
+    border-radius: var(--radius);
+  }
+}

@@ -69,7 +69,6 @@ import {
   Star,
   Network,
   Search,
-  Sparkles,
   Activity,
   Server,
 } from "lucide-react";
@@ -209,7 +208,7 @@ const NAV_CONFIG: NavItem[] = [
   // 数据域分组
   { icon: <BarChart3 size={18} />, label: "数据报表", href: "reports", group: "经营数据" },
   { icon: <Target size={18} />, label: "目标看板", href: "target-dashboard", group: "经营数据" },
-  { icon: <Sparkles size={18} />, label: "AI 报表引擎", href: "report-builder", roles: ["boss", "founder", "manager"], group: "经营数据" },
+  { icon: <BarChart3 size={18} />, label: "AI 报表引擎", href: "report-builder", roles: ["boss", "founder", "manager"], group: "经营数据" },
   { icon: <Crown size={18} />, label: "老板看板", href: "boss-dashboard", roles: ["boss", "founder"], group: "经营数据" },
   { icon: <BarChart3 size={18} />, label: "客户成功", href: "customer-success", roles: ["boss", "founder", "manager"], group: "经营数据" },
 
@@ -218,7 +217,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Package size={18} />, label: "资产", href: "assets", group: "资产" },
 
   // AI 能力域
-  { icon: <Sparkles size={18} />, label: "助手工作台", href: "ai-operating-system", group: "智能助手" },
+  { icon: <Bot size={18} />, label: "助手工作台", href: "ai-operating-system", group: "智能助手" },
   { icon: <Brain size={18} />, label: "Agent 进化中心", href: "agent-improvement-center", roles: ["boss", "founder"], group: "智能助手" },
   { icon: <BookOpen size={18} />, label: "知识库", href: "knowledge", group: "智能助手" },
   { icon: <Rocket size={18} />, label: "VMD", href: "vmd", group: "智能助手" },
@@ -318,7 +317,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
             }}
             aria-expanded={isOpen}
             aria-label={`${title} 分组 ${isOpen ? "收起" : "展开"}`}
-            className="flex items-center justify-between w-full px-3 py-2 text-micro font-black text-sidebar-foreground/30 uppercase tracking-[0.2em] hover:text-sidebar-foreground/50 transition-colors"
+            className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-medium text-sidebar-foreground/45 transition-colors hover:text-sidebar-foreground/70"
           >
             {title}
             {isOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -346,23 +345,23 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
                   to={`/${item.href}`}
                   onClick={handleClick}
                   className={cn(
-                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 relative group border border-transparent",
+                    "group relative flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors duration-150",
                     isActive(item.href)
-                      ? "bg-sidebar-accent text-sidebar-foreground shadow-[var(--shadow-card)] border-sidebar-border font-bold"
-                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-border/50"
+                      ? "border-sidebar-border bg-sidebar-accent text-sidebar-foreground font-medium"
+                      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
                   )}
                 >
                   {isActive(item.href) && (
-                    <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-sidebar-primary rounded-r-full shadow-[0_0_6px_hsl(var(--sidebar-primary)/0.5)]" />
+                    <div className="absolute bottom-2 left-0 top-2 w-0.5 bg-sidebar-primary" />
                   )}
-                  <span className={cn("shrink-0 transition-transform duration-300", !isActive(item.href) && "group-hover:scale-110")}>
+                  <span className="shrink-0">
                     {item.icon}
                   </span>
                   {!isCollapsed && (
                     <>
-                      <span className="text-sm font-semibold tracking-tight truncate flex-1">{item.label}</span>
+                      <span className="flex-1 truncate">{item.label}</span>
                       {badge && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-sidebar-accent text-sidebar-foreground/90 text-micro font-bold border border-sidebar-border">{badge}</span>
+                        <span className="rounded border border-sidebar-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-sidebar-foreground/80">{badge}</span>
                       )}
                     </>
                   )}
@@ -380,35 +379,35 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
       data-testid="sidebar-main" 
       aria-label="主要系统导航"
       className={cn(
-        "bg-sidebar/95 backdrop-blur-xl border-r border-sidebar-border/30 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
-        isCollapsed ? "w-[80px]" : "w-64"
+        "relative z-40 flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+        isCollapsed ? "w-16" : "w-60"
       )}
     >
-      <div className={cn("p-6 flex items-center gap-3", isCollapsed && "justify-center")}>
+      <div className={cn("flex h-14 items-center gap-3 border-b border-sidebar-border px-4", isCollapsed && "justify-center")}>
         <div 
           onClick={() => navigate("/")}
-          className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-primary/60 flex items-center justify-center shadow-md shadow-primary/10 cursor-pointer hover:rotate-6 transition-transform"
+          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md bg-primary text-primary-foreground"
         >
-          <Bot className="w-6 h-6 text-sidebar-primary-foreground" />
+          <Bot className="h-4 w-4" />
         </div>
         {!isCollapsed && (
-          <div className="animate-fade-in">
-            <h1 className="text-sm font-extrabold text-sidebar-foreground tracking-tight uppercase">Nexus AI</h1>
-            <p className="text-micro text-sidebar-foreground/40 font-mono font-bold tracking-wider">COMMAND CENTER</p>
+          <div>
+            <h1 className="text-sm font-semibold text-sidebar-foreground">Nexus AI</h1>
+            <p className="text-[10px] text-sidebar-foreground/45">企业工作台</p>
           </div>
         )}
       </div>
 
       {/* 搜索框 */}
       {!isCollapsed && (
-        <div className="px-6 pb-4">
+        <div className="px-3 py-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               aria-label="搜索系统功能 (快捷键 ⌘K)"
               placeholder="搜索功能 (⌘K)"
-              className="w-full pl-9 pr-3 h-10 bg-sidebar-accent/30 border border-sidebar-border rounded-xl text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:border-sidebar-primary/30 focus:bg-sidebar-accent/50 transition-all shadow-inner"
+              className="h-9 w-full rounded-md border border-sidebar-border bg-background pl-9 pr-3 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:border-sidebar-primary focus:outline-none"
               onFocus={() => {
                 const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
                 document.dispatchEvent(event);
@@ -486,7 +485,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
         )}
       </div>
 
-      <div className="p-element border-t border-sidebar-border bg-gradient-to-t from-sidebar/40 to-transparent backdrop-blur-sm">
+      <div className="border-t border-sidebar-border p-3">
         <div className={cn("flex flex-col gap-3", !isCollapsed && "px-2")}>
           <div className={cn("flex", isCollapsed ? "justify-center" : "justify-end mb-2")}>
             <ThemeToggle />
@@ -494,7 +493,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
           <div 
             onClick={() => navigate("/personal-settings")}
             className={cn(
-              "flex items-center gap-3 p-2 rounded-2xl cursor-pointer hover:bg-sidebar-accent transition-all duration-300 group",
+              "group flex cursor-pointer items-center gap-3 rounded-md p-2 transition-colors hover:bg-sidebar-accent",
               isCollapsed && "justify-center"
             )}
           >
@@ -504,7 +503,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
               ) : (
                 <UserIcon className="w-5 h-5 text-primary" />
               )}
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success border-2 border-sidebar rounded-full shadow-[0_0_8px_hsl(var(--success)/0.6)]"></div>
+              <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-sidebar bg-success"></div>
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0 transition-opacity duration-300">
@@ -527,10 +526,10 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
           {!isCollapsed && (
             <button 
               onClick={signOut}
-              className="flex items-center gap-2 mt-1 px-3 py-2 text-micro font-bold uppercase tracking-widest text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all duration-300 group/logout"
+              className="mt-1 flex items-center gap-2 rounded-md px-3 py-2 text-xs text-sidebar-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
-              <LogOut size={12} className="group-hover:rotate-12 transition-transform" />
-              <span>Sign Out Safely</span>
+              <LogOut size={12} />
+              <span>退出登录</span>
             </button>
           )}
         </div>
@@ -540,7 +539,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
         onClick={() => setIsCollapsed(!isCollapsed)}
         aria-label={isCollapsed ? "展开侧边栏" : "折叠侧边栏"}
         aria-expanded={!isCollapsed}
-        className="absolute -right-3 top-20 w-6 h-6 bg-sidebar-primary rounded-full md:flex items-center justify-center text-sidebar-primary-foreground shadow-sm shadow-primary/20 hover:scale-110 hover:shadow-md hover:shadow-primary/30 active:scale-95 transition-all z-50 border-4 border-sidebar hidden"
+        className="absolute -right-3 top-20 z-50 hidden h-6 w-6 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground md:flex"
       >
         {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>

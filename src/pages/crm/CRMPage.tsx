@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowRightLeft, DollarSign, Loader2, Plus, Sparkles, Trash2, TrendingUp, Users } from 'lucide-react';
+import { Loader2, NotebookPen, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -7,7 +7,6 @@ import { AIQuickActions } from '@/components/ai/AIQuickActions';
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AITrustBadge } from '@/components/ai/AITrustBadge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +19,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useRegisterPageContext } from '@/hooks/usePageContext';
 import { useCustomers, useCustomerStats, useDeleteCustomer, type Customer } from '@/hooks/useCRM';
 import { cn } from '@/lib/utils';
-import { iconBackgrounds, iconColors, spacing, typography } from '@/lib/design-tokens';
+import { typography } from '@/lib/design-tokens';
 import CustomerDetailSheet, { EditCustomerDialog } from './CustomerDetailSheet';
 import CustomerFilters from './CustomerFilters';
 import CustomerFormDialog from './CustomerFormDialog';
@@ -70,7 +69,7 @@ function CRMAIInsightLayer({
   return (
     <AIInsightPanel
       variant="compact"
-      title={`AI 客户摘要：${nextCustomer.name}`}
+      title={`下一步客户动作：${nextCustomer.name}`}
       summary={nextReason}
       trustLevel={trustLevel}
       score={trustLevel === 'high' ? 88 : 74}
@@ -104,27 +103,20 @@ function StatsBar() {
   }
 
   const items = [
-    { label: '客户总数', value: stats?.total_customers ?? 0, icon: Users, color: iconColors.blue, bg: iconBackgrounds.blue },
-    { label: '本月新增', value: stats?.new_this_month ?? 0, icon: Plus, color: iconColors.green, bg: iconBackgrounds.green },
-    { label: '转化率', value: `${stats?.conversion_rate ?? 0}%`, icon: ArrowRightLeft, color: iconColors.orange, bg: iconBackgrounds.orange },
-    { label: '预计金额', value: `¥${Number(stats?.total_estimated_value ?? 0).toLocaleString()}`, icon: DollarSign, color: iconColors.purple, bg: iconBackgrounds.purple },
-    { label: '流失', value: stats?.churned ?? 0, icon: TrendingUp, color: iconColors.red, bg: iconBackgrounds.red },
+    { label: '客户总数', value: stats?.total_customers ?? 0 },
+    { label: '本月新增', value: stats?.new_this_month ?? 0 },
+    { label: '转化率', value: `${stats?.conversion_rate ?? 0}%` },
+    { label: '预计金额', value: `¥${Number(stats?.total_estimated_value ?? 0).toLocaleString()}` },
+    { label: '流失', value: stats?.churned ?? 0 },
   ];
 
   return (
-    <div className={cn('grid grid-cols-2 md:grid-cols-5', spacing.sm)}>
+    <div className="grid grid-cols-2 divide-x divide-y border md:grid-cols-5 md:divide-y-0">
       {items.map((item) => (
-        <Card key={item.label} variant="elevated">
-          <CardContent className="p-6">
-            <div className="mb-3 flex items-center justify-between">
-              <span className={cn(typography.xs)}>{item.label}</span>
-              <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', item.bg)}>
-                <item.icon className={cn('h-5 w-5', item.color)} />
-              </div>
-            </div>
-            <p className={cn(typography.h2, item.color)}>{item.value}</p>
-          </CardContent>
-        </Card>
+        <div key={item.label} className="px-4 py-3">
+          <div className="text-xs text-muted-foreground">{item.label}</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{item.value}</div>
+        </div>
       ))}
     </div>
   );
@@ -174,10 +166,10 @@ function CRMPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className={cn(typography.h1)}>客户管理</h1>
+          <h1 className="text-xl font-semibold">客户管理</h1>
           <p className={cn(typography.small, 'mt-1 text-muted-foreground')}>
             管理客户关系、销售机会、跟进节奏和 AI 风险提示。
           </p>
@@ -190,7 +182,7 @@ function CRMPage() {
               triggerAI('请帮我快速记录一次客户拜访，提取客户名称、联系人、需求、异议、预算、下一步动作和跟进时间。')
             }
           >
-            <Sparkles className="h-4 w-4" />
+            <NotebookPen className="h-4 w-4" />
             记录拜访
           </Button>
           <Button className="gap-2" onClick={() => setCreateOpen(true)}>

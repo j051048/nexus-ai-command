@@ -33,7 +33,6 @@ import {
   Ban,
   RotateCw,
   Trash2,
-  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContracts, useContractDetail, useCreateContract, useDeleteContract, type Contract, type ContractEvent } from '@/hooks/useContracts';
@@ -176,7 +175,7 @@ function ContractDetailActionStrip({ contract }: { contract: Contract }) {
           <p className="mt-2 line-clamp-1 text-sm font-medium">{nextAction}</p>
         </div>
         <Button size="sm" className="h-8 shrink-0" onClick={() => triggerAI(prompt)}>
-          <Sparkles className="mr-2 h-4 w-4" />
+          <FileCheck className="mr-2 h-4 w-4" />
           {buttonLabel}
         </Button>
       </div>
@@ -364,14 +363,11 @@ export function ContractManagement() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
+    <div className="mx-auto max-w-[1400px] space-y-4">
       {/* 页面标题 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="h-6 w-6 text-primary" />
-            合同管理
-          </h1>
+          <h1 className="text-xl font-semibold">合同管理</h1>
           <p className="text-muted-foreground mt-1">管理合同全生命周期</p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
@@ -480,7 +476,7 @@ export function ContractManagement() {
               <Card
                 key={contract.id}
                 className={cn(
-                  'cursor-pointer hover:shadow-md transition-all',
+                  'cursor-pointer transition-colors hover:bg-muted/20',
                   isExpiringSoon && 'border-orange-200 dark:border-orange-800'
                 )}
                 onClick={() => openDetail(contract)}

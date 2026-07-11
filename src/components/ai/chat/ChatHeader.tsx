@@ -13,7 +13,6 @@ import {
   Bot,
   ChevronUp,
   ChevronDown,
-  Sparkles,
   Loader2,
   Maximize2,
   Minimize2,
@@ -26,7 +25,6 @@ import {
   Trash2,
   Download,
 } from 'lucide-react';
-import { PulseDot } from '@/components/common/AnimatedComponents';
 import { useSoulDocument } from '@/hooks/useSoulDocument';
 
 interface ChatHeaderProps {
@@ -66,31 +64,28 @@ export const ChatHeader = React.memo(function ChatHeader({
   return (
     <div
       className={cn(
-        'h-16 px-4 md:px-6 flex items-center justify-between cursor-pointer hover:bg-card-elevated/50 transition-colors',
-        isFullscreen || isMobile ? 'rounded-none' : 'rounded-t-2xl md:rounded-t-none'
+        'flex h-14 cursor-pointer items-center justify-between border-b px-4 transition-colors hover:bg-muted/20',
+        isFullscreen || isMobile ? 'rounded-none' : 'md:rounded-t-none'
       )}
       onClick={(!isFullscreen && !isMobile) ? onToggle : undefined}
     >
       <div className="flex items-center gap-3">
         <div className="relative">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
-            <Bot className="w-5 h-5 text-primary-foreground" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-muted/30">
+            <Bot className="h-4 w-4 text-primary" />
           </div>
           {isAiTyping && (
-            <span className="absolute -bottom-0.5 -right-0.5">
-              <PulseDot color="success" size="sm" />
-            </span>
+            <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-card bg-success" />
           )}
         </div>
         <div>
-          <h3 className="font-semibold text-foreground flex items-center gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             {aiName}
-            <Sparkles className="w-4 h-4 text-primary" />
           </h3>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
               <div className="flex items-center gap-2">
                 {aiStatus ? (
-                  <div className="flex items-center gap-1.5 bg-secondary/80 px-2 py-0.5 rounded-full animate-pulse">
+                  <div className="flex items-center gap-1.5 text-primary">
                      <Loader2 className="w-3 h-3 animate-spin text-primary" />
                      <span className="text-primary font-medium">{aiStatus}</span>
                   </div>

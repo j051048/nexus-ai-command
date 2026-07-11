@@ -4,10 +4,9 @@
  * 替代移动端的 ChatFirstLayout
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useMobileNavigation } from '@/hooks/useMobileNavigation';
-import { cn } from '@/lib/utils';
 import MobileTabBar from '@/components/mobile/MobileTabBar';
 import MobilePageHeader from '@/components/mobile/MobilePageHeader';
 import MobileAISheet from '@/components/mobile/MobileAISheet';
@@ -18,7 +17,6 @@ import { InstallPrompt } from '@/components/common/InstallPrompt';
 // Sprint 3: 移动端专属首页 + 工作台
 import MobileHomePage from '@/components/mobile/MobileHomePage';
 import MobileWorkbenchPage from '@/components/mobile/MobileWorkbenchPage';
-import MobileActionCardStack from '@/components/mobile/MobileActionCardStack';
 import InboxPage from '@/pages/InboxPage';
 
 // Sprint 4: 个人中心
@@ -34,26 +32,6 @@ export function MobileLayout() {
 
   // 实时推送连接（WebSocket + 自动重连）
   useWebSocketPush();
-
-  // 页面转场动画
-  const prevPathRef = useRef(location.pathname);
-  const [transitionClass, setTransitionClass] = useState('');
-
-  useEffect(() => {
-    const prev = prevPathRef.current;
-    const curr = location.pathname;
-
-    if (prev !== curr) {
-      // 子页面进入 → slide-in-right，Tab 切换 → fade-in
-      const isGoingDeeper = curr.split('/').length > prev.split('/').length;
-      setTransitionClass(isGoingDeeper ? 'animate-slide-in-right' : 'animate-mobile-fade-in');
-      prevPathRef.current = curr;
-
-      // 动画完成后清除 class
-      const timer = setTimeout(() => setTransitionClass(''), 400);
-      return () => clearTimeout(timer);
-    }
-  }, [location.pathname]);
 
   const handleAIPress = useCallback(() => {
     setIsAISheetOpen(true);
@@ -92,8 +70,7 @@ export function MobileLayout() {
     // 行动台是移动端默认首页，和桌面统一使用同一套行动模型。
     if (path === '/dashboard') {
       return (
-        <div className="space-y-4 px-4 pb-24 pt-4">
-          <MobileActionCardStack />
+        <div className="px-4 pb-24 pt-4">
           {renderActionInbox()}
         </div>
       );
@@ -130,7 +107,7 @@ export function MobileLayout() {
 
       {/* 主内容区 */}
       <main className="flex-1 overflow-auto pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
-        <div className={cn("min-h-full", transitionClass)}>
+        <div className="min-h-full">
           {renderContent()}
         </div>
       </main>

@@ -7,7 +7,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
-import { PanelRightClose, PanelRightOpen, Clock, Sparkles } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Clock } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { TrialBanner } from '@/components/billing/TrialBanner';
 import { useWebSocketPush } from '@/hooks/useWebSocketPush';
@@ -44,14 +44,10 @@ function AssistantStatusPill({
         <button
             type="button"
             onClick={onOpen}
-            className="hidden items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.04] px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground md:flex"
+            className="hidden items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground md:flex"
             aria-label="打开助手面板"
         >
-            <span className="relative flex h-2 w-2">
-                {isWorking && <span className="absolute inline-flex h-full w-full rounded-full bg-primary/40 animate-ping" />}
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary/70" />
-            </span>
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <span className={cn("h-1.5 w-1.5 rounded-full", isWorking ? "bg-primary" : "bg-muted-foreground/50")} />
             <span>{isWorking ? '助手正在整理请求' : isChatOpen ? '助手已开启' : '助手待命'}</span>
         </button>
     );
@@ -99,23 +95,23 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     return (
         <div className="flex h-[100dvh] w-full bg-background overflow-hidden text-foreground">
             {isPendingBoss && (
-                <div className="fixed top-0 left-0 right-0 z-50 bg-warning text-warning-foreground text-center text-xs py-2 px-4 backdrop-blur-md flex items-center justify-center gap-2">
+                <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center gap-2 bg-warning px-4 py-2 text-center text-xs text-warning-foreground">
                     <Clock className="w-3.5 h-3.5" />
                     账号审核中 · 您目前以普通员工身份模式运行
                 </div>
             )}
 
-            {/* Sidebar with Abyss contrast */}
+            {/* Stable enterprise navigation rail */}
             <div className={cn("hidden md:flex h-full z-20 relative border-r border-border", isPendingBoss && "pt-9")}>
                 <Sidebar />
             </div>
 
             {/* Main Content Area */}
             <div className="flex flex-1 overflow-hidden relative">
-                {/* Chat Panel - Glassy and subtle */}
+                {/* Assistant panel uses a stable tool width. */}
                 <div className={cn(
-                    "flex flex-col transition-all duration-500 ease-out-expo h-full relative z-10 border-r border-border",
-                    isChatOpen ? (isCanvasOpen ? "w-[45%] lg:w-[38%] xl:w-[35%]" : "w-full") : "w-0 overflow-hidden opacity-0"
+                    "flex h-full flex-col border-r border-border bg-card transition-[width,opacity] duration-200",
+                    isChatOpen ? (isCanvasOpen ? "w-[400px] max-w-[42vw]" : "w-full") : "w-0 overflow-hidden opacity-0"
                 )}>
                     <EnhancedAIChatPanel
                         isExpanded={isChatOpen}
@@ -124,20 +120,17 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     />
                 </div>
 
-                {/* Canvas Area - Bento Styled */}
+                {/* Primary work surface */}
                 <div className={cn(
-                    "transition-all duration-500 ease-out-expo overflow-hidden flex flex-col relative",
-                    isCanvasOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 w-0",
-                    isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[62%] xl:w-[65%]" : "w-full flex-1") : "w-0"
+                    "relative flex min-w-0 flex-1 flex-col overflow-hidden transition-opacity duration-150",
+                    isCanvasOpen ? "opacity-100" : "w-0 flex-none opacity-0"
                 )}>
                     {/* Trial Banner */}
                     <TrialBanner />
 
-                    {/* Floating Header */}
-                    <header className="h-14 flex items-center justify-between px-6 bg-card/10 backdrop-blur-md border-b border-border/10 relative z-20">
+                    <header className="relative z-20 flex h-12 items-center justify-between border-b bg-card px-5">
                         <div className="flex items-center gap-3">
-                            <div className="h-2 w-2 rounded-full bg-primary/40 animate-pulse" />
-                            <span className="text-caption font-semibold uppercase tracking-[0.15em] text-muted-foreground/80">
+                            <span className="text-sm font-medium text-foreground">
                                 {getPageTitle()}
                             </span>
                         </div>
@@ -155,10 +148,9 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                         </div>
                     </header>
 
-                    {/* Scrollable Content with Staggered Entrance Container */}
-                    <main className="flex-1 overflow-y-auto no-scrollbar p-6 bg-background">
+                    <main className="flex-1 overflow-y-auto bg-background p-4 md:p-5">
                         <div className="max-w-[1600px] xl:max-w-[1800px] mx-auto min-h-full pb-20">
-                            <div className="mb-6 opacity-70">
+                            <div className="mb-4">
                                 <Breadcrumbs items={[
                                     { label: 'Nexus AI', href: '/' },
                                     ...location.pathname.split('/').filter(Boolean).map((segment, idx, arr) => ({
@@ -183,7 +175,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             {!isCanvasOpen && isPageRoute && (
                 <button
                     onClick={() => setIsCanvasOpen(true)}
-                    className="fixed bottom-8 right-8 z-50 w-12 h-12 bg-card border border-border rounded-2xl shadow-2xl flex items-center justify-center text-foreground hover:scale-110 active:scale-95 transition-all"
+                    className="fixed bottom-6 right-6 z-50 flex h-10 w-10 items-center justify-center rounded-md border bg-card text-foreground shadow-md transition-colors hover:bg-muted"
                 >
                     <PanelRightOpen className="w-6 h-6" />
                 </button>

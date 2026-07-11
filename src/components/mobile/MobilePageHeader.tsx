@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ArrowLeft, Search, Sparkles } from 'lucide-react';
+import { ArrowLeft, Bot, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -37,7 +37,7 @@ export default function MobilePageHeader({
   return (
     <header
       className={cn(
-        'h-12 flex items-center justify-between px-2 border-b border-border bg-background/98 backdrop-blur-xl shadow-lg',
+        'flex h-12 items-center justify-between border-b border-border bg-background px-2',
         'pt-[env(safe-area-inset-top)]',
         'flex-shrink-0',
         'mobile-header',
@@ -84,7 +84,7 @@ export default function MobilePageHeader({
             onClick={onAIPress}
             aria-label="AI 助手"
           >
-            <Sparkles className="w-4.5 h-4.5 text-primary" />
+            <Bot className="h-4 w-4 text-primary" />
           </Button>
         )}
       </div>

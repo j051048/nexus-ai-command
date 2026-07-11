@@ -36,8 +36,6 @@ import {
   PlayCircle,
   Radar,
   ShieldCheck,
-  Sparkles,
-  WandSparkles,
   Zap,
 } from 'lucide-react';
 
@@ -196,15 +194,11 @@ export default function AIOperatingSystemPage() {
   };
 
   return (
-    <main className="min-h-full bg-muted/20">
-      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+    <main className="min-h-full">
+      <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-primary">
-              <Sparkles className="h-4 w-4" />
-              NEXUS AI OPERATING SYSTEM
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">科学仪器销售团队的助手工作台</h1>
+            <h1 className="text-xl font-semibold">AI 作战室</h1>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />系统运行中
@@ -215,7 +209,7 @@ export default function AIOperatingSystemPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => triggerAI('基于当前运营数据，生成今天最值得推进的三个科学仪器销售动作。')}>
-              <WandSparkles className="mr-2 h-4 w-4" />今日建议
+              <Activity className="mr-2 h-4 w-4" />今日建议
             </Button>
             <Button asChild variant="secondary">
               <Link to="/agent-improvement-center">进化中心</Link>
@@ -231,7 +225,7 @@ export default function AIOperatingSystemPage() {
             const Icon = metric.icon;
             return (
               <div key={metric.label} className={cn('flex items-center gap-3 py-3 sm:px-4 lg:py-1', index > 0 && 'lg:border-l')}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-muted/30 text-primary">
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -253,7 +247,7 @@ export default function AIOperatingSystemPage() {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-5">
-          <TabsList className="grid h-10 w-full grid-cols-4 bg-muted/70 md:w-auto md:min-w-[520px]">
+          <TabsList className="grid h-10 w-full grid-cols-4 md:w-auto md:min-w-[520px]">
             <TabsTrigger value="command">工作台总览</TabsTrigger>
             <TabsTrigger value="release">Agent 发布</TabsTrigger>
             <TabsTrigger value="operations">运行监控</TabsTrigger>
@@ -380,7 +374,7 @@ export default function AIOperatingSystemPage() {
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <span className="text-xs text-muted-foreground">模式：受控自动化</span>
                     <Button onClick={defineAgent} disabled={agentDefinition.isPending}>
-                      {agentDefinition.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                      {agentDefinition.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                       生成 Agent 定义
                     </Button>
                   </div>

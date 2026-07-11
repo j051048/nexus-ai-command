@@ -53,18 +53,18 @@ function LoadingFallback() {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex h-screen">
-        <aside className="hidden md:flex w-72 shrink-0 flex-col border-r bg-sidebar p-4">
+        <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar p-4 md:flex">
           <div className="h-10 w-36 rounded-lg bg-sidebar-accent animate-pulse" />
           <div className="mt-8 space-y-3">
             {Array.from({ length: 8 }).map((_, index) => (
               <div
                 key={index}
-                className="h-9 rounded-xl bg-sidebar-accent/70 animate-pulse"
+                className="h-9 rounded-md bg-sidebar-accent/70 animate-pulse"
                 style={{ width: `${86 - (index % 3) * 9}%` }}
               />
             ))}
           </div>
-          <div className="mt-auto h-14 rounded-2xl bg-sidebar-accent/70 animate-pulse" />
+          <div className="mt-auto h-14 rounded-md bg-sidebar-accent/70 animate-pulse" />
         </aside>
         <main className="flex-1 overflow-hidden p-4 md:p-8">
           <div className="mb-8 flex items-center justify-between gap-4">
@@ -72,7 +72,7 @@ function LoadingFallback() {
               <div className="h-8 w-48 rounded-lg bg-muted animate-pulse" />
               <div className="h-4 w-72 max-w-[70vw] rounded bg-muted/70 animate-pulse" />
             </div>
-            <div className="hidden sm:block h-10 w-28 rounded-xl bg-muted animate-pulse" />
+            <div className="hidden h-10 w-28 rounded-md bg-muted animate-pulse sm:block" />
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {Array.from({ length: 3 }).map((_, index) => (

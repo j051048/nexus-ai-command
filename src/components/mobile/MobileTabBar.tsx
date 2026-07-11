@@ -50,7 +50,7 @@ export default function MobileTabBar({
     <nav
       className={cn(
         'fixed bottom-0 left-0 right-0 z-50',
-        'bg-background/98 backdrop-blur-xl border-t border-border shadow-2xl',
+        'border-t border-border bg-background',
         'pb-[env(safe-area-inset-bottom)]',
         'lg:hidden',
         'mobile-tab-bar'
@@ -65,7 +65,7 @@ export default function MobileTabBar({
           let badgeCount = 0;
           if (tab.id === 'home') badgeCount = pendingCount + unreadCount;
 
-          // 助手按钮 — 突出样式
+          // The assistant is a peer tool, not a game-like raised action.
           if (tab.isCenter) {
             return (
               <button
@@ -73,20 +73,13 @@ export default function MobileTabBar({
                 onClick={() => handlePress(tab)}
                 className={cn(
                   'flex flex-col items-center justify-center',
-                  'w-full h-full min-w-[44px] min-h-[44px]',
-                  'transition-all duration-200',
-                  'active:scale-95 touch-manipulation',
-                  '-mt-3'
+                  'h-full w-full min-h-[44px] min-w-[44px] touch-manipulation transition-colors duration-150',
+                  'text-muted-foreground hover:text-foreground'
                 )}
                 aria-label={tab.label}
               >
-                <div
-                  className={cn(
-                    'w-11 h-11 rounded-full flex items-center justify-center shadow-lg ring-4 ring-background transition-all',
-                    'bg-primary text-primary-foreground hover:bg-primary/90'
-                  )}
-                >
-                  <Icon className="w-5 h-5" />
+                <div className="flex h-5 w-5 items-center justify-center">
+                  <Icon className="h-5 w-5" />
                 </div>
                 <span className="tab-label text-[10px] leading-tight mt-0.5 text-muted-foreground">
                   {tab.label}
@@ -103,7 +96,7 @@ export default function MobileTabBar({
                 'flex flex-col items-center justify-center gap-0.5',
                 'w-full h-full min-w-[44px] min-h-[44px]',
                 'transition-colors duration-200',
-                'active:scale-95 touch-manipulation',
+                'touch-manipulation',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'

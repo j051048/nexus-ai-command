@@ -15,18 +15,18 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['IBM Plex Sans', 'Noto Sans SC', 'Microsoft YaHei', 'system-ui', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'SFMono-Regular', 'Consolas', 'monospace'],
       },
       backdropBlur: {
         xs: '2px',
       },
       fontSize: {
-        'display-lg': ['3rem', { lineHeight: '1.1', fontWeight: '700', letterSpacing: '-0.03em' }],
-        'display': ['2.25rem', { lineHeight: '1.15', fontWeight: '700', letterSpacing: '-0.025em' }],
-        'heading-lg': ['1.875rem', { lineHeight: '1.2', fontWeight: '600', letterSpacing: '-0.02em' }],
-        'heading': ['1.5rem', { lineHeight: '1.3', fontWeight: '600', letterSpacing: '-0.015em' }],
-        'heading-sm': ['1.25rem', { lineHeight: '1.4', fontWeight: '600', letterSpacing: '-0.01em' }],
+        'display-lg': ['2rem', { lineHeight: '1.2', fontWeight: '650', letterSpacing: '0' }],
+        'display': ['1.75rem', { lineHeight: '1.25', fontWeight: '650', letterSpacing: '0' }],
+        'heading-lg': ['1.5rem', { lineHeight: '1.3', fontWeight: '600', letterSpacing: '0' }],
+        'heading': ['1.25rem', { lineHeight: '1.35', fontWeight: '600', letterSpacing: '0' }],
+        'heading-sm': ['1.125rem', { lineHeight: '1.4', fontWeight: '600', letterSpacing: '0' }],
         'body-lg': ['1.125rem', { lineHeight: '1.6', fontWeight: '400' }],
         'body': ['1rem', { lineHeight: '1.5', fontWeight: '400' }],
         'body-sm': ['0.875rem', { lineHeight: '1.5', fontWeight: '400' }],
@@ -108,6 +108,16 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "var(--radius)",
+        "2xl": "var(--radius)",
+      },
+      boxShadow: {
+        sm: "0 1px 2px rgb(15 23 42 / 0.05)",
+        DEFAULT: "0 1px 3px rgb(15 23 42 / 0.07)",
+        md: "0 3px 10px rgb(15 23 42 / 0.08)",
+        lg: "0 8px 24px rgb(15 23 42 / 0.10)",
+        xl: "0 12px 32px rgb(15 23 42 / 0.12)",
+        "2xl": "0 16px 40px rgb(15 23 42 / 0.14)",
       },
       transitionTimingFunction: {
         'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
@@ -141,27 +151,9 @@ export default {
           "0%": { transform: "scale(0.9)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" },
         },
-        "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px hsl(var(--primary) / 0.3)" },
-          "50%": { boxShadow: "0 0 40px hsl(var(--primary) / 0.5)" },
-        },
         "count-up": {
           "0%": { transform: "translateY(100%)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
-        },
-        blob: {
-          "0%": {
-            transform: "translate(0px, 0px) scale(1)",
-          },
-          "33%": {
-            transform: "translate(30px, -50px) scale(1.1)",
-          },
-          "66%": {
-            transform: "translate(-20px, 20px) scale(0.9)",
-          },
-          "100%": {
-            transform: "translate(0px, 0px) scale(1)",
-          },
         },
       },
       animation: {
@@ -172,9 +164,7 @@ export default {
         "slide-out-right": "slide-out-right 0.3s ease-in",
         "mobile-fade-in": "mobile-fade-in 0.2s ease-out",
         "scale-in": "scale-in 0.2s ease-out",
-        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "count-up": "count-up 0.4s ease-out",
-        blob: "blob 15s infinite alternate cubic-bezier(0.4, 0, 0.2, 1)",
       },
     },
   },

@@ -17,7 +17,6 @@ import {
   FileCheck,
   Filter,
   MoreHorizontal,
-  Sparkles,
   UserRoundSearch,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,7 +28,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { AIOperatingSystemStrip } from '@/components/product/AIOperatingSystemStrip';
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AITrustBadge, type AITrustLevel } from '@/components/ai/AITrustBadge';
 import { WorkEmptyState, WorkErrorState, WorkLoadingState } from '@/components/common/WorkState';
@@ -138,7 +136,7 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
   return (
     <AIInsightPanel
       variant="compact"
-      icon={Sparkles}
+      icon={CheckCircle2}
       title={`今日重点 · 建议先处理：${nextItem.title}`}
       summary="按风险和截止时间排序，可展开查看依据。"
       trustLevel="high"
@@ -175,12 +173,12 @@ function RoleGuidanceStrip({ role }: { role?: string | null }) {
       : ['清空个人待办', '记录客户拜访', '补齐审批材料'];
 
   return (
-    <section className="rounded-lg border bg-muted/20 px-3 py-2">
+    <section className="border-y bg-muted/10 px-1 py-2.5">
       <div className="flex flex-col gap-2 text-sm md:flex-row md:items-center md:justify-between">
         <div className="font-medium">{title}</div>
-        <div className="flex min-w-0 flex-wrap gap-2 text-xs text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap divide-x text-xs text-muted-foreground">
           {items.map((item) => (
-            <span key={item} className="rounded-full bg-background px-2 py-1">
+            <span key={item} className="px-2 first:pl-0">
               {item}
             </span>
           ))}
@@ -287,28 +285,24 @@ export default function InboxPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-6xl space-y-4">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
-            <Sparkles className="h-4 w-4" />
-            收件箱
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">{isAllClear ? '今天已清空' : '今天'}</h1>
+          <h1 className="text-xl font-semibold">收件箱</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {isAllClear ? '没有必须处理的事项。' : `${totalCount} 个待处理，按风险和截止时间排序。`}
+            {isAllClear ? '今天没有必须处理的事项。' : `今天有 ${totalCount} 个待处理事项，已按风险和截止时间排序。`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-4 text-sm md:justify-end">
-          <div>
+        <div className="flex divide-x text-sm md:justify-end">
+          <div className="pr-4">
             <div className="text-lg font-semibold">{totalCount}</div>
             <div className="text-xs text-muted-foreground">待处理</div>
           </div>
-          <div>
+          <div className="px-4">
             <div className="text-lg font-semibold text-destructive">{urgentCount}</div>
             <div className="text-xs text-muted-foreground">紧急</div>
           </div>
-          <div>
+          <div className="pl-4">
             <div className="text-lg font-semibold text-orange-600">{highCount}</div>
             <div className="text-xs text-muted-foreground">高优先级</div>
           </div>
@@ -317,9 +311,8 @@ export default function InboxPage() {
 
       {!isLoading && !isError && items.length > 0 && <ActionInboxInsightStrip items={items} />}
       {!isLoading && !isError && items.length === 0 && <RoleGuidanceStrip role={role} />}
-      {!isLoading && !isError && items.length === 0 && <AIOperatingSystemStrip />}
 
-      <nav className="flex flex-wrap gap-2 border-b pb-3">
+      <nav className="flex flex-wrap gap-1 border-b">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.key;
@@ -329,10 +322,10 @@ export default function InboxPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
+                'flex h-9 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium transition-colors',
                 active
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                  ? 'border-primary text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <Icon className="h-4 w-4" />
@@ -380,11 +373,11 @@ export default function InboxPage() {
                   const clientX = event.changedTouches[0]?.clientX;
                   if (typeof clientX === 'number') handleSwipeEnd(item, clientX);
                 }}
-                className="rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-accent/30"
+                className="border-b bg-card px-3 py-3 transition-colors first:border-t hover:bg-muted/20"
               >
                 <div className="flex gap-3">
-                  <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', meta.tone)}>
-                    <Icon className="h-5 w-5" />
+                  <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md', meta.tone)}>
+                    <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -467,7 +460,7 @@ export default function InboxPage() {
                     </div>
 
                     {expanded && (
-                      <div className="mt-3 space-y-3 rounded-lg border bg-muted/20 p-3">
+                      <div className="mt-3 space-y-3 border-t pt-3">
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                           <span>建议依据</span>
                           <AITrustBadge level={trustLevel} score={riskScore ? 100 - riskScore : undefined} />

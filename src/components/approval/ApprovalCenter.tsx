@@ -109,7 +109,7 @@ export function ApprovalCenter() {
     <div
       ref={containerRef}
       {...handlers}
-      className="max-w-[1400px] mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-500"
+      className="mx-auto max-w-[1400px] space-y-4 pb-20"
     >
       {/* Pull to Refresh Indicator (mobile only) */}
       {isMobile && (
@@ -119,12 +119,12 @@ export function ApprovalCenter() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">审批中心</h1>
-          <p className="text-muted-foreground mt-2 flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-foreground">审批中心</h1>
+          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
             {isBoss ? (
-              <>AI 引擎正在自动扫描常规申请，仅将异常推送至此处</>
+              <>处理待审核事项并复核异常申请</>
             ) : (
-              <>选择审批类型快速发起申请，AI 秒级分类并处理</>
+              <>发起申请并查看处理进度</>
             )}
           </p>
         </div>

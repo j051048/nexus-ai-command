@@ -115,18 +115,15 @@ export const ChatInputArea = React.memo(function ChatInputArea({
     <>
 
       <div className={cn(
-        "px-4 md:px-8 py-6 sticky bottom-0 z-20",
-        variant === 'embedded' ? 'pb-6' : 'pb-[calc(1.5rem+env(safe-area-inset-bottom))]'
+        "sticky bottom-0 z-20 border-t bg-card px-3 py-3 md:px-4",
+        variant === 'embedded' ? 'pb-3' : 'pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
       )}>
-        <div className="max-w-4xl mx-auto command-capsule glass-premium border-border/30 shadow-2xl p-2 md:p-3 relative group/capsule">
-          <div className="absolute inset-x-12 -top-px h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover/capsule:opacity-100 transition-opacity" />
+        <div className="relative mx-auto max-w-4xl rounded-lg border bg-background p-2 shadow-sm">
           
           {showAgents && (
-            <div className="absolute bottom-full left-0 right-0 mb-4 p-4 glass-premium border-border/40 rounded-3xl animate-in fade-in slide-in-from-bottom-4 shadow-2xl backdrop-blur-2xl overflow-hidden z-50">
-              <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+            <div className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-lg border bg-popover p-3 shadow-lg">
               <div className="flex items-center justify-between mb-4 px-2 relative z-10">
-                <p className="text-micro font-bold text-primary/80 uppercase tracking-[0.2em]">智能专家集群</p>
-                <div className="h-1 w-8 rounded-full bg-primary/20" />
+                <p className="text-xs font-medium text-foreground">选择业务助手</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
                 {agentTags.map((agent) => (
@@ -134,12 +131,12 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                     key={agent.id}
                     onClick={() => insertAgent(agent)}
                     className={cn(
-                      'group/agent flex items-center gap-4 p-3 rounded-2xl text-left transition-all duration-300',
-                      'bg-muted/30 border border-border/30 hover:bg-primary/10 hover:border-primary/20 hover:translate-y-[-2px] hover:shadow-lg',
+                      'group/agent flex items-center gap-3 rounded-md border p-3 text-left transition-colors',
+                      'bg-background hover:bg-muted/40',
                       agent.color.split(' ')[0] // extraction only text color for the title
                     )}
                   >
-                    <div className="p-3 rounded-xl bg-muted/30 shadow-inner group-hover/agent:scale-110 transition-transform">
+                    <div className="rounded-md border bg-muted/30 p-2">
                       {agent.icon}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -157,7 +154,7 @@ export const ChatInputArea = React.memo(function ChatInputArea({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 text-muted-foreground/60 hover:text-primary hover:bg-muted/50 transition-all rounded-xl"
+                className="h-9 w-9 text-muted-foreground hover:text-primary"
                 onClick={() => setShowAgents(!showAgents)}
               >
                 <AtSign className={cn("w-5 h-5", showAgents && "text-primary")} />
@@ -166,7 +163,7 @@ export const ChatInputArea = React.memo(function ChatInputArea({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 text-muted-foreground/60 hover:text-success hover:bg-muted/50 transition-all rounded-xl"
+                className="h-9 w-9 text-muted-foreground hover:text-success"
                 onClick={() => imageInputRef?.current?.click()}
               >
                 <ImagePlus className="w-5 h-5" />
@@ -199,7 +196,7 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                   // Shift+Enter inserts newline (default textarea behavior)
                 }}
                 placeholder={currentAgent ? `对话专家: ${currentAgent}` : "输入指令并回车 / 或输入 @ 召唤专家..."}
-                className="w-full bg-muted/40 rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/40 resize-none overflow-y-auto leading-normal"
+                className="w-full resize-none overflow-y-auto rounded-md bg-transparent px-3 py-2.5 text-sm leading-normal placeholder:text-muted-foreground/60 focus:outline-none"
                 style={{ maxHeight: '120px' }}
               />
             </div>
@@ -208,20 +205,20 @@ export const ChatInputArea = React.memo(function ChatInputArea({
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn("h-10 w-10 text-muted-foreground hover:bg-muted/50 rounded-xl transition-all", isRecording && "bg-destructive/20 text-destructive animate-pulse")}
+                className={cn("h-9 w-9 text-muted-foreground", isRecording && "bg-destructive/10 text-destructive")}
                 onClick={toggleRecording}
               >
                 {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-5 h-5" />}
               </Button>
 
               {isAiTyping ? (
-                <Button size="icon" className="h-10 w-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl shadow-lg animate-pulse" onClick={stopStream}>
+                <Button size="icon" className="h-9 w-9 bg-destructive text-destructive-foreground" onClick={stopStream}>
                   <Square className="w-4 h-4" />
                 </Button>
               ) : (
                 <Button
                   size="icon"
-                  className={cn("h-10 w-10 rounded-xl transition-all duration-500 shadow-xl", input.trim() ? "bg-primary scale-100 opacity-100" : "bg-muted scale-95 opacity-50")}
+                  className={cn("h-9 w-9", input.trim() ? "bg-primary opacity-100" : "bg-muted opacity-50")}
                   onClick={handleSend}
                   disabled={!input.trim()}
                 >
@@ -231,7 +228,7 @@ export const ChatInputArea = React.memo(function ChatInputArea({
             </div>
           </div>
         </div>
-        <p className="text-micro text-muted-foreground/40 mt-3 text-center font-mono uppercase hidden md:block">
+        <p className="mt-2 hidden text-center text-[10px] text-muted-foreground/60 md:block">
           SHIFT + ENTER 换行 · @ 专家模式 · / 工作流
         </p>
       </div>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogIn, UserPlus, Loader2, Briefcase, Users, KeyRound, ArrowLeft, Mail, Ticket, Sparkles, ShieldCheck, Zap } from 'lucide-react';
+import { LogIn, UserPlus, Loader2, Briefcase, Users, KeyRound, ArrowLeft, Mail, Ticket, CircleDot, ShieldCheck, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -158,11 +158,10 @@ export function LoginPage() {
   const renderAuthContent = () => {
     if (showForgotPassword) {
       return (
-        <div className="bg-white/60 dark:bg-black/40 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] p-8 sm:p-10 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/0 dark:from-white/5 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+        <div className="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm sm:p-10">
           <div className="text-center mb-8 relative z-10">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
-              <KeyRound className="w-8 h-8 text-white" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md border bg-muted/40">
+              <KeyRound className="h-5 w-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-foreground">重置密码</h2>
             <p className="text-muted-foreground mt-2">
@@ -237,15 +236,14 @@ export function LoginPage() {
 
     // Default Login/Register Tabs
     return (
-      <div className="bg-white/60 dark:bg-black/40 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] p-8 sm:p-10 relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/0 dark:from-white/5 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+      <div className="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm sm:p-10">
         <Tabs defaultValue="login" className="space-y-8 relative z-10">
-          <TabsList className="grid w-full grid-cols-2 rounded-xl h-12 p-1 bg-muted/50 backdrop-blur-md">
-            <TabsTrigger value="login" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all text-sm font-medium">
+          <TabsList className="grid h-10 w-full grid-cols-2">
+            <TabsTrigger value="login" className="flex items-center gap-2 text-sm font-medium">
               <LogIn className="w-4 h-4" />
               立即登录
             </TabsTrigger>
-            <TabsTrigger value="register" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all text-sm font-medium">
+            <TabsTrigger value="register" className="flex items-center gap-2 text-sm font-medium">
               <UserPlus className="w-4 h-4" />
               注册账号
             </TabsTrigger>
@@ -471,42 +469,32 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background overflow-x-hidden">
+    <div className="grid min-h-screen overflow-x-hidden bg-background lg:grid-cols-2">
       {/* Left Side - Brand Presentation (Hidden on mobile) */}
-      <div className="hidden lg:flex flex-col justify-between p-12 xl:p-20 bg-zinc-950 text-white relative overflow-hidden h-full">
-        {/* Abstract Background Glowing Effects & Patterns */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          {/* Animated Blob Gradients */}
-          <div className="absolute -top-[10%] -left-[5%] w-[80%] h-[80%] rounded-full bg-blue-600/30 blur-[140px] animate-blob mix-blend-screen" />
-          <div className="absolute bottom-[0%] -right-[5%] w-[70%] h-[70%] rounded-full bg-purple-600/30 blur-[140px] animate-blob mix-blend-screen" style={{ animationDelay: '2s' }} />
-
-          {/* Edge Glow Transition - Blends the center line */}
-          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-background to-transparent z-10" />
-        </div>
-
+      <div className="relative hidden h-full flex-col justify-between overflow-hidden border-r bg-muted/30 p-12 text-foreground lg:flex xl:p-20">
         <div className="relative z-10 flex flex-col gap-8 ml-auto max-w-xl w-full translate-x-4">
           <div className="flex items-center gap-3">
             {brand.logo_url ? (
               <img src={brand.logo_url} alt={brandName} className="w-10 h-10 rounded-xl object-cover border border-white/10" />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 border border-white/10">
-                <span className="text-xl font-bold font-sans">{brandInitial}</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <span className="text-base font-semibold">{brandInitial}</span>
               </div>
             )}
-            <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-100 to-zinc-400">
+            <span className="text-lg font-semibold">
               {brandName}
             </span>
           </div>
           
           <div className="mt-8">
-            <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight mb-6 leading-[1.15]">
+            <h1 className="mb-5 text-3xl font-semibold leading-tight">
               {brandTitle}
               <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 inline-block mt-2">
+              <span className="mt-2 inline-block text-primary">
                 {brandSubtitle}
               </span>
             </h1>
-            <p className="text-zinc-400 text-lg max-w-md leading-relaxed font-light">
+            <p className="max-w-md text-base leading-relaxed text-muted-foreground">
               {brandTagline}
             </p>
           </div>
@@ -521,19 +509,17 @@ export function LoginPage() {
                   { icon: 'shield', title: '强隔离安全架构', desc: '租户沙箱级别的私有化安全隔离，保障核心资产无忧' },
                 ]
             ).map((feature, i) => {
-              const iconColors = ['text-blue-400', 'text-purple-400', 'text-emerald-400'];
-              const iconEl = feature.icon === 'zap' ? <Zap className={`w-5 h-5 ${iconColors[i % 3]}`} />
-                : feature.icon === 'shield' ? <ShieldCheck className={`w-5 h-5 ${iconColors[i % 3]}`} />
-                : <Sparkles className={`w-5 h-5 ${iconColors[i % 3]}`} />;
+              const iconEl = feature.icon === 'zap' ? <Zap className="h-4 w-4 text-primary" />
+                : feature.icon === 'shield' ? <ShieldCheck className="h-4 w-4 text-primary" />
+                : <CircleDot className="h-4 w-4 text-primary" />;
               return (
-              <div key={i} className="flex items-start gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md transition-all duration-500 hover:bg-white/[0.08] hover:border-blue-500/30 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] group relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <div className="mt-0.5 bg-white/10 p-3 rounded-xl group-hover:scale-110 group-hover:bg-blue-500/20 transition-all duration-300 relative z-10">
+              <div key={i} className="group relative flex items-start gap-4 border-t py-4">
+                <div className="relative z-10 mt-0.5 rounded-md border bg-background p-2">
                   {iconEl}
                 </div>
                 <div className="relative z-10">
-                  <h3 className="font-bold text-zinc-100 text-base tracking-tight group-hover:text-blue-400 transition-colors">{feature.title}</h3>
-                  <p className="text-zinc-400 text-sm mt-1.5 leading-relaxed font-light">{feature.desc}</p>
+                  <h3 className="text-sm font-semibold">{feature.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{feature.desc}</p>
                 </div>
               </div>
               );
@@ -558,15 +544,15 @@ export function LoginPage() {
            <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[100px]" />
         </div>
 
-        <div className="w-full max-w-md space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both -translate-x-4">
+        <div className="relative z-10 w-full max-w-md space-y-8">
           
           {/* Mobile Logo Only (Hidden on Desktop) */}
           <div className="lg:hidden text-center mb-8">
             {brand.logo_url ? (
-              <img src={brand.logo_url} alt={brandName} className="w-16 h-16 rounded-2xl mx-auto mb-5 object-cover shadow-xl shadow-primary/20" />
+              <img src={brand.logo_url} alt={brandName} className="mx-auto mb-5 h-12 w-12 rounded-md border object-cover" />
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-blue-600 mx-auto flex items-center justify-center mb-5 shadow-xl shadow-primary/20">
-                <span className="text-3xl font-bold text-white">{brandInitial}</span>
+              <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <span className="text-xl font-semibold">{brandInitial}</span>
               </div>
             )}
             <h1 className="text-3xl font-extrabold text-foreground tracking-tight">{brandName}</h1>

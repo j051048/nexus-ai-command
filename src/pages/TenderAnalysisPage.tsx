@@ -536,12 +536,9 @@ export function TenderAnalysisPage() {
                     : '支持 PDF / Word / DOCX。先上传文件，复杂报告和历史记录默认放在后面。';
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto pb-20">
+        <div className="mx-auto max-w-5xl space-y-4 pb-20">
             <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-                    <ListChecks className="w-8 h-8 text-primary" />
-                    智能标书审阅
-                </h1>
+                <h1 className="text-xl font-semibold">智能标书审阅</h1>
                 <p className="text-muted-foreground">快速识别否决项、扣分项和下一步投标风险。</p>
             </div>
 

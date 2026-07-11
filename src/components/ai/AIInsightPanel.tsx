@@ -124,20 +124,18 @@ export function AIInsightPanel({
       <section
         data-testid="ai-insight-panel"
         className={cn(
-          'rounded-lg border border-primary/15 border-l-2 border-l-primary/45 bg-gradient-to-r from-primary/[0.04] via-card to-card px-3 py-2.5 shadow-sm',
+          'rounded-lg border border-l-2 border-l-primary/55 bg-card px-3 py-2.5',
           className,
         )}
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-muted/30 text-primary">
               <Icon className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="border-primary/20 bg-primary/5 text-[11px] text-primary">
-                  建议
-                </Badge>
+                <span className="text-[11px] font-medium text-primary">建议</span>
                 <h2 className="truncate text-sm font-medium">{title}</h2>
                 <AITrustBadge level={trustLevel} score={score} />
               </div>
@@ -180,20 +178,18 @@ export function AIInsightPanel({
     <section
       data-testid="ai-insight-panel"
       className={cn(
-        'rounded-lg border border-primary/15 border-l-2 border-l-primary/45 bg-gradient-to-r from-primary/[0.04] via-card to-card p-4 shadow-sm',
+        'rounded-lg border border-l-2 border-l-primary/55 bg-card p-4',
         className,
       )}
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-muted/30 text-primary">
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="border-primary/20 bg-primary/5 text-[11px] text-primary">
-                建议
-              </Badge>
+              <span className="text-[11px] font-medium text-primary">建议</span>
               <h2 className="font-semibold">{title}</h2>
               <AITrustBadge level={trustLevel} score={score} />
             </div>
@@ -232,15 +228,15 @@ export function AIInsightPanel({
       </div>
 
       {(evidence.length > 0 || risks.length > 0) && (
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid divide-y border-y md:grid-cols-3 md:divide-x md:divide-y-0">
           {evidence.map((item) => (
-            <div key={item.label} className="rounded-lg border bg-muted/30 p-3">
+            <div key={item.label} className="px-3 py-2.5 first:pl-0 last:pr-0">
               <div className="text-xs text-muted-foreground">{item.label}</div>
               <div className="mt-1 text-sm font-medium text-foreground">{item.value}</div>
             </div>
           ))}
           {risks.length > 0 && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <div className="px-3 py-2.5 first:pl-0 last:pr-0">
               <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 需要你确认
