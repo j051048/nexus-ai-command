@@ -64,14 +64,14 @@ export const ChatHeader = React.memo(function ChatHeader({
   return (
     <div
       className={cn(
-        'flex h-14 cursor-pointer items-center justify-between border-b px-4 transition-colors hover:bg-muted/20',
+        'flex h-14 cursor-pointer items-center justify-between border-b bg-[hsl(var(--panel-strong))] px-4 shadow-[0_1px_0_hsl(var(--border)/0.35)] transition-colors hover:bg-card',
         isFullscreen || isMobile ? 'rounded-none' : 'md:rounded-t-none'
       )}
       onClick={(!isFullscreen && !isMobile) ? onToggle : undefined}
     >
       <div className="flex items-center gap-3">
         <div className="relative">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-muted/30">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-primary/15 bg-primary/[0.06] shadow-[0_1px_2px_hsl(var(--primary)/0.08)]">
             <Bot className="h-4 w-4 text-primary" />
           </div>
           {isAiTyping && (

@@ -110,8 +110,8 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Assistant panel uses a stable tool width. */}
                 <div className={cn(
-                    "flex h-full flex-col border-r border-border bg-card transition-[width,opacity] duration-200",
-                    isChatOpen ? (isCanvasOpen ? "w-[400px] max-w-[42vw]" : "w-full") : "w-0 overflow-hidden opacity-0"
+                    "relative z-10 flex h-full shrink-0 flex-col border-r border-border bg-[hsl(var(--panel))] shadow-[var(--shadow-panel)] transition-[width,opacity] duration-200",
+                    isChatOpen ? (isCanvasOpen ? "w-[440px] max-w-[46vw] xl:w-[460px] 2xl:w-[520px]" : "w-full") : "w-0 overflow-hidden opacity-0"
                 )}>
                     <EnhancedAIChatPanel
                         isExpanded={isChatOpen}
@@ -128,7 +128,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     {/* Trial Banner */}
                     <TrialBanner />
 
-                    <header className="relative z-20 flex h-12 items-center justify-between border-b bg-card px-5">
+                    <header className="relative z-20 flex h-12 items-center justify-between border-b bg-card/95 px-5 shadow-[0_1px_0_hsl(var(--border)/0.45)]">
                         <div className="flex items-center gap-3">
                             <span className="text-sm font-medium text-foreground">
                                 {getPageTitle()}

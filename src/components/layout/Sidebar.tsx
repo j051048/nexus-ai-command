@@ -305,6 +305,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
     if (!items || items.length === 0) return null;
     const groupActive = items.some(i => isActive(i.href));
     const isOpen = groupActive || !collapsedGroups[title];
+    const displayTitle = title === 'primary' ? '核心空间' : title;
 
     return (
       <div key={title} className="mb-2 px-3">
@@ -316,10 +317,10 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
               saveCollapsedGroups(next);
             }}
             aria-expanded={isOpen}
-            aria-label={`${title} 分组 ${isOpen ? "收起" : "展开"}`}
+            aria-label={`${displayTitle} 分组 ${isOpen ? "收起" : "展开"}`}
             className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-medium text-sidebar-foreground/45 transition-colors hover:text-sidebar-foreground/70"
           >
-            {title}
+            {displayTitle}
             {isOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
           </button>
         )}

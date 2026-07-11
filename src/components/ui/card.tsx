@@ -8,11 +8,11 @@ const cardVariants = cva(
   {
     variants: {
       variant: {
-        default: "shadow-none",
-        elevated: "shadow-[var(--shadow-card)]",
+        default: "shadow-[var(--shadow-card)]",
+        elevated: "shadow-[var(--shadow-elevated)]",
         flat: "shadow-none",
-        interactive: "shadow-none hover:border-foreground/20 hover:bg-muted/20 cursor-pointer transition-colors duration-150",
-        glass: "bg-card border-border shadow-none",
+        interactive: "shadow-[var(--shadow-card)] hover:border-foreground/20 hover:bg-card cursor-pointer transition-[border-color,box-shadow] duration-150 hover:shadow-[var(--shadow-elevated)]",
+        glass: "bg-card border-border shadow-[var(--shadow-card)]",
       },
     },
     defaultVariants: {

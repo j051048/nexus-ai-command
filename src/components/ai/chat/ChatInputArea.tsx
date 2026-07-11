@@ -115,10 +115,10 @@ export const ChatInputArea = React.memo(function ChatInputArea({
     <>
 
       <div className={cn(
-        "sticky bottom-0 z-20 border-t bg-card px-3 py-3 md:px-4",
+        "sticky bottom-0 z-20 border-t bg-[hsl(var(--panel-strong))] px-3 py-3.5 md:px-4",
         variant === 'embedded' ? 'pb-3' : 'pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
       )}>
-        <div className="relative mx-auto max-w-4xl rounded-lg border bg-background p-2 shadow-sm">
+        <div className="relative mx-auto max-w-4xl rounded-lg border border-border/90 bg-card p-2 shadow-[var(--shadow-card)] focus-within:border-primary/35 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.06),var(--shadow-card)]">
           
           {showAgents && (
             <div className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-lg border bg-popover p-3 shadow-lg">

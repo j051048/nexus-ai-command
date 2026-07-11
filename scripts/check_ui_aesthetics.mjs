@@ -8,6 +8,8 @@ const coreFiles = [
   'src/components/ai/chat/WorkflowStepper.tsx',
   'src/components/ai/chat/ChatHeader.tsx',
   'src/components/ai/chat/ChatInputArea.tsx',
+  'src/components/ai/chat/CapabilityCards.tsx',
+  'src/components/ai/chat/ChatSuggestions.tsx',
   'src/components/auth/LoginPage.tsx',
   'src/components/layout/MobileLayout.tsx',
   'src/components/mobile/MobileAIFAB.tsx',

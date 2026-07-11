@@ -35,32 +35,34 @@ html, body {
 @layer base {
   :root {
     /* Light Mode - Clean Professional SaaS Style */
-    --background: 220 14% 97%;
-    --foreground: 222 22% 14%;
+    --background: 216 24% 97%;
+    --foreground: 220 28% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 22% 14%;
-    --card-elevated: 220 14% 98%;
+    --card-foreground: 220 28% 12%;
+    --card-elevated: 216 24% 99%;
+    --panel: 216 26% 98%;
+    --panel-strong: 0 0% 100%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 222 22% 14%;
 
     /* Primary - Professional Blue */
-    --primary: 217 66% 43%;
+    --primary: 216 78% 42%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 217 66% 43%;
+    --primary-glow: 216 78% 42%;
 
     /* Secondary */
-    --secondary: 220 12% 94%;
-    --secondary-foreground: 222 18% 24%;
+    --secondary: 216 18% 94%;
+    --secondary-foreground: 220 24% 22%;
 
     /* Muted */
-    --muted: 220 12% 94%;
-    --muted-foreground: 218 10% 42%;
+    --muted: 216 18% 94%;
+    --muted-foreground: 218 12% 42%;
 
     /* Accent - Neutral interactive (derived from primary) */
-    --accent: 217 35% 94%;
-    --accent-foreground: 217 55% 32%;
+    --accent: 216 48% 94%;
+    --accent-foreground: 216 65% 32%;
     --success: 151 45% 36%;
     --success-glow: 151 45% 36%;
 
@@ -73,9 +75,9 @@ html, body {
     --destructive-foreground: 0 0% 100%;
 
     /* UI Elements */
-    --border: 218 16% 86%;
-    --input: 218 16% 82%;
-    --ring: 217 66% 43%;
+    --border: 216 18% 87%;
+    --input: 216 18% 82%;
+    --ring: 216 78% 42%;
 
     --radius: 0.5rem;
 
@@ -88,14 +90,14 @@ html, body {
     --spacing-2xl: 3rem;     /* 48px */
 
     /* Sidebar shares the application surface instead of becoming a game rail. */
-    --sidebar-background: 0 0% 99%;
-    --sidebar-foreground: 222 18% 23%;
-    --sidebar-primary: 217 66% 43%;
+    --sidebar-background: 216 24% 98%;
+    --sidebar-foreground: 220 24% 20%;
+    --sidebar-primary: 216 78% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 12% 94%;
-    --sidebar-accent-foreground: 222 18% 18%;
-    --sidebar-border: 218 16% 88%;
-    --sidebar-ring: 217 66% 43%;
+    --sidebar-accent: 216 22% 93%;
+    --sidebar-accent-foreground: 220 24% 16%;
+    --sidebar-border: 216 18% 87%;
+    --sidebar-ring: 216 78% 42%;
 
     /* Deprecated compatibility aliases; do not use in new business UI. */
     --gold: 36 70% 42%;
@@ -116,8 +118,9 @@ html, body {
     --shadow-glow-primary: none;
     --shadow-glow-success: none;
     --shadow-glow-warning: none;
-    --shadow-card: 0 1px 2px hsl(222 22% 14% / 0.05);
-    --shadow-elevated: 0 10px 30px hsl(222 22% 14% / 0.12);
+    --shadow-card: 0 1px 2px hsl(220 28% 12% / 0.04), 0 5px 16px hsl(220 28% 12% / 0.035);
+    --shadow-elevated: 0 1px 3px hsl(220 28% 12% / 0.06), 0 18px 42px hsl(220 28% 12% / 0.11);
+    --shadow-panel: 8px 0 28px hsl(220 28% 12% / 0.045);
   }
 
   .dark {
@@ -128,6 +131,8 @@ html, body {
     --card: 222 16% 12%;
     --card-foreground: 220 12% 91%;
     --card-elevated: 222 14% 14%;
+    --panel: 222 17% 11%;
+    --panel-strong: 222 16% 12%;
 
     --popover: 0 0% 10%;
     --popover-foreground: 0 0% 95%;
@@ -195,6 +200,7 @@ html, body {
     --shadow-glow-warning: none;
     --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.24);
     --shadow-elevated: 0 12px 32px hsl(0 0% 0% / 0.32);
+    --shadow-panel: 8px 0 28px hsl(0 0% 0% / 0.18);
   }
 }
 

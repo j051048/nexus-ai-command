@@ -347,29 +347,28 @@ export const MessageBubble = React.memo(function MessageBubble({
   return (
     <div
       className={cn(
-        'group flex gap-3 transition-all mb-4',
+        'group mb-5 flex min-w-0 gap-3',
         isUser ? 'justify-end' : 'justify-start',
         getEnterAnimationClass('fade', 'fast')
       )}
     >
       {!isUser && (
-        <div className="relative flex-shrink-0 mt-1">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-500 flex items-center justify-center shadow-lg relative z-10 overflow-hidden">
-            <Bot className="w-5 h-5 text-white active:scale-95 transition-transform" />
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-50" />
+        <div className="relative mt-1 flex-shrink-0">
+          <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-md border border-primary/15 bg-primary/[0.07] shadow-[0_1px_2px_hsl(var(--primary)/0.08)]">
+            <Bot className="h-4 w-4 text-primary" />
           </div>
           {/* AI 状态呼吸灯 */}
           {isTyping && isLatest && (
-            <div className="absolute -inset-1 bg-blue-500/30 rounded-xl blur-md ai-pulse-glow" />
+            <div className="absolute -bottom-0.5 -right-0.5 z-20 h-2.5 w-2.5 rounded-full border-2 border-card bg-success" />
           )}
         </div>
       )}
 
-      <div className={cn('flex flex-col max-w-[88%] md:max-w-2xl', isUser && 'items-end')}>
+      <div className={cn('flex min-w-0 flex-col', isUser ? 'max-w-[84%] items-end' : 'w-full max-w-none')}>
         {!isUser && message.agent && (
           <div className="flex items-center gap-2 mb-1.5 pl-1.5">
             {message.isProactive && (
-              <span className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full shadow-sm">
+              <span className="rounded border border-primary/15 bg-primary/[0.07] px-1.5 py-0.5 text-[10px] font-medium text-primary">
                 AI 主动建议
               </span>
             )}
@@ -391,21 +390,21 @@ export const MessageBubble = React.memo(function MessageBubble({
 
         <div
           className={cn(
-            'rounded-2xl px-5 py-4 relative group/bubble transition-all duration-300',
+            'group/bubble relative min-w-0 rounded-lg px-4 py-3.5',
             isUser
-              ? 'bg-primary text-primary-foreground rounded-tr-none shadow-premium chat-bubble-user'
-              : 'glass-premium border-white/5 text-card-foreground rounded-tl-none shadow-lg chat-bubble-ai'
+              ? 'bg-primary text-primary-foreground shadow-[0_2px_8px_hsl(var(--primary)/0.16)] chat-bubble-user'
+              : 'w-full border bg-card text-card-foreground shadow-[var(--shadow-card)] chat-bubble-ai'
           )}
         >
           {/* 用户附件显示优化 */}
           {isUser && message.imageUrls && message.imageUrls.length > 0 && !isEditing && (
             <div className="flex gap-2 flex-wrap mb-3">
               {message.imageUrls.map((url, i) => (
-                <div key={i} className="relative group/img overflow-hidden rounded-xl border border-white/20 shadow-md">
+                <div key={i} className="relative group/img overflow-hidden rounded-md border border-white/20 shadow-sm">
                   <img
                     src={url}
                     alt={`附件 ${i + 1}`}
-                    className="max-w-[240px] max-h-[180px] object-cover cursor-zoom-in group-hover/img:scale-105 transition-transform duration-500"
+                    className="max-h-[180px] max-w-[240px] cursor-zoom-in object-cover"
                     onClick={() => window.open(url, '_blank')}
                   />
                 </div>
@@ -489,11 +488,11 @@ export const MessageBubble = React.memo(function MessageBubble({
             </div>
           ) : shouldCompactAssistantResult && assistantDigest && !showFullAssistantResult ? (
             <div data-testid="assistant-compact-result" className="space-y-3">
-              <div className="rounded-xl border bg-background/70 p-3">
+              <div className="rounded-md border bg-background/70 p-3">
                 <div className="text-xs font-semibold text-primary">结论</div>
                 <p className="mt-1 text-sm leading-6">{assistantDigest.conclusion}</p>
               </div>
-              <div className="rounded-xl border bg-background/70 p-3">
+              <div className="rounded-md border bg-background/70 p-3">
                 <div className="text-xs font-semibold text-primary">下一步</div>
                 <ul className="mt-1 space-y-1 text-sm leading-6 text-muted-foreground">
                   {assistantDigest.actions.map((action, index) => (
