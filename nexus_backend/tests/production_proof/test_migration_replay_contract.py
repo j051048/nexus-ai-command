@@ -8,9 +8,13 @@ MIGRATIONS_DIR = ROOT / "supabase" / "migrations"
 
 
 def test_migration_replay_has_ordered_sql_files():
-    migrations = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    migrations = sorted(
+        path
+        for path in MIGRATIONS_DIR.glob("*.sql")
+        if path.name[:8].isdigit()
+    )
     assert len(migrations) >= 100
-    assert all(path.name[:8].isdigit() for path in migrations[:20])
+    assert all(path.name[:8].isdigit() for path in migrations)
 
 
 def test_agent_evolution_migration_does_not_redefine_eval_cases():
@@ -104,6 +108,7 @@ def test_scratch_migration_replay_command_exists():
     assert "MIGRATION_REPLAY_DATABASE_URL" in content
     assert "ON_ERROR_STOP=1" in content
     assert "--require-db" in content
+    assert "MIGRATION_PATTERN.fullmatch" in content
 
 
 def test_local_python_launcher_exists():

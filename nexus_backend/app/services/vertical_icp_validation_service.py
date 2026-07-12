@@ -21,6 +21,65 @@ class VerticalReadinessThresholds:
     paid_pilots: int = 1
 
 
+PILOT_METRICS = {
+    "calibration_and_maintenance": [
+        "overdue_calibration_rate",
+        "unplanned_downtime_hours",
+        "work_order_cycle_time_hours",
+    ],
+    "service_operations": [
+        "first_time_fix_rate",
+        "mean_time_to_repair_hours",
+        "service_evidence_completeness",
+    ],
+    "compliance_reporting": [
+        "report_preparation_hours",
+        "audit_evidence_completeness",
+        "human_override_rate",
+    ],
+    "experiment_workflow": [
+        "workflow_cycle_time_hours",
+        "manual_data_entry_minutes",
+        "result_traceability_rate",
+    ],
+}
+
+
+def build_vertical_pilot_plan(readiness: dict[str, Any]) -> dict[str, Any]:
+    """Build a constrained pilot plan from validated evidence only."""
+    repeated = list(readiness.get("repeated_workflows") or [])
+    selected = repeated[:2]
+    metrics = {
+        workflow: PILOT_METRICS.get(
+            workflow,
+            ["cycle_time", "manual_touch_count", "evidence_completeness"],
+        )
+        for workflow in selected
+    }
+    blockers = [
+        name for name, passed in readiness.get("checks", {}).items() if not passed
+    ]
+    return {
+        "eligible": bool(readiness.get("discovery_ready")) and bool(selected),
+        "selected_workflows": selected,
+        "success_metrics": metrics,
+        "duration_weeks": 6,
+        "required_controls": [
+            "sandbox tenant with synthetic or consented data",
+            "human approval for instrument commands and compliance conclusions",
+            "baseline captured before enabling automation",
+            "weekly go/no-go review with a named domain owner",
+        ],
+        "blockers": blockers,
+        "exit_criteria": {
+            "workflow_completion_rate_min": 0.9,
+            "evidence_completeness_min": 0.95,
+            "critical_safety_incidents_max": 0,
+            "design_partner_signoff_required": True,
+        },
+    }
+
+
 def evaluate_vertical_readiness(
     evidence: list[dict[str, Any]],
     thresholds: VerticalReadinessThresholds | None = None,
@@ -59,7 +118,7 @@ def evaluate_vertical_readiness(
     }
     commercial_check = counts["paid_pilot"] >= thresholds.paid_pilots
 
-    return {
+    result = {
         "discovery_ready": all(checks.values()),
         "commercial_ready": all(checks.values()) and commercial_check,
         "checks": checks,
@@ -73,3 +132,5 @@ def evaluate_vertical_readiness(
             else "continue_customer_discovery"
         ),
     }
+    result["pilot_plan"] = build_vertical_pilot_plan(result)
+    return result

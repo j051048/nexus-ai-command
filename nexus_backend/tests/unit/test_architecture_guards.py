@@ -832,7 +832,7 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     assert "ExperienceFeedback" in ai_panel
     assert "WorkEmptyState" in work_state
     assert "CRMAIInsightLayer" in crm_page
-    assert "AI 客户摘要" in crm_page
+    assert "下一步客户动作" in crm_page
     assert "ContractAIInsightLayer" in contract_page
     assert "AI 合同风控摘要" in contract_page
     assert "ActionInboxInsightStrip" in inbox_page
@@ -846,7 +846,7 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     assert "AI 当前上下文" in command_bar
     assert "global-command-input" in command_bar
     assert "ApprovalAIRiskPanel" in approval_center
-    assert "AI 审批风控建议" in approval_center
+    assert "下一步审批动作" in approval_center
     assert "return '收件箱'" in layout
     assert "'/dashboard': '收件箱'" in mobile_nav
 
@@ -932,7 +932,7 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "DEMO_WORKSPACE_ARTIFACTS" in model
     assert "ROLE_WORKBENCH_PROFILES" in model
 
-    assert "科学仪器销售团队的助手工作台" in page
+    assert "AI 作战室" in page
     assert "真实运营数据" in page
     assert "AI 价值与信任仪表盘" in page
     assert "SOP → AOP 自然语言定义器" in page
@@ -953,7 +953,8 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "营销场景" in strip
     assert "助手管理" in strip
     assert "业务知识" in strip
-    assert "<AIOperatingSystemStrip />" in inbox
+    assert "ActionInboxInsightStrip" in inbox
+    assert "<AIOperatingSystemStrip />" not in inbox
 
     assert "AIOperatingSystemPage" in lazy_imports
     assert 'path="ai-operating-system"' in core_routes

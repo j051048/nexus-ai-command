@@ -201,6 +201,14 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: python scripts/scan_migration_schema_conflicts.py
 
+      - name: Check migration governance
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_migration_governance.py
+
+      - name: Enforce LLM cost policy
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_llm_cost_policy.py
+
       - name: Audit schema convergence
         working-directory: ${{ github.workspace }}
         run: python scripts/audit_schema_convergence.py
@@ -282,9 +290,6 @@ jobs:
   backend-integration:
     name: Backend Integration Tests (RLS)
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      vars.TEST_SUPABASE_URL != ''
     defaults:
       run:
         working-directory: ./nexus_backend
@@ -308,8 +313,16 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run RLS integration tests
+      - name: Run deterministic golden flow replay
+        run: pytest tests/production_proof/test_golden_business_flows.py -v -k "execute_with_evidence or manifest"
+
+      - name: Run live RLS integration tests
+        if: env.TEST_SUPABASE_URL != '' && env.TEST_SUPABASE_SERVICE_KEY != ''
         run: pytest tests/integration/test_rls.py -v -m integration
+
+      - name: Report live integration availability
+        if: env.TEST_SUPABASE_URL == '' || env.TEST_SUPABASE_SERVICE_KEY == ''
+        run: echo "Live Supabase RLS tests unavailable; deterministic tenant-isolation replay completed."
 
       - name: Integration test summary
         if: always()
@@ -606,39 +619,45 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [frontend-build, backend-test, security-scan, dependency-security, performance-test]
+    needs: [frontend-build, backend-test, backend-integration, security-scan, dependency-security, performance-test]
     if: always()
     steps:
       - name: Check all jobs status
         run: |
           echo "Frontend Build: ${{ needs.frontend-build.result }}"
           echo "Backend Test: ${{ needs.backend-test.result }}"
+          echo "Backend Integration: ${{ needs.backend-integration.result }}"
           echo "Security Scan: ${{ needs.security-scan.result }}"
           echo "Dependency Security: ${{ needs.dependency-security.result }}"
           echo "Performance Test: ${{ needs.performance-test.result }}"
 
-          if [[ "${{ needs.frontend-build.result }}" == "failure" ]]; then
-            echo "::error::Frontend build failed"
+          if [[ "${{ needs.frontend-build.result }}" != "success" ]]; then
+            echo "::error::Frontend build result is ${{ needs.frontend-build.result }}"
             exit 1
           fi
 
-          if [[ "${{ needs.backend-test.result }}" == "failure" ]]; then
-            echo "::error::Backend tests failed"
+          if [[ "${{ needs.backend-test.result }}" != "success" ]]; then
+            echo "::error::Backend tests result is ${{ needs.backend-test.result }}"
             exit 1
           fi
 
-          if [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
-            echo "::error::Security scan failed"
+          if [[ "${{ needs.backend-integration.result }}" != "success" ]]; then
+            echo "::error::Backend integration result is ${{ needs.backend-integration.result }}"
             exit 1
           fi
 
-          if [[ "${{ needs.dependency-security.result }}" == "failure" ]]; then
-            echo "::error::Dependency security check failed"
+          if [[ "${{ needs.security-scan.result }}" != "success" ]]; then
+            echo "::error::Security scan result is ${{ needs.security-scan.result }}"
             exit 1
           fi
 
-          if [[ "${{ needs.performance-test.result }}" == "failure" ]]; then
-            echo "::error::Performance test failed"
+          if [[ "${{ needs.dependency-security.result }}" != "success" ]]; then
+            echo "::error::Dependency security result is ${{ needs.dependency-security.result }}"
+            exit 1
+          fi
+
+          if [[ "${{ needs.performance-test.result }}" != "success" ]]; then
+            echo "::error::Performance test result is ${{ needs.performance-test.result }}"
             exit 1
           fi
 

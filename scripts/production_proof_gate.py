@@ -51,6 +51,11 @@ CHECKS = [
         ),
     ),
     ProofCheck(
+        "executable golden flow replay",
+        "nexus_backend/app/services/golden_flow_runner.py",
+        ("GoldenFlowRunner", "cross_tenant_access_denied", "missing evidence"),
+    ),
+    ProofCheck(
         "agent graph e2e contract",
         "nexus_backend/tests/production_proof/test_agent_graph_e2e_contract.py",
         ("graph.ainvoke", "RUN_REAL_AGENT_GRAPH_E2E", "expected_tool_calls"),
@@ -74,6 +79,16 @@ CHECKS = [
         "migration replay contract",
         "nexus_backend/tests/production_proof/test_migration_replay_contract.py",
         ("verify_staging_migrations.py", "CREATE TABLE IF NOT EXISTS"),
+    ),
+    ProofCheck(
+        "migration governance",
+        "scripts/check_migration_governance.py",
+        ("MIGRATION_GOVERNANCE_OK", "validate_applied_checksums"),
+    ),
+    ProofCheck(
+        "LLM cost hard gate",
+        "scripts/check_llm_cost_policy.py",
+        ("LLM_COST_POLICY_OK", "EXPENSIVE_MARKERS", "MODEL_KEYWORDS"),
     ),
     ProofCheck(
         "migration schema conflict scanner",

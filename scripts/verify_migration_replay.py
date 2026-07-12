@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "supabase" / "migrations"
+MIGRATION_PATTERN = re.compile(r"^\d{8}[A-Za-z0-9_.-]*\.sql$")
 
 
 def _database_url(cli_value: str | None) -> str | None:
@@ -32,7 +34,11 @@ def _psql() -> str | None:
 
 
 def _migration_files() -> list[Path]:
-    return sorted(MIGRATIONS_DIR.glob("*.sql"))
+    return sorted(
+        path
+        for path in MIGRATIONS_DIR.glob("*.sql")
+        if MIGRATION_PATTERN.fullmatch(path.name)
+    )
 
 
 def replay(database_url: str, psql_bin: str) -> tuple[bool, str]:

@@ -99,48 +99,30 @@ class InventoryService:
         if not db:
             raise RuntimeError("数据库连接不可用")
 
+        if quantity <= 0:
+            raise ValueError("quantity must be greater than zero")
+
         try:
-            # 获取当前库存
-            item_result = (
-                await db.table("inventory")
-                .select("id, quantity")
-                .eq("id", item_id)
-                .maybe_single()
-                .execute()
-            )
-
-            if not item_result.data:
-                raise RuntimeError(f"库存物品不存在: {item_id}")
-
-            current_quantity = item_result.data.get("quantity", 0)
-            new_quantity = current_quantity + quantity
-
-            # 创建入库记录
-            transaction_data = {
-                "organization_id": org_id,
-                "item_id": item_id,
-                "transaction_type": "in",
-                "quantity": quantity,
-                "operator_id": operator_id,
-                "reason": reason,
-                "metadata": metadata or {},
-            }
-
-            transaction_result = (
-                await db.table("inventory_transactions")
-                .insert(transaction_data)
-                .execute()
-            )
-
-            # 更新库存数量
-            await db.table("inventory").update({"quantity": new_quantity}).eq(
-                "id", item_id
+            result = await db.rpc(
+                "adjust_inventory_atomic",
+                {
+                    "p_org_id": org_id,
+                    "p_item_id": item_id,
+                    "p_delta": quantity,
+                    "p_operator_id": operator_id,
+                    "p_receiver_id": None,
+                    "p_reason": reason,
+                    "p_metadata": metadata or {},
+                },
             ).execute()
-
+            payload = result.data or {}
             logger.info(
-                f"入库成功: item={item_id}, quantity={quantity}, new_total={new_quantity}"
+                "Inventory receipt committed atomically: item=%s quantity=%s new_total=%s",
+                item_id,
+                quantity,
+                payload.get("new_quantity"),
             )
-            return transaction_result.data[0] if transaction_result.data else {}
+            return payload
 
         except Exception as e:
             logger.error(f"入库失败: {e}")
@@ -174,54 +156,30 @@ class InventoryService:
         if not db:
             raise RuntimeError("数据库连接不可用")
 
+        if quantity <= 0:
+            raise ValueError("quantity must be greater than zero")
+
         try:
-            # 获取当前库存
-            item_result = (
-                await db.table("inventory")
-                .select("id, quantity")
-                .eq("id", item_id)
-                .maybe_single()
-                .execute()
-            )
-
-            if not item_result.data:
-                raise RuntimeError(f"库存物品不存在: {item_id}")
-
-            current_quantity = item_result.data.get("quantity", 0)
-
-            if current_quantity < quantity:
-                raise RuntimeError(
-                    f"库存不足: 当前={current_quantity}, 请求={quantity}"
-                )
-
-            new_quantity = current_quantity - quantity
-
-            # 创建出库记录
-            transaction_data = {
-                "organization_id": org_id,
-                "item_id": item_id,
-                "transaction_type": "out",
-                "quantity": quantity,
-                "operator_id": operator_id,
-                "receiver_id": receiver_id,
-                "reason": reason,
-            }
-
-            transaction_result = (
-                await db.table("inventory_transactions")
-                .insert(transaction_data)
-                .execute()
-            )
-
-            # 更新库存数量
-            await db.table("inventory").update({"quantity": new_quantity}).eq(
-                "id", item_id
+            result = await db.rpc(
+                "adjust_inventory_atomic",
+                {
+                    "p_org_id": org_id,
+                    "p_item_id": item_id,
+                    "p_delta": -quantity,
+                    "p_operator_id": operator_id,
+                    "p_receiver_id": receiver_id,
+                    "p_reason": reason,
+                    "p_metadata": {},
+                },
             ).execute()
-
+            payload = result.data or {}
             logger.info(
-                f"出库成功: item={item_id}, quantity={quantity}, new_total={new_quantity}"
+                "Inventory issue committed atomically: item=%s quantity=%s new_total=%s",
+                item_id,
+                quantity,
+                payload.get("new_quantity"),
             )
-            return transaction_result.data[0] if transaction_result.data else {}
+            return payload
 
         except Exception as e:
             logger.error(f"出库失败: {e}")

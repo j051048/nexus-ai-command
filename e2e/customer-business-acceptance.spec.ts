@@ -582,7 +582,7 @@ test.describe('Customer business acceptance flows', () => {
 
     await page.goto('/ai-operating-system');
     await expectHealthyPage(page);
-    await expect(page.getByText('科学仪器销售团队的助手工作台')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'AI 作战室' })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('heading', { name: 'AI 价值与信任仪表盘' })).toBeVisible();
     await page.getByRole('tab', { name: '运行监控' }).click();
     await expect(page.getByText('真实运营数据')).toBeVisible();

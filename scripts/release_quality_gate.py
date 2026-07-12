@@ -755,7 +755,7 @@ CHECKS = [
         "AI operating system page",
         "src/pages/AIOperatingSystemPage.tsx",
         (
-            "科学仪器销售团队的助手工作台",
+            "AI 作战室",
             "真实运营数据",
             "AI 价值与信任仪表盘",
             "SOP → AOP 自然语言定义器",
@@ -1245,7 +1245,7 @@ CHECKS = [
         "e2e/customer-business-acceptance.spec.ts",
         (
             "/ai-operating-system",
-            "科学仪器销售团队的助手工作台",
+            "AI 作战室",
             "AI 价值与信任仪表盘",
             "Agent 仿真沙盒",
             "生成 Agent 定义",

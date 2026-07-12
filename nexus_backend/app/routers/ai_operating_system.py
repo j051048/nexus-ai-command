@@ -139,11 +139,10 @@ def _action_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
 def _value_summary(
     agent: dict[str, Any], actions: dict[str, Any], events: list[dict[str, Any]]
 ) -> dict[str, Any]:
+    from app.services.business_value_service import summarize_business_value
+
     completed_actions = actions["completed"]
     accepted_actions = actions["accepted"]
-    saved_minutes = (
-        completed_actions * 18 + max(accepted_actions - completed_actions, 0) * 8
-    )
     automated_followups = sum(
         1
         for item in events
@@ -151,20 +150,23 @@ def _value_summary(
         and item.get("event_type") in {"accepted", "completed", "command_executed"}
     )
     risk_reviews = agent["failed"] + agent["tool_failure_signals"]
-    saved_hours = round(saved_minutes / 60, 1)
-    estimated_value_cny = round(
-        saved_hours * 180 + automated_followups * 120 + risk_reviews * 300
+    summary = summarize_business_value(
+        completed_actions=completed_actions,
+        accepted_actions=accepted_actions,
+        automated_followups=automated_followups,
+        risk_reviews=risk_reviews,
+        events=events,
     )
     return {
-        "saved_minutes": saved_minutes,
-        "saved_hours": saved_hours,
+        "saved_minutes": round(summary["estimated"]["saved_hours"] * 60),
+        "saved_hours": summary["estimated"]["saved_hours"],
         "automated_followups": automated_followups,
         "risk_reviews": risk_reviews,
-        "estimated_value_cny": estimated_value_cny,
-        "roi_story": (
-            f"近 30 天 AI 约节省 {saved_hours} 小时，自动推进 {automated_followups} 个跟进动作，"
-            f"识别/复核 {risk_reviews} 个风险信号，折算业务价值约 ¥{estimated_value_cny}。"
-        ),
+        "estimated_value_cny": summary["estimated"]["value_cny"],
+        "verified_value_cny": summary["verified"]["value_cny"],
+        "evidence_coverage": summary["evidence_coverage"],
+        "methodology": summary["methodology"],
+        "roi_story": summary["story"],
     }
 
 
