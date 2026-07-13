@@ -46,6 +46,7 @@ export const OACenter = lazyWithRetry(() => import("@/pages/OACenter"));
 export const HRCenter = lazyWithRetry(() => import("@/pages/HRCenter"));
 export const FinanceCenter = lazyWithRetry(() => import("@/pages/FinanceCenter"));
 export const ProfileCenter = lazyWithRetry(() => import("@/pages/ProfileCenter"));
+export const MemoryCenterPage = lazyWithRetry(() => import("@/pages/MemoryCenterPage"));
 
 // Workflow
 export const WorkflowList = lazyWithRetry(() => import("@/pages/WorkflowList"));

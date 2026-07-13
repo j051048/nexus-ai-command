@@ -263,6 +263,9 @@ async def prepare_initial_state(
 
     # ── 2b–2f. Collect all context blocks in parallel, then inject as ONE system message ──
     injected_contexts: list[str] = []
+    from app.agent.memory.context_policy import choose_memory_context_policy
+
+    memory_policy = choose_memory_context_policy(last_user_msg, None)
     user_profile_ctx = None  # initialized here so it's always defined
 
     # ── 2g-profile. User profile — ALWAYS fetched regardless of skip_semantic ──
@@ -583,7 +586,26 @@ async def prepare_initial_state(
                 logger.debug(f"[Memory] Reasoning trace recall skipped: {e}")
                 return None
 
-        # Fire all 7 lookups concurrently (profile already fetched above)
+        memory_policy = choose_memory_context_policy(
+            last_user_msg,
+            str(state.get("complexity", "")) if state else None,
+        )
+
+        async def _skip_memory_source():
+            return None
+
+        if "org" not in memory_policy.sources:
+            _fetch_org_memory = _skip_memory_source
+        if "kg" not in memory_policy.sources:
+            _fetch_kg_context = _skip_memory_source
+        if "patterns" not in memory_policy.sources:
+            _fetch_pattern_suggestions = _skip_memory_source
+        if "episodic" not in memory_policy.sources:
+            _fetch_episodic_memory = _skip_memory_source
+        if "reasoning" not in memory_policy.sources:
+            _fetch_reasoning_trace = _skip_memory_source
+
+        # Fire selected lookups concurrently (profile already fetched above)
         # L1/L2 replace the old monolithic _fetch_long_term_memory()
         results = await asyncio.gather(
             _fetch_l1_critical(),  # [0] L1: directives — highest priority
@@ -635,6 +657,7 @@ async def prepare_initial_state(
         from app.services.token_service import token_counter
 
         _INJECT_BUDGET = 6000  # tokens — aligned with ContextEngine budget range
+        _INJECT_BUDGET = memory_policy.token_budget
         budgeted: list[str] = []
         running_tokens = 0
         for block in injected_contexts:
@@ -763,6 +786,11 @@ async def prepare_initial_state(
                 import json as _json
 
                 from app.services.conversation_memory import conversation_memory_service
+                from app.services.conversation_memory.admission import (
+                    sanitize_tool_arguments,
+                )
+
+                _ct_args = sanitize_tool_arguments(_ct_args)
 
                 _t = asyncio.create_task(
                     conversation_memory_service.save_memory(
@@ -772,6 +800,8 @@ async def prepare_initial_state(
                         category="tool_correction",
                         importance=0.8,
                         org_id=config.org_id,
+                        source="user_explicit",
+                        extraction_method="user_explicit",
                     )
                 )
                 _background_tasks.add(_t)

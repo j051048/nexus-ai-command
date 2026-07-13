@@ -503,6 +503,7 @@ async def get_memories(
     db: Any = None,
     org_id: str | None = None,
     user_role: str = "employee",
+    lifecycle_states: list[str] | None = None,
 ) -> list[dict]:
     """获取用户记忆列表（仅最新版本）
 
@@ -528,6 +529,8 @@ async def get_memories(
 
     # P0: 只返回未被取代的最新版本
     query = query.is_("superseded_by", "null")
+    states = lifecycle_states or ["active", "confirmed"]
+    query = query.in_("lifecycle_state", states)
 
     result = (
         await query.order("importance", desc=True)
@@ -536,7 +539,15 @@ async def get_memories(
         .execute()
     )
 
-    return result.data or []
+    from .storage import decrypt_memory_value
+
+    memories = result.data or []
+    for memory in memories:
+        memory["value"] = decrypt_memory_value(memory.get("value", ""))
+        if memory.get("enriched_value"):
+            memory["enriched_value"] = decrypt_memory_value(memory["enriched_value"])
+        memory.pop("embedding", None)
+    return memories
 
 
 async def search_memories(
@@ -929,6 +940,7 @@ async def _keyword_search(
             .select("*")
             .eq("user_id", user_id)
             .is_("superseded_by", "null")
+            .in_("lifecycle_state", ["active", "confirmed"])
             .or_(or_filter)
             .limit(limit)
         )
@@ -992,6 +1004,7 @@ async def _entity_precise_search(
             .select("*")
             .eq("user_id", user_id)
             .is_("superseded_by", "null")
+            .in_("lifecycle_state", ["active", "confirmed"])
             .or_(",".join(or_parts))
             .limit(limit)
         )
@@ -1010,6 +1023,7 @@ async def _entity_precise_search(
                 .select("*")
                 .eq("user_id", user_id)
                 .is_("superseded_by", "null")
+                .in_("lifecycle_state", ["active", "confirmed"])
                 .ilike("value", f"%{e1}%")
                 .ilike("value", f"%{e2}%")
                 .limit(3)
@@ -1045,6 +1059,7 @@ async def _user_anchor_search(
             .select("*")
             .eq("user_id", user_id)
             .is_("superseded_by", "null")
+            .in_("lifecycle_state", ["active", "confirmed"])
             .order("importance", desc=True)
             .limit(limit)
         )
@@ -1568,6 +1583,7 @@ async def get_l1_critical_facts(
         return ""
 
     lines: list[str] = []
+    from .storage import decrypt_memory_value
 
     try:
         # 1) High-importance directives (importance >= 0.85, any category)
@@ -1577,12 +1593,13 @@ async def get_l1_critical_facts(
             .eq("user_id", user_id)
             .gte("importance", 0.85)
             .is_("superseded_by", "null")
+            .in_("lifecycle_state", ["active", "confirmed"])
             .order("importance", desc=True)
             .limit(5)
             .execute()
         )
         for m in directive_res.data or []:
-            val = m.get("enriched_value") or m.get("value", "")
+            val = decrypt_memory_value(m.get("enriched_value") or m.get("value", ""))
             if val:
                 lines.append(f"  - {val[:120]}")
 
@@ -1593,13 +1610,14 @@ async def get_l1_critical_facts(
             .eq("user_id", user_id)
             .eq("category", "anti_pattern")
             .is_("superseded_by", "null")
+            .in_("lifecycle_state", ["active", "confirmed"])
             .order("updated_at", desc=True)
             .limit(3)
             .execute()
         )
         seen = {l for l in lines}  # dedup against directives
         for m in anti_res.data or []:
-            val = m.get("enriched_value") or m.get("value", "")
+            val = decrypt_memory_value(m.get("enriched_value") or m.get("value", ""))
             candidate = f"  - [纠正] {val[:100]}"
             if val and candidate not in seen:
                 lines.append(candidate)

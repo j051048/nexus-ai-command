@@ -1,11 +1,13 @@
 """Memory CRUD operations: save, delete, clear."""
 
 import logging
+import os
 from datetime import UTC, datetime
 from typing import Any
 
 from app.core.database import supabase
 
+from .admission import evaluate_memory_admission
 from .embedding import generate_embedding
 from .pii_filter import sanitize_pii
 from .visibility import determine_visibility
@@ -13,7 +15,23 @@ from .visibility import determine_visibility
 logger = logging.getLogger(__name__)
 
 # Categories whose value field is encrypted at rest
-_ENCRYPTED_CATEGORIES = frozenset({"explicit_memory", "personal_info", "episodic"})
+_ENCRYPTED_CATEGORIES = frozenset(
+    {
+        "explicit_memory",
+        "personal_info",
+        "episodic",
+        "tool_correction",
+        "instrument_identity",
+        "calibration_baseline",
+        "maintenance_episode",
+        "experiment_method",
+        "compliance_evidence",
+    }
+)
+
+
+class MemoryEncryptionError(RuntimeError):
+    """Raised when a sensitive memory cannot be encrypted safely."""
 
 
 def _encrypt_value(value: str, category: str) -> str:
@@ -25,8 +43,10 @@ def _encrypt_value(value: str, category: str) -> str:
 
         return encryption_service.encrypt(value)
     except Exception as e:
-        logger.warning(f"Memory encryption failed (storing plaintext): {e}")
-        return value
+        logger.error(
+            "Sensitive memory encryption failed; write rejected", exc_info=True
+        )
+        raise MemoryEncryptionError("Sensitive memory could not be encrypted") from e
 
 
 def decrypt_memory_value(value: str) -> str:
@@ -38,8 +58,9 @@ def decrypt_memory_value(value: str) -> str:
 
         if EncryptionService.is_encrypted(value):
             return EncryptionService.decrypt(value)
-    except Exception as e:
-        logger.warning(f"Memory decryption failed (returning raw): {e}")
+    except Exception:
+        logger.error("Memory decryption failed", exc_info=True)
+        return "[记忆暂时无法解密]"
     return value
 
 
@@ -62,6 +83,10 @@ async def save_memory(
     confidence: float = 1.0,
     valid_until: str | None = None,
     visibility: str | None = None,
+    lifecycle_state: str | None = None,
+    sensitivity: str | None = None,
+    expires_at: str | None = None,
+    evidence_ref: str | None = None,
 ) -> dict:
     """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
     client = db or supabase
@@ -69,6 +94,22 @@ async def save_memory(
         raise RuntimeError("数据库连接不可用")
 
     now = datetime.now(UTC).isoformat()
+
+    admission = evaluate_memory_admission(
+        value=value,
+        category=category,
+        confidence=confidence,
+        source=source,
+        extraction_method=extraction_method,
+        metadata=metadata,
+        valid_until=valid_until,
+        evidence_ref=evidence_ref,
+    )
+    if not admission.allowed:
+        raise ValueError(f"Memory rejected by admission policy: {admission.reason}")
+    lifecycle_state = lifecycle_state or admission.lifecycle_state
+    sensitivity = sensitivity or admission.sensitivity
+    expires_at = expires_at or admission.expires_at
 
     # Ensure org_id is set — RLS requires organization_id = get_user_org_id(auth.uid())
     if not org_id:
@@ -112,7 +153,15 @@ async def save_memory(
             embed_text = f"[Date: {_vf.strftime('%Y-%m-%d')} / {_vf.strftime('%d %B %Y')}] {embed_text}"
         except (ValueError, TypeError):
             pass
-    embedding = await generate_embedding(embed_text, org_id)
+    embedding_scope = os.getenv("MEMORY_EMBEDDING_SCOPE", "external").lower()
+    sensitive_external_embedding = (
+        sensitivity == "restricted" and embedding_scope == "external"
+    )
+    if embedding_scope == "disabled" or sensitive_external_embedding:
+        embedding = None
+        admission.provenance["embedding_policy"] = "skipped_sensitive_content"
+    else:
+        embedding = await generate_embedding(embed_text, org_id)
 
     # Encrypt sensitive categories at rest (AFTER embedding, which needs plaintext)
     value = _encrypt_value(value, category)
@@ -144,8 +193,6 @@ async def save_memory(
             importance = min(old_importance + 0.05, 1.0)
 
     # G5 LoCoMo Skip: Heavy DB checks during bench
-    import os
-
     is_bench = os.getenv("LOCOMO_INGEST_MODE") == "1"
 
     # Semantic dedup: if no exact key match, check for semantically similar memories
@@ -171,7 +218,7 @@ async def save_memory(
 
     # P0 Fix: Per-user memory limit (500) — evict lowest-importance when full
     if not old_id and not is_bench:
-        await _enforce_memory_limit(user_id, client, max_memories=5000)
+        await _enforce_memory_limit(user_id, client, category=category)
 
     # P1.1: Auto-determine visibility level for RBAC
     resolved_visibility = determine_visibility(category, importance, visibility)
@@ -195,6 +242,10 @@ async def save_memory(
         "last_accessed_at": now,
         "created_at": now,
         "updated_at": now,
+        "lifecycle_state": lifecycle_state,
+        "sensitivity": sensitivity,
+        "provenance": admission.provenance,
+        "expires_at": expires_at,
     }
     if embedding:
         insert_data["embedding"] = embedding
@@ -212,16 +263,63 @@ async def save_memory(
         insert_data["confidence"] = confidence
     if valid_until:
         insert_data["valid_until"] = valid_until
+    if evidence_ref:
+        insert_data["evidence_ref"] = evidence_ref
     # P1.1: Visibility field (graceful — skip if column doesn't exist yet)
     if resolved_visibility != "private":
         insert_data["visibility"] = resolved_visibility
     # P2.1: Semantic tags (graceful — skip if column doesn't exist yet)
     if semantic_tags:
         insert_data["semantic_tags"] = semantic_tags
+    result = None
+    used_atomic_rpc = False
+    if hasattr(client, "rpc"):
+        rpc_params = {
+            "p_user_id": user_id,
+            "p_organization_id": org_id,
+            "p_category": category,
+            "p_key": key,
+            "p_value": value,
+            "p_metadata": metadata or {},
+            "p_importance": importance,
+            "p_embedding": embedding,
+            "p_enriched_value": enriched_value,
+            "p_valid_from": valid_from,
+            "p_valid_until": valid_until,
+            "p_pattern_key": pattern_key,
+            "p_fact_type": fact_type,
+            "p_confidence": confidence,
+            "p_visibility": resolved_visibility,
+            "p_semantic_tags": semantic_tags or [],
+            "p_lifecycle_state": lifecycle_state,
+            "p_sensitivity": sensitivity,
+            "p_provenance": admission.provenance,
+            "p_expires_at": expires_at,
+            "p_evidence_ref": evidence_ref,
+        }
+        try:
+            result = await client.rpc(
+                "upsert_conversation_memory_version", rpc_params
+            ).execute()
+            used_atomic_rpc = True
+        except Exception as rpc_error:
+            error_text = str(rpc_error).lower()
+            if not any(
+                marker in error_text
+                for marker in ("pgrst202", "42883", "function", "schema cache")
+            ):
+                raise
+            logger.warning(
+                "Atomic memory RPC is not available yet; using legacy write path"
+            )
+
     try:
-        result = (
-            await client.table("conversation_memories").insert(insert_data).execute()
-        )
+        if result is None:
+            result = (
+                await client.table("conversation_memories")
+                .insert(insert_data)
+                .execute()
+            )
     except Exception as insert_err:
         err_str = str(insert_err)
         if "enriched_value" in err_str or "valid_from" in err_str:
@@ -292,7 +390,7 @@ async def save_memory(
             raise
 
     # Mark old version as superseded
-    if old_id and result.data:
+    if old_id and result.data and not used_atomic_rpc:
         new_record = result.data[0] if isinstance(result.data, list) else result.data
         new_id = new_record.get("id")
         if new_id and new_id != old_id:
@@ -327,6 +425,7 @@ async def save_memory(
                 db=client,
                 source=source,
                 extraction_method=extraction_method,
+                organization_id=org_id,
             )
         else:
             await log_memory_change(
@@ -338,6 +437,7 @@ async def save_memory(
                 db=client,
                 source=source,
                 extraction_method=extraction_method,
+                organization_id=org_id,
             )
     except Exception:
         pass  # audit is non-fatal
@@ -357,10 +457,12 @@ async def delete_memory(
 
     # Fetch value before deletion for audit trail
     old_value = None
+    memory_key = None
+    memory_org_id = None
     try:
         existing = (
             await client.table("conversation_memories")
-            .select("value")
+            .select("value, key, organization_id")
             .eq("id", memory_id)
             .eq("user_id", user_id)
             .maybe_single()
@@ -368,16 +470,18 @@ async def delete_memory(
         )
         if existing and existing.data:
             old_value = existing.data.get("value")
+            memory_key = existing.data.get("key")
+            memory_org_id = existing.data.get("organization_id")
     except Exception:
         pass
 
-    result = (
-        await client.table("conversation_memories")
-        .delete()
-        .eq("id", memory_id)
-        .eq("user_id", user_id)
-        .execute()
+    delete_query = client.table("conversation_memories").delete().eq("user_id", user_id)
+    delete_query = (
+        delete_query.eq("key", memory_key)
+        if memory_key
+        else delete_query.eq("id", memory_id)
     )
+    result = await delete_query.execute()
 
     deleted = bool(result.data)
     if deleted:
@@ -394,6 +498,7 @@ async def delete_memory(
                 reason="User-initiated deletion",
                 actor="user_explicit",
                 db=client,
+                organization_id=memory_org_id,
             )
         except Exception:
             pass  # audit is non-fatal
@@ -424,6 +529,97 @@ async def clear_memories(
     return count
 
 
+async def update_memory(
+    user_id: str,
+    memory_id: str,
+    *,
+    value: str | None = None,
+    visibility: str | None = None,
+    lifecycle_state: str | None = None,
+    expires_at: str | None = None,
+    db: Any = None,
+) -> dict | None:
+    """Update user controls; content edits create a new immutable version."""
+    client = db or supabase
+    if not client:
+        return None
+    existing = (
+        await client.table("conversation_memories")
+        .select("*")
+        .eq("id", memory_id)
+        .eq("user_id", user_id)
+        .is_("superseded_by", "null")
+        .maybe_single()
+        .execute()
+    )
+    if not existing.data:
+        return None
+    memory = existing.data
+    old_value = decrypt_memory_value(memory.get("value", ""))
+
+    if value is not None and value.strip() and value.strip() != old_value:
+        return await save_memory(
+            user_id=user_id,
+            key=memory["key"],
+            value=value.strip(),
+            category=memory.get("category", "preference"),
+            metadata=memory.get("metadata") or {},
+            importance=float(memory.get("importance") or 0.5),
+            org_id=memory.get("organization_id"),
+            db=client,
+            valid_from=memory.get("valid_from"),
+            valid_until=memory.get("valid_until"),
+            fact_type=memory.get("fact_type") or "fact",
+            confidence=float(memory.get("confidence") or 1.0),
+            visibility=visibility or memory.get("visibility") or "private",
+            lifecycle_state=lifecycle_state or "confirmed",
+            expires_at=expires_at or memory.get("expires_at"),
+            evidence_ref=memory.get("evidence_ref"),
+            source="user_explicit",
+            extraction_method="user_explicit",
+        )
+
+    updates: dict[str, Any] = {"updated_at": datetime.now(UTC).isoformat()}
+    if visibility is not None:
+        updates["visibility"] = visibility
+    if lifecycle_state is not None:
+        updates["lifecycle_state"] = lifecycle_state
+        if lifecycle_state == "confirmed":
+            updates["confirmed_at"] = datetime.now(UTC).isoformat()
+        if lifecycle_state == "archived":
+            updates["archived_at"] = datetime.now(UTC).isoformat()
+    if expires_at is not None:
+        updates["expires_at"] = expires_at
+    result = (
+        await client.table("conversation_memories")
+        .update(updates)
+        .eq("id", memory_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not result.data:
+        return None
+    updated = result.data[0] if isinstance(result.data, list) else result.data
+    updated["value"] = decrypt_memory_value(updated.get("value", ""))
+    try:
+        from .audit import log_memory_change
+
+        await log_memory_change(
+            memory_id=memory_id,
+            user_id=user_id,
+            action="UPDATE",
+            old_value=old_value,
+            new_value=old_value,
+            reason="User updated memory controls",
+            actor="user_explicit",
+            db=client,
+            organization_id=memory.get("organization_id"),
+        )
+    except Exception:
+        logger.exception("Memory control audit failed")
+    return updated
+
+
 async def get_memory_history(
     user_id: str,
     key: str,
@@ -447,7 +643,10 @@ async def get_memory_history(
             .limit(limit)
             .execute()
         )
-        return result.data or []
+        rows = result.data or []
+        for row in rows:
+            row["value"] = decrypt_memory_value(row.get("value", ""))
+        return rows
     except Exception as e:
         logger.error(f"get_memory_history failed (columns may not exist): {e}")
         return []
@@ -492,8 +691,21 @@ async def _find_semantically_similar(
     return None
 
 
+_CATEGORY_LIMITS = {
+    "preference": 200,
+    "episodic": 300,
+    "completed_task": 200,
+    "tool_correction": 100,
+    "reasoning_trace": 150,
+}
+
+
 async def _enforce_memory_limit(
-    user_id: str, db: Any, *, max_memories: int = 500
+    user_id: str,
+    db: Any,
+    *,
+    category: str,
+    max_memories: int = 1200,
 ) -> None:
     """Evict lowest-importance memories when a user exceeds the cap.
 
@@ -513,15 +725,31 @@ async def _enforce_memory_limit(
             if hasattr(count_res, "count") and count_res.count is not None
             else len(count_res.data or [])
         )
-        if total < max_memories:
+        category_limit = _CATEGORY_LIMITS.get(category, 300)
+        category_count_res = (
+            await db.table("conversation_memories")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .eq("category", category)
+            .is_("superseded_by", "null")
+            .execute()
+        )
+        category_total = (
+            category_count_res.count
+            if getattr(category_count_res, "count", None) is not None
+            else len(category_count_res.data or [])
+        )
+        if total < max_memories and category_total < category_limit:
             return
 
         # Evict bottom 10% (at least 1) ordered by importance ASC
-        evict_count = max(int(max_memories * 0.1), 1)
+        active_limit = min(max_memories, category_limit)
+        evict_count = max(int(active_limit * 0.1), 1)
         victims = (
             await db.table("conversation_memories")
             .select("id")
             .eq("user_id", user_id)
+            .eq("category", category)
             .is_("superseded_by", "null")
             .not_.in_("category", ["explicit_memory", "policy"])
             .order("importance", desc=False)
@@ -530,9 +758,17 @@ async def _enforce_memory_limit(
         )
         if victims.data:
             victim_ids = [v["id"] for v in victims.data]
-            await db.table("conversation_memories").delete().in_(
-                "id", victim_ids
-            ).execute()
+            try:
+                await db.table("conversation_memories").update(
+                    {
+                        "lifecycle_state": "archived",
+                        "archived_at": datetime.now(UTC).isoformat(),
+                    }
+                ).in_("id", victim_ids).execute()
+            except Exception:
+                await db.table("conversation_memories").delete().in_(
+                    "id", victim_ids
+                ).execute()
             logger.info(
                 "[MemoryLimit] Evicted %d low-importance memories for user %s (total was %d, cap %d)",
                 len(victim_ids),

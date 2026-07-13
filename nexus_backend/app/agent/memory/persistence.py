@@ -27,6 +27,8 @@ async def persist_result(
     completed_tool_calls: list[dict] | None = None,
     skip_cache: bool = False,
     skip_semantic: bool = False,
+    persist_messages: bool = True,
+    defer_extraction: bool = True,
 ):
     """
     Post-graph: persist messages and update caches.
@@ -41,34 +43,60 @@ async def persist_result(
     if assistant_response:
         assistant_response = _strip_reasoning_from_history(assistant_response)
 
-    # Save to DB (fire-and-forget)
+    # Persist the visible conversation before deferring enrichment work.
     try:
         import sys
 
         _memory_pkg = sys.modules[__package__]
         ChatService = _memory_pkg.ChatService
 
-        await ChatService.save_message(
-            user_id=user_id,
-            session_id=session_id,
-            role="user",
-            content=user_message,
-            agent=agent_name,
-            db_client=client,
-            org_id=org_id,
-        )
-        await ChatService.save_message(
-            user_id=user_id,
-            session_id=session_id,
-            role="assistant",
-            content=assistant_response,
-            agent=agent_name,
-            metadata=metadata or {},
-            db_client=client,
-            org_id=org_id,
-        )
+        if persist_messages:
+            await ChatService.save_message(
+                user_id=user_id,
+                session_id=session_id,
+                role="user",
+                content=user_message,
+                agent=agent_name,
+                db_client=client,
+                org_id=org_id,
+            )
+            await ChatService.save_message(
+                user_id=user_id,
+                session_id=session_id,
+                role="assistant",
+                content=assistant_response,
+                agent=agent_name,
+                metadata=metadata or {},
+                db_client=client,
+                org_id=org_id,
+            )
     except Exception as e:
         logger.error(f"[Memory] Failed to persist messages: {e}")
+
+    if defer_extraction and user_message and org_id:
+        try:
+            from app.services.conversation_memory.jobs import (
+                enqueue_memory_persistence_job,
+            )
+
+            await enqueue_memory_persistence_job(
+                user_id=user_id,
+                org_id=org_id,
+                session_id=session_id,
+                user_message=user_message,
+                assistant_response=assistant_response,
+                agent_name=agent_name,
+                metadata=metadata,
+                completed_tool_calls=completed_tool_calls,
+                skip_cache=skip_cache,
+                skip_semantic=skip_semantic,
+                db=client,
+            )
+            return
+        except Exception:
+            logger.exception(
+                "[Memory] Durable extraction enqueue failed; running inline fallback"
+            )
 
     # Update semantic cache (skip for confirmation/blocked responses and SIMPLE queries)
     # ── Phase 2: Parallel extraction tasks (mutually independent) ──

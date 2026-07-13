@@ -13,6 +13,7 @@ import {
   ExceptionsPage,
   InboxPage,
   IndustryKnowledgePage,
+  MemoryCenterPage,
   ProfileCenter,
   ProjectDetail,
   ProjectManagement,
@@ -63,6 +64,7 @@ export function coreRoutes(
       <Route path="targets" element={routeBoundary("Sales Targets", <SalesTargetManager />)} />
       <Route path="target-dashboard" element={routeBoundary("Target Dashboard", <TargetDashboard />)} />
       <Route path="personal-settings" element={routeBoundary("Profile", <ProfileCenter />)} />
+      <Route path="memory-center" element={routeBoundary("AI Memory", <MemoryCenterPage />)} />
     </>
   );
 }

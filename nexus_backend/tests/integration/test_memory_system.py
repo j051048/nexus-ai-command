@@ -1140,7 +1140,8 @@ class TestResolveMemoryConflicts:
             result = await resolve_memory_conflicts("u1", new_memories, db=mock_db)
 
         assert len(result) == 1
-        assert result[0]["event"] == "ADD"
+        assert result[0]["event"] == "PENDING_REVIEW"
+        assert mock_save.call_args.kwargs["lifecycle_state"] == "pending_review"
         mock_save.assert_called_once()
 
 

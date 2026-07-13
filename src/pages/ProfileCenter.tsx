@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ import {
   Save,
   CheckCircle2,
   Loader2,
+  Brain,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@/contexts/UserContext';
@@ -49,6 +51,7 @@ function getPasswordStrength(password: string): number {
 }
 
 export function ProfileCenter() {
+  const navigate = useNavigate();
   const { user } = useUser();
   const { session, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
@@ -342,6 +345,10 @@ export function ProfileCenter() {
           <TabsTrigger value="security" className="gap-2">
             <Shield className="w-4 h-4" />
             安全设置
+          </TabsTrigger>
+          <TabsTrigger value="memory" className="gap-2" onClick={() => navigate('/memory-center')}>
+            <Brain className="h-4 w-4" />
+            AI 记忆
           </TabsTrigger>
         </TabsList>
 

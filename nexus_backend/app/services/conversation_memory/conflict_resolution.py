@@ -289,8 +289,11 @@ async def resolve_memory_conflicts(
     try:
         actions = await _llm_resolve(all_similar, new_facts_text)
     except Exception as e:
-        logger.warning(f"LLM conflict resolution failed, falling back to ADD-all: {e}")
-        # Fallback: save all as new memories without conflict resolution
+        logger.warning(
+            "LLM conflict resolution failed; quarantining candidates for review: %s",
+            e,
+        )
+        # A model/network failure must not turn contradictory facts into truth.
         for mem in still_remaining:
             try:
                 saved = await _save_memory(
@@ -304,9 +307,15 @@ async def resolve_memory_conflicts(
                     enriched_value=mem.get("enriched_value"),
                     valid_from=mem.get("valid_from"),
                     pattern_key=mem.get("pattern_key"),
+                    confidence=mem.get("confidence", 0.5),
+                    lifecycle_state="pending_review",
                 )
                 results.append(
-                    {"id": saved.get("id"), "event": "ADD", "text": mem["value"]}
+                    {
+                        "id": saved.get("id"),
+                        "event": "PENDING_REVIEW",
+                        "text": mem["value"],
+                    }
                 )
             except Exception as e2:
                 logger.warning(f"Fallback save failed: {e2}")

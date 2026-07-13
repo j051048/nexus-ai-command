@@ -68,10 +68,15 @@ class ConversationMemoryService:
         category: str | None = None,
         limit: int = 20,
         db: Any = None,
+        lifecycle_states: list[str] | None = None,
     ) -> list[dict]:
         """获取用户记忆列表"""
         return await retrieval.get_memories(
-            user_id=user_id, category=category, limit=limit, db=db
+            user_id=user_id,
+            category=category,
+            limit=limit,
+            db=db,
+            lifecycle_states=lifecycle_states,
         )
 
     async def search_memories(
@@ -108,6 +113,27 @@ class ConversationMemoryService:
     ) -> int:
         """清除记忆（可按分类清除）"""
         return await storage.clear_memories(user_id=user_id, category=category, db=db)
+
+    async def update_memory(
+        self,
+        user_id: str,
+        memory_id: str,
+        *,
+        value: str | None = None,
+        visibility: str | None = None,
+        lifecycle_state: str | None = None,
+        expires_at: str | None = None,
+        db: Any = None,
+    ) -> dict | None:
+        return await storage.update_memory(
+            user_id=user_id,
+            memory_id=memory_id,
+            value=value,
+            visibility=visibility,
+            lifecycle_state=lifecycle_state,
+            expires_at=expires_at,
+            db=db,
+        )
 
     # ─── 偏好自动提取（规则引擎 + LLM 增强）─────────────────────
 

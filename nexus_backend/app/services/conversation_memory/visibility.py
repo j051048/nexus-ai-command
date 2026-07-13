@@ -163,14 +163,7 @@ def determine_visibility(
     ):
         return explicit_visibility
 
-    # Auto-classification based on category
-    _ORG_CATEGORIES = frozenset({"policy", "document", "org_knowledge"})
-    _TEAM_CATEGORIES = frozenset({"fact", "explicit_memory"})
-
-    if category in _ORG_CATEGORIES:
-        return MemoryVisibility.ORGANIZATION
-
-    if category in _TEAM_CATEGORIES and importance >= 0.8:
-        return MemoryVisibility.TEAM
-
+    # Visibility is an authorization decision, never an importance decision.
+    # Automatically extracted memories remain private unless the caller
+    # explicitly requests a wider scope.
     return MemoryVisibility.PRIVATE

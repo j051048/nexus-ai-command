@@ -188,6 +188,8 @@ export interface AgentImprovementProposalResult {
 }
 
 export interface MemoryHygieneResult {
+  status: 'healthy' | 'degraded';
+  error?: string | null;
   sample_size: number;
   hygiene_score: number;
   stale_memories: number;

@@ -6,6 +6,7 @@ Provides full traceability for memory changes, enabling:
 - Memory explainability for users
 """
 
+import hashlib
 import logging
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -17,6 +18,10 @@ logger = logging.getLogger(__name__)
 ActionType = Literal[
     "ADD", "UPDATE", "DELETE", "PROMOTE", "MERGE", "RESOLVE_CONFLICT", "DECAY"
 ]
+
+
+def _fingerprint(value: str | None) -> str | None:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest() if value else None
 
 
 async def log_memory_change(
@@ -31,6 +36,7 @@ async def log_memory_change(
     *,
     source: str | None = None,
     extraction_method: str | None = None,
+    organization_id: str | None = None,
 ) -> bool:
     """记录一条记忆变更审计日志。
 
@@ -58,12 +64,17 @@ async def log_memory_change(
             "memory_id": memory_id,
             "user_id": user_id,
             "action": action,
-            "old_value": old_value,
-            "new_value": new_value,
+            "old_value_hash": _fingerprint(old_value),
+            "new_value_hash": _fingerprint(new_value),
+            # Audit trails prove change without duplicating sensitive content.
+            "old_value_preview": None,
+            "new_value_preview": None,
             "reason": reason,
             "actor": actor,
             "created_at": datetime.now(UTC).isoformat(),
         }
+        if organization_id:
+            row["organization_id"] = organization_id
         if source:
             row["source"] = source
         if extraction_method:

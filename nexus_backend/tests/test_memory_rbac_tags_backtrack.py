@@ -87,15 +87,15 @@ class TestVisibility:
 
         assert determine_visibility("preference", 0.5) == "private"
 
-    def test_determine_visibility_policy_is_org(self):
+    def test_policy_requires_explicit_org_visibility(self):
         from app.services.conversation_memory.visibility import determine_visibility
 
-        assert determine_visibility("policy", 0.9) == "organization"
+        assert determine_visibility("policy", 0.9) == "private"
 
-    def test_determine_visibility_high_importance_fact_is_team(self):
+    def test_importance_does_not_grant_team_visibility(self):
         from app.services.conversation_memory.visibility import determine_visibility
 
-        assert determine_visibility("fact", 0.85) == "team"
+        assert determine_visibility("fact", 0.85) == "private"
 
     def test_determine_visibility_explicit_override(self):
         from app.services.conversation_memory.visibility import determine_visibility

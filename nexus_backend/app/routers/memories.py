@@ -6,9 +6,10 @@ and organization behavior policies.
 """
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
@@ -17,11 +18,42 @@ from app.services.conversation_memory_service import conversation_memory_service
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/memories", tags=["Conversation Memories"])
 
+MemoryState = Literal[
+    "proposed",
+    "confirmed",
+    "active",
+    "pending_review",
+    "expired",
+    "rejected",
+    "archived",
+]
+MemoryVisibility = Literal["private", "team", "organization"]
+
+
+class MemoryCreateBody(BaseModel):
+    key: str = Field(min_length=1, max_length=160)
+    value: str = Field(min_length=1, max_length=8000)
+    category: str = Field(default="explicit_memory", max_length=80)
+    importance: float = Field(default=0.7, ge=0, le=1)
+    visibility: MemoryVisibility = "private"
+    confidence: float = Field(default=1.0, ge=0, le=1)
+    expires_at: str | None = None
+    evidence_ref: str | None = Field(default=None, max_length=1000)
+    metadata: dict = Field(default_factory=dict)
+
+
+class MemoryUpdateBody(BaseModel):
+    value: str | None = Field(default=None, min_length=1, max_length=8000)
+    visibility: MemoryVisibility | None = None
+    lifecycle_state: MemoryState | None = None
+    expires_at: str | None = None
+
 
 @router.get("")
 async def get_memories(
     request: Request,
     category: str | None = None,
+    state: str | None = None,
     limit: int = 20,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -29,11 +61,29 @@ async def get_memories(
     try:
         db = getattr(request.state, "db", None)
 
+        allowed_states = [
+            "proposed",
+            "confirmed",
+            "active",
+            "pending_review",
+            "expired",
+            "rejected",
+            "archived",
+        ]
+        lifecycle_states = (
+            allowed_states if state == "all" else ([state] if state else None)
+        )
+        if lifecycle_states and any(
+            item not in allowed_states for item in lifecycle_states
+        ):
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无效的记忆状态")
+
         memories = await conversation_memory_service.get_memories(
             user_id=user_id,
             category=category,
             limit=min(limit, 100),
             db=db,
+            lifecycle_states=lifecycle_states,
         )
 
         return api_success(data=memories, message="记忆列表获取成功")
@@ -42,6 +92,85 @@ async def get_memories(
             raise
         logger.error(f"Error getting memories: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
+
+
+@router.post("")
+async def create_memory(
+    request: Request,
+    body: MemoryCreateBody,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Create an explicit, user-confirmed memory."""
+    try:
+        org_id = getattr(request.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "缺少组织上下文")
+        saved = await conversation_memory_service.save_memory(
+            user_id=user_id,
+            key=body.key,
+            value=body.value,
+            category=body.category,
+            metadata=body.metadata,
+            importance=body.importance,
+            org_id=org_id,
+            db=getattr(request.state, "db", None),
+            confidence=body.confidence,
+            visibility=body.visibility,
+            expires_at=body.expires_at,
+            evidence_ref=body.evidence_ref,
+            source="user_explicit",
+            extraction_method="user_explicit",
+        )
+        return api_success(data=saved, message="记忆已保存")
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error("Error creating memory: %s", e)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆保存失败")
+
+
+@router.patch("/{memory_id}")
+async def update_memory(
+    request: Request,
+    memory_id: str,
+    body: MemoryUpdateBody,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Edit, confirm, reject, archive or restore an owned memory."""
+    try:
+        updated = await conversation_memory_service.update_memory(
+            user_id=user_id,
+            memory_id=memory_id,
+            value=body.value,
+            visibility=body.visibility,
+            lifecycle_state=body.lifecycle_state,
+            expires_at=body.expires_at,
+            db=getattr(request.state, "db", None),
+        )
+        if not updated:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "记忆不存在")
+        return api_success(data=updated, message="记忆已更新")
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error("Error updating memory %s: %s", memory_id, e)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆更新失败")
+
+
+@router.get("/{memory_id}/audit")
+async def get_memory_audit(
+    request: Request,
+    memory_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    from app.services.conversation_memory.audit import get_memory_audit_trail
+
+    rows = await get_memory_audit_trail(
+        memory_id=memory_id,
+        user_id=user_id,
+        db=getattr(request.state, "db", None),
+    )
+    return api_success(data=rows)
 
 
 @router.delete("")

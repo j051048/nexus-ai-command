@@ -21,6 +21,7 @@ celery_app = Celery(
         "app.tasks.scheduler",
         "app.tasks.event_sensors",
         "app.tasks.tool_tasks",
+        "app.tasks.memory_tasks",
     ],
 )
 
@@ -114,6 +115,10 @@ except Exception:
 
 # Periodic Tasks (Beat)
 celery_app.conf.beat_schedule = {
+    "memory-persistence-outbox": {
+        "task": "app.tasks.memory_tasks.drain_memory_persistence_jobs",
+        "schedule": 60.0,
+    },
     "user-scheduled-task-poller": {
         "task": "app.tasks.scheduler.execute_user_scheduled_tasks",
         "schedule": 60.0,
