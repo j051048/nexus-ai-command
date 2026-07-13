@@ -99,12 +99,25 @@ class PromptRegistry:
         return self._manifests.get(key) or self._manifests["director_agent"]
 
     def resolve_prompt_version(self, agent_code: str | None) -> str:
-        return self.get_manifest(agent_code).prompt_version
+        try:
+            from app.services.prompt_artifact_service import prompt_artifact_resolver
+
+            return prompt_artifact_resolver.builtin(agent_code).version
+        except Exception:
+            return self.get_manifest(agent_code).prompt_version
 
     def list_manifests(self) -> list[dict[str, Any]]:
         return [manifest.to_dict() for manifest in self._manifests.values()]
 
     def build_runtime_header(self, agent_code: str | None) -> str:
+        try:
+            from app.services.prompt_artifact_service import prompt_artifact_resolver
+
+            return prompt_artifact_resolver.runtime_header(
+                prompt_artifact_resolver.builtin(agent_code)
+            )
+        except Exception:
+            pass
         manifest = self.get_manifest(agent_code)
         gates = ", ".join(manifest.eval_gates)
         required_blocks = ", ".join(

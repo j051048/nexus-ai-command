@@ -23,7 +23,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Run replay harness
-        run: python scripts/agent_replay_nightly.py
+        run: python scripts/agent_replay_nightly.py --require-live
         env:
           AGENT_REPLAY_BASE_URL: ${{ secrets.AGENT_REPLAY_BASE_URL }}
           AGENT_REPLAY_TOKEN: ${{ secrets.AGENT_REPLAY_TOKEN }}

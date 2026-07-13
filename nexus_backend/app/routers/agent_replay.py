@@ -8,20 +8,30 @@ Includes Time Travel support via session timeline and checkpoint history.
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.agent_replay_service import agent_replay_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/agent/replay", tags=["Agent Replay"])
+require_agent_ops = require_role(["admin", "founder", "boss"])
 
 
 class EvalCaseUpdate(BaseModel):
     status: str | None = None
     expected_json: dict | None = None
     metadata_json: dict | None = None
+
+
+class FullReplayCaseRequest(BaseModel):
+    id: str = "nightly-health"
+    message: str
+    agent_code: str = "director_agent"
+    user_role: str = "employee"
+    expectations: dict = Field(default_factory=dict)
 
 
 # IMPORTANT: Static path segments (/compare, /session/*, /checkpoint/*)
@@ -108,6 +118,34 @@ async def get_checkpoint_history(
 
 
 # ── Dynamic path endpoints (must be LAST) ──
+
+
+@router.post("/run-case")
+async def run_full_replay_case(
+    body: FullReplayCaseRequest,
+    request: Request,
+    user_id: str = Depends(require_agent_ops),
+):
+    """Execute one dry-run case through the production LangGraph and harness."""
+    try:
+        from app.services.full_graph_replay_service import full_graph_replay_service
+
+        org_id = getattr(request.state, "org_id", None)
+        result = await full_graph_replay_service.run_case(
+            {
+                **body.model_dump(),
+                "user_id": user_id,
+                "organization_id": org_id,
+                "dry_run": True,
+                "thread_id": f"{org_id or 'global'}::replay::{body.id}",
+            }
+        )
+        return api_success(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("[Replay] full graph case failed: %s", e, exc_info=True)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Full graph replay failed")
 
 
 @router.post("/eval-cases/promote-failures")

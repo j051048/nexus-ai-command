@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import re
+import string
 from dataclasses import dataclass
 from typing import Any
 
-from app.agent.context_ledger import MOJIBAKE_MARKERS
+MOJIBAKE_MARKERS = ("锟斤拷", "�", "浣犲ソ", "閳?")
 
 
 @dataclass
@@ -30,7 +31,12 @@ class PromptLinter:
     CONFLICT_PAIRS = (("必须", "不要"), ("始终", "禁止"), ("always", "never"))
 
     def lint_text(
-        self, text: str, *, location: str = "prompt"
+        self,
+        text: str,
+        *,
+        location: str = "prompt",
+        declared_variables: set[str] | None = None,
+        max_characters: int = 80_000,
     ) -> list[PromptLintIssue]:
         issues: list[PromptLintIssue] = []
         if any(marker in text for marker in MOJIBAKE_MARKERS):
@@ -72,7 +78,53 @@ class PromptLinter:
                     location,
                 )
             )
+        fields = {
+            field_name.split(".", 1)[0].split("[", 1)[0]
+            for _, field_name, _, _ in string.Formatter().parse(text)
+            if field_name
+        }
+        if declared_variables is not None:
+            for field_name in sorted(fields - declared_variables):
+                issues.append(
+                    PromptLintIssue(
+                        "undeclared_variable",
+                        "error",
+                        f"Prompt variable is not declared: {field_name}",
+                        location,
+                    )
+                )
+        if len(text) > max_characters:
+            issues.append(
+                PromptLintIssue(
+                    "prompt_size_limit",
+                    "error",
+                    f"Prompt exceeds character budget ({len(text)} > {max_characters}).",
+                    location,
+                )
+            )
+        if "<untrusted" in text and "</untrusted" not in text:
+            issues.append(
+                PromptLintIssue(
+                    "unclosed_untrusted_boundary",
+                    "error",
+                    "Untrusted context boundary is not closed.",
+                    location,
+                )
+            )
         return issues
+
+    def lint_artifact(self, artifact: Any) -> dict[str, Any]:
+        issues = self.lint_text(
+            artifact.content,
+            location=f"artifact:{artifact.agent_code}:{artifact.version}",
+            declared_variables=set(artifact.variables),
+            max_characters=max(4_000, artifact.model_profile.max_input_tokens * 4),
+        )
+        return {
+            "passed": not any(issue.severity == "error" for issue in issues),
+            "content_hash": artifact.content_hash,
+            "issues": [issue.to_dict() for issue in issues],
+        }
 
     def lint_registry(self) -> dict[str, Any]:
         from app.core.prompts_registry import SYSTEM_PROMPTS, TOOL_PROMPTS

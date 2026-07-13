@@ -14,9 +14,12 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.database import supabase
-from app.core.prompts_registry import SYSTEM_PROMPTS
 from app.core.redis_keys import NS_PROMPT, rk
 from app.services.cache_service import cache_service
+from app.services.prompt_artifact_service import (
+    default_prompt_values,
+    prompt_artifact_resolver,
+)
 from app.tools import get_tool
 
 
@@ -56,7 +59,21 @@ class ChatService:
         elif agent_name in ["@总裁助理", "boss_assistant"]:
             prompt_key = "boss_assistant"
 
-        # 0. Try A/B test variant (if user_id provided)
+        # 0. Resolve the canonical active artifact. Legacy A/B, cache and
+        # ``prompts`` table paths below remain as temporary compatibility
+        # fallbacks for installations that have not migrated artifacts yet.
+        artifact = await prompt_artifact_resolver.resolve(
+            agent_code=agent_name,
+            organization_id=org_id,
+            db_client=db_client,
+        )
+        if artifact.source == "database":
+            try:
+                return artifact.render(default_prompt_values())
+            except ValueError as exc:
+                logger.error("Active prompt artifact cannot be rendered: %s", exc)
+
+        # 1. Try A/B test variant (if user_id provided)
         if user_id:
             try:
                 from app.services.prompt_version_service import prompt_version_service
@@ -74,7 +91,7 @@ class ChatService:
             except Exception as e:
                 logger.error(f"A/B test variant lookup failed: {e}")
 
-        # 1. Try Cache (org-scoped to prevent cross-tenant prompt leakage)
+        # 2. Try Cache (org-scoped to prevent cross-tenant prompt leakage)
         cache_key = rk(org_id, NS_PROMPT, prompt_key)
         cached_prompt = await cache_service.get(cache_key)
         if cached_prompt:
@@ -85,7 +102,7 @@ class ChatService:
             except Exception:
                 return cached_prompt
 
-        # 2. Try DB
+        # 3. Try legacy DB
         try:
             client = db_client or supabase
             res = (
@@ -104,8 +121,10 @@ class ChatService:
         except Exception as e:
             logger.warning(f"Failed to fetch prompt {prompt_key} from DB: {e}")
 
-        # 3. Fallback to hardcoded registry
-        raw_prompt = SYSTEM_PROMPTS.get(prompt_key, SYSTEM_PROMPTS["default_fallback"])
+        # 4. Fallback to the same canonical built-in artifact used by planning.
+        raw_prompt = prompt_artifact_resolver.builtin(
+            agent_name, prompt_key=prompt_key
+        ).content
         try:
             return raw_prompt.replace("{current_time}", now_str).replace(
                 "{{current_time}}", now_str

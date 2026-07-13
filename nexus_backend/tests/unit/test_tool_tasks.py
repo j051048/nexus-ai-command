@@ -13,11 +13,19 @@ def _import_tool_tasks_without_celery():
     # 2. Save and replace Celery-related modules with None.
     # Setting to None ensures app.core.celery_app import raises ImportError
     # even if celery is installed in site-packages (CI environment).
-    saved_celery = {}
-    for name in list(sys.modules):
-        if name.startswith("celery") or name == "app.core.celery_app":
-            saved_celery[name] = sys.modules.pop(name)
-            sys.modules[name] = None
+    missing = object()
+    blocked_names = {
+        name
+        for name in sys.modules
+        if name.startswith("celery") or name == "app.core.celery_app"
+    }
+    # Block the application module even when it has not been imported yet.
+    # The previous helper only blocked modules already present in sys.modules,
+    # which made this test depend on collection/import order.
+    blocked_names.update({"celery", "app.core.celery_app"})
+    saved_celery = {name: sys.modules.get(name, missing) for name in blocked_names}
+    for name in blocked_names:
+        sys.modules[name] = None
 
     try:
         # 3. Import with celery blocked — triggers except ImportError branch
@@ -25,11 +33,11 @@ def _import_tool_tasks_without_celery():
         return mod
     finally:
         # 4. Restore sys.modules to not affect other tests
-        for name in list(sys.modules):
-            if (name.startswith("celery") or name == "app.core.celery_app") and sys.modules[name] is None:
-                sys.modules.pop(name, None)
         for name, mod_obj in saved_celery.items():
-            sys.modules.setdefault(name, mod_obj)
+            if mod_obj is missing:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = mod_obj
 
 
 def test_execute_tool_isolated_success():

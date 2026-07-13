@@ -30,6 +30,9 @@ def _pct(value: float) -> str:
 
 def main() -> int:
     from app.services.agent_eval_baseline_service import agent_eval_baseline_service
+    from app.services.scientific_instrument_eval_service import (
+        scientific_instrument_eval_service,
+    )
 
     cases_path = (
         BACKEND_ROOT
@@ -64,10 +67,15 @@ def main() -> int:
     ][:120]
 
     result = agent_eval_baseline_service.run_router_baseline(smoke_cases)
+    instrument_cases = _load_json(
+        BACKEND_ROOT / "evals" / "datasets" / "scientific_instrument_agent_cases.json"
+    )
+    instrument_result = scientific_instrument_eval_service.evaluate(instrument_cases)
     accuracy = float(result["accuracy"])
     release_min = float(thresholds["intent_accuracy_min"])
     baseline = float(baselines["router_accuracy"])
     regression_tolerance = 0.02
+    instrument_min = float(thresholds.get("instrument_policy_accuracy_min", 0.95))
 
     failures: list[str] = []
     if result["case_count"] < 70:
@@ -81,6 +89,13 @@ def main() -> int:
             "router accuracy regressed more than 2pp: "
             f"baseline {_pct(baseline)}, current {_pct(accuracy)}"
         )
+    if instrument_result["case_count"] < 12:
+        failures.append("scientific instrument eval set has fewer than 12 cases")
+    if float(instrument_result["accuracy"]) < instrument_min:
+        failures.append(
+            "instrument policy accuracy "
+            f"{_pct(float(instrument_result['accuracy']))} is below {_pct(instrument_min)}"
+        )
 
     report = {
         "gate": "agent_eval_regression",
@@ -90,9 +105,17 @@ def main() -> int:
         "release_min": release_min,
         "baseline": baseline,
         "regression_tolerance": regression_tolerance,
-        "failed_cases": [
-            item for item in result["results"] if not item.get("passed")
-        ][:20],
+        "failed_cases": [item for item in result["results"] if not item.get("passed")][
+            :20
+        ],
+        "scientific_instrument": {
+            "case_count": instrument_result["case_count"],
+            "accuracy": instrument_result["accuracy"],
+            "release_min": instrument_min,
+            "failed_cases": [
+                item for item in instrument_result["results"] if not item.get("passed")
+            ],
+        },
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
 

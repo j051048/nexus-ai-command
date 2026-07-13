@@ -127,9 +127,7 @@ class ContextEngine:
 
         results = await asyncio.gather(*[_safe_get(p) for p in sorted_providers])
 
-        used_tokens = 0
-        parts: list[str] = []
-
+        scored_results = []
         for provider, text in results:
             quality = None
             if not text:
@@ -159,6 +157,26 @@ class ContextEngine:
                 )
             except Exception:
                 quality = None
+
+            priority_score = 1.0 / (1.0 + max(provider.priority, 0) / 20.0)
+            if quality is not None:
+                utility = (
+                    float(quality.relevance) * 0.35
+                    + float(quality.authority) * 0.30
+                    + float(quality.freshness) * 0.15
+                    + float(quality.quality_score) * 0.15
+                    + priority_score * 0.05
+                )
+            else:
+                utility = 0.55 + priority_score * 0.25
+            scored_results.append((utility, provider, text, quality))
+
+        scored_results.sort(key=lambda item: (-item[0], item[1].priority, item[1].name))
+
+        used_tokens = 0
+        parts: list[str] = []
+
+        for utility, provider, text, quality in scored_results:
 
             text_tokens = self._estimate_tokens(text)
             provider_budget = provider.max_tokens()
@@ -206,10 +224,32 @@ class ContextEngine:
                                 ),
                                 pii_level=estimate_pii_level(text),
                                 truncated_reason="total_budget",
-                                notes={"sample": text[:160]},
+                                notes={"sample": text[:160], "utility": utility},
                             )
                         )
-                break
+                elif context_ledger is not None:
+                    from app.agent.context_ledger import ContextLedgerEntry
+
+                    context_ledger.add(
+                        ContextLedgerEntry(
+                            provider=provider.name,
+                            priority=provider.priority,
+                            tokens_estimated=text_tokens,
+                            included=False,
+                            evidence_ids=quality.evidence_ids if quality else [],
+                            relevance=quality.relevance if quality else None,
+                            authority=quality.authority if quality else None,
+                            freshness_score=quality.freshness if quality else None,
+                            quality_score=quality.quality_score if quality else None,
+                            permission_scope=(
+                                quality.permission_scope if quality else None
+                            ),
+                            conflict_flag=(quality.conflict_flag if quality else False),
+                            truncated_reason="global_budget",
+                            notes={"utility": utility},
+                        )
+                    )
+                continue
 
             parts.append(f"[{provider.name}]\n{text}")
             used_tokens += text_tokens
@@ -234,7 +274,7 @@ class ContextEngine:
                         conflict_flag=quality.conflict_flag if quality else False,
                         pii_level=estimate_pii_level(original_text),
                         truncated_reason=truncated_reason,
-                        notes={"sample": original_text[:160]},
+                        notes={"sample": original_text[:160], "utility": utility},
                     )
                 )
 

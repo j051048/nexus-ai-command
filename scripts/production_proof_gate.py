@@ -325,6 +325,53 @@ CHECKS = [
         ),
     ),
     ProofCheck(
+        "canonical prompt artifact and release gate",
+        "nexus_backend/app/services/prompt_artifact_service.py",
+        (
+            "PromptArtifact",
+            "StrictPromptRenderer",
+            "PromptReleaseGate",
+            "REQUIRED_EVIDENCE",
+            "prompt_artifact_resolver",
+        ),
+    ),
+    ProofCheck(
+        "global context compiler and evidence contract",
+        "nexus_backend/app/agent/context_compiler.py",
+        (
+            "ContextCompilePolicy",
+            "system_budget",
+            "mandatory",
+            "utility",
+            "evidence_ids",
+        ),
+    ),
+    ProofCheck(
+        "full graph replay assertions",
+        "nexus_backend/app/services/full_graph_replay_service.py",
+        (
+            "get_agent_graph().run",
+            "agent_replay_harness.evaluate_trace",
+            "evidence_contract",
+            "side_effects",
+        ),
+    ),
+    ProofCheck(
+        "full graph replay API",
+        "nexus_backend/app/routers/agent_replay.py",
+        ("/run-case", "require_agent_ops", "full_graph_replay_service.run_case"),
+    ),
+    ProofCheck(
+        "scientific instrument Agent eval",
+        "nexus_backend/evals/datasets/scientific_instrument_agent_cases.json",
+        (
+            "instrument_calibration",
+            "predictive_maintenance",
+            "lab_compliance",
+            "instrument_telemetry",
+        ),
+    ),
+    ProofCheck(
         "production proof wired to CI",
         ".github/workflows/ci.yml",
         ("production_proof_gate.py", "tests/production_proof"),

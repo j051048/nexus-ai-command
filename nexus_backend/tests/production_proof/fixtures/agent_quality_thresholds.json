@@ -7,7 +7,8 @@
     "groundedness_min": 0.82,
     "tenant_context_accuracy_min": 0.95,
     "cost_regression_max_pct": 10,
-    "latency_regression_max_pct": 20
+    "latency_regression_max_pct": 20,
+    "instrument_policy_accuracy_min": 0.95
   },
   "ci_policy": {
     "fail_on": [

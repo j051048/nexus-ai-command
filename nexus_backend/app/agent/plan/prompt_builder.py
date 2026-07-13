@@ -25,6 +25,7 @@ async def inject_system_prompts(
 
     Covers segments [D], [E], [F] from the original plan_node.
     """
+    await _resolve_runtime_prompt_artifact(state, agent_config)
     # ── [D] Dynamic System Prompt Injection (first iteration only) ──
     if iteration == 0:
         _inject_role_and_tools(lc_msgs, agent_config, complexity, intent_summary, state)
@@ -52,9 +53,43 @@ async def inject_system_prompts(
     # Task decomposition hints
     _inject_task_decomposition(lc_msgs, state, complexity, iteration)
 
+    lc_msgs = _compile_global_context(lc_msgs, state, agent_config, complexity)
+
     _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity)
 
     return lc_msgs
+
+
+def _compile_global_context(lc_msgs, state, agent_config, complexity):
+    """Apply one global budget after every prompt/context injector has run."""
+    try:
+        from app.agent.context_compiler import (
+            ContextCompilePolicy,
+            context_compiler,
+        )
+
+        resolved = agent_config.resolved_configs or {}
+        tier_key = (
+            complexity.model_tier if hasattr(complexity, "model_tier") else "balanced"
+        )
+        context_window = int(
+            (resolved.get(tier_key) or {}).get("context_window") or 32_000
+        )
+        compiled, report = context_compiler.compile(
+            lc_msgs,
+            policy=ContextCompilePolicy(max_input_tokens=context_window),
+            ledger=state.get("context_ledger") or {},
+        )
+        state["context_compile_report"] = report.to_dict()
+        state["evidence_contract"] = {
+            "evidence_ids": report.evidence_ids,
+            "context_fingerprint": report.fingerprint,
+            "requires_citations": bool(report.evidence_ids),
+        }
+        return compiled
+    except Exception as e:
+        logger.warning("[PromptBuilder] global context compilation skipped: %s", e)
+        return lc_msgs
 
 
 # ---------------------------------------------------------------------------
@@ -64,16 +99,19 @@ async def inject_system_prompts(
 
 def _inject_role_and_tools(lc_msgs, agent_config, complexity, intent_summary, state):
     extra_lines = []
+    if state.get("prompt_artifact_header"):
+        extra_lines.append(state["prompt_artifact_header"])
     try:
         from app.services.prompt_registry import prompt_registry
 
-        registry_header = prompt_registry.build_runtime_header(
-            getattr(agent_config, "agent_code", None)
-        )
-        extra_lines.append(registry_header)
-        state["prompt_version"] = prompt_registry.resolve_prompt_version(
-            getattr(agent_config, "agent_code", None)
-        )
+        if not state.get("prompt_artifact_header"):
+            registry_header = prompt_registry.build_runtime_header(
+                getattr(agent_config, "agent_code", None)
+            )
+            extra_lines.append(registry_header)
+            state["prompt_version"] = prompt_registry.resolve_prompt_version(
+                getattr(agent_config, "agent_code", None)
+            )
     except Exception as e:
         logger.debug("[PromptBuilder] Prompt registry injection skipped: %s", e)
 
@@ -101,6 +139,32 @@ def _inject_role_and_tools(lc_msgs, agent_config, complexity, intent_summary, st
             1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
             SystemMessage(content=f"[角色与工具]\n{injection}"),
         )
+
+
+async def _resolve_runtime_prompt_artifact(state, agent_config):
+    try:
+        from app.services.prompt_artifact_service import prompt_artifact_resolver
+
+        agent_code = getattr(agent_config, "agent_code", None) or getattr(
+            agent_config, "agent_name", None
+        )
+        artifact = await prompt_artifact_resolver.resolve(
+            agent_code=agent_code,
+            organization_id=getattr(agent_config, "org_id", None),
+        )
+        state["prompt_version"] = artifact.version
+        state["prompt_artifact"] = {
+            "agent_code": artifact.agent_code,
+            "version": artifact.version,
+            "content_hash": artifact.content_hash,
+            "source": artifact.source,
+            "risk_tier": artifact.risk_tier,
+        }
+        state["prompt_artifact_header"] = prompt_artifact_resolver.runtime_header(
+            artifact
+        )
+    except Exception as e:
+        logger.debug("[PromptBuilder] Prompt artifact resolution skipped: %s", e)
 
 
 def _inject_cot_framework(lc_msgs, complexity):
