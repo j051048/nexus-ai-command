@@ -12,6 +12,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.services.event_bus import Event, EventType, event_bus
+
 logger = logging.getLogger(__name__)
 
 VALID_PLANS = {"free", "starter", "professional", "enterprise"}
@@ -438,6 +440,9 @@ class SuperAdminService:
         client = self._get_global_client()
         now = datetime.now(UTC).isoformat()
         status = "active" if plan != "free" else "inactive"
+        previous_snapshot = await self._maybe_first(
+            client.table("subscriptions").select("*").eq("org_id", org_id).limit(1)
+        )
         payload = {
             "org_id": org_id,
             "plan": plan,
@@ -460,7 +465,33 @@ class SuperAdminService:
                 "subscription_status": status,
             }
         ).eq("id", org_id).execute()
+        change_id = str(uuid.uuid4())
+        await client.table("subscription_access_versions").insert(
+            {
+                "id": change_id,
+                "org_id": org_id,
+                "change_kind": "direct",
+                "change_status": "applied",
+                "previous_snapshot": previous_snapshot,
+                "next_snapshot": {
+                    "plan": plan,
+                    "status": status,
+                    "current_period_end": payload["current_period_end"],
+                    "access_source": source,
+                },
+                "reason": reason,
+                "effective_at": now,
+                "applied_at": now,
+                "created_by": admin_user_id,
+                "applied_by": admin_user_id,
+                "created_at": now,
+                "updated_at": now,
+            }
+        ).execute()
         self._invalidate_billing_cache(org_id)
+        await self._publish_entitlement_change(
+            org_id, change_id, "applied", admin_user_id
+        )
         await self._write_audit_log(
             client,
             "admin_set_subscription_access",
@@ -479,6 +510,7 @@ class SuperAdminService:
             "status": status,
             "current_period_end": payload["current_period_end"],
             "access_source": source,
+            "change_id": change_id,
         }
 
     async def admin_update_quotas(
@@ -600,6 +632,22 @@ class SuperAdminService:
             {
                 **item,
                 "organization": organization_map.get(str(item.get("org_id"))),
+                "waiting_seconds": max(
+                    0,
+                    int(
+                        (
+                            datetime.now(UTC)
+                            - (
+                                _parse_datetime(item.get("created_at"))
+                                or datetime.now(UTC)
+                            )
+                        ).total_seconds()
+                    ),
+                ),
+                "is_overdue": bool(
+                    _parse_datetime(item.get("due_at"))
+                    and _parse_datetime(item.get("due_at")) <= datetime.now(UTC)
+                ),
             }
             for item in requests
         ]
@@ -619,6 +667,20 @@ class SuperAdminService:
             raise ValueError("A review reason is required")
 
         client = self._get_global_client()
+        request_record = await self._maybe_first(
+            client.table("subscription_access_requests")
+            .select("org_id")
+            .eq("id", request_id)
+            .limit(1)
+        )
+        previous_snapshot = None
+        if request_record:
+            previous_snapshot = await self._maybe_first(
+                client.table("subscriptions")
+                .select("*")
+                .eq("org_id", request_record["org_id"])
+                .limit(1)
+            )
         rpc_result = await client.rpc(
             "resolve_subscription_access_request",
             {
@@ -645,7 +707,36 @@ class SuperAdminService:
                     "subscription_status": "active",
                 }
             ).eq("id", org_id).execute()
+            change_id = str(uuid.uuid4())
+            now = datetime.now(UTC).isoformat()
+            await client.table("subscription_access_versions").insert(
+                {
+                    "id": change_id,
+                    "org_id": org_id,
+                    "request_id": request_id,
+                    "change_kind": "request",
+                    "change_status": "applied",
+                    "previous_snapshot": previous_snapshot,
+                    "next_snapshot": {
+                        "plan": result_data["plan"],
+                        "status": "active",
+                        "current_period_end": result_data.get("current_period_end"),
+                        "access_source": "admin_approved",
+                    },
+                    "reason": reason,
+                    "effective_at": now,
+                    "applied_at": now,
+                    "created_by": admin_user_id,
+                    "applied_by": admin_user_id,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ).execute()
+            result_data["change_id"] = change_id
             self._invalidate_billing_cache(org_id)
+            await self._publish_entitlement_change(
+                org_id, change_id, "applied", admin_user_id
+            )
 
         await self._write_audit_log(
             client,
@@ -667,6 +758,24 @@ class SuperAdminService:
         from app.services.billing_service import billing_service
 
         billing_service.invalidate_subscription(org_id)
+
+    async def _publish_entitlement_change(
+        self, org_id: str, change_id: str, status: str, user_id: str
+    ) -> None:
+        try:
+            await event_bus.publish(
+                Event(
+                    type=EventType.SUBSCRIPTION_ACCESS_CHANGED.value,
+                    payload={
+                        "org_id": org_id,
+                        "change_id": change_id,
+                        "status": status,
+                    },
+                    user_id=user_id,
+                )
+            )
+        except Exception as exc:
+            logger.warning("Failed to publish entitlement change: %s", exc)
 
     async def _maybe_first(self, query) -> dict[str, Any] | None:
         try:

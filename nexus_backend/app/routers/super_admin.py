@@ -8,12 +8,17 @@
 
 import logging
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.core.dependencies import require_platform_super_admin
 from app.core.errors import ErrorCode, api_error, api_list, api_success
+from app.services.super_admin_governance_service import (
+    super_admin_governance_service,
+)
+from app.services.super_admin_insights_service import super_admin_insights_service
 from app.services.super_admin_service import super_admin_service
 
 logger = logging.getLogger(__name__)
@@ -26,6 +31,26 @@ router = APIRouter(prefix="/api/admin", tags=["SuperAdmin"])
 # limited to the dedicated platform role; tenant founders/bosses must use
 # tenant-scoped organization endpoints instead.
 require_super_admin = require_platform_super_admin()
+
+
+def require_admin_permission(permission: str):
+    async def checker(user_id: str = Depends(require_super_admin)) -> str:
+        try:
+            await super_admin_governance_service.assert_permission(user_id, permission)
+        except PermissionError as exc:
+            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, str(exc))
+        return user_id
+
+    return checker
+
+
+require_view_platform = require_admin_permission("view_platform")
+require_manage_memberships = require_admin_permission("manage_memberships")
+require_manage_quotas = require_admin_permission("manage_quotas")
+require_manage_organizations = require_admin_permission("manage_organizations")
+require_manage_commercial = require_admin_permission("manage_commercial")
+require_view_audit = require_admin_permission("view_audit")
+require_manage_admins = require_admin_permission("manage_admins")
 
 
 # ============== Request Models ==============
@@ -67,7 +92,227 @@ class SubscriptionDecisionRequest(BaseModel):
     expires_at: datetime | None = None
 
 
+class ScheduleAccessRequest(SetAccessRequest):
+    effective_at: datetime | None = None
+    commercial_record_id: str | None = None
+
+
+class AccessChangeActionRequest(BaseModel):
+    reason: str = Field(min_length=2, max_length=1000)
+
+
+class BatchSubscriptionDecisionRequest(SubscriptionDecisionRequest):
+    request_ids: list[str] = Field(min_length=1, max_length=100)
+
+
+class CommercialRecordRequest(BaseModel):
+    id: str | None = None
+    org_id: str
+    order_number: str = Field(min_length=2, max_length=100)
+    contract_number: str | None = None
+    amount_cents: int = Field(default=0, ge=0)
+    discount_cents: int = Field(default=0, ge=0)
+    currency: str = Field(default="CNY", min_length=3, max_length=3)
+    payment_status: str = "pending"
+    paid_at: datetime | None = None
+    due_at: datetime | None = None
+    invoice_status: str = "none"
+    invoice_number: str | None = None
+    sales_owner: str | None = None
+    gifted_days: int = Field(default=0, ge=0, le=3650)
+    evidence_url: str | None = None
+    notes: str | None = None
+
+
+class PlatformAdminAssignmentRequest(BaseModel):
+    user_id: str
+    admin_role: str
+    permissions: list[str] = Field(default_factory=list, max_length=50)
+    active: bool = True
+
+
 # ============== Endpoints ==============
+
+
+@router.get("/me")
+async def get_admin_context(user_id: str = Depends(require_super_admin)):
+    """Return the current platform operator role and capabilities."""
+    context = await super_admin_governance_service.get_admin_context(user_id)
+    return api_success(data=context)
+
+
+@router.get("/admin-assignments")
+async def list_admin_assignments(user_id: str = Depends(require_manage_admins)):
+    assignments = await super_admin_governance_service.list_admin_assignments()
+    return api_success(data={"assignments": assignments})
+
+
+@router.put("/admin-assignments/{target_user_id}")
+async def set_admin_assignment(
+    target_user_id: str,
+    body: PlatformAdminAssignmentRequest,
+    user_id: str = Depends(require_manage_admins),
+):
+    if body.user_id != target_user_id:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "管理员用户不一致")
+    try:
+        result = await super_admin_governance_service.set_admin_assignment(
+            user_id=target_user_id,
+            admin_role=body.admin_role,
+            permissions=body.permissions,
+            active=body.active,
+            actor_user_id=user_id,
+        )
+        return api_success(data=result, message="平台管理员职责已更新")
+    except ValueError as exc:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
+
+
+@router.get("/organizations/{org_id}/overview")
+async def get_organization_360(
+    org_id: str, user_id: str = Depends(require_view_platform)
+):
+    result = await super_admin_insights_service.get_organization_360(org_id)
+    if not result:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "组织不存在")
+    return api_success(data=result)
+
+
+@router.get("/operational-exceptions")
+async def list_operational_exceptions(
+    user_id: str = Depends(require_view_platform),
+):
+    items = await super_admin_insights_service.list_operational_exceptions()
+    return api_success(data={"exceptions": items})
+
+
+@router.get("/operational-analytics")
+async def get_operational_analytics(
+    user_id: str = Depends(require_view_platform),
+):
+    data = await super_admin_insights_service.get_operational_analytics()
+    return api_success(data=data)
+
+
+@router.get("/access-changes")
+async def list_access_changes(
+    org_id: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    user_id: str = Depends(require_view_platform),
+):
+    items = await super_admin_governance_service.list_access_changes(
+        org_id=org_id, status=status, limit=limit
+    )
+    return api_success(data={"changes": items})
+
+
+@router.post("/organizations/{org_id}/access/schedule")
+async def schedule_access_change(
+    org_id: str,
+    body: ScheduleAccessRequest,
+    user_id: str = Depends(require_manage_memberships),
+):
+    try:
+        result = await super_admin_governance_service.schedule_access_change(
+            org_id=org_id,
+            plan=body.plan,
+            expires_at=body.expires_at.isoformat() if body.expires_at else None,
+            effective_at=body.effective_at.isoformat() if body.effective_at else None,
+            reason=body.reason,
+            admin_user_id=user_id,
+            commercial_record_id=body.commercial_record_id,
+        )
+        return api_success(data=result, message="会员变更已保存")
+    except ValueError as exc:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
+
+
+@router.post("/access-changes/{change_id}/cancel")
+async def cancel_access_change(
+    change_id: str,
+    body: AccessChangeActionRequest,
+    user_id: str = Depends(require_manage_memberships),
+):
+    try:
+        result = await super_admin_governance_service.cancel_access_change(
+            change_id, body.reason, user_id
+        )
+        return api_success(data=result, message="预约变更已取消")
+    except ValueError as exc:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
+
+
+@router.post("/access-changes/{change_id}/rollback")
+async def rollback_access_change(
+    change_id: str,
+    body: AccessChangeActionRequest,
+    user_id: str = Depends(require_manage_memberships),
+):
+    try:
+        result = await super_admin_governance_service.rollback_access_change(
+            change_id, body.reason, user_id
+        )
+        return api_success(data=result, message="会员状态已回滚")
+    except ValueError as exc:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
+
+
+@router.get("/commercial-records")
+async def list_commercial_records(
+    org_id: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    user_id: str = Depends(require_view_platform),
+):
+    items = await super_admin_governance_service.list_commercial_records(
+        org_id=org_id, status=status, limit=limit
+    )
+    return api_success(data={"records": items})
+
+
+@router.post("/commercial-records")
+async def upsert_commercial_record(
+    body: CommercialRecordRequest,
+    user_id: str = Depends(require_manage_commercial),
+):
+    try:
+        payload: dict[str, Any] = body.model_dump(mode="json", exclude_none=True)
+        result = await super_admin_governance_service.upsert_commercial_record(
+            payload, user_id
+        )
+        return api_success(data=result, message="商业记录已保存")
+    except ValueError as exc:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
+
+
+@router.post("/subscription-requests/batch-decision")
+async def batch_decide_subscription_requests(
+    body: BatchSubscriptionDecisionRequest,
+    user_id: str = Depends(require_manage_memberships),
+):
+    completed: list[dict[str, Any]] = []
+    failed: list[dict[str, str]] = []
+    for request_id in body.request_ids:
+        try:
+            completed.append(
+                await super_admin_service.decide_subscription_request(
+                    request_id=request_id,
+                    decision=body.decision,
+                    reason=body.reason,
+                    admin_user_id=user_id,
+                    plan=body.plan,
+                    expires_at=(
+                        body.expires_at.isoformat() if body.expires_at else None
+                    ),
+                )
+            )
+        except Exception as exc:
+            failed.append({"request_id": request_id, "error": str(exc)})
+    return api_success(
+        data={"completed": completed, "failed": failed},
+        message=f"已处理 {len(completed)} 项申请",
+    )
 
 
 @router.get("/organizations")
@@ -76,7 +321,7 @@ async def list_organizations(
     limit: int = Query(default=20, ge=1, le=100),
     search: str | None = Query(default=None, max_length=200),
     status: str | None = Query(default=None),
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_view_platform),
 ):
     """列出所有组织（支持搜索和状态筛选）"""
     try:
@@ -97,7 +342,7 @@ async def list_organizations(
 @router.get("/organizations/{org_id}")
 async def get_organization_detail(
     org_id: str,
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_view_platform),
 ):
     """获取组织详情（含用户数、订阅状态、用量）"""
     try:
@@ -116,7 +361,7 @@ async def get_organization_detail(
 async def suspend_organization(
     org_id: str,
     body: SuspendRequest,
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_manage_organizations),
 ):
     """暂停组织"""
     try:
@@ -138,7 +383,7 @@ async def suspend_organization(
 @router.post("/organizations/{org_id}/unsuspend")
 async def unsuspend_organization(
     org_id: str,
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_manage_organizations),
 ):
     """恢复组织"""
     try:
@@ -159,7 +404,7 @@ async def unsuspend_organization(
 
 @router.get("/stats")
 async def get_platform_stats(
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_view_platform),
 ):
     """获取平台级统计数据"""
     try:
@@ -172,7 +417,7 @@ async def get_platform_stats(
 
 @router.get("/system-health")
 async def get_system_health(
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_view_platform),
 ):
     """系统健康检查"""
     try:
@@ -192,7 +437,7 @@ async def list_audit_logs(
     date_to: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_view_audit),
 ):
     """全局审计日志查看"""
     try:
@@ -221,7 +466,7 @@ async def list_audit_logs(
 async def admin_change_plan(
     org_id: str,
     body: ChangePlanRequest,
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_manage_memberships),
 ):
     """超级管理员手动变更组织订阅计划"""
     try:
@@ -242,7 +487,7 @@ async def admin_change_plan(
 async def admin_update_quotas(
     org_id: str,
     body: UpdateQuotasRequest,
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_manage_quotas),
 ):
     """超级管理员手动调整组织配额"""
     try:
@@ -268,7 +513,7 @@ async def admin_update_quotas(
 async def admin_set_access(
     org_id: str,
     body: SetAccessRequest,
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_manage_memberships),
 ):
     """Grant, renew, or revoke an organization's membership access."""
     try:
@@ -291,7 +536,7 @@ async def admin_set_access(
 async def list_subscription_requests(
     status: str = Query(default="pending"),
     limit: int = Query(default=100, ge=1, le=500),
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_view_platform),
 ):
     """List membership activation and renewal requests."""
     try:
@@ -308,7 +553,7 @@ async def list_subscription_requests(
 async def decide_subscription_request(
     request_id: str,
     body: SubscriptionDecisionRequest,
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_manage_memberships),
 ):
     """Approve or reject one membership request."""
     try:
@@ -332,7 +577,7 @@ async def decide_subscription_request(
 async def admin_manage_trial(
     org_id: str,
     body: ManageTrialRequest,
-    user_id: str = Depends(require_super_admin),
+    user_id: str = Depends(require_manage_memberships),
 ):
     """超级管理员手动管理组织试用期"""
     try:

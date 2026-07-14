@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { aiClient } from '@/api/aiClient';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface BillingPlan {
   id?: string;
@@ -59,7 +61,8 @@ export function usePlans() {
 }
 
 export function useSubscription() {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['billing', 'subscription'],
     queryFn: async () => {
       const res = await aiClient.fetch<{ success: boolean; data: { subscription: Subscription | null } }>(
@@ -73,6 +76,24 @@ export function useSubscription() {
     refetchOnWindowFocus: 'always',
     retry: 2,
   });
+
+  useEffect(() => {
+    const orgId = query.data?.org_id;
+    if (!orgId) return undefined;
+    const channel = supabase
+      .channel(`billing-entitlement:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'subscriptions', filter: `org_id=eq.${orgId}` },
+        () => queryClient.invalidateQueries({ queryKey: ['billing'] }),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [query.data?.org_id, queryClient]);
+
+  return query;
 }
 
 export function useLatestAccessRequest() {

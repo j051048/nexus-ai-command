@@ -50,6 +50,10 @@ class EventType(Enum):
     INVOICE_CREATED = "invoice.created"
     PAYMENT_RECEIVED = "payment.received"
 
+    # Platform entitlement events
+    SUBSCRIPTION_ACCESS_CHANGED = "subscription.access_changed"
+    SUBSCRIPTION_ACCESS_SCHEDULED = "subscription.access_scheduled"
+
     # Document Events
     DOCUMENT_UPLOADED = "document.uploaded"
     DOCUMENT_PROCESSED = "document.processed"

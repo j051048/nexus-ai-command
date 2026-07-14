@@ -1474,3 +1474,20 @@ async def _aggregate_one_tenant(
         metrics["roi_percent"] = 9999.0  # effectively infinite ROI
 
     return metrics
+
+
+@celery_app.task(base=NexusTask)
+@_with_redis_lock("apply_due_subscription_access_changes", lock_ttl=55)
+def apply_due_subscription_access_changes():
+    """Apply scheduled membership changes and publish entitlement events."""
+
+    async def _run():
+        from app.services.super_admin_governance_service import (
+            super_admin_governance_service,
+        )
+
+        return await super_admin_governance_service.apply_due_access_changes()
+
+    applied = _run_async(_run())
+    logger.info("Applied %s scheduled subscription access changes", applied)
+    return {"applied": applied}

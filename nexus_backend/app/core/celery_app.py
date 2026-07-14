@@ -160,6 +160,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.check_approval_timeouts",
         "schedule": 300.0,  # 每5分钟
     },
+    "subscription-access-change-poller": {
+        "task": "app.tasks.scheduler.apply_due_subscription_access_changes",
+        "schedule": 60.0,
+    },
     "im-platform-sync": {
         "task": "app.tasks.scheduler.sync_im_platforms",
         "schedule": 3600.0,  # 每小时
