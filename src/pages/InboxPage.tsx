@@ -31,7 +31,7 @@ import {
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { AITrustBadge, type AITrustLevel } from '@/components/ai/AITrustBadge';
 import { WorkEmptyState, WorkErrorState, WorkLoadingState } from '@/components/common/WorkState';
-import { useAuth } from '@/components/auth/AuthContext';
+import { OperationalMetricStrip } from '@/components/common/OperationalMetricStrip';
 import { cn } from '@/lib/utils';
 import {
   type ActionEventType,
@@ -135,6 +135,7 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
 
   return (
     <AIInsightPanel
+      surfaceId="inbox-priority"
       variant="compact"
       icon={CheckCircle2}
       title={`今日重点 · 建议先处理：${nextItem.title}`}
@@ -148,49 +149,22 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
       ]}
       actions={[
         {
-          label: '查看依据',
-          variant: 'outline',
-          prompt: '请用 3 条以内说明当前待办为什么这样排序，只给业务依据和建议动作。',
-        },
-        {
           label: '安排今天',
           variant: 'default',
           prompt: '请把当前待办整理成一份今天可以照着执行的工作计划。',
+        },
+        {
+          label: '查看依据',
+          variant: 'outline',
+          prompt: '请用 3 条以内说明当前待办为什么这样排序，只给业务依据和建议动作。',
         },
       ]}
     />
   );
 }
 
-function RoleGuidanceStrip({ role }: { role?: string | null }) {
-  const isBoss = role === 'boss' || role === 'founder';
-  const isManager = role === 'manager';
-  const title = isBoss ? '管理者今日视角' : isManager ? '团队负责人今日视角' : '个人执行视角';
-  const items = isBoss
-    ? ['先看高风险审批和合同', '复盘客户跟进断点', '生成经营摘要']
-    : isManager
-      ? ['处理团队待审批', '推进高价值客户', '检查项目和合同节点']
-      : ['清空个人待办', '记录客户拜访', '补齐审批材料'];
-
-  return (
-    <section className="border-y bg-muted/10 px-1 py-2.5">
-      <div className="flex flex-col gap-2 text-sm md:flex-row md:items-center md:justify-between">
-        <div className="font-medium">{title}</div>
-        <div className="flex min-w-0 flex-wrap divide-x text-xs text-muted-foreground">
-          {items.map((item) => (
-            <span key={item} className="px-2 first:pl-0">
-              {item}
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default function InboxPage() {
   const navigate = useNavigate();
-  const { role } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [showLaterItems, setShowLaterItems] = useState(false);
@@ -199,7 +173,7 @@ export default function InboxPage() {
   const executeAction = useExecuteInboxAction();
   const recordActionEvent = useRecordInboxActionEvent();
 
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
   const visibleItems = useMemo(
     () => (activeTab === 'all' ? items : items.filter((item) => item.source === activeTab)),
     [activeTab, items],
@@ -293,25 +267,18 @@ export default function InboxPage() {
             {isAllClear ? '今天没有必须处理的事项。' : `今天有 ${totalCount} 个待处理事项，已按风险和截止时间排序。`}
           </p>
         </div>
-        <div className="flex divide-x text-sm md:justify-end">
-          <div className="pr-4">
-            <div className="text-lg font-semibold">{totalCount}</div>
-            <div className="text-xs text-muted-foreground">待处理</div>
-          </div>
-          <div className="px-4">
-            <div className="text-lg font-semibold text-destructive">{urgentCount}</div>
-            <div className="text-xs text-muted-foreground">紧急</div>
-          </div>
-          <div className="pl-4">
-            <div className="text-lg font-semibold text-orange-600">{highCount}</div>
-            <div className="text-xs text-muted-foreground">高优先级</div>
-          </div>
-        </div>
       </header>
 
-      {!isLoading && !isError && items.length > 0 && <ActionInboxInsightStrip items={items} />}
-      {!isLoading && !isError && items.length === 0 && <RoleGuidanceStrip role={role} />}
+      <OperationalMetricStrip
+        ariaLabel="今日行动概览"
+        metrics={[
+          { label: '待处理', value: totalCount },
+          { label: '紧急', value: urgentCount, tone: urgentCount > 0 ? 'danger' : 'default' },
+          { label: '高优先级', value: highCount, tone: highCount > 0 ? 'warning' : 'default' },
+        ]}
+      />
 
+      {!isLoading && !isError && items.length > 0 && <ActionInboxInsightStrip items={items} />}
       <nav className="flex flex-wrap gap-1 border-b">
         {tabs.map((tab) => {
           const Icon = tab.icon;

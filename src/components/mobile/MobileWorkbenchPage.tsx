@@ -34,6 +34,7 @@ import {
   Award,
   Warehouse,
   Fingerprint,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -50,7 +51,7 @@ import {
 import MobileNativeCapturePanel from './MobileNativeCapturePanel';
 
 // ── Types ──
-type Role = 'boss' | 'manager' | 'employee' | 'ai_assistant';
+type Role = 'boss' | 'founder' | 'manager' | 'employee' | 'ai_assistant';
 
 interface WorkbenchItem {
   label: string;
@@ -332,7 +333,7 @@ export default function MobileWorkbenchPage() {
           <h3 className="mb-2 text-sm font-medium text-muted-foreground">
             最近使用
           </h3>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {recentItems.map((item) => {
               const Icon = item.icon;
               const moduleFlag = moduleForPath(item.path);
@@ -344,8 +345,8 @@ export default function MobileWorkbenchPage() {
                   type="button"
                   className={cn(
                     'relative flex flex-col items-center justify-center gap-1.5',
-                    'rounded-xl border border-primary/20 bg-primary/5 p-3',
-                    'transition-all active:scale-95 active:bg-accent',
+                    'min-h-20 rounded-md border border-primary/20 bg-primary/5 p-3',
+                    'transition-colors active:bg-accent',
                   )}
                   onClick={() => handleNavigate(item.path)}
                 >
@@ -370,13 +371,10 @@ export default function MobileWorkbenchPage() {
         const visibleItems = group.items.filter(isVisible);
         if (visibleItems.length === 0) return null;
 
-        return (
-          <section key={group.title}>
-            <h3 className="mb-2 text-sm font-medium text-muted-foreground">
-              {group.title}
-            </h3>
-            <div className="grid grid-cols-4 gap-3">
-              {visibleItems.map((item) => {
+        const isCoreGroup = !searchQuery && ['核心行动', '核心销售'].includes(group.title);
+        const itemContent = (
+          <div className={cn(isCoreGroup ? 'grid grid-cols-3 gap-2' : 'divide-y border-y bg-card/45')}>
+            {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const moduleFlag = moduleForPath(item.path);
                 const tier = moduleFlag ? getModuleTier(moduleFlag) : null;
@@ -388,9 +386,10 @@ export default function MobileWorkbenchPage() {
                     key={item.path}
                     type="button"
                     className={cn(
-                      'relative flex flex-col items-center justify-center gap-1.5',
-                      'rounded-xl border border-border bg-card p-3',
-                      'transition-all active:scale-95 active:bg-accent',
+                      'relative transition-colors active:bg-accent',
+                      isCoreGroup
+                        ? 'flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-md border bg-card p-3'
+                        : 'flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left',
                     )}
                     onClick={() => handleNavigate(item.path)}
                   >
@@ -405,8 +404,8 @@ export default function MobileWorkbenchPage() {
                         {item.badge! > 99 ? '99+' : item.badge}
                       </span>
                     )}
-                    <Icon className="h-6 w-6 text-foreground/80" />
-                    <span className="text-xs leading-tight text-foreground/70">
+                    <Icon className={cn('text-foreground/75', isCoreGroup ? 'h-5 w-5' : 'h-4 w-4')} />
+                    <span className={cn('text-xs text-foreground/80', !isCoreGroup && 'flex-1')}>
                       {item.label}
                     </span>
                     {tier && tier !== 'core' && (
@@ -414,11 +413,33 @@ export default function MobileWorkbenchPage() {
                         {MODULE_TIER_LABELS[tier]}
                       </span>
                     )}
+                    {!isCoreGroup && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   </button>
                 );
               })}
-            </div>
-          </section>
+          </div>
+        );
+
+        if (isCoreGroup || searchQuery) {
+          return (
+            <section key={group.title}>
+              <h3 className="mb-2 text-sm font-medium text-muted-foreground">{group.title}</h3>
+              {itemContent}
+            </section>
+          );
+        }
+
+        return (
+          <details key={group.title} className="group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between border-b text-sm font-medium text-muted-foreground">
+              <span>{group.title}</span>
+              <span className="flex items-center gap-1 text-xs">
+                {visibleItems.length}
+                <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
+              </span>
+            </summary>
+            <div className="pt-2">{itemContent}</div>
+          </details>
         );
       })}
 

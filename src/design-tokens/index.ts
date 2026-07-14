@@ -1,11 +1,12 @@
 export const tokens = {
   shadow: {
-    sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-    DEFAULT: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-    md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-    lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-    xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
-    glow: '0 0 20px var(--primary-glow)',
+    sm: 'var(--shadow-card)',
+    DEFAULT: 'var(--shadow-card)',
+    md: 'var(--shadow-card)',
+    lg: 'var(--shadow-elevated)',
+    xl: 'var(--shadow-elevated)',
+    /** @deprecated Compatibility only. New surfaces must use elevation. */
+    glow: 'var(--shadow-card)',
   },
   transition: {
     fast: '150ms cubic-bezier(0.4, 0, 0.2, 1)',

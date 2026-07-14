@@ -10,6 +10,7 @@ interface WorkStateProps {
   actionLabel?: string;
   onAction?: () => void;
   className?: string;
+  density?: 'compact' | 'page';
 }
 
 export function WorkEmptyState({
@@ -19,16 +20,23 @@ export function WorkEmptyState({
   actionLabel,
   onAction,
   className,
+  density = 'page',
 }: WorkStateProps) {
   return (
-    <div className={cn('rounded-lg border bg-card p-8 text-center shadow-sm', className)}>
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+    <div
+      className={cn(
+        'border-y bg-card/45 text-center',
+        density === 'compact' ? 'px-4 py-5' : 'px-5 py-8',
+        className,
+      )}
+    >
+      <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-md border bg-background text-muted-foreground">
         {icon}
       </div>
-      <h2 className="mt-4 font-semibold">{title}</h2>
-      {description && <div className="mx-auto mt-1 max-w-md text-sm leading-6 text-muted-foreground">{description}</div>}
+      <h2 className="mt-3 text-sm font-semibold">{title}</h2>
+      {description && <div className="mx-auto mt-1 max-w-md text-sm leading-5 text-muted-foreground">{description}</div>}
       {actionLabel && onAction && (
-        <Button className="mt-4" size="sm" onClick={onAction}>
+        <Button className="mt-3" size="sm" onClick={onAction}>
           {actionLabel}
         </Button>
       )}
@@ -57,9 +65,9 @@ export function WorkErrorState({
 
 export function WorkLoadingState({ title = '正在加载', description, className }: Partial<WorkStateProps>) {
   return (
-    <div className={cn('rounded-lg border bg-card p-8 text-center shadow-sm', className)}>
-      <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
-      <h2 className="mt-4 font-semibold">{title}</h2>
+    <div className={cn('border-y bg-card/45 px-5 py-8 text-center', className)}>
+      <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
+      <h2 className="mt-3 text-sm font-semibold">{title}</h2>
       {description && <div className="mt-1 text-sm text-muted-foreground">{description}</div>}
     </div>
   );

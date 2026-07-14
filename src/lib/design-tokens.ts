@@ -5,39 +5,39 @@
 
 // 状态颜色
 export const statusColors = {
-  pending: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+  pending: 'border border-amber-500/25 bg-amber-500/8 text-amber-700 dark:text-amber-300',
+  in_progress: 'border border-primary/25 bg-primary/8 text-primary',
+  completed: 'border border-emerald-500/25 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300',
+  failed: 'border border-destructive/25 bg-destructive/8 text-destructive',
+  cancelled: 'border border-border bg-muted/60 text-muted-foreground',
 } as const;
 
 // 语义化颜色
 export const semanticColors = {
-  success: 'text-green-600 dark:text-green-400',
-  warning: 'text-amber-600 dark:text-amber-400',
-  danger: 'text-red-600 dark:text-red-400',
-  info: 'text-blue-600 dark:text-blue-400',
+  success: 'text-emerald-700 dark:text-emerald-300',
+  warning: 'text-amber-700 dark:text-amber-300',
+  danger: 'text-destructive',
+  info: 'text-primary',
 } as const;
 
 // 图标颜色（用于统计卡片等）
 export const iconColors = {
-  blue: 'text-blue-500',
-  green: 'text-green-500',
-  orange: 'text-orange-500',
-  purple: 'text-purple-500',
-  red: 'text-red-500',
-  cyan: 'text-cyan-500',
+  blue: 'text-primary',
+  green: 'text-emerald-700 dark:text-emerald-300',
+  orange: 'text-amber-700 dark:text-amber-300',
+  purple: 'text-primary',
+  red: 'text-destructive',
+  cyan: 'text-primary',
 } as const;
 
 // 背景颜色（用于图标容器）
 export const iconBackgrounds = {
-  blue: 'bg-blue-500/10',
-  green: 'bg-green-500/10',
-  orange: 'bg-orange-500/10',
-  purple: 'bg-purple-500/10',
-  red: 'bg-red-500/10',
-  cyan: 'bg-cyan-500/10',
+  blue: 'border border-primary/20 bg-primary/8',
+  green: 'border border-emerald-500/20 bg-emerald-500/8',
+  orange: 'border border-amber-500/20 bg-amber-500/8',
+  purple: 'border border-primary/20 bg-primary/8',
+  red: 'border border-destructive/20 bg-destructive/8',
+  cyan: 'border border-primary/20 bg-primary/8',
 } as const;
 
 // 间距系统（基于 4px）
@@ -70,9 +70,9 @@ export const typography = {
 // 阴影层级
 export const shadows = {
   sm: 'shadow-sm',
-  md: 'shadow-md',
-  lg: 'shadow-lg',
-  xl: 'shadow-xl',
+  md: 'shadow-[var(--shadow-card)]',
+  lg: 'shadow-[var(--shadow-elevated)]',
+  xl: 'shadow-[var(--shadow-elevated)]',
 } as const;
 
 // 圆角

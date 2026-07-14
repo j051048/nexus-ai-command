@@ -39,6 +39,37 @@ describe('frontend density guard', () => {
     expect(tender).not.toContain('data-testid="ai-insight-panel"');
     expect(tender).toContain('TenderReportSections');
     expect(tender).toContain('useState(false)');
+    expect(aiPanel).toContain('data-ai-surface');
+    expect(crm).toContain('surfaceId="crm-next-action"');
+    expect(approval).toContain('surfaceId="approval-risk"');
+    expect(contracts).toContain('surfaceId="contract-next-action"');
+    expect(tender).toContain('surfaceId="tender-next-action"');
+  });
+
+  it('keeps Agent Ops operational details behind focused sections', () => {
+    const center = source('src/pages/AgentImprovementCenterPage.tsx');
+    const overview = source('src/components/agent-ops/AgentOpsOverview.tsx');
+    const releases = source('src/components/agent-ops/AgentOpsReleases.tsx');
+    const runtime = source('src/components/agent-ops/AgentOpsRuntime.tsx');
+
+    expect(center).toContain('总览');
+    expect(center).toContain('质量');
+    expect(center).toContain('发布');
+    expect(center).toContain('运行');
+    expect(overview).toContain('需要处理');
+    expect(releases).toContain('查看 Prompt / Context / Tool 差异');
+    expect(runtime).toContain('高级运行时能力');
+    expect(center).not.toContain('Boss View');
+    expect(center).not.toContain('Admin Control Plane');
+  });
+
+  it('keeps mobile core actions visible and low-frequency modules disclosed on demand', () => {
+    const mobileWorkbench = source('src/components/mobile/MobileWorkbenchPage.tsx');
+
+    expect(mobileWorkbench).toContain("['核心行动', '核心销售']");
+    expect(mobileWorkbench).toContain('<details key={group.title}');
+    expect(mobileWorkbench).toContain('MobileNativeCapturePanel');
+    expect(mobileWorkbench).not.toContain('active:scale-95');
   });
 
   it('keeps hidden modules reachable through action-oriented command entries', () => {

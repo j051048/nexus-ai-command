@@ -16,9 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AIQuickActions } from '@/components/ai/AIQuickActions';
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
-import { AlertTriangle, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Plus, ShieldCheck } from 'lucide-react';
 
 function ApprovalAIRiskPanel({
   isBoss,
@@ -42,6 +41,7 @@ function ApprovalAIRiskPanel({
 
   return (
     <AIInsightPanel
+      surfaceId="approval-risk"
       variant="compact"
       icon={pending > 0 ? AlertTriangle : ShieldCheck}
       title="下一步审批动作"
@@ -71,6 +71,7 @@ export function ApprovalCenter() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState(isBoss ? 'pending' : 'mine');
+  const [showCreate, setShowCreate] = useState(false);
 
   // 数据源
   const { data: typeConfigs = [] } = useApprovalTypeConfig();
@@ -99,6 +100,7 @@ export function ApprovalCenter() {
 
   const handleTypeSelect = (typeCode: string) => {
     setSelectedTypeCode(prev => prev === typeCode ? null : typeCode);
+    setShowCreate(true);
     // 切换到"我发起的"标签页，方便提交后查看
     if (activeTab === 'pending') {
       setActiveTab('mine');
@@ -128,12 +130,14 @@ export function ApprovalCenter() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowCreate((value) => !value)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            发起审批
+          </Button>
           <NotificationBell />
         </div>
       </div>
-
-      <AIQuickActions pageType="approval" />
 
       <ApprovalAIRiskPanel
         isBoss={isBoss}
@@ -142,22 +146,23 @@ export function ApprovalCenter() {
       />
 
       {/* 审批类型入口卡片（动态渲染） */}
-      {typeConfigs.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            发起审批
-          </h2>
+      {showCreate && typeConfigs.length > 0 && (
+        <section className="border-y bg-card/45 px-3 py-3">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">选择审批类型</h2>
+            <Button size="sm" variant="ghost" onClick={() => setShowCreate(false)}>收起</Button>
+          </div>
           <ApprovalTypeGrid
             types={typeConfigs}
             selectedType={selectedTypeCode}
             onSelect={handleTypeSelect}
           />
-        </div>
+        </section>
       )}
 
       {/* 选中类型后展开提交表单（复用 EmployeeApprovalView） */}
-      {selectedTypeCode && (
-        <div className="border rounded-xl p-1">
+      {showCreate && selectedTypeCode && (
+        <div className="border-y bg-card/45 p-1">
           <EmployeeApprovalView />
         </div>
       )}

@@ -5,6 +5,7 @@ import {
   Columns2,
   GripVertical,
   MessageSquareText,
+  PanelLeft,
   PanelRightClose,
   PanelRightOpen,
   PanelsTopLeft,
@@ -30,9 +31,11 @@ interface ChatFirstLayoutProps {
 type WorkspaceMode = 'business' | 'split' | 'assistant';
 
 const CHAT_WIDTH_KEY = 'nexus.ai-workspace-width';
-const DEFAULT_CHAT_WIDTH = 480;
-const MIN_CHAT_WIDTH = 360;
-const MAX_CHAT_WIDTH = 760;
+const DEFAULT_CHAT_WIDTH = 560;
+const MIN_CHAT_WIDTH = 400;
+const MAX_CHAT_WIDTH = 840;
+const MIN_BUSINESS_WIDTH = 640;
+const CHAT_WIDTH_PRESETS = [420, 560, 720] as const;
 
 function readStoredChatWidth() {
   if (typeof window === 'undefined') return DEFAULT_CHAT_WIDTH;
@@ -42,6 +45,11 @@ function readStoredChatWidth() {
   return Number.isFinite(stored)
     ? Math.min(MAX_CHAT_WIDTH, Math.max(MIN_CHAT_WIDTH, stored))
     : DEFAULT_CHAT_WIDTH;
+}
+
+function getWorkspaceWidth(panel: HTMLDivElement | null) {
+  const measuredWidth = panel?.parentElement?.clientWidth ?? 0;
+  return measuredWidth > 0 ? measuredWidth : window.innerWidth;
 }
 
 function AssistantStatusPill({
@@ -134,7 +142,8 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     event.preventDefault();
     const panelLeft = chatPanelRef.current?.getBoundingClientRect().left ?? 0;
     const onMove = (moveEvent: PointerEvent) => {
-      const viewportMax = Math.max(MIN_CHAT_WIDTH, window.innerWidth * 0.62);
+      const workspaceWidth = getWorkspaceWidth(chatPanelRef.current);
+      const viewportMax = Math.max(MIN_CHAT_WIDTH, workspaceWidth - MIN_BUSINESS_WIDTH);
       const nextWidth = Math.min(
         MAX_CHAT_WIDTH,
         viewportMax,
@@ -149,6 +158,14 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   }, []);
+
+  const cycleChatWidth = useCallback(() => {
+    const currentIndex = CHAT_WIDTH_PRESETS.findIndex((preset) => chatWidth < preset + 40);
+    const nextPreset = CHAT_WIDTH_PRESETS[(currentIndex + 1) % CHAT_WIDTH_PRESETS.length];
+    const workspaceWidth = getWorkspaceWidth(chatPanelRef.current);
+    const availableWidth = Math.max(MIN_CHAT_WIDTH, workspaceWidth - MIN_BUSINESS_WIDTH);
+    setChatWidth(Math.min(nextPreset, availableWidth, MAX_CHAT_WIDTH));
+  }, [chatWidth]);
 
   const resizeByKeyboard = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
@@ -193,7 +210,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
           )}
           style={
             isChatOpen
-              ? { width: isCanvasOpen ? `${chatWidth}px` : '100%' }
+              ? { width: isCanvasOpen ? `min(${chatWidth}px, 100vw)` : '100%' }
               : undefined
           }
         >
@@ -265,6 +282,18 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                   <MessageSquareText className="h-3.5 w-3.5" />
                 </Button>
               </div>
+              {workspaceMode === 'split' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden h-8 w-8 text-muted-foreground hover:text-foreground lg:inline-flex"
+                  onClick={cycleChatWidth}
+                  aria-label="切换助手面板宽度"
+                  title={`切换助手宽度，当前 ${chatWidth}px`}
+                >
+                  <PanelLeft className="h-4 w-4" />
+                </Button>
+              )}
               <AssistantStatusPill isChatOpen={isChatOpen} onOpen={() => setIsChatOpen(true)} />
               <NotificationCenter />
               <Button

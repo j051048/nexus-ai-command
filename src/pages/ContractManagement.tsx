@@ -119,6 +119,7 @@ function ContractAIInsightLayer({ contracts }: { contracts: Contract[] }) {
 
   return (
     <AIInsightPanel
+      surfaceId="contract-next-action"
       variant="compact"
       title={nextTitle}
       summary={nextReason}

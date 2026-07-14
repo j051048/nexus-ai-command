@@ -198,7 +198,7 @@ export default function AIOperatingSystemPage() {
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-xl font-semibold">AI 作战室</h1>
+            <h1 className="text-xl font-semibold">AI 运营工作台</h1>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />系统运行中

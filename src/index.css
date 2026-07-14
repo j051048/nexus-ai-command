@@ -5,7 +5,7 @@
 /* Nexus Precision Operations design system. */
 /* Quiet enterprise surfaces, calibrated hierarchy, restrained motion. */
 
-/* ==================== A8: 移动端触控优化 ==================== */
+/* Mobile interaction baseline. */
 
 /* Mobile touch optimizations */
 html {
@@ -179,20 +179,20 @@ html, body {
     --sidebar-border: 0 0% 15%;
     --sidebar-ring: 211 100% 50%;
 
-    /* Gamification */
-    --gold: 45 100% 50%;
-    --silver: 0 0% 75%;
-    --bronze: 30 60% 45%;
-    --xp-bar: 280 100% 60%;
+    /* Deprecated compatibility aliases remain semantic and non-decorative. */
+    --gold: 36 74% 52%;
+    --silver: 220 8% 62%;
+    --bronze: 25 42% 52%;
+    --xp-bar: 214 68% 58%;
 
-    /* Gradients - Dark Mode */
-    --gradient-primary: linear-gradient(135deg, hsl(211 100% 50%) 0%, hsl(211 100% 65%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 69% 45%) 0%, hsl(142 69% 55%) 100%);
-    --gradient-warning: linear-gradient(135deg, hsl(36 100% 50%) 0%, hsl(36 100% 60%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(45 100% 45%) 0%, hsl(55 100% 55%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(0 0% 10%) 0%, hsl(0 0% 7%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 12%) 0%, hsl(0 0% 9%) 100%);
-    --gradient-cyber: linear-gradient(135deg, hsl(211 100% 50% / 0.1) 0%, hsl(142 69% 50% / 0.1) 100%);
+    /* Legacy gradient properties resolve to calibrated solid surfaces. */
+    --gradient-primary: hsl(var(--primary));
+    --gradient-success: hsl(var(--success));
+    --gradient-warning: hsl(var(--warning));
+    --gradient-gold: hsl(var(--warning));
+    --gradient-dark: hsl(var(--background));
+    --gradient-card: hsl(var(--card));
+    --gradient-cyber: hsl(var(--muted));
 
     /* Shadows - Dark Mode (multi-layer with brightness steps) */
     --shadow-glow-primary: none;
@@ -933,13 +933,13 @@ html, body {
   }
 }
 
-/* ==================== 焦点指示器增强 ==================== */
+/* Accessible focus indicator. */
 *:focus-visible {
   outline: 3px solid hsl(var(--primary));
   outline-offset: 2px;
 }
 
-/* ==================== 减弱动画支持 ==================== */
+/* Reduced-motion support. */
 .reduce-motion *,
 .reduce-motion *::before,
 .reduce-motion *::after {

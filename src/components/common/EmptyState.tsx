@@ -1,6 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { WorkEmptyState } from '@/components/common/WorkState';
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -15,22 +14,15 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className={cn("flex flex-col items-center justify-center py-16 px-4", className)}>
-      {icon && (
-        <div className="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mb-6 text-muted-foreground">
-          {icon}
-        </div>
-      )}
-      <h3 className="text-heading-sm mb-2">{title}</h3>
-      <p className="text-body-sm text-muted-foreground text-center max-w-md mb-6">
-        {description}
-      </p>
-      {action && (
-        <Button onClick={action.onClick} size="lg">
-          {action.label}
-        </Button>
-      )}
-    </div>
+    <WorkEmptyState
+      className={className}
+      density="compact"
+      icon={icon}
+      title={title}
+      description={description}
+      actionLabel={action?.label}
+      onAction={action?.onClick}
+    />
   );
 }
 

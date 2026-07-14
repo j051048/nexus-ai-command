@@ -543,6 +543,7 @@ export function TenderAnalysisPage() {
             </div>
 
             <AIInsightPanel
+                surfaceId="tender-next-action"
                 variant="compact"
                 icon={ListChecks}
                 title={nextActionTitle}

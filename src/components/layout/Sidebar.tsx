@@ -19,7 +19,6 @@ import {
   Users,
   FileCheck,
   BookOpen,
-  Gift,
   Settings,
   Bot,
   TrendingUp,
@@ -37,19 +36,13 @@ import {
   DollarSign,
   Clock,
   ChevronLeft,
-  Upload,
   Building2,
   Contact,
   FileSignature,
   BarChart3,
-  CreditCard,
   Puzzle,
   GraduationCap,
-  ClipboardList,
-  Key,
   Rocket,
-  ListTodo,
-  Bot as BotIcon,
   ShieldCheck,
   Shield,
   Cpu,
@@ -58,15 +51,8 @@ import {
   Inbox,
   Wrench,
   Package,
-  Award,
   Warehouse,
-  Fingerprint,
   Workflow,
-  FileEdit,
-  LayoutTemplate,
-  Pin,
-  PinOff,
-  Star,
   Network,
   Search,
   Activity,
@@ -105,7 +91,6 @@ interface NavItem {
 }
 
 const COLLAPSED_GROUPS_KEY = "nexus:sidebar-collapsed-groups";
-const PINNED_ITEMS_KEY = "nexus:sidebar-pinned-items";
 const ENABLED_MODULES_KEY = "nexus:enabled-modules";
 
 function loadCollapsedGroups(): Record<string, boolean> {
@@ -117,21 +102,8 @@ function loadCollapsedGroups(): Record<string, boolean> {
   }
 }
 
-function loadPinnedItems(): string[] {
-  try {
-    const raw = localStorage.getItem(PINNED_ITEMS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
 function saveCollapsedGroups(state: Record<string, boolean>) {
   localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(state));
-}
-
-function savePinnedItems(items: string[]) {
-  localStorage.setItem(PINNED_ITEMS_KEY, JSON.stringify(items));
 }
 
 function loadEnabledModules(): string[] {
@@ -283,7 +255,6 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
-  const [pinnedHrefs, setPinnedHrefs] = useState<string[]>(loadPinnedItems);
   const [enabledModules, setEnabledModules] = useState<string[]>(loadEnabledModules);
   const [showModuleManager, setShowModuleManager] = useState(false);
 
@@ -433,11 +404,11 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
           <div className="px-3 mt-2 border-t border-sidebar-border pt-2">
             <button
               onClick={() => setShowModuleManager(!showModuleManager)}
-              className="flex items-center justify-between w-full px-3 py-2 text-micro font-black text-sidebar-foreground/30 uppercase tracking-[0.2em] hover:text-sidebar-foreground/50 transition-colors"
+              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-medium text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground/75"
             >
               <span className="flex items-center gap-1.5">
                 <Puzzle size={10} />
-                更多能力
+                更多应用
               </span>
               {showModuleManager ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
             </button>
@@ -461,7 +432,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
                         saveEnabledModules(next);
                       }}
                       className={cn(
-                        "flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs transition-all",
+                        "flex w-full items-center justify-between rounded-md px-3 py-2 text-xs transition-colors",
                         enabled
                           ? "text-sidebar-foreground/80 bg-sidebar-accent/50"
                           : "text-sidebar-foreground/40 hover:text-sidebar-foreground/60 hover:bg-sidebar-accent/20"
@@ -498,7 +469,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
               isCollapsed && "justify-center"
             )}
           >
-            <div className="relative shrink-0 w-9 h-9 rounded-full bg-sidebar-accent/50 border border-sidebar-border flex items-center justify-center overflow-hidden group-hover:border-sidebar-primary/30 group-hover:shadow-[var(--shadow-card)] transition-all">
+            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sidebar-border bg-sidebar-accent/50 transition-colors group-hover:border-sidebar-primary/30">
               {profile?.avatar ? (
                 <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
               ) : (
@@ -508,15 +479,12 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0 transition-opacity duration-300">
-                <p className="text-xs font-bold text-sidebar-foreground group-hover:text-sidebar-primary transition-colors truncate">
-                  {(() => {
-                    if (import.meta.env.DEV) console.log('[Sidebar] Rendering name with profile:', profile?.name);
-                    return profile?.name || "BOSS";
-                  })()}
+                <p className="truncate text-xs font-medium text-sidebar-foreground transition-colors group-hover:text-sidebar-primary">
+                  {profile?.name || "用户"}
                 </p>
                 <div className="flex items-center gap-1">
-                  <p className="text-micro text-sidebar-foreground/50 uppercase font-bold tracking-tighter italic truncate">
-                    {role || "顶级精英"}
+                  <p className="truncate text-[11px] text-sidebar-foreground/50">
+                    {role === 'boss' || role === 'founder' ? '管理者' : role === 'manager' ? '团队负责人' : '成员'}
                   </p>
                   <Settings size={10} className="text-sidebar-foreground/20 group-hover:text-sidebar-primary/60 transition-colors" />
                 </div>

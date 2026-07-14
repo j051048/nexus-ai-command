@@ -3,9 +3,8 @@ import { Loader2, NotebookPen, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
-import { AIQuickActions } from '@/components/ai/AIQuickActions';
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
-import { AITrustBadge } from '@/components/ai/AITrustBadge';
+import { OperationalMetricStrip } from '@/components/common/OperationalMetricStrip';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -68,16 +67,16 @@ function CRMAIInsightLayer({
 
   return (
     <AIInsightPanel
+      surfaceId="crm-next-action"
       variant="compact"
       title={`下一步客户动作：${nextCustomer.name}`}
       summary={nextReason}
       trustLevel={trustLevel}
       score={trustLevel === 'high' ? 88 : 74}
       stats={[
-        { label: `${Number(stats?.total_customers ?? customers.length)} 客户`, value: '' },
-        { label: `${staleCustomers.length} 停滞`, value: '' },
-        { label: `${highValueOpen.length} 高价值`, value: '' },
-        { label: 'AI 风险依据', value: '' },
+        { label: '客户', value: Number(stats?.total_customers ?? customers.length) },
+        { label: '停滞', value: staleCustomers.length },
+        { label: '高价值', value: highValueOpen.length },
       ]}
       actions={[
         {
@@ -111,19 +110,12 @@ function StatsBar() {
   ];
 
   return (
-    <div className="grid grid-cols-2 divide-x divide-y border md:grid-cols-5 md:divide-y-0">
-      {items.map((item) => (
-        <div key={item.label} className="px-4 py-3">
-          <div className="text-xs text-muted-foreground">{item.label}</div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">{item.value}</div>
-        </div>
-      ))}
-    </div>
+    <OperationalMetricStrip metrics={items} ariaLabel="客户经营概览" />
   );
 }
 
 function CRMPage() {
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [stageFilter, setStageFilter] = useState('all');
@@ -193,7 +185,6 @@ function CRMPage() {
       </div>
 
       <StatsBar />
-      <AIQuickActions pageType="crm" />
       <CRMAIInsightLayer customers={customers} stats={statsQuery.data} />
 
       <CustomerFilters

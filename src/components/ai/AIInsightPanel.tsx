@@ -1,9 +1,15 @@
 import { useState, type ElementType, type ReactNode } from 'react';
-import { AlertTriangle, ArrowRight, Bot } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bot, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ExperienceFeedback } from '@/components/feedback/ExperienceFeedback';
 import { httpClient } from '@/lib/httpClient';
 import { cn } from '@/lib/utils';
@@ -41,6 +47,7 @@ export interface AIInsightStat {
 }
 
 interface AIInsightPanelProps {
+  surfaceId: string;
   title: string;
   summary: ReactNode;
   trustLevel?: AITrustLevel;
@@ -67,6 +74,7 @@ function triggerAI(prompt: string) {
 }
 
 export function AIInsightPanel({
+  surfaceId,
   title,
   summary,
   trustLevel = 'medium',
@@ -120,9 +128,11 @@ export function AIInsightPanel({
 
   // ── compact 变体：页内嵌入窄横幅（审批/合同/CRM/标书等页面顶部）──
   if (isCompact) {
+    const [primaryAction, ...secondaryActions] = actions;
     return (
       <section
-        data-testid="ai-insight-panel"
+        data-testid={`ai-insight-panel-${surfaceId}`}
+        data-ai-surface={surfaceId}
         className={cn(
           'rounded-lg border border-l-2 border-l-primary/55 bg-card px-3 py-2.5',
           className,
@@ -152,7 +162,8 @@ export function AIInsightPanel({
                 ))}
               </div>
             )}
-            {actions.map((action) => {
+            {primaryAction && (() => {
+              const action = primaryAction;
               const actionKey = action.actionId || action.label;
               return (
                 <Button
@@ -166,7 +177,30 @@ export function AIInsightPanel({
                   {executingAction === actionKey ? '执行中...' : action.label}
                 </Button>
               );
-            })}
+            })()}
+            {secondaryActions.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="更多建议操作">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {secondaryActions.map((action) => {
+                    const actionKey = action.actionId || action.label;
+                    return (
+                      <DropdownMenuItem
+                        key={actionKey}
+                        disabled={action.disabled || executingAction === actionKey}
+                        onClick={() => handleAction(action)}
+                      >
+                        {executingAction === actionKey ? '执行中...' : action.label}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </section>
@@ -176,7 +210,8 @@ export function AIInsightPanel({
   // ── default 变体：页首主洞察（收件箱顶部等，p-4 + 证据网格）──
   return (
     <section
-      data-testid="ai-insight-panel"
+      data-testid={`ai-insight-panel-${surfaceId}`}
+      data-ai-surface={surfaceId}
       className={cn(
         'rounded-lg border border-l-2 border-l-primary/55 bg-card p-4',
         className,

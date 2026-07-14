@@ -21,6 +21,13 @@ const coreFiles = [
   'src/pages/ContractManagement.tsx',
   'src/pages/TenderAnalysisPage.tsx',
   'src/pages/AIOperatingSystemPage.tsx',
+  'src/pages/AgentImprovementCenterPage.tsx',
+  'src/components/agent-ops/AgentOpsOverview.tsx',
+  'src/components/agent-ops/AgentOpsQuality.tsx',
+  'src/components/agent-ops/AgentOpsReleases.tsx',
+  'src/components/agent-ops/AgentOpsRuntime.tsx',
+  'src/components/common/OperationalMetricStrip.tsx',
+  'src/components/mobile/MobileWorkbenchPage.tsx',
 ];
 
 const forbidden = [
@@ -39,6 +46,15 @@ for (const file of coreFiles) {
   for (const [label, pattern] of forbidden) {
     if (pattern.test(source)) failures.push(`${file}: ${label}`);
   }
+}
+
+const designSystem = fs.readFileSync('src/index.css', 'utf8');
+const tokenSource = fs.readFileSync('src/design-tokens/index.ts', 'utf8');
+if (/--gradient-(?:primary|card|cyber):\s*linear-gradient/.test(designSystem)) {
+  failures.push('src/index.css: active decorative gradient token');
+}
+if (/glow:\s*['"]0 0/.test(tokenSource)) {
+  failures.push('src/design-tokens/index.ts: active glow shadow token');
 }
 
 if (failures.length) {

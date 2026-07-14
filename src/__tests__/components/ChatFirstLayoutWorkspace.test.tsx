@@ -45,6 +45,19 @@ describe('ChatFirstLayout workspace modes', () => {
     );
     const separator = screen.getByRole('separator', { name: '调整助手面板宽度' });
     fireEvent.keyDown(separator, { key: 'ArrowRight' });
-    expect(separator).toHaveAttribute('aria-valuenow', '504');
+    expect(separator).toHaveAttribute('aria-valuenow', '584');
+  });
+
+  it('offers a width preset without hiding either workspace', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1600 });
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <ChatFirstLayout><div>Business surface</div></ChatFirstLayout>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByLabelText('切换助手面板宽度'));
+    expect(screen.getByRole('separator', { name: '调整助手面板宽度' })).toHaveAttribute('aria-valuenow', '720');
+    expect(screen.getByText('Business surface')).toBeInTheDocument();
   });
 });
