@@ -53,7 +53,7 @@ BEGIN
     CREATE POLICY subscription_requests_org_read
       ON public.subscription_access_requests
       FOR SELECT
-      USING (org_id = get_user_org_id());
+      USING (org_id = (public.get_user_org_id(auth.uid()))::text);
   END IF;
 
   IF NOT EXISTS (
@@ -65,7 +65,7 @@ BEGIN
     CREATE POLICY subscription_requests_org_insert
       ON public.subscription_access_requests
       FOR INSERT
-      WITH CHECK (org_id = get_user_org_id());
+      WITH CHECK (org_id = (public.get_user_org_id(auth.uid()))::text);
   END IF;
 
   IF NOT EXISTS (
@@ -77,8 +77,8 @@ BEGIN
     CREATE POLICY subscription_requests_org_cancel
       ON public.subscription_access_requests
       FOR UPDATE
-      USING (org_id = get_user_org_id() AND status = 'pending')
-      WITH CHECK (org_id = get_user_org_id() AND status = 'cancelled');
+      USING (org_id = (public.get_user_org_id(auth.uid()))::text AND status = 'pending')
+      WITH CHECK (org_id = (public.get_user_org_id(auth.uid()))::text AND status = 'cancelled');
   END IF;
 END
 $$;
