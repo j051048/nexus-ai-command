@@ -1,13 +1,13 @@
-/**
- * Billing hooks — React Query 封装
- */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { aiClient } from '@/api/aiClient';
 
 export interface BillingPlan {
-  id: string;
+  id?: string;
+  plan?: string;
   name: string;
-  price: number;
+  price?: number;
+  price_monthly_usd?: number;
   yearly?: number;
   features: string[];
   popular?: boolean;
@@ -17,9 +17,25 @@ export interface Subscription {
   org_id: string;
   plan: string;
   status: string;
-  current_period_end?: string;
-  stripe_customer_id?: string;
-  trial_ends_at?: string;
+  current_period_end?: string | null;
+  access_source?: 'default' | 'self_service' | 'admin_approved' | 'admin_override' | 'payment_provider';
+  approved_at?: string | null;
+  has_paid_access: boolean;
+  is_expired: boolean;
+  notice_policy: 'none' | 'action_required';
+}
+
+export interface SubscriptionAccessRequest {
+  id: string;
+  org_id: string;
+  requested_plan: string;
+  requested_days: number;
+  note?: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  review_reason?: string | null;
+  approved_expires_at?: string | null;
+  created_at: string;
+  reviewed_at?: string | null;
 }
 
 export interface UsageStats {
@@ -31,7 +47,6 @@ export interface UsageStats {
   storage_limit_mb: number;
 }
 
-/** 获取计划目录 */
 export function usePlans() {
   return useQuery({
     queryKey: ['billing', 'plans'],
@@ -39,22 +54,61 @@ export function usePlans() {
       const res = await aiClient.fetch<{ success: boolean; data: { plans: BillingPlan[] } }>('api/billing/plans');
       return res.data.plans;
     },
-    staleTime: 1000 * 60 * 30, // 30 min
+    staleTime: 30 * 60 * 1000,
   });
 }
 
-/** 获取当前订阅 */
 export function useSubscription() {
   return useQuery({
     queryKey: ['billing', 'subscription'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: { subscription: Subscription | null } }>('api/billing/subscription');
+      const res = await aiClient.fetch<{ success: boolean; data: { subscription: Subscription | null } }>(
+        'api/billing/subscription',
+      );
       return res.data.subscription;
+    },
+    staleTime: 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: 'always',
+    retry: 2,
+  });
+}
+
+export function useLatestAccessRequest() {
+  return useQuery({
+    queryKey: ['billing', 'access-request'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{
+        success: boolean;
+        data: { request: SubscriptionAccessRequest | null };
+      }>('api/billing/access-request');
+      return res.data.request;
+    },
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: 'always',
+  });
+}
+
+export function useRequestAccess() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ plan, requestedDays, note }: { plan: string; requestedDays: number; note: string }) => {
+      const res = await aiClient.fetch<{
+        success: boolean;
+        data: { request: SubscriptionAccessRequest };
+      }>('api/billing/access-request', {
+        method: 'POST',
+        body: JSON.stringify({ plan, requested_days: requestedDays, note }),
+      });
+      return res.data.request;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['billing'] });
     },
   });
 }
 
-/** 获取用量统计 */
 export function useUsageStats() {
   return useQuery({
     queryKey: ['billing', 'usage'],
@@ -62,64 +116,63 @@ export function useUsageStats() {
       const res = await aiClient.fetch<{ success: boolean; data: UsageStats }>('api/billing/usage');
       return res.data;
     },
-    refetchInterval: 1000 * 60 * 5, // 5 min
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 
-/** 订阅计划 */
+/** Compatibility hooks retained for existing payment-provider deployments. */
 export function useSubscribe() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (plan: string) => {
       const res = await aiClient.fetch<{ success: boolean; data: { subscription: Subscription } }>(
         'api/billing/subscribe',
-        { method: 'POST', body: JSON.stringify({ plan }) }
+        { method: 'POST', body: JSON.stringify({ plan }) },
       );
       return res.data.subscription;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['billing'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['billing'] }),
   });
 }
 
-/** 取消订阅 */
 export function useCancelSubscription() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: { cancelled: boolean } }>(
-        'api/billing/cancel',
-        { method: 'POST' }
-      );
+      const res = await aiClient.fetch<{ success: boolean; data: { cancelled: boolean } }>('api/billing/cancel', {
+        method: 'POST',
+      });
       return res.data.cancelled;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['billing'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['billing'] }),
   });
 }
 
-/** 创建 Stripe Checkout Session */
 export function useCheckout() {
   return useMutation({
     mutationFn: async ({ planId, successUrl, cancelUrl }: { planId: string; successUrl: string; cancelUrl: string }) => {
       const res = await aiClient.fetch<{ success: boolean; data: { url: string; session_id: string } }>(
         'api/billing/checkout',
-        { method: 'POST', body: JSON.stringify({ plan_id: planId, success_url: successUrl, cancel_url: cancelUrl }) }
+        {
+          method: 'POST',
+          body: JSON.stringify({ plan_id: planId, success_url: successUrl, cancel_url: cancelUrl }),
+        },
       );
       return res.data;
     },
   });
 }
 
-/** 开始试用 */
 export function useStartTrial() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (days = 14) => {
-      const res = await aiClient.fetch<{ success: boolean; data: unknown }>(
-        'api/billing/trial',
-        { method: 'POST', body: JSON.stringify({ days }) }
-      );
+      const res = await aiClient.fetch<{ success: boolean; data: unknown }>('api/billing/trial', {
+        method: 'POST',
+        body: JSON.stringify({ days }),
+      });
       return res.data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['billing'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['billing'] }),
   });
 }

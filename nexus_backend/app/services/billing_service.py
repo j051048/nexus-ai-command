@@ -9,9 +9,11 @@ In production, creates real Stripe Checkout Sessions and manages subscription li
 import logging
 import os
 import time as _time
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +165,45 @@ class Subscription:
     stripe_customer_id: str | None = None
     stripe_subscription_id: str | None = None
     current_period_end: str | None = None
+    access_source: str = "self_service"
+    approved_by: str | None = None
+    approved_at: str | None = None
+
+    def to_public_dict(self) -> dict[str, Any]:
+        """Return the canonical client-facing entitlement state."""
+        now = datetime.now(UTC)
+        expires_at = _parse_datetime(self.current_period_end)
+        is_expired = bool(expires_at and expires_at <= now)
+        status_allows_access = self.status in {"active", "trialing"}
+        has_paid_access = (
+            self.plan != BillingPlan.FREE and status_allows_access and not is_expired
+        )
+        needs_attention = self.status in {"past_due", "expired", "suspended"}
+
+        return {
+            "org_id": self.org_id,
+            "plan": self.plan.value,
+            "status": "expired" if is_expired else self.status,
+            "current_period_end": self.current_period_end,
+            "access_source": self.access_source,
+            "approved_at": self.approved_at,
+            "has_paid_access": has_paid_access,
+            "is_expired": is_expired,
+            # Marketing prompts are never shown for a valid admin-approved term.
+            "notice_policy": (
+                "action_required" if needs_attention or is_expired else "none"
+            ),
+        }
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    except ValueError:
+        return None
 
 
 class BillingService:
@@ -184,6 +225,10 @@ class BillingService:
                 p["mode"] = "sandbox"
                 p["_dev_warning"] = "Stripe not configured. Billing is simulated."
         return plans
+
+    def invalidate_subscription(self, org_id: str) -> None:
+        """Invalidate an org entitlement after an admin or provider mutation."""
+        self._subscriptions.pop(org_id, None)
 
     async def get_subscription(self, org_id: str, db=None) -> Subscription:
         """Get an org's current subscription. Always checks DB if cache expired."""
@@ -211,6 +256,9 @@ class BillingService:
                         stripe_customer_id=res.data.get("stripe_customer_id"),
                         stripe_subscription_id=res.data.get("stripe_subscription_id"),
                         current_period_end=res.data.get("current_period_end"),
+                        access_source=res.data.get("access_source", "self_service"),
+                        approved_by=res.data.get("approved_by"),
+                        approved_at=res.data.get("approved_at"),
                     )
                     self._subscriptions[org_id] = (sub, _time.time())
                     return sub
@@ -221,9 +269,77 @@ class BillingService:
                     logger.error(f"Subscription lookup failed: {e}")
 
         # Default to free plan
-        sub = Subscription(org_id=org_id, plan=BillingPlan.FREE)
+        sub = Subscription(
+            org_id=org_id,
+            plan=BillingPlan.FREE,
+            status="unconfigured",
+            access_source="default",
+        )
         self._subscriptions[org_id] = (sub, _time.time())
         return sub
+
+    async def request_access(
+        self,
+        org_id: str,
+        requested_by: str,
+        plan: BillingPlan,
+        requested_days: int,
+        note: str,
+        db=None,
+    ) -> dict[str, Any]:
+        """Create one pending manual access request per organization."""
+        if plan == BillingPlan.FREE:
+            raise ValueError("Free plan does not require approval")
+        if requested_days < 1 or requested_days > 3650:
+            raise ValueError("Requested days must be between 1 and 3650")
+        if not db:
+            raise RuntimeError("Database service is unavailable")
+
+        existing = (
+            await db.table("subscription_access_requests")
+            .select("*")
+            .eq("org_id", org_id)
+            .eq("status", "pending")
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            return existing.data[0]
+
+        now = datetime.now(UTC).isoformat()
+        result = (
+            await db.table("subscription_access_requests")
+            .insert(
+                {
+                    "id": str(uuid.uuid4()),
+                    "org_id": org_id,
+                    "requested_by": requested_by,
+                    "requested_plan": plan.value,
+                    "requested_days": requested_days,
+                    "note": note.strip() or None,
+                    "status": "pending",
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+            .execute()
+        )
+        if not result.data:
+            raise RuntimeError("Failed to create subscription access request")
+        return result.data[0]
+
+    async def get_latest_access_request(self, org_id: str, db=None) -> dict | None:
+        if not db:
+            return None
+        result = (
+            await db.table("subscription_access_requests")
+            .select("*")
+            .eq("org_id", org_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
 
     async def create_subscription(
         self, org_id: str, plan: BillingPlan, db=None

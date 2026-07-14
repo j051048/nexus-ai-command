@@ -1,187 +1,93 @@
-/**
- * TrialBanner - 试用引导横幅
- *
- * Free 用户: 显示"免费体验14天全功能"横幅
- * 试用中用户: 显示剩余天数倒计时
- * 付费用户: 不显示
- */
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Zap, X, Crown, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useSubscription, useStartTrial } from '@/hooks/useBilling';
-import { toast } from 'sonner';
+import { useMemo, useState } from 'react';
+import { AlertTriangle, ArrowRight, ShieldCheck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const BANNER_DISMISSED_KEY = 'nexus:trial-banner-dismissed';
+import { Button } from '@/components/ui/button';
+import { useSubscription } from '@/hooks/useBilling';
 
-export function TrialBanner() {
-  const { data: subscription, isLoading } = useSubscription();
-  const startTrial = useStartTrial();
-  const navigate = useNavigate();
-
-  const [dismissed, setDismissed] = useState(() => {
-    const stored = localStorage.getItem(BANNER_DISMISSED_KEY);
-    if (!stored) return false;
-    // 每天最多dismiss一次，第二天重新显示
-    const dismissedAt = new Date(stored);
-    const now = new Date();
-    return dismissedAt.toDateString() === now.toDateString();
-  });
-
-  if (isLoading || dismissed) return null;
-
-  const plan = subscription?.plan || 'free';
-  const status = subscription?.status || 'active';
-
-  // 付费活跃用户不显示
-  if (plan !== 'free' && status === 'active') return null;
-
-  // 试用中 - 显示倒计时
-  if (status === 'trialing' && subscription?.current_period_end) {
-    const endDate = new Date(subscription.current_period_end);
-    const now = new Date();
-    const daysLeft = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-
-    if (daysLeft <= 0) return null;
-
-    return (
-      <div className="relative flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-cyan-500/10 border-b border-purple-500/20">
-        <div className="flex items-center gap-2 text-sm">
-          <Crown className="w-4 h-4 text-purple-500" />
-          <span className="text-foreground/80">
-            专业版试用中 · 还剩 <strong className="text-purple-500">{daysLeft} 天</strong>
-          </span>
-          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs border-purple-500/30 hover:bg-purple-500/10"
-            onClick={() => navigate('/billing')}
-          >
-            升级为正式版
-          </Button>
-          <button
-            onClick={() => {
-              localStorage.setItem(BANNER_DISMISSED_KEY, new Date().toISOString());
-              setDismissed(true);
-            }}
-            className="text-muted-foreground hover:text-foreground p-0.5"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Free 用户 - 显示试用引导
-  if (plan === 'free') {
-    const handleStartTrial = async () => {
-      try {
-        await startTrial.mutateAsync(14);
-        toast.success('14天全功能试用已开启!');
-      } catch {
-        toast.error('试用开启失败，请稍后重试');
-      }
-    };
-
-    return (
-      <div className="relative flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border-b border-amber-500/20">
-        <div className="flex items-center gap-2 text-sm">
-          <Zap className="w-4 h-4 text-amber-500" />
-          <span className="text-foreground/80">
-            解锁全部 AI 能力 · <strong className="text-amber-600 dark:text-amber-400">免费体验 14 天</strong>专业版功能
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            className="h-7 text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
-            onClick={handleStartTrial}
-            disabled={startTrial.isPending}
-          >
-            {startTrial.isPending ? '开启中...' : '立即体验'}
-          </Button>
-          <button
-            onClick={() => {
-              localStorage.setItem(BANNER_DISMISSED_KEY, new Date().toISOString());
-              setDismissed(true);
-            }}
-            className="text-muted-foreground hover:text-foreground p-0.5"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
-}
+const DISMISSED_NOTICE_KEY = 'nexus:billing-notice-dismissed';
 
 /**
- * usePaywall - 付费墙检测 hook
- *
- * 用法:
- * const { canAccess, showUpgrade } = usePaywall('professional');
- * if (!canAccess) return showUpgrade();
+ * Global billing notices are reserved for access problems.
+ * Free, pending, trialing, and valid admin-approved memberships stay quiet.
  */
+export function TrialBanner() {
+  const { data: subscription, isLoading, isError } = useSubscription();
+  const navigate = useNavigate();
+  const noticeId = useMemo(
+    () =>
+      subscription
+        ? [subscription.org_id, subscription.status, subscription.current_period_end ?? 'open'].join(':')
+        : '',
+    [subscription],
+  );
+  const [dismissedNotice, setDismissedNotice] = useState(() => localStorage.getItem(DISMISSED_NOTICE_KEY) ?? '');
+
+  if (
+    isLoading ||
+    isError ||
+    !subscription ||
+    subscription.notice_policy !== 'action_required' ||
+    dismissedNotice === noticeId
+  ) {
+    return null;
+  }
+
+  const isPastDue = subscription.status === 'past_due';
+  const title = isPastDue ? '会员状态需要确认' : '会员有效期已结束';
+  const description = isPastDue ? '请联系平台管理员核对开通记录。' : '可在订阅管理中提交续期申请。';
+
+  return (
+    <div className="flex min-h-10 items-center justify-between gap-4 border-b bg-destructive/5 px-4 py-2 text-sm">
+      <div className="flex min-w-0 items-center gap-2">
+        <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+        <p className="truncate">
+          <span className="font-medium text-foreground">{title}</span>
+          <span className="ml-2 text-muted-foreground">{description}</span>
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button variant="ghost" size="sm" className="h-7 gap-1 px-2" onClick={() => navigate('/billing')}>
+          查看状态
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          aria-label="关闭会员状态提醒"
+          onClick={() => {
+            localStorage.setItem(DISMISSED_NOTICE_KEY, noticeId);
+            setDismissedNotice(noticeId);
+          }}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function usePaywall(requiredPlan: 'starter' | 'professional' | 'enterprise' = 'starter') {
   const { data: subscription } = useSubscription();
-  const startTrial = useStartTrial();
   const navigate = useNavigate();
+  const planRank: Record<string, number> = { free: 0, starter: 1, professional: 2, enterprise: 3 };
+  const currentRank = planRank[subscription?.plan ?? 'free'] ?? 0;
+  const canAccess = Boolean(subscription?.has_paid_access && currentRank >= planRank[requiredPlan]);
 
-  const planRank: Record<string, number> = {
-    free: 0,
-    starter: 1,
-    professional: 2,
-    enterprise: 3,
-  };
-
-  const currentPlan = subscription?.plan || 'free';
-  const isTrialing = subscription?.status === 'trialing';
-  const canAccess = isTrialing || planRank[currentPlan] >= planRank[requiredPlan];
-
-  const showUpgrade = () => {
-    const planNames: Record<string, string> = {
-      starter: '基础版',
-      professional: '专业版',
-      enterprise: '企业版',
-    };
-
-    return (
-      <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
-        <Crown className="w-12 h-12 text-amber-500" />
-        <h3 className="text-lg font-semibold">此功能需要 {planNames[requiredPlan]} 及以上</h3>
-        <p className="text-sm text-muted-foreground max-w-md">
-          升级您的订阅计划或开启 14 天免费试用来体验全部功能
-        </p>
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={async () => {
-              try {
-                await startTrial.mutateAsync(14);
-                toast.success('试用已开启!');
-              } catch {
-                toast.error('试用开启失败');
-              }
-            }}
-          >
-            <Zap className="w-4 h-4 mr-1" />
-            免费试用 14 天
-          </Button>
-          <Button onClick={() => navigate('/billing')}>
-            查看定价
-          </Button>
-        </div>
+  const showUpgrade = () => (
+    <div className="mx-auto flex max-w-lg flex-col items-center justify-center gap-4 border-y py-12 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+        <ShieldCheck className="h-5 w-5 text-muted-foreground" />
       </div>
-    );
-  };
+      <div>
+        <h3 className="font-semibold">该能力尚未开通</h3>
+        <p className="mt-1 text-sm text-muted-foreground">提交申请后，由平台管理员审核套餐与有效期。</p>
+      </div>
+      <Button onClick={() => navigate('/billing')}>申请开通</Button>
+    </div>
+  );
 
   return { canAccess, showUpgrade };
 }

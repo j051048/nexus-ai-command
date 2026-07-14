@@ -436,6 +436,10 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = Field(
         default="", description="Stripe webhook signing secret"
     )
+    MANUAL_BILLING_APPROVAL: bool = Field(
+        default=True,
+        description="Require super-admin approval for subscription access changes",
+    )
     STRIPE_PRICE_BASIC: str = Field(
         default="", description="Stripe Price ID for Starter plan (legacy alias: basic)"
     )

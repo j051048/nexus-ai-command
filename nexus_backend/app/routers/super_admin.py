@@ -7,9 +7,10 @@
 """
 
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.dependencies import require_platform_super_admin
 from app.core.errors import ErrorCode, api_error, api_list, api_success
@@ -51,6 +52,19 @@ class ManageTrialRequest(BaseModel):
     days: int = 14
     plan: str = "professional"
     reason: str = ""
+
+
+class SetAccessRequest(BaseModel):
+    plan: str
+    expires_at: datetime | None = None
+    reason: str = Field(min_length=2, max_length=1000)
+
+
+class SubscriptionDecisionRequest(BaseModel):
+    decision: str
+    reason: str = Field(min_length=2, max_length=1000)
+    plan: str | None = None
+    expires_at: datetime | None = None
 
 
 # ============== Endpoints ==============
@@ -248,6 +262,70 @@ async def admin_update_quotas(
             raise
         logger.error(f"更新配额失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
+
+
+@router.put("/organizations/{org_id}/access")
+async def admin_set_access(
+    org_id: str,
+    body: SetAccessRequest,
+    user_id: str = Depends(require_super_admin),
+):
+    """Grant, renew, or revoke an organization's membership access."""
+    try:
+        result = await super_admin_service.admin_set_access(
+            org_id=org_id,
+            plan=body.plan,
+            expires_at=body.expires_at.isoformat() if body.expires_at else None,
+            reason=body.reason,
+            admin_user_id=user_id,
+        )
+        return api_success(data=result, message="会员权益已更新")
+    except ValueError as exc:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
+    except Exception as exc:
+        logger.error("Failed to update organization access: %s", exc)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "会员权益更新失败")
+
+
+@router.get("/subscription-requests")
+async def list_subscription_requests(
+    status: str = Query(default="pending"),
+    limit: int = Query(default=100, ge=1, le=500),
+    user_id: str = Depends(require_super_admin),
+):
+    """List membership activation and renewal requests."""
+    try:
+        requests = await super_admin_service.list_subscription_requests(
+            status=status, limit=limit
+        )
+        return api_success(data={"requests": requests})
+    except Exception as exc:
+        logger.error("Failed to list subscription requests: %s", exc)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "会员申请加载失败")
+
+
+@router.post("/subscription-requests/{request_id}/decision")
+async def decide_subscription_request(
+    request_id: str,
+    body: SubscriptionDecisionRequest,
+    user_id: str = Depends(require_super_admin),
+):
+    """Approve or reject one membership request."""
+    try:
+        result = await super_admin_service.decide_subscription_request(
+            request_id=request_id,
+            decision=body.decision,
+            reason=body.reason,
+            admin_user_id=user_id,
+            plan=body.plan,
+            expires_at=body.expires_at.isoformat() if body.expires_at else None,
+        )
+        return api_success(data=result, message="会员申请已处理")
+    except ValueError as exc:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
+    except Exception as exc:
+        logger.error("Failed to decide subscription request: %s", exc)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "会员申请处理失败")
 
 
 @router.post("/organizations/{org_id}/manage-trial")

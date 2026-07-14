@@ -16,6 +16,30 @@ logger = logging.getLogger(__name__)
 
 VALID_PLANS = {"free", "starter", "professional", "enterprise"}
 VALID_TRIAL_ACTIONS = {"start", "extend"}
+VALID_ACCESS_DECISIONS = {"approved", "rejected"}
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    except ValueError:
+        return None
+
+
+def _access_state(subscription: dict[str, Any] | None) -> str:
+    if not subscription:
+        return "unconfigured"
+    expires_at = _parse_datetime(subscription.get("current_period_end"))
+    if expires_at and expires_at <= datetime.now(UTC):
+        return "expired"
+    if subscription.get("status") in {"past_due", "suspended", "cancelled"}:
+        return str(subscription.get("status"))
+    if subscription.get("plan") == "free":
+        return "free"
+    return "active"
 
 
 class SuperAdminService:
@@ -60,8 +84,35 @@ class SuperAdminService:
         if total is None:
             total = len(count_result.data or [])
 
+        organizations = result.data or []
+        org_ids = [str(org["id"]) for org in organizations if org.get("id")]
+        subscription_map: dict[str, dict[str, Any]] = {}
+        if org_ids:
+            subscriptions = (
+                await client.table("subscriptions")
+                .select(
+                    "org_id, plan, status, current_period_end, access_source, approved_at"
+                )
+                .in_("org_id", org_ids)
+                .execute()
+            )
+            subscription_map = {
+                str(item["org_id"]): item for item in (subscriptions.data or [])
+            }
+
+        enriched = []
+        for org in organizations:
+            subscription = subscription_map.get(str(org.get("id")))
+            enriched.append(
+                {
+                    **org,
+                    "subscription": subscription,
+                    "access_state": _access_state(subscription),
+                }
+            )
+
         return {
-            "organizations": result.data or [],
+            "organizations": enriched,
             "total": total,
             "page": page,
             "limit": limit,
@@ -198,6 +249,17 @@ class SuperAdminService:
             .gte("date", thirty_days_ago.date().isoformat())
             .execute()
         )
+        subscription_result = (
+            await client.table("subscriptions")
+            .select("org_id, plan, status, current_period_end")
+            .execute()
+        )
+        pending_access_result = (
+            await client.table("subscription_access_requests")
+            .select("id", count="exact")
+            .eq("status", "pending")
+            .execute()
+        )
 
         users = user_result.data or []
         monthly_active_users = 0
@@ -215,6 +277,7 @@ class SuperAdminService:
                 continue
 
         orgs = org_result.data or []
+        subscriptions = subscription_result.data or []
         return {
             "total_organizations": (
                 org_result.count if org_result.count is not None else len(orgs)
@@ -228,6 +291,16 @@ class SuperAdminService:
             "monthly_active_users": monthly_active_users,
             "total_ai_calls_30d": sum(
                 row.get("request_count", 0) for row in (usage_result.data or [])
+            ),
+            "paid_organizations": sum(
+                1
+                for subscription in subscriptions
+                if _access_state(subscription) == "active"
+            ),
+            "pending_access_requests": (
+                pending_access_result.count
+                if pending_access_result.count is not None
+                else len(pending_access_result.data or [])
             ),
             "updated_at": datetime.now(UTC).isoformat(),
         }
@@ -320,8 +393,18 @@ class SuperAdminService:
             "id", org_id
         ).execute()
         await client.table("subscriptions").upsert(
-            {"org_id": org_id, "plan": plan, "status": "active"}
+            {
+                "org_id": org_id,
+                "plan": plan,
+                "status": "active",
+                "access_source": "admin_override",
+                "approved_by": admin_user_id,
+                "approved_at": datetime.now(UTC).isoformat(),
+                "notes": reason,
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
         ).execute()
+        self._invalidate_billing_cache(org_id)
         await self._write_audit_log(
             client,
             "admin_change_plan",
@@ -330,6 +413,73 @@ class SuperAdminService:
             {"new_plan": plan, "reason": reason},
         )
         return {"org_id": org_id, "plan": plan, "status": "active"}
+
+    async def admin_set_access(
+        self,
+        org_id: str,
+        plan: str,
+        expires_at: str | None,
+        reason: str,
+        admin_user_id: str,
+        source: str = "admin_override",
+    ) -> dict[str, Any]:
+        """Grant or update membership access using an exact expiry date."""
+        if plan not in VALID_PLANS:
+            raise ValueError(f"Invalid plan: {plan}")
+        if not reason.strip():
+            raise ValueError("A reason is required for access changes")
+
+        parsed_expiry = _parse_datetime(expires_at)
+        if expires_at and not parsed_expiry:
+            raise ValueError("Invalid expiry date")
+        if parsed_expiry and parsed_expiry <= datetime.now(UTC):
+            raise ValueError("Expiry date must be in the future")
+
+        client = self._get_global_client()
+        now = datetime.now(UTC).isoformat()
+        status = "active" if plan != "free" else "inactive"
+        payload = {
+            "org_id": org_id,
+            "plan": plan,
+            "status": status,
+            "current_period_end": parsed_expiry.isoformat() if parsed_expiry else None,
+            "access_source": source,
+            "approved_by": admin_user_id,
+            "approved_at": now,
+            "notes": reason,
+            "updated_at": now,
+        }
+        result = await client.table("subscriptions").upsert(payload).execute()
+        if not result.data:
+            raise RuntimeError("Failed to update subscription access")
+
+        await client.table("organizations").update(
+            {
+                "plan": plan,
+                "tier": plan,
+                "subscription_status": status,
+            }
+        ).eq("id", org_id).execute()
+        self._invalidate_billing_cache(org_id)
+        await self._write_audit_log(
+            client,
+            "admin_set_subscription_access",
+            admin_user_id,
+            org_id,
+            {
+                "plan": plan,
+                "expires_at": payload["current_period_end"],
+                "source": source,
+                "reason": reason,
+            },
+        )
+        return {
+            "org_id": org_id,
+            "plan": plan,
+            "status": status,
+            "current_period_end": payload["current_period_end"],
+            "access_source": source,
+        }
 
     async def admin_update_quotas(
         self, org_id: str, quotas: dict, reason: str, admin_user_id: str
@@ -375,15 +525,31 @@ class SuperAdminService:
 
         client = self._get_global_client()
         now = datetime.now(UTC)
-        period_end = now + timedelta(days=days)
+        base_date = now
+        if action == "extend":
+            current = await self._maybe_first(
+                client.table("subscriptions")
+                .select("current_period_end")
+                .eq("org_id", org_id)
+                .limit(1)
+            )
+            current_end = _parse_datetime(
+                current.get("current_period_end") if current else None
+            )
+            if current_end and current_end > now:
+                base_date = current_end
+        period_end = base_date + timedelta(days=days)
         await client.table("subscriptions").upsert(
             {
                 "org_id": org_id,
                 "plan": plan,
                 "status": "trialing",
-                "trial_start": now.isoformat(),
-                "trial_end": period_end.isoformat(),
                 "current_period_end": period_end.isoformat(),
+                "access_source": "admin_override",
+                "approved_by": admin_user_id,
+                "approved_at": now.isoformat(),
+                "notes": reason,
+                "updated_at": now.isoformat(),
             }
         ).execute()
         await client.table("organizations").update(
@@ -393,6 +559,7 @@ class SuperAdminService:
                 "subscription_status": "trialing",
             }
         ).eq("id", org_id).execute()
+        self._invalidate_billing_cache(org_id)
         await self._write_audit_log(
             client,
             "admin_manage_trial",
@@ -407,6 +574,99 @@ class SuperAdminService:
             "trial_days": days,
             "trial_end": period_end.isoformat(),
         }
+
+    async def list_subscription_requests(
+        self, status: str = "pending", limit: int = 100
+    ) -> list[dict[str, Any]]:
+        client = self._get_global_client()
+        query = client.table("subscription_access_requests").select("*")
+        if status != "all":
+            query = query.eq("status", status)
+        result = await query.order("created_at", desc=True).limit(limit).execute()
+        requests = result.data or []
+        org_ids = list({str(item["org_id"]) for item in requests if item.get("org_id")})
+        organization_map: dict[str, dict[str, Any]] = {}
+        if org_ids:
+            organizations = (
+                await client.table("organizations")
+                .select("id, name, slug")
+                .in_("id", org_ids)
+                .execute()
+            )
+            organization_map = {
+                str(item["id"]): item for item in (organizations.data or [])
+            }
+        return [
+            {
+                **item,
+                "organization": organization_map.get(str(item.get("org_id"))),
+            }
+            for item in requests
+        ]
+
+    async def decide_subscription_request(
+        self,
+        request_id: str,
+        decision: str,
+        reason: str,
+        admin_user_id: str,
+        plan: str | None = None,
+        expires_at: str | None = None,
+    ) -> dict[str, Any]:
+        if decision not in VALID_ACCESS_DECISIONS:
+            raise ValueError(f"Invalid decision: {decision}")
+        if not reason.strip():
+            raise ValueError("A review reason is required")
+
+        client = self._get_global_client()
+        rpc_result = await client.rpc(
+            "resolve_subscription_access_request",
+            {
+                "p_request_id": request_id,
+                "p_decision": decision,
+                "p_reviewed_by": admin_user_id,
+                "p_reason": reason,
+                "p_plan": plan,
+                "p_expires_at": expires_at,
+            },
+        ).execute()
+        result_data = rpc_result.data
+        if isinstance(result_data, list):
+            result_data = result_data[0] if result_data else None
+        if not isinstance(result_data, dict):
+            raise RuntimeError("Subscription decision transaction returned no data")
+
+        org_id = str(result_data["org_id"])
+        if decision == "approved":
+            await client.table("organizations").update(
+                {
+                    "plan": result_data["plan"],
+                    "tier": result_data["plan"],
+                    "subscription_status": "active",
+                }
+            ).eq("id", org_id).execute()
+            self._invalidate_billing_cache(org_id)
+
+        await self._write_audit_log(
+            client,
+            "admin_decide_subscription_request",
+            admin_user_id,
+            org_id,
+            {
+                "request_id": request_id,
+                "decision": decision,
+                "plan": result_data.get("plan"),
+                "expires_at": result_data.get("current_period_end"),
+                "reason": reason,
+            },
+        )
+        return result_data
+
+    @staticmethod
+    def _invalidate_billing_cache(org_id: str) -> None:
+        from app.services.billing_service import billing_service
+
+        billing_service.invalidate_subscription(org_id)
 
     async def _maybe_first(self, query) -> dict[str, Any] | None:
         try:

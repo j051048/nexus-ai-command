@@ -1,257 +1,282 @@
-/**
- * Billing Dashboard — 订阅管理 + Stripe Checkout + 用量统计
- */
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
-import {
-  CheckCircle2,
-  CreditCard,
-  Zap,
-  BarChart3,
-  AlertTriangle,
-  Loader2,
-  ExternalLink,
-  Crown,
-} from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AlertTriangle, CalendarDays, Check, Clock3, Loader2, Send, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { redirectToCheckout } from '@/lib/stripe';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  type BillingPlan,
+  useLatestAccessRequest,
   usePlans,
+  useRequestAccess,
   useSubscription,
   useUsageStats,
-  useCheckout,
-  useCancelSubscription,
-  useStartTrial,
-  type BillingPlan,
 } from '@/hooks/useBilling';
+import { cn } from '@/lib/utils';
 
-const PLAN_DISPLAY: Record<string, { name: string; color: string }> = {
-  free: { name: '免费版', color: 'text-muted-foreground' },
-  starter: { name: '基础版', color: 'text-blue-500' },
-  professional: { name: '专业版', color: 'text-purple-500' },
-  enterprise: { name: '企业版', color: 'text-amber-500' },
+const PLAN_NAMES: Record<string, string> = {
+  free: '基础版',
+  starter: '团队版',
+  professional: '专业版',
+  enterprise: '企业版',
 };
 
+const REQUEST_STATUS: Record<string, string> = {
+  pending: '审核中',
+  approved: '已批准',
+  rejected: '未通过',
+  cancelled: '已取消',
+};
+
+function planId(plan: BillingPlan): string {
+  return plan.plan ?? plan.id ?? 'professional';
+}
+
 function BillingDashboard() {
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const { data: plans, isLoading: plansLoading } = usePlans();
-  const { data: subscription, isLoading: subLoading } = useSubscription();
+  const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
+  const { data: accessRequest } = useLatestAccessRequest();
   const { data: usage } = useUsageStats();
-  const checkout = useCheckout();
-  const cancelSub = useCancelSubscription();
-  const startTrial = useStartTrial();
+  const requestAccess = useRequestAccess();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [requestedPlan, setRequestedPlan] = useState('professional');
+  const [requestedDays, setRequestedDays] = useState('365');
+  const [note, setNote] = useState('');
 
-  const currentPlan = subscription?.plan || 'free';
-  const display = PLAN_DISPLAY[currentPlan] || { name: currentPlan, color: '' };
+  const expiresInDays = useMemo(() => {
+    if (!subscription?.current_period_end) return null;
+    const difference = new Date(subscription.current_period_end).getTime() - Date.now();
+    return Math.ceil(difference / 86_400_000);
+  }, [subscription?.current_period_end]);
 
-  const handleCheckout = async (planId: string) => {
+  const hasActiveAccess = Boolean(subscription?.has_paid_access);
+  const pendingRequest = accessRequest?.status === 'pending';
+
+  const submitRequest = async () => {
     try {
-      const baseUrl = window.location.origin;
-      const result = await checkout.mutateAsync({
-        planId,
-        successUrl: `${baseUrl}/billing?success=true`,
-        cancelUrl: `${baseUrl}/billing?canceled=true`,
+      await requestAccess.mutateAsync({
+        plan: requestedPlan,
+        requestedDays: Number(requestedDays),
+        note,
       });
-      // If backend returns a Stripe session URL, redirect directly
-      if (result.url) {
-        window.location.href = result.url;
-      } else if (result.session_id) {
-        await redirectToCheckout(result.session_id);
-      }
-    } catch (err) {
-      toast.error('支付跳转失败，请重试');
+      toast.success('申请已提交，平台管理员审核后会自动生效');
+      setDialogOpen(false);
+      setNote('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '申请提交失败');
     }
   };
 
-  const handleCancel = async () => {
-    if (!confirm('确定取消订阅？取消后将降级为免费版。')) return;
-    try {
-      await cancelSub.mutateAsync();
-      toast.success('订阅已取消');
-    } catch {
-      toast.error('取消失败');
-    }
-  };
-
-  const handleTrial = async () => {
-    try {
-      await startTrial.mutateAsync();
-      toast.success('试用已开启');
-    } catch {
-      toast.error('试用开启失败');
-    }
-  };
-
-  if (plansLoading || subLoading) {
+  if (plansLoading || subscriptionLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="flex min-h-64 items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-5xl space-y-8 pb-12">
+      <header className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">订阅管理</h1>
-          <p className="text-muted-foreground">管理您的订阅计划和用量</p>
+          <p className="text-sm text-muted-foreground">账户设置</p>
+          <h1 className="mt-1 text-2xl font-semibold">会员与用量</h1>
+          <p className="mt-2 text-sm text-muted-foreground">会员由平台管理员审核开通，不会自动扣费。</p>
         </div>
-        {currentPlan === 'free' && (
-          <Button variant="outline" onClick={handleTrial}>
-            <Zap className="w-4 h-4 mr-1" />
-            开启 14 天试用
-          </Button>
-        )}
-      </div>
+        <Button
+          onClick={() => setDialogOpen(true)}
+          disabled={pendingRequest}
+          variant={hasActiveAccess ? 'outline' : 'default'}
+        >
+          {pendingRequest ? <Clock3 className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
+          {pendingRequest ? '申请审核中' : hasActiveAccess ? '申请续期或变更' : '申请开通'}
+        </Button>
+      </header>
 
-      {/* 当前订阅状态 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Crown className="w-5 h-5" />
-            当前计划
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className={cn('text-xl font-bold', display.color)}>{display.name}</span>
-                {subscription?.status === 'trialing' && (
-                  <Badge variant="secondary">试用中</Badge>
-                )}
-                {subscription?.status === 'active' && (
-                  <Badge variant="secondary" className="bg-green-500/10 text-green-500">活跃</Badge>
-                )}
-              </div>
-              {subscription?.current_period_end && (
-                <p className="text-sm text-muted-foreground">
-                  {subscription.status === 'trialing' ? '试用到期' : '下次续费'}：
-                  {new Date(subscription.current_period_end).toLocaleDateString('zh-CN')}
-                </p>
-              )}
-            </div>
-            {currentPlan !== 'free' && (
-              <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelSub.isPending}>
-                取消订阅
-              </Button>
-            )}
+      <section aria-labelledby="membership-status" className="grid gap-6 border-b pb-8 md:grid-cols-[1fr_auto]">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="membership-status" className="text-lg font-semibold">
+              {PLAN_NAMES[subscription?.plan ?? 'free'] ?? subscription?.plan}
+            </h2>
+            <MembershipBadge active={hasActiveAccess} status={subscription?.status} />
+            {subscription?.access_source?.startsWith('admin') && <Badge variant="outline">平台开通</Badge>}
           </div>
-        </CardContent>
-      </Card>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+            {hasActiveAccess
+              ? '当前权益已生效。正常使用期间不会显示体验、升级或付费营销提醒。'
+              : pendingRequest
+                ? '申请已进入平台审核队列，批准后会自动刷新会员状态。'
+                : '当前未开通付费会员，可提交所需套餐和使用期限供平台审核。'}
+          </p>
+          {accessRequest && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              最近申请：{PLAN_NAMES[accessRequest.requested_plan]} · {accessRequest.requested_days} 天 ·{' '}
+              {REQUEST_STATUS[accessRequest.status]}
+              {accessRequest.review_reason ? ` · ${accessRequest.review_reason}` : ''}
+            </p>
+          )}
+        </div>
+        <div className="min-w-48 border-l pl-6">
+          <p className="text-xs text-muted-foreground">会员有效期</p>
+          <p className="mt-2 font-medium tabular-nums">
+            {subscription?.current_period_end
+              ? new Date(subscription.current_period_end).toLocaleDateString('zh-CN')
+              : hasActiveAccess
+                ? '长期有效'
+                : '尚未设置'}
+          </p>
+          {expiresInDays !== null && expiresInDays > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">剩余 {expiresInDays} 天</p>
+          )}
+        </div>
+      </section>
 
-      {/* 用量统计 */}
       {usage && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              用量统计
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <section aria-labelledby="usage-heading" className="space-y-5 border-b pb-8">
+          <div>
+            <h2 id="usage-heading" className="font-semibold">本周期用量</h2>
+            <p className="mt-1 text-sm text-muted-foreground">配额由当前套餐和管理员调整共同决定。</p>
+          </div>
+          <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
             <UsageBar label="月度 Token" used={usage.monthly_tokens_used} limit={usage.monthly_token_limit} />
             <UsageBar label="今日 Token" used={usage.daily_tokens_used} limit={usage.daily_token_limit} />
             <UsageBar label="存储空间" used={usage.storage_used_mb} limit={usage.storage_limit_mb} unit="MB" />
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
-      {/* 计划选择 */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4">选择计划</h2>
-        <div className="grid md:grid-cols-3 gap-4">
-          {(plans || []).map((plan: BillingPlan) => {
-            const isCurrent = plan.id === currentPlan;
-            return (
-              <Card
-                key={plan.id}
-                className={cn(
-                  'relative transition-all hover:shadow-md',
-                  selectedPlan === plan.id && 'ring-2 ring-primary',
-                  isCurrent && 'border-primary/50',
-                  plan.popular && 'border-primary'
-                )}
-              >
-                {plan.popular && (
-                  <Badge className="absolute -top-2 left-1/2 -translate-x-1/2">最受欢迎</Badge>
-                )}
-                <CardHeader className="text-center">
-                  <CardTitle>{plan.name}</CardTitle>
-                  <div className="mt-2">
-                    <span className="text-3xl font-bold">¥{plan.price}</span>
-                    <span className="text-muted-foreground">/月</span>
+      <section aria-labelledby="plans-heading" className="space-y-4">
+        <div>
+          <h2 id="plans-heading" className="font-semibold">可申请套餐</h2>
+          <p className="mt-1 text-sm text-muted-foreground">选择套餐后提交申请，最终期限与配额以审核结果为准。</p>
+        </div>
+        <div className="divide-y border-y">
+          {(plans ?? [])
+            .filter((plan) => planId(plan) !== 'free')
+            .map((plan) => {
+              const id = planId(plan);
+              const isCurrent = subscription?.plan === id && hasActiveAccess;
+              return (
+                <div key={id} className="grid gap-4 py-5 md:grid-cols-[180px_1fr_auto] md:items-center">
+                  <div>
+                    <p className="font-medium">{PLAN_NAMES[id] ?? plan.name}</p>
+                    {typeof plan.price_monthly_usd === 'number' && (
+                      <p className="mt-1 text-xs text-muted-foreground">参考价 ${plan.price_monthly_usd}/月</p>
+                    )}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ul className="space-y-2">
-                    {plan.features.map((f, i) => (
-                      <li key={i} className="flex items-center gap-2 text-sm">
-                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Separator />
+                  <p className="text-sm leading-6 text-muted-foreground">{plan.features.slice(0, 4).join(' · ')}</p>
                   {isCurrent ? (
-                    <Button className="w-full" disabled>
-                      当前计划
-                    </Button>
+                    <Badge variant="secondary">当前套餐</Badge>
                   ) : (
                     <Button
-                      className="w-full gap-1"
-                      variant={plan.popular ? 'default' : 'outline'}
-                      onClick={() => handleCheckout(plan.id)}
-                      disabled={checkout.isPending}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setRequestedPlan(id);
+                        setDialogOpen(true);
+                      }}
                     >
-                      {checkout.isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <CreditCard className="w-4 h-4" />
-                      )}
-                      升级到 {plan.name}
-                      <ExternalLink className="w-3 h-3" />
+                      申请此套餐
                     </Button>
                   )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              );
+            })}
         </div>
-      </div>
+      </section>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{hasActiveAccess ? '申请续期或变更' : '申请开通会员'}</DialogTitle>
+            <DialogDescription>平台管理员会核对套餐、期限和备注，审核通过后即时生效。</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="requested-plan">申请套餐</Label>
+              <Select value={requestedPlan} onValueChange={setRequestedPlan}>
+                <SelectTrigger id="requested-plan"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="starter">团队版</SelectItem>
+                  <SelectItem value="professional">专业版</SelectItem>
+                  <SelectItem value="enterprise">企业版</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="requested-days">申请期限</Label>
+              <Select value={requestedDays} onValueChange={setRequestedDays}>
+                <SelectTrigger id="requested-days"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 天</SelectItem>
+                  <SelectItem value="90">90 天</SelectItem>
+                  <SelectItem value="180">180 天</SelectItem>
+                  <SelectItem value="365">1 年</SelectItem>
+                  <SelectItem value="1095">3 年</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="request-note">用途说明</Label>
+              <Textarea
+                id="request-note"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="例如：正式生产使用、续期、增加团队成员等"
+                rows={4}
+                maxLength={1000}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
+            <Button onClick={submitRequest} disabled={requestAccess.isPending}>
+              {requestAccess.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              提交审核
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function UsageBar({
-  label,
-  used,
-  limit,
-  unit = '',
-}: {
-  label: string;
-  used: number;
-  limit: number;
-  unit?: string;
-}) {
-  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-  const isNearLimit = pct >= 80;
+function MembershipBadge({ active, status }: { active: boolean; status?: string }) {
+  if (active) {
+    return <Badge className="bg-success/10 text-success hover:bg-success/10"><Check className="mr-1 h-3 w-3" />已生效</Badge>;
+  }
+  if (status === 'expired') {
+    return <Badge variant="destructive"><CalendarDays className="mr-1 h-3 w-3" />已到期</Badge>;
+  }
+  return <Badge variant="secondary"><ShieldCheck className="mr-1 h-3 w-3" />未开通</Badge>;
+}
+
+function UsageBar({ label, used, limit, unit = '' }: { label: string; used: number; limit: number; unit?: string }) {
+  const percentage = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const nearLimit = percentage >= 80;
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span>{label}</span>
-        <span className={cn(isNearLimit && 'text-red-500 font-medium')}>
+        <span className={cn('tabular-nums text-muted-foreground', nearLimit && 'text-destructive')}>
           {used.toLocaleString()}{unit} / {limit.toLocaleString()}{unit}
-          {isNearLimit && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+          {nearLimit && <AlertTriangle className="ml-1 inline h-3.5 w-3.5" />}
         </span>
       </div>
-      <Progress value={pct} className={cn(isNearLimit && '[&>div]:bg-red-500')} />
+      <Progress value={percentage} className={cn('h-1.5', nearLimit && '[&>div]:bg-destructive')} />
     </div>
   );
 }

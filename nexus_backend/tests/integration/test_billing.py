@@ -5,6 +5,7 @@ Tests for billing router — subscription plans, subscribe/cancel, webhooks, tri
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 
 class TestListPlans:
@@ -16,9 +17,7 @@ class TestListPlans:
             {"name": "free", "price": 0},
             {"name": "professional", "price": 99},
         ]
-        with patch(
-            "app.routers.billing.billing_service"
-        ) as mock_svc:
+        with patch("app.routers.billing.billing_service") as mock_svc:
             mock_svc.get_plan_catalog.return_value = catalog
             resp = await async_client.get("/api/billing/plans")
 
@@ -82,7 +81,7 @@ class TestSubscribe:
         req.json = AsyncMock(return_value={})
         req.state.org_id = "org-1"
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             await subscribe(req=req, user_id="user-1")
         # The outer try/except in subscribe wraps all errors as 500
         assert exc_info.value.status_code in (400, 422, 500)
@@ -97,7 +96,7 @@ class TestSubscribe:
         req.state.org_id = "org-1"
 
         # BillingPlan enum will raise ValueError for invalid plan
-        with pytest.raises(Exception):
+        with pytest.raises(HTTPException):
             await subscribe(req=req, user_id="user-1")
 
     @pytest.mark.asyncio
@@ -109,28 +108,28 @@ class TestSubscribe:
         req.json = AsyncMock(return_value={"plan": "free"})
         req.state = MagicMock(spec=[])  # no org_id attribute
 
-        with pytest.raises(Exception):
+        with pytest.raises(HTTPException):
             await subscribe(req=req, user_id="user-1")
 
     @pytest.mark.asyncio
     async def test_subscribe_success(self):
-        """Should successfully subscribe to a valid plan."""
+        """Legacy subscribe clients should enter the manual approval queue."""
         from app.routers.billing import subscribe
 
-        mock_sub = MagicMock()
-        mock_sub.__dict__ = {"plan": "free", "status": "active"}
-
         req = MagicMock()
-        req.json = AsyncMock(return_value={"plan": "free"})
+        req.json = AsyncMock(return_value={"plan": "professional"})
         req.state.org_id = "org-1"
         req.state.db = None
 
         with patch("app.routers.billing.billing_service") as mock_svc:
-            mock_svc.create_subscription = AsyncMock(return_value=mock_sub)
+            mock_svc.request_access = AsyncMock(
+                return_value={"requested_plan": "professional", "status": "pending"}
+            )
             result = await subscribe(req=req, user_id="user-1")
 
         assert result["success"] is True
-        assert result["data"]["subscription"]["plan"] == "free"
+        assert result["data"]["request"]["status"] == "pending"
+        mock_svc.create_subscription.assert_not_called()
 
 
 class TestCancelSubscription:
@@ -143,7 +142,7 @@ class TestCancelSubscription:
         req = MagicMock()
         req.state = MagicMock(spec=[])
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             await cancel_subscription(req=req, user_id="user-1")
         assert exc_info.value.status_code == 403
 
@@ -155,12 +154,9 @@ class TestCancelSubscription:
         req.state.org_id = "org-1"
         req.state.db = None
 
-        with patch("app.routers.billing.billing_service") as mock_svc:
-            mock_svc.cancel_subscription = AsyncMock(return_value=True)
-            result = await cancel_subscription(req=req, user_id="user-1")
-
-        assert result["success"] is True
-        assert result["data"]["cancelled"] is True
+        with pytest.raises(HTTPException) as exc_info:
+            await cancel_subscription(req=req, user_id="user-1")
+        assert exc_info.value.status_code == 409
 
 
 class TestBillingWebhook:
@@ -195,8 +191,10 @@ class TestBillingWebhook:
         req.headers = {"stripe-signature": "t=123,v1=wrong-sig"}
 
         with patch("app.services.payment_gateway.payment_gateway") as mock_gw:
-            mock_gw.handle_webhook = AsyncMock(side_effect=Exception("Invalid signature"))
-            with pytest.raises(Exception):
+            mock_gw.handle_webhook = AsyncMock(
+                side_effect=Exception("Invalid signature")
+            )
+            with pytest.raises(HTTPException):
                 await billing_webhook(req=req)
 
     @pytest.mark.asyncio
@@ -210,7 +208,9 @@ class TestBillingWebhook:
         req.headers = {"stripe-signature": "t=123,v1=valid-sig"}
 
         with patch("app.services.payment_gateway.payment_gateway") as mock_gw:
-            mock_gw.handle_webhook = AsyncMock(return_value={"event": "payment.completed"})
+            mock_gw.handle_webhook = AsyncMock(
+                return_value={"event": "payment.completed"}
+            )
             result = await billing_webhook(req=req)
 
         assert result["success"] is True
@@ -225,7 +225,7 @@ class TestBillingWebhook:
         req.headers = {"stripe-signature": ""}
 
         # Empty string signature triggers the missing-signature check
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             await billing_webhook(req=req)
         assert exc_info.value.status_code in (403, 401)
 
@@ -240,7 +240,7 @@ class TestStartTrial:
         req = MagicMock()
         req.state = MagicMock(spec=[])
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             await start_trial(req=req, user_id="user-1")
         assert exc_info.value.status_code == 403
 
@@ -254,13 +254,14 @@ class TestStartTrial:
         req.json = AsyncMock(return_value={})
 
         with patch("app.routers.billing.billing_service") as mock_svc:
-            mock_svc.start_trial = AsyncMock(
-                return_value={"trial_started": True, "days": 14}
+            mock_svc.request_access = AsyncMock(
+                return_value={"requested_days": 14, "status": "pending"}
             )
             result = await start_trial(req=req, user_id="user-1")
 
         assert result["success"] is True
-        assert result["data"]["trial_started"] is True
+        assert result["data"]["request"]["status"] == "pending"
+        mock_svc.start_trial.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_start_trial_custom_days(self):
@@ -272,10 +273,28 @@ class TestStartTrial:
         req.json = AsyncMock(return_value={"days": 30})
 
         with patch("app.routers.billing.billing_service") as mock_svc:
-            mock_svc.start_trial = AsyncMock(
-                return_value={"trial_started": True, "days": 30}
+            mock_svc.request_access = AsyncMock(
+                return_value={"requested_days": 30, "status": "pending"}
             )
             result = await start_trial(req=req, user_id="user-1")
 
         assert result["success"] is True
-        assert result["data"]["days"] == 30
+        assert result["data"]["request"]["requested_days"] == 30
+
+
+class TestManualApprovalMode:
+    @pytest.mark.asyncio
+    async def test_checkout_is_blocked(self):
+        from app.routers.billing import create_checkout
+
+        with pytest.raises(HTTPException) as exc_info:
+            await create_checkout(req=MagicMock(), user_id="user-1")
+        assert exc_info.value.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_provider_portal_is_blocked(self):
+        from app.routers.billing import create_portal_session
+
+        with pytest.raises(Exception) as exc_info:
+            await create_portal_session(req=MagicMock(), user_id="user-1")
+        assert exc_info.value.status_code == 409
