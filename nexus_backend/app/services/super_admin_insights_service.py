@@ -6,7 +6,10 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.services.super_admin_service import super_admin_service
+from app.services.super_admin_service import (
+    canonical_subscription_map,
+    super_admin_service,
+)
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -36,15 +39,15 @@ class SuperAdminInsightsService:
         thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).date().isoformat()
         users = (
             await client.table("users")
-            .select("id, email, full_name, role, status, last_active_at, created_at")
+            .select("id, email, name, role, approval_status, created_at")
             .eq("organization_id", org_id)
-            .order("last_active_at", desc=True)
+            .order("created_at", desc=True)
             .limit(50)
             .execute()
         )
         usage = (
             await client.table("user_token_usage")
-            .select("date, total_tokens, estimated_cost_usd, request_count")
+            .select("date, user_id, total_tokens, estimated_cost_usd, request_count")
             .eq("org_id", org_id)
             .gte("date", thirty_days_ago)
             .execute()
@@ -75,25 +78,39 @@ class SuperAdminInsightsService:
         )
         audit = (
             await client.table("audit_logs")
-            .select("id, action, user_id, details, created_at")
+            .select("id, action, actor_user_id, details_json, timestamp")
             .eq("organization_id", org_id)
-            .order("created_at", desc=True)
+            .order("timestamp", desc=True)
             .limit(50)
             .execute()
         )
 
         usage_rows = usage.data or []
-        user_rows = users.data or []
-        active_after = datetime.now(UTC) - timedelta(days=30)
-        active_users = sum(
-            1
-            for user in user_rows
-            if (
-                _parse_datetime(user.get("last_active_at"))
-                or datetime.min.replace(tzinfo=UTC)
-            )
-            >= active_after
-        )
+        last_usage_by_user: dict[str, str] = {}
+        for row in usage_rows:
+            user_id = str(row.get("user_id") or "")
+            date = str(row.get("date") or "")
+            if user_id and date > last_usage_by_user.get(user_id, ""):
+                last_usage_by_user[user_id] = date
+        user_rows = [
+            {
+                **user,
+                "full_name": user.get("name"),
+                "status": user.get("approval_status"),
+                "last_active_at": last_usage_by_user.get(str(user.get("id"))),
+            }
+            for user in (users.data or [])
+        ]
+        active_users = len(last_usage_by_user)
+        audit_rows = [
+            {
+                **item,
+                "user_id": item.get("actor_user_id"),
+                "details": item.get("details_json") or {},
+                "created_at": item.get("timestamp"),
+            }
+            for item in (audit.data or [])
+        ]
         return {
             **detail,
             "users": user_rows,
@@ -113,7 +130,7 @@ class SuperAdminInsightsService:
             "access_requests": requests.data or [],
             "access_versions": versions.data or [],
             "commercial_records": commercial.data or [],
-            "audit_timeline": audit.data or [],
+            "audit_timeline": audit_rows,
         }
 
     async def list_operational_exceptions(self) -> list[dict[str, Any]]:
@@ -121,7 +138,7 @@ class SuperAdminInsightsService:
         now = datetime.now(UTC)
         organizations = (
             await client.table("organizations")
-            .select("id, name, status, subscription_status, plan")
+            .select("id, name, plan, tier, payment_status")
             .execute()
         )
         subscriptions = await client.table("subscriptions").select("*").execute()
@@ -140,9 +157,7 @@ class SuperAdminInsightsService:
         )
 
         org_map = {str(item["id"]): item for item in (organizations.data or [])}
-        subscription_map = {
-            str(item["org_id"]): item for item in (subscriptions.data or [])
-        }
+        subscription_map = canonical_subscription_map(subscriptions.data or [])
         quota_orgs = {str(item["org_id"]) for item in (quotas.data or [])}
         exceptions: list[dict[str, Any]] = []
 
@@ -169,7 +184,7 @@ class SuperAdminInsightsService:
                 }
             )
 
-        for org_id, org in org_map.items():
+        for org_id in org_map:
             subscription = subscription_map.get(org_id)
             if not subscription:
                 add(
@@ -202,19 +217,6 @@ class SuperAdminInsightsService:
                         f"将在 {expiry.date().isoformat()} 到期。",
                         subscription.get("current_period_end"),
                         "联系客户确认续期",
-                    )
-                if (
-                    org.get("status") == "suspended"
-                    and subscription.get("status") == "active"
-                ):
-                    add(
-                        f"suspended-active:{org_id}",
-                        org_id,
-                        "high",
-                        "企业停用但权益仍生效",
-                        "组织状态与会员状态不一致。",
-                        None,
-                        "核对停用原因和权益状态",
                     )
             if org_id not in quota_orgs:
                 add(
@@ -288,7 +290,9 @@ class SuperAdminInsightsService:
 
         plan_distribution: dict[str, int] = defaultdict(int)
         expiry_buckets = {"7_days": 0, "30_days": 0, "90_days": 0}
-        for subscription in subscriptions.data or []:
+        for subscription in canonical_subscription_map(
+            subscriptions.data or []
+        ).values():
             plan_distribution[str(subscription.get("plan") or "free")] += 1
             expiry = _parse_datetime(subscription.get("current_period_end"))
             if not expiry or expiry <= now:

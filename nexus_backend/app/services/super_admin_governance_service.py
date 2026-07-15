@@ -104,11 +104,18 @@ class SuperAdminGovernanceService:
         if user_ids:
             users = (
                 await client.table("users")
-                .select("id, full_name, email, status")
+                .select("id, name, email, approval_status")
                 .in_("id", user_ids)
                 .execute()
             )
-            user_map = {str(item["id"]): item for item in (users.data or [])}
+            user_map = {
+                str(item["id"]): {
+                    **item,
+                    "full_name": item.get("name"),
+                    "status": item.get("approval_status"),
+                }
+                for item in (users.data or [])
+            }
         return [
             {**item, "user": user_map.get(str(item["user_id"]))} for item in assignments
         ]
@@ -401,10 +408,14 @@ class SuperAdminGovernanceService:
             {
                 "id": str(uuid.uuid4()),
                 "action": action,
-                "user_id": user_id,
-                "organization_id": org_id,
-                "details": details,
-                "created_at": datetime.now(UTC).isoformat(),
+                "actor_user_id": user_id,
+                "org_id": org_id if org_id != "platform" else None,
+                "organization_id": org_id if org_id != "platform" else None,
+                "target_id": org_id,
+                "target_table": "organizations" if org_id != "platform" else "platform",
+                "details_json": details,
+                "status": "success",
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         ).execute()
 

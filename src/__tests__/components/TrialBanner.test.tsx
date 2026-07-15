@@ -14,7 +14,7 @@ function renderBanner() {
   return render(
     <MemoryRouter>
       <TrialBanner />
-    </MemoryRouter>,
+    </MemoryRouter>
   );
 }
 
@@ -57,6 +57,28 @@ describe('TrialBanner', () => {
     expect(document.body.textContent).toBe('');
   });
 
+  it('shows an organization-wide activation notice for non-members', () => {
+    useSubscriptionMock.mockReturnValue({
+      data: {
+        org_id: 'org-1',
+        plan: 'free',
+        status: 'unconfigured',
+        current_period_end: null,
+        access_source: 'default',
+        has_paid_access: false,
+        is_expired: false,
+        notice_policy: 'action_required',
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    renderBanner();
+
+    expect(screen.getByText('企业会员尚未开通')).toBeVisible();
+    expect(screen.getByRole('button', { name: '申请开通' })).toBeVisible();
+  });
+
   it('shows a compact action notice only after access expires', () => {
     useSubscriptionMock.mockReturnValue({
       data: {
@@ -75,7 +97,7 @@ describe('TrialBanner', () => {
 
     renderBanner();
 
-    expect(screen.getByText('会员有效期已结束')).toBeVisible();
+    expect(screen.getByText('企业会员已到期')).toBeVisible();
     expect(screen.getByRole('button', { name: '查看状态' })).toBeVisible();
   });
 });

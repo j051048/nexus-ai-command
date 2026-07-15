@@ -44,6 +44,33 @@ def _access_state(subscription: dict[str, Any] | None) -> str:
     return "active"
 
 
+def canonical_subscription_map(
+    subscriptions: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Return one authoritative subscription per organization.
+
+    Historical deployments allowed duplicate rows. Until the convergence
+    migration has run everywhere, prefer a currently valid entitlement and
+    then the most recently updated record.
+    """
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for subscription in subscriptions:
+        org_id = str(subscription.get("org_id") or "")
+        if org_id:
+            grouped.setdefault(org_id, []).append(subscription)
+
+    def priority(subscription: dict[str, Any]) -> tuple[int, str]:
+        timestamp = str(
+            subscription.get("approved_at")
+            or subscription.get("updated_at")
+            or subscription.get("created_at")
+            or ""
+        )
+        return (1 if _access_state(subscription) == "active" else 0, timestamp)
+
+    return {org_id: max(rows, key=priority) for org_id, rows in grouped.items() if rows}
+
+
 class SuperAdminService:
     """Cross-tenant management for the platform operator console."""
 
@@ -65,17 +92,13 @@ class SuperAdminService:
         offset = (page - 1) * limit
 
         query = client.table("organizations").select(
-            "id, name, slug, created_at, status, plan, subscription_status"
+            "id, name, slug, created_at, plan, tier, payment_status"
         )
         count_query = client.table("organizations").select("id", count="exact")
 
         if search:
             query = query.ilike("name", f"%{search}%")
             count_query = count_query.ilike("name", f"%{search}%")
-        if status:
-            query = query.eq("status", status)
-            count_query = count_query.eq("status", status)
-
         result = (
             await query.order("created_at", desc=True)
             .range(offset, offset + limit - 1)
@@ -98,20 +121,39 @@ class SuperAdminService:
                 .in_("org_id", org_ids)
                 .execute()
             )
-            subscription_map = {
-                str(item["org_id"]): item for item in (subscriptions.data or [])
-            }
+            subscription_map = canonical_subscription_map(subscriptions.data or [])
+            users = (
+                await client.table("users")
+                .select("id, organization_id")
+                .in_("organization_id", org_ids)
+                .execute()
+            )
+            user_counts: dict[str, int] = {}
+            for user in users.data or []:
+                user_org_id = str(user.get("organization_id") or "")
+                user_counts[user_org_id] = user_counts.get(user_org_id, 0) + 1
+        else:
+            user_counts = {}
 
         enriched = []
         for org in organizations:
             subscription = subscription_map.get(str(org.get("id")))
+            access_state = _access_state(subscription)
             enriched.append(
                 {
                     **org,
+                    # Organizations do not have a lifecycle status column in the
+                    # canonical schema. Membership state belongs to subscriptions.
+                    "status": "active",
                     "subscription": subscription,
-                    "access_state": _access_state(subscription),
+                    "access_state": access_state,
+                    "is_member": access_state == "active",
+                    "user_count": user_counts.get(str(org.get("id")), 0),
                 }
             )
+
+        if status:
+            enriched = [item for item in enriched if item["access_state"] == status]
 
         return {
             "organizations": enriched,
@@ -157,8 +199,14 @@ class SuperAdminService:
             row.get("request_count", 0) for row in (usage_result.data or [])
         )
 
-        subscription = await self._maybe_first(
-            client.table("subscriptions").select("*").eq("org_id", org_id).limit(1)
+        subscription_result = (
+            await client.table("subscriptions")
+            .select("*")
+            .eq("org_id", org_id)
+            .execute()
+        )
+        subscription = canonical_subscription_map(subscription_result.data or []).get(
+            org_id
         )
         quotas = await self._maybe_first(
             client.table("tenant_quotas").select("*").eq("org_id", org_id).limit(1)
@@ -166,10 +214,13 @@ class SuperAdminService:
 
         return {
             **org_data,
+            "status": "active",
             "user_count": user_count,
             "ai_calls_30d": ai_calls_30d,
             "subscription": subscription,
             "quotas": quotas,
+            "access_state": _access_state(subscription),
+            "is_member": _access_state(subscription) == "active",
         }
 
     async def suspend_organization(
@@ -177,15 +228,9 @@ class SuperAdminService:
     ) -> bool:
         client = self._get_global_client()
         result = (
-            await client.table("organizations")
-            .update(
-                {
-                    "status": "suspended",
-                    "suspended_reason": reason,
-                    "suspended_at": datetime.now(UTC).isoformat(),
-                }
-            )
-            .eq("id", org_id)
+            await client.table("subscriptions")
+            .update({"status": "suspended", "notes": reason})
+            .eq("org_id", org_id)
             .execute()
         )
         if result.data:
@@ -206,15 +251,9 @@ class SuperAdminService:
     ) -> bool:
         client = self._get_global_client()
         result = (
-            await client.table("organizations")
-            .update(
-                {
-                    "status": "active",
-                    "suspended_reason": None,
-                    "suspended_at": None,
-                }
-            )
-            .eq("id", org_id)
+            await client.table("subscriptions")
+            .update({"status": "active"})
+            .eq("org_id", org_id)
             .execute()
         )
         if result.data:
@@ -234,20 +273,14 @@ class SuperAdminService:
         client = self._get_global_client()
 
         org_result = (
-            await client.table("organizations")
-            .select("id, status", count="exact")
-            .execute()
+            await client.table("organizations").select("id", count="exact").execute()
         )
-        user_result = (
-            await client.table("users")
-            .select("id, last_active_at", count="exact")
-            .execute()
-        )
+        user_result = await client.table("users").select("id", count="exact").execute()
 
         thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         usage_result = (
             await client.table("user_token_usage")
-            .select("request_count")
+            .select("request_count, user_id")
             .gte("date", thirty_days_ago.date().isoformat())
             .execute()
         )
@@ -264,29 +297,23 @@ class SuperAdminService:
         )
 
         users = user_result.data or []
-        monthly_active_users = 0
-        for user in users:
-            last_active = user.get("last_active_at")
-            if not last_active:
-                continue
-            try:
-                active_at = datetime.fromisoformat(
-                    str(last_active).replace("Z", "+00:00")
-                )
-                if active_at >= thirty_days_ago:
-                    monthly_active_users += 1
-            except ValueError:
-                continue
+        monthly_active_users = len(
+            {
+                str(row["user_id"])
+                for row in (usage_result.data or [])
+                if row.get("user_id")
+            }
+        )
 
         orgs = org_result.data or []
-        subscriptions = subscription_result.data or []
+        subscriptions = canonical_subscription_map(
+            subscription_result.data or []
+        ).values()
         return {
             "total_organizations": (
                 org_result.count if org_result.count is not None else len(orgs)
             ),
-            "active_organizations": sum(
-                1 for org in orgs if org.get("status") == "active"
-            ),
+            "active_organizations": len(orgs),
             "total_users": (
                 user_result.count if user_result.count is not None else len(users)
             ),
@@ -367,20 +394,28 @@ class SuperAdminService:
         if filters.get("action"):
             query = query.eq("action", filters["action"])
         if filters.get("user_id"):
-            query = query.eq("user_id", filters["user_id"])
+            query = query.eq("actor_user_id", filters["user_id"])
         if filters.get("org_id"):
-            query = query.eq("organization_id", filters["org_id"])
+            query = query.eq("org_id", filters["org_id"])
         if filters.get("date_from"):
-            query = query.gte("created_at", filters["date_from"])
+            query = query.gte("timestamp", filters["date_from"])
         if filters.get("date_to"):
-            query = query.lte("created_at", filters["date_to"])
+            query = query.lte("timestamp", filters["date_to"])
 
         result = (
-            await query.order("created_at", desc=True)
+            await query.order("timestamp", desc=True)
             .range(offset, offset + limit - 1)
             .execute()
         )
-        return result.data or []
+        return [
+            {
+                **item,
+                "user_id": item.get("actor_user_id"),
+                "details": item.get("details_json") or {},
+                "created_at": item.get("timestamp"),
+            }
+            for item in (result.data or [])
+        ]
 
     async def admin_change_plan(
         self, org_id: str, plan: str, reason: str, admin_user_id: str
@@ -458,13 +493,9 @@ class SuperAdminService:
         if not result.data:
             raise RuntimeError("Failed to update subscription access")
 
-        await client.table("organizations").update(
-            {
-                "plan": plan,
-                "tier": plan,
-                "subscription_status": status,
-            }
-        ).eq("id", org_id).execute()
+        await client.table("organizations").update({"plan": plan, "tier": plan}).eq(
+            "id", org_id
+        ).execute()
         change_id = str(uuid.uuid4())
         await client.table("subscription_access_versions").insert(
             {
@@ -512,6 +543,55 @@ class SuperAdminService:
             "access_source": source,
             "change_id": change_id,
         }
+
+    async def admin_adjust_access_days(
+        self,
+        org_id: str,
+        days: int,
+        reason: str,
+        admin_user_id: str,
+    ) -> dict[str, Any]:
+        """Extend or shorten one organization's membership from its current end."""
+        if days == 0 or days < -3650 or days > 3650:
+            raise ValueError("Adjustment days must be between -3650 and 3650")
+        client = self._get_global_client()
+        current = await self._maybe_first(
+            client.table("subscriptions").select("*").eq("org_id", org_id).limit(1)
+        )
+        state = _access_state(current)
+        if days < 0 and state != "active":
+            raise ValueError("Only an active membership can be shortened")
+
+        now = datetime.now(UTC)
+        current_end = _parse_datetime(
+            current.get("current_period_end") if current else None
+        )
+        if days > 0:
+            base = current_end if current_end and current_end > now else now
+            new_end = base + timedelta(days=days)
+        else:
+            # A long-term membership starts its subtraction from today so the
+            # result deterministically becomes inactive rather than inventing an end.
+            if not current_end:
+                return await self.admin_set_access(
+                    org_id, "free", None, reason, admin_user_id
+                )
+            new_end = current_end + timedelta(days=days)
+
+        if new_end <= now:
+            result = await self.admin_set_access(
+                org_id, "free", None, reason, admin_user_id
+            )
+        else:
+            current_plan = str((current or {}).get("plan") or "enterprise")
+            plan = (
+                current_plan if current_plan in VALID_PLANS - {"free"} else "enterprise"
+            )
+            result = await self.admin_set_access(
+                org_id, plan, new_end.isoformat(), reason, admin_user_id
+            )
+        result["adjusted_days"] = days
+        return result
 
     async def admin_update_quotas(
         self, org_id: str, quotas: dict, reason: str, admin_user_id: str
@@ -584,13 +664,9 @@ class SuperAdminService:
                 "updated_at": now.isoformat(),
             }
         ).execute()
-        await client.table("organizations").update(
-            {
-                "plan": plan,
-                "tier": plan,
-                "subscription_status": "trialing",
-            }
-        ).eq("id", org_id).execute()
+        await client.table("organizations").update({"plan": plan, "tier": plan}).eq(
+            "id", org_id
+        ).execute()
         self._invalidate_billing_cache(org_id)
         await self._write_audit_log(
             client,
@@ -701,11 +777,7 @@ class SuperAdminService:
         org_id = str(result_data["org_id"])
         if decision == "approved":
             await client.table("organizations").update(
-                {
-                    "plan": result_data["plan"],
-                    "tier": result_data["plan"],
-                    "subscription_status": "active",
-                }
+                {"plan": result_data["plan"], "tier": result_data["plan"]}
             ).eq("id", org_id).execute()
             change_id = str(uuid.uuid4())
             now = datetime.now(UTC).isoformat()
@@ -799,10 +871,14 @@ class SuperAdminService:
                     {
                         "id": str(uuid.uuid4()),
                         "action": action,
-                        "user_id": admin_user_id,
+                        "actor_user_id": admin_user_id,
+                        "org_id": org_id,
                         "organization_id": org_id,
-                        "details": details,
-                        "created_at": datetime.now(UTC).isoformat(),
+                        "target_id": org_id,
+                        "target_table": "organizations",
+                        "details_json": details,
+                        "status": "success",
+                        "timestamp": datetime.now(UTC).isoformat(),
                     }
                 )
                 .execute()

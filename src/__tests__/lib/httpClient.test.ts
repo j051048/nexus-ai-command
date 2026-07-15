@@ -127,24 +127,24 @@ describe('httpClient interceptors', () => {
     it('遇到 401 应该弹出错误、清除缓存并跳转登录', async () => {
       await runErrorInterceptor(401);
 
-      expect(toast.error).toHaveBeenCalledWith('登录已过期，请重新登录');
+      expect(toast.error).toHaveBeenCalledWith('登录已过期，请重新登录', { id: 'auth-expired' });
       expect(localStorage.removeItem).toHaveBeenCalledWith('supabase.auth.token');
       expect(window.location.href).toBe('/login');
     });
 
     it('遇到 403 应该弹出权限不足错误', async () => {
       await runErrorInterceptor(403);
-      expect(toast.error).toHaveBeenCalledWith('权限不足或请求被拒绝');
+      expect(toast.error).toHaveBeenCalledWith('权限不足或请求被拒绝', { id: 'request-forbidden' });
     });
 
     it('遇到 429 应该弹流控提示', async () => {
       await runErrorInterceptor(429);
-      expect(toast.error).toHaveBeenCalledWith('请求过于频繁，请稍后再试');
+      expect(toast.error).toHaveBeenCalledWith('请求过于频繁，请稍后再试', { id: 'request-rate-limited' });
     });
 
     it('遇到 500 应该弹出服务器内部错误', async () => {
       await runErrorInterceptor(500);
-      expect(toast.error).toHaveBeenCalledWith('服务器错误，请稍后重试');
+      expect(toast.error).toHaveBeenCalledWith('服务器错误，请稍后重试', { id: 'server-error' });
     });
   });
 });

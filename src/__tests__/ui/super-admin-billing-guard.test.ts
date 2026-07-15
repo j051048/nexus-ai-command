@@ -24,7 +24,8 @@ describe('manual membership approval UX guard', () => {
     const compatibilityEntry = source('src/pages/SuperAdminDashboard.tsx');
 
     expect(admin).toContain('会员开通与续期');
-    expect(admin).toContain('企业与会员');
+    expect(admin).toContain('企业会员');
+    expect(admin).toContain('高级管理');
     expect(admin).toContain('审计记录');
     expect(compatibilityEntry).toContain("export { default } from './AdminPanel'");
   });

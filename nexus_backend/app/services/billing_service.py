@@ -178,7 +178,7 @@ class Subscription:
         has_paid_access = (
             self.plan != BillingPlan.FREE and status_allows_access and not is_expired
         )
-        needs_attention = self.status in {"past_due", "expired", "suspended"}
+        needs_attention = not has_paid_access
 
         return {
             "org_id": self.org_id,
@@ -189,7 +189,8 @@ class Subscription:
             "approved_at": self.approved_at,
             "has_paid_access": has_paid_access,
             "is_expired": is_expired,
-            # Marketing prompts are never shown for a valid admin-approved term.
+            # The whole organization shares one entitlement. Valid memberships
+            # stay quiet; every non-member state gets one actionable notice.
             "notice_policy": (
                 "action_required" if needs_attention or is_expired else "none"
             ),

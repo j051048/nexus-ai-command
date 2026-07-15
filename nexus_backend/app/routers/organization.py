@@ -498,10 +498,14 @@ async def _write_super_admin_audit(
                 {
                     "id": str(uuid.uuid4()),
                     "action": action,
-                    "user_id": admin_user_id,
+                    "actor_user_id": admin_user_id,
+                    "org_id": organization_id,
                     "organization_id": organization_id,
-                    "details": details,
-                    "created_at": datetime.now(UTC).isoformat(),
+                    "target_id": organization_id,
+                    "target_table": "organizations",
+                    "details_json": details,
+                    "status": "success",
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
             .execute()

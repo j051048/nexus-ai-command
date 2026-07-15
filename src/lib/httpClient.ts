@@ -38,13 +38,14 @@ httpClient.interceptors.request.use(
     }
 
     if (['post', 'put'].includes(method)) {
-      config.headers['X-Idempotency-Key'] = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      config.headers['X-Idempotency-Key'] =
+        `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     }
 
     config.headers['X-Requested-With'] = 'XMLHttpRequest';
     return config;
   },
-  (error) => Promise.reject(error),
+  (error) => Promise.reject(error)
 );
 
 httpClient.interceptors.response.use(
@@ -58,7 +59,7 @@ httpClient.interceptors.response.use(
     }
 
     if (status === 401 && window.location.pathname !== '/login') {
-      toast.error('登录已过期，请重新登录');
+      toast.error('登录已过期，请重新登录', { id: 'auth-expired' });
       localStorage.removeItem('supabase.auth.token');
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
@@ -69,17 +70,17 @@ httpClient.interceptors.response.use(
     }
 
     if (status === 403) {
-      toast.error('权限不足或请求被拒绝');
+      toast.error('权限不足或请求被拒绝', { id: 'request-forbidden' });
     }
     if (status === 429) {
-      toast.error('请求过于频繁，请稍后再试');
+      toast.error('请求过于频繁，请稍后再试', { id: 'request-rate-limited' });
     }
     if (status === 500) {
-      toast.error('服务器错误，请稍后重试');
+      toast.error('服务器错误，请稍后重试', { id: 'server-error' });
     }
 
     return Promise.reject(error);
-  },
+  }
 );
 
 export { httpClient };

@@ -85,6 +85,13 @@ class SetAccessRequest(BaseModel):
     reason: str = Field(min_length=2, max_length=1000)
 
 
+class AdjustAccessDaysRequest(BaseModel):
+    days: int = Field(ge=-3650, le=3650)
+    reason: str = Field(
+        default="平台管理员手动调整会员期限", min_length=2, max_length=1000
+    )
+
+
 class SubscriptionDecisionRequest(BaseModel):
     decision: str
     reason: str = Field(min_length=2, max_length=1000)
@@ -530,6 +537,28 @@ async def admin_set_access(
     except Exception as exc:
         logger.error("Failed to update organization access: %s", exc)
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "会员权益更新失败")
+
+
+@router.post("/organizations/{org_id}/access/adjust")
+async def admin_adjust_access_days(
+    org_id: str,
+    body: AdjustAccessDaysRequest,
+    user_id: str = Depends(require_manage_memberships),
+):
+    """Extend or shorten an organization's membership by a number of days."""
+    try:
+        result = await super_admin_service.admin_adjust_access_days(
+            org_id=org_id,
+            days=body.days,
+            reason=body.reason,
+            admin_user_id=user_id,
+        )
+        return api_success(data=result, message="会员期限已调整")
+    except ValueError as exc:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
+    except Exception as exc:
+        logger.error("Failed to adjust organization access: %s", exc)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "会员期限调整失败")
 
 
 @router.get("/subscription-requests")

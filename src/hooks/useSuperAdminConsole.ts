@@ -29,6 +29,7 @@ export interface AdminOrganization {
   plan: string;
   created_at: string;
   access_state: string;
+  is_member?: boolean;
   subscription?: AdminSubscription | null;
   user_count?: number;
   ai_calls_30d?: number;
@@ -171,7 +172,8 @@ interface ApiResponse<T> {
 export function usePlatformStats() {
   return useQuery({
     queryKey: ['super-admin', 'stats'],
-    queryFn: async () => (await httpClient.get<ApiResponse<PlatformStats>>('/api/admin/stats')).data.data,
+    queryFn: async () =>
+      (await httpClient.get<ApiResponse<PlatformStats>>('/api/admin/stats')).data.data,
     refetchInterval: 60_000,
   });
 }
@@ -179,7 +181,8 @@ export function usePlatformStats() {
 export function useAdminContext() {
   return useQuery({
     queryKey: ['super-admin', 'context'],
-    queryFn: async () => (await httpClient.get<ApiResponse<AdminContext>>('/api/admin/me')).data.data,
+    queryFn: async () =>
+      (await httpClient.get<ApiResponse<AdminContext>>('/api/admin/me')).data.data,
     staleTime: 5 * 60_000,
   });
 }
@@ -188,9 +191,12 @@ export function useAdminOrganizations(search = '') {
   return useQuery({
     queryKey: ['super-admin', 'organizations', search],
     queryFn: async () => {
-      const response = await httpClient.get<ApiResponse<AdminOrganization[]>>('/api/admin/organizations', {
-        params: { limit: 100, search: search || undefined },
-      });
+      const response = await httpClient.get<ApiResponse<AdminOrganization[]>>(
+        '/api/admin/organizations',
+        {
+          params: { limit: 100, search: search || undefined },
+        }
+      );
       return response.data.data;
     },
   });
@@ -200,7 +206,8 @@ export function useAdminOrganization(orgId?: string) {
   return useQuery({
     queryKey: ['super-admin', 'organization', orgId],
     queryFn: async () =>
-      (await httpClient.get<ApiResponse<AdminOrganization>>(`/api/admin/organizations/${orgId}`)).data.data,
+      (await httpClient.get<ApiResponse<AdminOrganization>>(`/api/admin/organizations/${orgId}`))
+        .data.data,
     enabled: Boolean(orgId),
   });
 }
@@ -209,18 +216,26 @@ export function useAdminOrganization360(orgId?: string) {
   return useQuery({
     queryKey: ['super-admin', 'organization-360', orgId],
     queryFn: async () =>
-      (await httpClient.get<ApiResponse<Organization360>>(`/api/admin/organizations/${orgId}/overview`)).data.data,
+      (
+        await httpClient.get<ApiResponse<Organization360>>(
+          `/api/admin/organizations/${orgId}/overview`
+        )
+      ).data.data,
     enabled: Boolean(orgId),
   });
 }
 
-export function useOperationalExceptions() {
+export function useOperationalExceptions(enabled = true) {
   return useQuery({
     queryKey: ['super-admin', 'operational-exceptions'],
     queryFn: async () =>
-      (await httpClient.get<ApiResponse<{ exceptions: OperationalException[] }>>('/api/admin/operational-exceptions'))
-        .data.data.exceptions,
+      (
+        await httpClient.get<ApiResponse<{ exceptions: OperationalException[] }>>(
+          '/api/admin/operational-exceptions'
+        )
+      ).data.data.exceptions,
     refetchInterval: 60_000,
+    enabled,
   });
 }
 
@@ -228,7 +243,8 @@ export function useOperationalAnalytics() {
   return useQuery({
     queryKey: ['super-admin', 'operational-analytics'],
     queryFn: async () =>
-      (await httpClient.get<ApiResponse<OperationalAnalytics>>('/api/admin/operational-analytics')).data.data,
+      (await httpClient.get<ApiResponse<OperationalAnalytics>>('/api/admin/operational-analytics'))
+        .data.data,
     refetchInterval: 5 * 60_000,
   });
 }
@@ -238,9 +254,12 @@ export function useAccessChanges(orgId?: string, status?: string) {
     queryKey: ['super-admin', 'access-changes', orgId, status],
     queryFn: async () =>
       (
-        await httpClient.get<ApiResponse<{ changes: AccessChange[] }>>('/api/admin/access-changes', {
-          params: { org_id: orgId, status },
-        })
+        await httpClient.get<ApiResponse<{ changes: AccessChange[] }>>(
+          '/api/admin/access-changes',
+          {
+            params: { org_id: orgId, status },
+          }
+        )
       ).data.data.changes,
   });
 }
@@ -250,9 +269,12 @@ export function useCommercialRecords(orgId?: string, status?: string) {
     queryKey: ['super-admin', 'commercial-records', orgId, status],
     queryFn: async () =>
       (
-        await httpClient.get<ApiResponse<{ records: CommercialRecord[] }>>('/api/admin/commercial-records', {
-          params: { org_id: orgId, status },
-        })
+        await httpClient.get<ApiResponse<{ records: CommercialRecord[] }>>(
+          '/api/admin/commercial-records',
+          {
+            params: { org_id: orgId, status },
+          }
+        )
       ).data.data.records,
   });
 }
@@ -261,8 +283,11 @@ export function useAdminAssignments(enabled = true) {
   return useQuery({
     queryKey: ['super-admin', 'admin-assignments'],
     queryFn: async () =>
-      (await httpClient.get<ApiResponse<{ assignments: PlatformAdminAssignment[] }>>('/api/admin/admin-assignments'))
-        .data.data.assignments,
+      (
+        await httpClient.get<ApiResponse<{ assignments: PlatformAdminAssignment[] }>>(
+          '/api/admin/admin-assignments'
+        )
+      ).data.data.assignments,
     enabled,
   });
 }
@@ -273,7 +298,7 @@ export function useSubscriptionRequests(status = 'pending') {
     queryFn: async () => {
       const response = await httpClient.get<ApiResponse<{ requests: SubscriptionRequest[] }>>(
         '/api/admin/subscription-requests',
-        { params: { status } },
+        { params: { status } }
       );
       return response.data.data.requests;
     },
@@ -284,7 +309,9 @@ export function usePendingBosses() {
   return useQuery({
     queryKey: ['super-admin', 'pending-bosses'],
     queryFn: async () => {
-      const response = await httpClient.get<ApiResponse<PendingBoss[]>>('/api/organization/admin/pending-bosses');
+      const response = await httpClient.get<ApiResponse<PendingBoss[]>>(
+        '/api/organization/admin/pending-bosses'
+      );
       return response.data.data ?? [];
     },
   });
@@ -294,7 +321,11 @@ export function useAdminAuditLogs(enabled = true) {
   return useQuery({
     queryKey: ['super-admin', 'audit-logs'],
     queryFn: async () =>
-      (await httpClient.get<ApiResponse<AuditLog[]>>('/api/admin/audit-logs', { params: { limit: 100 } })).data.data,
+      (
+        await httpClient.get<ApiResponse<AuditLog[]>>('/api/admin/audit-logs', {
+          params: { limit: 100 },
+        })
+      ).data.data,
     enabled,
   });
 }
@@ -311,8 +342,16 @@ function useAdminMutation<TVariables>(mutationFn: (variables: TVariables) => Pro
 
 export function useDecideSubscriptionRequest() {
   return useAdminMutation(
-    async ({ requestId, ...body }: { requestId: string; decision: string; reason: string; plan?: string; expires_at?: string }) =>
-      httpClient.post(`/api/admin/subscription-requests/${requestId}/decision`, body),
+    async ({
+      requestId,
+      ...body
+    }: {
+      requestId: string;
+      decision: string;
+      reason: string;
+      plan?: string;
+      expires_at?: string;
+    }) => httpClient.post(`/api/admin/subscription-requests/${requestId}/decision`, body)
   );
 }
 
@@ -324,14 +363,31 @@ export function useBatchDecideSubscriptionRequests() {
       reason: string;
       plan?: string;
       expires_at?: string;
-    }) => httpClient.post('/api/admin/subscription-requests/batch-decision', body),
+    }) => httpClient.post('/api/admin/subscription-requests/batch-decision', body)
   );
 }
 
 export function useSetOrganizationAccess() {
   return useAdminMutation(
-    async ({ orgId, ...body }: { orgId: string; plan: string; expires_at?: string | null; reason: string }) =>
-      httpClient.put(`/api/admin/organizations/${orgId}/access`, body),
+    async ({
+      orgId,
+      ...body
+    }: {
+      orgId: string;
+      plan: string;
+      expires_at?: string | null;
+      reason: string;
+    }) => httpClient.put(`/api/admin/organizations/${orgId}/access`, body)
+  );
+}
+
+export function useAdjustOrganizationAccess() {
+  return useAdminMutation(
+    async ({ orgId, days, reason }: { orgId: string; days: number; reason?: string }) =>
+      httpClient.post(`/api/admin/organizations/${orgId}/access/adjust`, {
+        days,
+        reason: reason || '平台管理员手动调整会员期限',
+      })
   );
 }
 
@@ -347,53 +403,80 @@ export function useScheduleOrganizationAccess() {
       effective_at?: string | null;
       reason: string;
       commercial_record_id?: string | null;
-    }) => httpClient.post(`/api/admin/organizations/${orgId}/access/schedule`, body),
+    }) => httpClient.post(`/api/admin/organizations/${orgId}/access/schedule`, body)
   );
 }
 
 export function useAccessChangeAction() {
   return useAdminMutation(
-    async ({ changeId, action, reason }: { changeId: string; action: 'cancel' | 'rollback'; reason: string }) =>
-      httpClient.post(`/api/admin/access-changes/${changeId}/${action}`, { reason }),
+    async ({
+      changeId,
+      action,
+      reason,
+    }: {
+      changeId: string;
+      action: 'cancel' | 'rollback';
+      reason: string;
+    }) => httpClient.post(`/api/admin/access-changes/${changeId}/${action}`, { reason })
   );
 }
 
 export function useUpsertCommercialRecord() {
-  return useAdminMutation(async (body: Partial<CommercialRecord> & { org_id: string; order_number: string }) =>
-    httpClient.post('/api/admin/commercial-records', body),
+  return useAdminMutation(
+    async (body: Partial<CommercialRecord> & { org_id: string; order_number: string }) =>
+      httpClient.post('/api/admin/commercial-records', body)
   );
 }
 
 export function useSetAdminAssignment() {
   return useAdminMutation(
     async (body: { user_id: string; admin_role: string; permissions: string[]; active: boolean }) =>
-      httpClient.put(`/api/admin/admin-assignments/${body.user_id}`, body),
+      httpClient.put(`/api/admin/admin-assignments/${body.user_id}`, body)
   );
 }
 
 export function useUpdateOrganizationQuotas() {
   return useAdminMutation(
-    async ({ orgId, ...body }: { orgId: string; reason: string; monthly_token_limit?: number; monthly_api_call_limit?: number; storage_limit_mb?: number }) =>
-      httpClient.post(`/api/admin/organizations/${orgId}/update-quotas`, body),
+    async ({
+      orgId,
+      ...body
+    }: {
+      orgId: string;
+      reason: string;
+      monthly_token_limit?: number;
+      monthly_api_call_limit?: number;
+      storage_limit_mb?: number;
+    }) => httpClient.post(`/api/admin/organizations/${orgId}/update-quotas`, body)
   );
 }
 
 export function useOrganizationStatusAction() {
   return useAdminMutation(
-    async ({ orgId, action, reason }: { orgId: string; action: 'suspend' | 'unsuspend'; reason?: string }) =>
-      httpClient.post(`/api/admin/organizations/${orgId}/${action}`, action === 'suspend' ? { reason } : undefined),
+    async ({
+      orgId,
+      action,
+      reason,
+    }: {
+      orgId: string;
+      action: 'suspend' | 'unsuspend';
+      reason?: string;
+    }) =>
+      httpClient.post(
+        `/api/admin/organizations/${orgId}/${action}`,
+        action === 'suspend' ? { reason } : undefined
+      )
   );
 }
 
 export function useDeleteOrganization() {
   return useAdminMutation(async ({ orgId }: { orgId: string }) =>
-    httpClient.delete(`/api/organization/admin/organization/${orgId}`),
+    httpClient.delete(`/api/organization/admin/organization/${orgId}`)
   );
 }
 
 export function useBossDecision() {
   return useAdminMutation(
     async ({ userId, decision }: { userId: string; decision: 'approve' | 'reject' }) =>
-      httpClient.post(`/api/organization/admin/${decision}-boss/${userId}`),
+      httpClient.post(`/api/organization/admin/${decision}-boss/${userId}`)
   );
 }
