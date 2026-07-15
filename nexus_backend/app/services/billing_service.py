@@ -401,7 +401,8 @@ class BillingService:
                             "org_id": org_id,
                             "plan": plan.value,
                             "status": "active",
-                        }
+                        },
+                        on_conflict="org_id",
                     )
                     .execute()
                 )
@@ -466,7 +467,8 @@ class BillingService:
         if db:
             try:
                 await db.table("subscriptions").upsert(
-                    {"org_id": org_id, "stripe_customer_id": customer_id}
+                    {"org_id": org_id, "stripe_customer_id": customer_id},
+                    on_conflict="org_id",
                 ).execute()
             except Exception as e:
                 logger.warning(f"Failed to persist Stripe customer ID: {e}")
@@ -578,7 +580,8 @@ class BillingService:
                             "plan": plan.value,
                             "status": "trialing",
                             "current_period_end": trial_end.isoformat(),
-                        }
+                        },
+                        on_conflict="org_id",
                     )
                     .execute()
                 )

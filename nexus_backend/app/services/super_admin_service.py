@@ -439,7 +439,8 @@ class SuperAdminService:
                 "approved_at": datetime.now(UTC).isoformat(),
                 "notes": reason,
                 "updated_at": datetime.now(UTC).isoformat(),
-            }
+            },
+            on_conflict="org_id",
         ).execute()
         self._invalidate_billing_cache(org_id)
         await self._write_audit_log(
@@ -489,7 +490,11 @@ class SuperAdminService:
             "notes": reason,
             "updated_at": now,
         }
-        result = await client.table("subscriptions").upsert(payload).execute()
+        result = (
+            await client.table("subscriptions")
+            .upsert(payload, on_conflict="org_id")
+            .execute()
+        )
         if not result.data:
             raise RuntimeError("Failed to update subscription access")
 
@@ -566,16 +571,13 @@ class SuperAdminService:
         current_end = _parse_datetime(
             current.get("current_period_end") if current else None
         )
+        if state == "active" and not current_end:
+            raise ValueError("长期有效会员无法增减天数，请先设置明确到期日")
         if days > 0:
             base = current_end if current_end and current_end > now else now
             new_end = base + timedelta(days=days)
         else:
-            # A long-term membership starts its subtraction from today so the
-            # result deterministically becomes inactive rather than inventing an end.
-            if not current_end:
-                return await self.admin_set_access(
-                    org_id, "free", None, reason, admin_user_id
-                )
+            assert current_end is not None
             new_end = current_end + timedelta(days=days)
 
         if new_end <= now:
@@ -662,7 +664,8 @@ class SuperAdminService:
                 "approved_at": now.isoformat(),
                 "notes": reason,
                 "updated_at": now.isoformat(),
-            }
+            },
+            on_conflict="org_id",
         ).execute()
         await client.table("organizations").update({"plan": plan, "tier": plan}).eq(
             "id", org_id

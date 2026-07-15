@@ -301,34 +301,40 @@ function AccessAndQuota({
           <>
             <div>
               <Label>快捷调整</Label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => adjustDays(30)}
-                  disabled={adjustAccess.isPending}
-                >
-                  <CalendarPlus className="mr-2 h-4 w-4" />
-                  增加 30 天
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => adjustDays(365)}
-                  disabled={adjustAccess.isPending}
-                >
-                  <CalendarPlus className="mr-2 h-4 w-4" />
-                  增加 1 年
-                </Button>
-                {data.is_member && data.subscription?.current_period_end && (
+              {data.is_member && !data.subscription?.current_period_end ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  当前为长期有效，无需续期。如需改为有限期，请在下方设置到期日。
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => adjustDays(-30)}
+                    onClick={() => adjustDays(30)}
                     disabled={adjustAccess.isPending}
                   >
-                    <CalendarMinus className="mr-2 h-4 w-4" />
-                    减少 30 天
+                    <CalendarPlus className="mr-2 h-4 w-4" />
+                    增加 30 天
                   </Button>
-                )}
-              </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => adjustDays(365)}
+                    disabled={adjustAccess.isPending}
+                  >
+                    <CalendarPlus className="mr-2 h-4 w-4" />
+                    增加 1 年
+                  </Button>
+                  {data.is_member && data.subscription?.current_period_end && (
+                    <Button
+                      variant="outline"
+                      onClick={() => adjustDays(-30)}
+                      disabled={adjustAccess.isPending}
+                    >
+                      <CalendarMinus className="mr-2 h-4 w-4" />
+                      减少 30 天
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 border-y py-5 sm:grid-cols-[1fr_auto] sm:items-end">

@@ -107,6 +107,7 @@ async def test_admin_access_update_invalidates_billing_cache():
         )
 
     invalidate.assert_called_once_with("org-1")
+    assert query.upsert.call_args.kwargs["on_conflict"] == "org_id"
     assert result["plan"] == "professional"
     assert result["status"] == "active"
     assert result["current_period_end"] == expires_at
@@ -146,3 +147,34 @@ async def test_admin_can_extend_membership_from_current_expiry():
     args = service.admin_set_access.await_args.args
     extended_until = datetime.fromisoformat(args[2])
     assert timedelta(days=59) < extended_until - datetime.now(UTC) < timedelta(days=61)
+
+
+@pytest.mark.asyncio
+async def test_long_term_membership_cannot_be_accidentally_converted_by_adjustment():
+    service = SuperAdminService()
+    client = MagicMock()
+    query = MagicMock()
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.limit.return_value = query
+    client.table.return_value = query
+    service._get_global_client = MagicMock(return_value=client)
+    service._maybe_first = AsyncMock(
+        return_value={
+            "org_id": "org-1",
+            "plan": "enterprise",
+            "status": "active",
+            "current_period_end": None,
+        }
+    )
+    service.admin_set_access = AsyncMock()
+
+    with pytest.raises(ValueError, match="长期有效会员无法增减天数"):
+        await service.admin_adjust_access_days(
+            org_id="org-1",
+            days=30,
+            reason="Manual extension",
+            admin_user_id="admin-1",
+        )
+
+    service.admin_set_access.assert_not_awaited()
