@@ -188,6 +188,7 @@ class AgentConfig(BaseModel):
     )
     # P0-2: Dry-run mode
     dry_run: bool = False
+    execution_policy: dict = Field(default_factory=dict)
 
     @field_validator("user_role")
     @classmethod
@@ -204,37 +205,9 @@ class AgentConfig(BaseModel):
         return "deepseek-v4-flash"
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
-        """Dynamic model routing based on query complexity (4-tier).
-
-        For power/flagship tiers, guards against weak models (mini/flash/turbo
-        etc.) that the user may have saved as their default.  Falls back to
-        the env-level AI_DEFAULT_MODEL so complex tasks get a capable model
-        while still using the user's API key and proxy.
-        """
-        tier = complexity.model_tier
-        if tier in ("economy", "balanced"):
-            return self.mini_model
-
-        # power / flagship — ensure a capable model
-        model = self.model
-        from app.services.llm_helpers import is_weak_model
-
-        if is_weak_model(model):
-            from app.core.config import settings as _settings
-
-            fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(
-                _settings, "AI_DEFAULT_MODEL", "deepseek-v4-flash"
-            )
-            # Guard: if fallback is the same model, skip the misleading log
-            if fallback != model:
-                logger.info(
-                    "Weak model '%s' for %s tier, upgrading to '%s'",
-                    model,
-                    tier,
-                    fallback,
-                )
-            return fallback
-        return model
+        """Return the single production chat model for every task depth."""
+        del complexity
+        return "deepseek-v4-flash"
 
     def get_tier_config(self, complexity: QueryComplexity) -> dict:
         """Return full tier-aware config (model + temperature + timeout + tools).
@@ -243,19 +216,13 @@ class AgentConfig(BaseModel):
         to local tier overrides.  Includes cost_multiplier for cost tracking.
         """
         tier = complexity.model_tier
-        _cost_multipliers = {
-            "economy": 0.1,
-            "balanced": 0.3,
-            "power": 1.0,
-            "flagship": 1.5,
-        }
-        cost_multiplier = _cost_multipliers.get(tier, 1.0)
+        cost_multiplier = 1.0
 
         # Prefer pre-resolved Gateway config
         if self.resolved_configs and tier in self.resolved_configs:
             rc = self.resolved_configs[tier]
             return {
-                "model": rc.get("model", self.get_model_for_complexity(complexity)),
+                "model": self.get_model_for_complexity(complexity),
                 "temperature": rc.get("temperature", self.temperature),
                 "timeout": rc.get("timeout", 300),
                 "supports_tools": rc.get("supports_tools", True),
@@ -328,6 +295,10 @@ class AgentState(TypedDict, total=False):
     selected_model: str  # Model chosen for this turn
     intent_summary: str  # One-line description of user intent
     intent_domains: list[str]  # Business domains identified by Router LLM fallback
+    execution_policy: dict  # Serialized tenant execution policy
+    task_profile: dict  # Deterministic task risk and depth assessment
+    execution_depth: str  # direct / verify / critic
+    inference_receipt: dict  # Verifiable run summary attached at completion
 
     # ── Plan ──
     plan: str  # Natural language plan from planning node
@@ -439,7 +410,7 @@ class AgentState(TypedDict, total=False):
 
 # ─── Schema Version & Migration ──────────────────────────────────────────────
 
-CURRENT_SCHEMA_VERSION = 2  # Bump when adding/removing/renaming AgentState fields
+CURRENT_SCHEMA_VERSION = 3  # Bump when adding/removing/renaming AgentState fields
 
 # Fields added in each version (for forward-compatible migration)
 _SCHEMA_DEFAULTS: dict[int, dict[str, Any]] = {
@@ -451,6 +422,13 @@ _SCHEMA_DEFAULTS: dict[int, dict[str, Any]] = {
         "slot_context": None,
         "slot_round": 0,
         "circuit_break_reason": None,
+    },
+    3: {
+        "_schema_version": 3,
+        "execution_policy": {},
+        "task_profile": {},
+        "execution_depth": "direct",
+        "inference_receipt": {},
     },
 }
 

@@ -200,6 +200,11 @@ async def _run_agent_stream_impl(
     start_time = time.time()
 
     # ── 0. Build AgentConfig with settings ──
+    from app.services.ai_execution_policy_service import ai_execution_policy_service
+
+    execution_policy = await ai_execution_policy_service.get_policy(
+        org_id, db=db_client
+    )
     agent_config = AgentConfig(
         user_id=user_id,
         session_id=session_id or "default",
@@ -223,6 +228,7 @@ async def _run_agent_stream_impl(
         rag_inject_threshold=settings.LANGGRAPH_RAG_INJECT_THRESHOLD,
         rag_inject_limit=settings.LANGGRAPH_RAG_INJECT_LIMIT,
         reflect_use_llm=settings.LANGGRAPH_REFLECT_USE_LLM,
+        execution_policy=execution_policy.model_dump(mode="json"),
     )
 
     # ── 0b. Start agent trace for observability (P3) ──
@@ -1001,7 +1007,9 @@ async def _run_agent_stream_impl(
                                     }
                                 }
                             )
-                            yield _sse_content("\n\n⚠️ 回复已达到输出上限，已自动截断。")
+                            yield _sse_content(
+                                "\n\n⚠️ 回复已达到输出上限，已自动截断。"
+                            )
                             break
                     elif kind == "on_chain_end":
                         data = event.get("data", {})

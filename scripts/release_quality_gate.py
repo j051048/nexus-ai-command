@@ -11,7 +11,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -497,7 +496,14 @@ CHECKS = [
         "P1",
         "embedded action inbox AI layer",
         "src/pages/InboxPage.tsx",
-        ("ActionInboxInsightStrip", "AIInsightPanel", "RoleGuidanceStrip", "安排今天"),
+        (
+            "ActionInboxInsightStrip",
+            "AIInsightPanel",
+            'surfaceId="inbox-priority"',
+            "useInboxActions",
+            "useExecuteInboxAction",
+            "useRecordInboxActionEvent",
+        ),
     ),
     GateCheck(
         "P1",
@@ -755,16 +761,15 @@ CHECKS = [
         "AI operating system page",
         "src/pages/AIOperatingSystemPage.tsx",
         (
-            "AI 作战室",
-            "真实运营数据",
-            "AI 价值与信任仪表盘",
-            "SOP → AOP 自然语言定义器",
+            "AI_OPERATING_CAPABILITIES",
+            "AUTONOMOUS_ACTION_POLICIES",
             "useAIOperatingOverview",
             "useRunAgentSimulation",
             "useDefineAgentFromSop",
-            "运行仿真",
-            "生成 Agent 定义",
-            "P0-P3：AI 原生能力底座",
+            "runSimulation",
+            "defineAgent",
+            'value="release"',
+            'value="operations"',
             "P4-P6：产品形态与增长闭环",
             "AI-Native 场景",
             "行业 Agent 模板库",
@@ -1037,10 +1042,11 @@ CHECKS = [
         "agent improvement center page",
         "src/pages/AgentImprovementCenterPage.tsx",
         (
-            "内置 Agent 自我进化控制台",
-            "Prompt Registry",
-            "Context Quality & Memory Hygiene",
-            "Hermes 式改进提案",
+            "usePromptRegistry",
+            "useMemoryHygiene",
+            "useAgentImprovementProposals",
+            "AgentOpsQuality",
+            "AgentOpsReleases",
         ),
     ),
     GateCheck(
@@ -1109,11 +1115,14 @@ CHECKS = [
         "agent evolution operations UI",
         "src/pages/AgentImprovementCenterPage.tsx",
         (
-            "10项 Agent Evolution Ops",
-            "Agent Skill Marketplace",
-            "Multi-Agent Protocol",
-            "Red Team Center",
-            "Customer Visible Trust Center",
+            "useAgentEvolutionOps",
+            "AgentOpsOverview",
+            "AgentOpsQuality",
+            "AgentOpsReleases",
+            "AgentOpsRuntime",
+            "decideProposal",
+            "gray_release",
+            "rollback",
         ),
     ),
     GateCheck(
@@ -1227,10 +1236,12 @@ CHECKS = [
         "Aeon-inspired Agent Ops UI and API",
         "src/pages/AgentImprovementCenterPage.tsx",
         (
-            "Aeon-style Agent Ops Runtime",
-            "Heartbeat Supervisor",
-            "MCP / A2A Capabilities",
-            "启用每日自动巡检",
+            "AgentOpsRuntime",
+            'value="runtime"',
+            "useRunAeonInspiredHeartbeat",
+            "useRegisterAeonHeartbeatSchedule",
+            "onRunHeartbeat",
+            "onRegisterSchedule",
         ),
     ),
     GateCheck(

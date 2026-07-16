@@ -392,6 +392,9 @@ jobs:
       - name: Agent eval regression gate
         working-directory: ${{ github.workspace }}
         run: python scripts/agent_eval_regression_gate.py
+      - name: AI execution quality and cost gate
+        working-directory: ${{ github.workspace }}
+        run: python scripts/ai_execution_policy_gate.py
 
   # ═══════════════════════════════════════════════════════════════
   # 6. 安全测试（Prompt 注入 + XSS/CSRF + 权限矩阵）

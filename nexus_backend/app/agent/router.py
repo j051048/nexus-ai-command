@@ -21,6 +21,11 @@ from langchain_core.messages import HumanMessage
 
 from app.agent.node_helpers import _get_langfuse_callbacks, _get_trace_context
 from app.agent.state import AgentPhase, AgentState, QueryComplexity, ThinkingStep
+from app.services.ai_execution_policy_service import (
+    AIExecutionPolicy,
+    assess_task,
+    effective_policy_for_task,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1096,6 +1101,12 @@ async def route_node(state: AgentState) -> dict:
     """
     config = state["config"]
     messages = state.get("messages", [])
+    try:
+        configured_policy = AIExecutionPolicy.model_validate(
+            getattr(config, "execution_policy", {})
+        )
+    except Exception:
+        configured_policy = AIExecutionPolicy.for_mode("balanced")
 
     # P0-2: Inject goal context at conversation start
     if hasattr(config, "user_id") and config.user_id:
@@ -1199,18 +1210,33 @@ async def route_node(state: AgentState) -> dict:
                 logger.info(
                     f"[Router] Semantic router hit: {sr_intent} (conf={sr_conf:.3f}), skipping LLM classify"
                 )
-            else:
-                # Slow path: LLM classify
+            elif configured_policy.allow_llm_router:
                 complexity, intent_summary, intent_domains, multi_intent = (
                     await _llm_classify_intent(last_user_msg, config)
                 )
+            else:
+                complexity = QueryComplexity.MODERATE
+                intent_summary = "一般业务咨询"
+                intent_domains = sr_domains
+                logger.info(
+                    "[Router] Semantic miss; deterministic fallback used "
+                    "(paid router disabled)"
+                )
         except Exception:
-            logger.error(
-                "[Router] Semantic router failed, falling back to LLM", exc_info=True
-            )
-            complexity, intent_summary, intent_domains, multi_intent = (
-                await _llm_classify_intent(last_user_msg, config)
-            )
+            if configured_policy.allow_llm_router:
+                logger.error(
+                    "[Router] Semantic router failed, falling back to LLM",
+                    exc_info=True,
+                )
+                complexity, intent_summary, intent_domains, multi_intent = (
+                    await _llm_classify_intent(last_user_msg, config)
+                )
+            else:
+                complexity = QueryComplexity.MODERATE
+                intent_summary = "一般业务咨询"
+                logger.warning(
+                    "[Router] Semantic router unavailable; using deterministic fallback"
+                )
 
     selected_model = config.get_model_for_complexity(complexity)
 
@@ -1241,13 +1267,24 @@ async def route_node(state: AgentState) -> dict:
             f"[Router] VMD role detected: agent_code={agent_code} scene={scene_code} multi_agent={needs_multi_agent}"
         )
 
+    task_profile = assess_task(
+        last_user_msg,
+        complexity=complexity,
+        scene_code=scene_code or "chat",
+        agent_code=agent_code or "assistant",
+        requires_tools=bool(agent_code or intent_domains),
+        scheduled=scene_code in {"scheduled_task", "proactive"},
+        policy=configured_policy,
+    )
+    execution_policy = effective_policy_for_task(configured_policy, task_profile)
+
     logger.info(
         f"[Router] user={config.user_id} complexity={complexity.value} model={selected_model} intent='{intent_summary}'"
     )
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.ROUTING.value,
-        content=f"意图分类: {intent_summary} → 复杂度: {complexity.value} → 模型: {selected_model}"
+        content=f"已识别任务: {intent_summary} → 执行深度: {task_profile.execution_depth}"
         + (f" → Agent: {agent_code}" if agent_code else ""),
     )
 
@@ -1263,6 +1300,9 @@ async def route_node(state: AgentState) -> dict:
         "selected_model": selected_model,
         "intent_summary": intent_summary,
         "intent_domains": intent_domains,
+        "execution_policy": execution_policy.model_dump(mode="json"),
+        "task_profile": task_profile.model_dump(mode="json"),
+        "execution_depth": task_profile.execution_depth,
         "current_phase": AgentPhase.PLANNING,
         "thinking_steps": [thinking_step],
     }

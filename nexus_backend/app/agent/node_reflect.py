@@ -301,7 +301,11 @@ async def reflect_node(state: AgentState) -> dict:
     reflection_count = state.get("reflection_count", 0)
 
     # ── Item 33: Adaptive Reflection Budget ──
-    max_reflections = get_reflection_budget(complexity, completed_tools)
+    max_reflections = get_reflection_budget(
+        complexity,
+        completed_tools,
+        state.get("execution_policy"),
+    )
     # 涉及不可逆操作时 +1（上限 4）
     if reflection_count >= max_reflections:
         logger.info(

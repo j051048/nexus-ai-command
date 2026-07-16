@@ -66,7 +66,7 @@ _background_tasks: set[asyncio.Task] = set()
 from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
-from app.agent.execution_policy import get_reflection_budget
+from app.agent.execution_policy import get_iteration_budget, get_reflection_budget
 from app.agent.loop_detector import detect_loop, tool_call_fingerprint
 from app.agent.middlewares import (
     audit_log_middleware,
@@ -159,6 +159,7 @@ def _after_plan(state: AgentState) -> str:
     max_reflections = get_reflection_budget(
         state.get("complexity"),
         get_completed_tools(state),
+        state.get("execution_policy"),
     )
     if reflection_count >= max_reflections:
         logger.info(
@@ -321,7 +322,9 @@ def _after_execute(state: AgentState) -> str:
         return "respond"
 
     config = state.get("config")
-    max_iter = config.max_iterations if config else 5
+    max_iter = get_iteration_budget(
+        state.get("execution_policy"), config.max_iterations if config else 5
+    )
     iteration = state.get("iteration", 0)
 
     # Observation logging
@@ -453,7 +456,9 @@ def _after_reflect(state: AgentState) -> str:
 
     if needs_replan:
         config = state.get("config")
-        max_iter = config.max_iterations if config else 5
+        max_iter = get_iteration_budget(
+            state.get("execution_policy"), config.max_iterations if config else 5
+        )
         iteration = state.get("iteration", 0)
         if iteration < max_iter:
             # ToT backtrack logging
@@ -470,9 +475,7 @@ def _after_reflect(state: AgentState) -> str:
             "[Graph] Needs replanning but max iterations reached, responding anyway"
         )
 
-    if _has_irreversible_tool(state):
-        logger.info("[Graph] Irreversible tool detected after reflect → critic")
-        return "critic"
+    execution_depth = state.get("execution_depth", "direct")
 
     # P1-5: Route COMPLEX/CRITICAL through critic, but only when reflect
     # skipped its LLM layers (i.e., tools were involved). When reflect
@@ -512,12 +515,9 @@ def _after_reflect(state: AgentState) -> str:
         )
         return "plan"
 
-    if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
-        completed_tools = get_completed_tools(state)
-        if completed_tools:
-            # Tools were used → reflect skipped Layer 4/5, critic needed
-            return "critic"
-        # No tools → reflect already did thorough LLM check, skip critic
+    if execution_depth == "critic":
+        logger.info("[Graph] Strict execution depth → one critic pass")
+        return "critic"
 
     return "respond"
 
@@ -535,7 +535,9 @@ def _after_error(state: AgentState) -> str:
     recovery_level = state.get("error_recovery_level", 0)
     iteration = state.get("iteration", 0)
     config = state.get("config")
-    max_iter = config.max_iterations if config else 5
+    max_iter = get_iteration_budget(
+        state.get("execution_policy"), config.max_iterations if config else 5
+    )
 
     logger.info(
         f"[Graph:Observe] after_error: error={'yes' if error else 'cleared'} "
@@ -613,7 +615,11 @@ def _after_orchestrate(state: AgentState) -> str:
     """
     if state.get("error"):
         return "error"
-    return "critic"
+    if "execution_depth" not in state:
+        return "critic"
+    if state.get("execution_depth") == "critic":
+        return "critic"
+    return "respond"
 
 
 def _after_critic(state: AgentState) -> str:
@@ -634,14 +640,13 @@ def _after_critic(state: AgentState) -> str:
             return "respond"
 
     if not state.get("critic_passed", True):
-        config = state.get("config")
-        max_iter = config.max_iterations if config else 5
-        iteration = state.get("iteration", 0)
-        if iteration < max_iter:
-            return "plan"
-        logger.warning(
-            "[Graph] Critic failed but max iterations reached, responding anyway"
-        )
+        if not state.get("execution_policy"):
+            config = state.get("config")
+            max_iter = config.max_iterations if config else 5
+            if state.get("iteration", 0) < max_iter:
+                return "plan"
+        state["circuit_break_reason"] = "critic_best_available"
+        logger.warning("[Graph] Critic failed; returning best available result")
     return "respond"
 
 
@@ -986,6 +991,63 @@ class AgentGraph:
                 result.get("selected_model", "unknown"),
             )
 
+            receipt_data: dict = {}
+            try:
+                from app.services.ai_execution_policy_service import (
+                    AIExecutionPolicy,
+                    ExecutionStopReason,
+                    TaskProfile,
+                    assess_task,
+                    build_inference_receipt,
+                )
+
+                policy = AIExecutionPolicy.model_validate(
+                    result.get("execution_policy") or {}
+                )
+                raw_profile = result.get("task_profile") or {}
+                profile = (
+                    TaskProfile.model_validate(raw_profile)
+                    if raw_profile
+                    else assess_task(
+                        result.get("intent_summary", ""),
+                        complexity=result.get("complexity", "moderate"),
+                    )
+                )
+                thinking_steps = result.get("thinking_steps", [])
+                step_names = [
+                    str(getattr(step, "phase", "unknown")) for step in thinking_steps
+                ]
+                tool_trace = [
+                    {
+                        "tool": item.tool_name,
+                        "status": item.status,
+                    }
+                    for item in get_completed_tools(result)
+                ]
+                stop_reason = ExecutionStopReason.COMPLETED
+                if result.get("circuit_break_reason") or result.get("error"):
+                    stop_reason = ExecutionStopReason.BEST_AVAILABLE
+                receipt = build_inference_receipt(
+                    policy=policy,
+                    profile=profile,
+                    steps=step_names,
+                    answer=result.get("final_response", ""),
+                    trace={"steps": step_names, "tools": tool_trace},
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    estimated_cost_usd=cost,
+                    actual_cost_usd=cost,
+                    latency_ms=int(duration * 1000),
+                    stop_reason=stop_reason,
+                )
+                receipt_data = receipt.model_dump(mode="json")
+                result["inference_receipt"] = receipt_data
+            except Exception:
+                logger.debug(
+                    "[AgentGraph] inference receipt generation skipped",
+                    exc_info=True,
+                )
+
             _cfg = result.get("config")
             _uid = getattr(_cfg, "user_id", None) or "unknown"
             record_agent_execution(
@@ -1013,6 +1075,9 @@ class AgentGraph:
                     metadata={
                         "complexity": str(result.get("complexity", "unknown")),
                         "model": result.get("selected_model", "unknown"),
+                        "execution_policy": result.get("execution_policy", {}),
+                        "task_profile": result.get("task_profile", {}),
+                        "inference_receipt": receipt_data,
                     },
                 )
             except Exception:

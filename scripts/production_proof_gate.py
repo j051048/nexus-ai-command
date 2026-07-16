@@ -12,7 +12,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -194,10 +193,12 @@ CHECKS = [
         "Aeon-inspired Agent Ops UI",
         "src/pages/AgentImprovementCenterPage.tsx",
         (
-            "Aeon-style Agent Ops Runtime",
-            "Heartbeat Supervisor",
-            "MCP / A2A Capabilities",
-            "启用每日自动巡检",
+            "AgentOpsRuntime",
+            'value="runtime"',
+            "useRunAeonInspiredHeartbeat",
+            "useRegisterAeonHeartbeatSchedule",
+            "onRunHeartbeat",
+            "onRegisterSchedule",
         ),
     ),
     ProofCheck(

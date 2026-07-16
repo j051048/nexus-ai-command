@@ -43,6 +43,10 @@ import {
   Rocket,
   Crown,
   Leaf,
+  ShieldCheck,
+  Route,
+  Play,
+  LockKeyhole,
 } from 'lucide-react';
 import {
   LineChart,
@@ -76,6 +80,13 @@ import {
 } from '@/hooks/useVMD';
 import { chartColors, CHART_COLORS } from '@/lib/chartColors';
 import { toast } from 'sonner';
+import {
+  useAIExecutionPolicy,
+  useAIServiceOverview,
+  usePolicyWorkers,
+  useSimulateAIExecutionPolicy,
+  type PolicySimulationResult,
+} from '@/hooks/useAIExecutionPolicy';
 
 // Provider 配置
 const PROVIDERS = [
@@ -146,7 +157,7 @@ function formatContextWindow(n: number): string {
 }
 
 export default function LLMModelManagement() {
-  const [activeTab, setActiveTab] = useState('models');
+  const [activeTab, setActiveTab] = useState('overview');
   const [editOpen, setEditOpen] = useState(false);
   const [editModel, setEditModel] = useState<Partial<LLMModel>>(emptyModel);
   const [isEditing, setIsEditing] = useState(false);
@@ -158,6 +169,8 @@ export default function LLMModelManagement() {
   const [marketTypeFilter, setMarketTypeFilter] = useState<string | undefined>(undefined);
   const [marketTagFilter, setMarketTagFilter] = useState<string | undefined>(undefined);
   const [confirmAddModel, setConfirmAddModel] = useState<AvailableModel | null>(null);
+  const [simulationQuery, setSimulationQuery] = useState('审批一笔 12000 元差旅报销并检查异常');
+  const [simulationResult, setSimulationResult] = useState<PolicySimulationResult | null>(null);
 
   // Queries
   const { data: models, isLoading: modelsLoading } = useLLMModels();
@@ -168,6 +181,10 @@ export default function LLMModelManagement() {
     type: marketTypeFilter,
     tag: marketTagFilter,
   });
+  const { data: policyData } = useAIExecutionPolicy();
+  const { data: serviceOverview } = useAIServiceOverview();
+  const { data: policyWorkers } = usePolicyWorkers();
+  const simulatePolicy = useSimulateAIExecutionPolicy();
 
   // Mutations
   const createModel = useCreateLLMModel();
@@ -330,35 +347,180 @@ export default function LLMModelManagement() {
     }
   };
 
+  const handleSimulate = async () => {
+    if (!simulationQuery.trim()) return;
+    try {
+      const result = await simulatePolicy.mutateAsync([
+        {
+          query: simulationQuery.trim(),
+          complexity: 'moderate',
+          scene_code: 'chat',
+          requires_tools: true,
+        },
+      ]);
+      setSimulationResult(result[0] || null);
+    } catch {
+      toast.error('策略仿真失败，请稍后重试');
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">模型管理</h1>
-          <p className="text-muted-foreground">管理 LLM 模型配置、调度规则与用量监控</p>
+          <h1 className="text-2xl font-bold tracking-tight">AI 服务管理</h1>
+          <p className="text-muted-foreground">查看运行状态、成本策略与高级连接配置</p>
         </div>
-        <Button onClick={handleOpenCreate}>
-          <Plus className="w-4 h-4 mr-2" />
-          新增模型
-        </Button>
+        {activeTab === 'models' && (
+          <Button onClick={handleOpenCreate}>
+            <Plus className="w-4 h-4 mr-2" />
+            新增连接
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="models" className="gap-1.5">
-            <Cpu className="w-3.5 h-3.5" /> 模型列表
-          </TabsTrigger>
-          <TabsTrigger value="marketplace" className="gap-1.5">
-            <ShoppingBag className="w-3.5 h-3.5" /> 模型市场
-          </TabsTrigger>
-          <TabsTrigger value="rules" className="gap-1.5">
-            <Settings2 className="w-3.5 h-3.5" /> 调度规则
+          <TabsTrigger value="overview" className="gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5" /> 运行概览
           </TabsTrigger>
           <TabsTrigger value="usage" className="gap-1.5">
-            <BarChart3 className="w-3.5 h-3.5" /> 用量统计
+            <BarChart3 className="w-3.5 h-3.5" /> 成本与用量
+          </TabsTrigger>
+          <TabsTrigger value="models" className="gap-1.5">
+            <LockKeyhole className="w-3.5 h-3.5" /> 高级治理
           </TabsTrigger>
         </TabsList>
+
+        {['models', 'marketplace', 'rules'].includes(activeTab) && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-border pb-3">
+            <span className="mr-2 text-xs text-muted-foreground">高级治理</span>
+            <Button
+              size="sm"
+              variant={activeTab === 'models' ? 'secondary' : 'ghost'}
+              onClick={() => setActiveTab('models')}
+            >
+              连接配置
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === 'marketplace' ? 'secondary' : 'ghost'}
+              onClick={() => setActiveTab('marketplace')}
+            >
+              服务目录
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === 'rules' ? 'secondary' : 'ghost'}
+              onClick={() => setActiveTab('rules')}
+            >
+              历史调度规则
+            </Button>
+          </div>
+        )}
+
+        <TabsContent value="overview" className="mt-5 space-y-8">
+          <section>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+              <div>
+                <h2 className="text-base font-semibold">生产服务</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  对话统一使用低成本主模型，高价模型只允许人工启用。
+                </p>
+              </div>
+              <Badge variant="outline" className="gap-1.5 font-normal text-success">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                服务正常
+              </Badge>
+            </div>
+            <div className="divide-y divide-border">
+              {(serviceOverview?.roles || []).map((role) => (
+                <div key={role.code} className="grid gap-2 py-4 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+                  <div>
+                    <p className="text-sm font-medium">{role.label}</p>
+                    <p className="mt-0.5 text-xs uppercase text-muted-foreground">{role.code}</p>
+                  </div>
+                  <p className="font-mono text-sm text-muted-foreground">{role.model || '未配置'}</p>
+                  <Badge variant={role.status === 'active' ? 'secondary' : 'outline'} className="w-fit font-normal">
+                    {role.status === 'active' ? '运行中' : role.status === 'manual_only' ? '仅人工' : '未启用'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-md border border-border p-5">
+              <div className="flex items-center gap-2">
+                <Route className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold">当前编排策略</h2>
+              </div>
+              <p className="mt-3 text-2xl font-semibold">
+                {policyData?.policy.mode === 'economy'
+                  ? '省成本'
+                  : policyData?.policy.mode === 'strict'
+                    ? '严谨优先'
+                    : '智能平衡'}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                本地规则先判断任务风险。普通任务直接完成，复杂任务最多校验一次，高风险任务进入严格复核。
+              </p>
+              <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded border border-border bg-border text-center">
+                <div className="bg-background px-2 py-3">
+                  <p className="text-lg font-semibold">{policyData?.policy.max_calls ?? 2}</p>
+                  <p className="text-xs text-muted-foreground">最多调用</p>
+                </div>
+                <div className="bg-background px-2 py-3">
+                  <p className="text-lg font-semibold">{policyData?.policy.max_verifications ?? 1}</p>
+                  <p className="text-xs text-muted-foreground">最多校验</p>
+                </div>
+                <div className="bg-background px-2 py-3">
+                  <p className="text-lg font-semibold">${policyData?.policy.max_task_cost_usd ?? 0.08}</p>
+                  <p className="text-xs text-muted-foreground">成本上限</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-border p-5">
+              <h2 className="text-sm font-semibold">执行角色</h2>
+              <div className="mt-3 space-y-3">
+                {(policyWorkers || []).filter((worker) => worker.enabled).map((worker) => (
+                  <div key={worker.code} className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">{worker.label}</p>
+                      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{worker.capability}</p>
+                    </div>
+                    <Badge variant="outline" className="font-normal">最多 {worker.max_calls} 次</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-border p-5">
+            <div className="flex items-center gap-2">
+              <Play className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">策略仿真</h2>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">不调用模型，先预览任务会如何被路由和限制。</p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Input value={simulationQuery} onChange={(event) => setSimulationQuery(event.target.value)} />
+              <Button variant="outline" onClick={handleSimulate} disabled={simulatePolicy.isPending}>
+                {simulatePolicy.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                运行仿真
+              </Button>
+            </div>
+            {simulationResult && (
+              <div className="mt-4 grid gap-3 rounded-md bg-muted/45 p-4 sm:grid-cols-4">
+                <div><p className="text-xs text-muted-foreground">风险</p><p className="mt-1 text-sm font-medium">{simulationResult.profile.risk_level}</p></div>
+                <div><p className="text-xs text-muted-foreground">执行深度</p><p className="mt-1 text-sm font-medium">{simulationResult.profile.execution_depth}</p></div>
+                <div><p className="text-xs text-muted-foreground">预计调用</p><p className="mt-1 text-sm font-medium">{simulationResult.estimated_calls} 次</p></div>
+                <div><p className="text-xs text-muted-foreground">预计时延</p><p className="mt-1 text-sm font-medium">{simulationResult.estimated_latency_ms} ms</p></div>
+              </div>
+            )}
+          </section>
+        </TabsContent>
 
         {/* Models Tab */}
         <TabsContent value="models" className="mt-4">
@@ -659,10 +821,10 @@ export default function LLMModelManagement() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Settings2 className="w-4 h-4" />
-                  智能模型路由配置
+                  历史模型调度规则
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  为不同复杂度的查询配置专用模型。系统根据用户问题自动匹配合适的模型层级，选择即保存。
+                  仅用于兼容旧配置。生产请求由统一执行策略控制，不会自动切换到高价模型。
                 </p>
               </CardHeader>
             </Card>
@@ -709,6 +871,7 @@ export default function LLMModelManagement() {
                         <div className="space-y-1.5">
                           <Label className="text-xs font-medium">主模型</Label>
                           <Select
+                            disabled
                             value={rule?.primary_model || ''}
                             onValueChange={(v) => handleSaveTierRule(tier.value, v, rule?.backup_model || '')}
                           >
@@ -732,6 +895,7 @@ export default function LLMModelManagement() {
                         <div className="space-y-1.5">
                           <Label className="text-xs font-medium">备用模型</Label>
                           <Select
+                            disabled
                             value={rule?.backup_model || 'none'}
                             onValueChange={(v) =>
                               handleSaveTierRule(tier.value, rule?.primary_model || '', v === 'none' ? '' : v)
@@ -807,6 +971,7 @@ export default function LLMModelManagement() {
                               <td className="p-2 text-muted-foreground">{rule.agent_code || '*'}</td>
                               <td className="p-2">
                                 <Select
+                                  disabled
                                   value={rule.primary_model || ''}
                                   onValueChange={async (v) => {
                                     try {
@@ -835,6 +1000,7 @@ export default function LLMModelManagement() {
                               </td>
                               <td className="p-2">
                                 <Select
+                                  disabled
                                   value={rule.backup_model || 'none'}
                                   onValueChange={async (v) => {
                                     try {

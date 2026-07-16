@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -47,24 +46,29 @@ def test_aeon_inspired_agent_ops_backend_contract():
 def test_aeon_inspired_agent_ops_frontend_contract():
     hook = read("src/hooks/useAIOperatingSystem.ts")
     page = read("src/pages/AgentImprovementCenterPage.tsx")
+    runtime = read("src/components/agent-ops/AgentOpsRuntime.tsx")
 
     assert "useAeonInspiredOps" in hook
+    assert "useRunAeonInspiredHeartbeat" in hook
     assert "useRegisterAeonHeartbeatSchedule" in hook
     assert "AeonInspiredOpsResult" in hook
     assert "aeon-inspired-ops" in hook
-    assert "Aeon-style Agent Ops Runtime" in page
-    assert "Heartbeat Supervisor" in page
-    assert "MCP / A2A Capabilities" in page
-    assert "启用每日自动巡检" in page
+    assert "AgentOpsRuntime" in page
+    assert 'value="runtime"' in page
+    assert "onRunHeartbeat" in page
+    assert "onRegisterSchedule" in page
+    assert "onClick={onRunHeartbeat}" in runtime
+    assert "onClick={onRegisterSchedule}" in runtime
 
 
 def test_agent_improvement_center_visible_text_is_utf8_clean():
     page = read("src/pages/AgentImprovementCenterPage.tsx")
     service = read("nexus_backend/app/services/agent_ops_runtime_service.py")
 
-    for token in ["鍐", "杩", "姣", "鏆", "绔炲搧", "棰勭畻"]:
-        assert token not in page
+    for content in (page, service):
+        assert "\ufffd" not in content
+        for token in ["鍐", "杩", "姣", "鏆", "绔炲搧", "棰勭畻"]:
+            assert token not in content
 
-    assert "内置 Agent 自我进化控制台" in page
-    assert "华东区高校客户" in service
-    assert "Thermo Fisher 竞品线索" in service
+    assert "Agent 运营中心" in page
+    assert "科学仪器" in service

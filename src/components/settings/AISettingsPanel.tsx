@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { UsageStats } from './UsageStats';
 import { OrgPolicyEditor } from './OrgPolicyEditor';
+import { AIExecutionPolicyPanel } from './AIExecutionPolicyPanel';
 
 const SoulDocumentPage = React.lazy(() => import('@/pages/SoulDocumentPage'));
 
@@ -219,7 +220,11 @@ export function AISettingsPanel() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ai-config" className="space-y-6 mt-4">
+        <TabsContent value="ai-config" className="mt-4">
+          <AIExecutionPolicyPanel />
+        </TabsContent>
+
+        <TabsContent value="legacy-ai-config" className="space-y-6 mt-4">
         <div className="grid gap-6 lg:grid-cols-2">
         {/* Configuration Card */}
         <Card className="border-border">

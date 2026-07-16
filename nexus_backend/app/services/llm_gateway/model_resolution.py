@@ -535,7 +535,8 @@ class ModelResolutionMixin:
                     and backup != exclude
                     and circuit_breaker_manager.is_allowed(backup)
                 ):
-                    return _apply_cost_policy(backup, scene_code, "backup_model")
+                    resolved = _apply_cost_policy(backup, scene_code, "backup_model")
+                    return resolved if resolved != exclude else None
         return None
 
     def invalidate_cache(self, org_id: str | None = None) -> None:

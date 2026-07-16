@@ -209,6 +209,10 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: python scripts/check_llm_cost_policy.py
 
+      - name: Enforce AI execution quality and cost policy
+        working-directory: ${{ github.workspace }}
+        run: python scripts/ai_execution_policy_gate.py
+
       - name: Audit schema convergence
         working-directory: ${{ github.workspace }}
         run: python scripts/audit_schema_convergence.py

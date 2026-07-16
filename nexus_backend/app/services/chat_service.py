@@ -281,6 +281,12 @@ class ChatService:
         )
         user_role = await ChatService._get_cached_user_role(user_id)
 
+        from app.services.ai_execution_policy_service import (
+            ai_execution_policy_service,
+        )
+
+        execution_policy = await ai_execution_policy_service.get_policy(org_id)
+
         agent_config = AgentConfig(
             user_id=user_id,
             session_id=session_id,
@@ -294,6 +300,7 @@ class ChatService:
             max_iterations=settings.LANGGRAPH_MAX_ITERATIONS,
             tool_timeout=settings.LANGGRAPH_TOOL_TIMEOUT,
             gather_timeout=settings.LANGGRAPH_GATHER_TIMEOUT,
+            execution_policy=execution_policy.model_dump(mode="json"),
         )
 
         raw_messages = [{"role": "user", "content": message}]

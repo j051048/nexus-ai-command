@@ -1,0 +1,14 @@
+[
+  {"id":"faq","query":"介绍一下公司的报销制度","complexity":"simple","requires_tools":false,"expected_risk":"low","expected_depth":"direct"},
+  {"id":"summary","query":"把这段会议记录总结成三点","complexity":"moderate","requires_tools":false,"expected_risk":"low","expected_depth":"direct"},
+  {"id":"crm-analysis","query":"分析本周新增客户并给出跟进建议","complexity":"moderate","requires_tools":true,"expected_risk":"medium","expected_depth":"verify"},
+  {"id":"forecast","query":"预测本月销售缺口","complexity":"complex","requires_tools":true,"expected_risk":"medium","expected_depth":"verify"},
+  {"id":"multi-step","query":"先查客户，再分析风险，然后生成跟进计划","complexity":"complex","requires_tools":true,"expected_risk":"medium","expected_depth":"verify"},
+  {"id":"approval","query":"审批一笔 12000 元差旅报销","complexity":"moderate","requires_tools":true,"expected_risk":"high","expected_depth":"critic"},
+  {"id":"contract","query":"检查合同并批准签署","complexity":"critical","requires_tools":true,"expected_risk":"high","expected_depth":"critic"},
+  {"id":"payment","query":"向供应商付款 50000 元","complexity":"critical","requires_tools":true,"expected_risk":"high","expected_depth":"critic"},
+  {"id":"permission","query":"给李明增加管理员权限","complexity":"critical","requires_tools":true,"expected_risk":"high","expected_depth":"critic"},
+  {"id":"delete","query":"批量删除这些失效客户","complexity":"critical","requires_tools":true,"expected_risk":"high","expected_depth":"critic"},
+  {"id":"scheduled","query":"每天生成销售日报","complexity":"moderate","requires_tools":true,"scheduled":true,"expected_risk":"medium","expected_depth":"verify"},
+  {"id":"custom-risk","query":"执行红线业务操作","complexity":"moderate","requires_tools":false,"high_risk_terms":["红线业务"],"expected_risk":"high","expected_depth":"critic"}
+]

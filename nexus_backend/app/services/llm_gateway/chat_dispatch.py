@@ -16,6 +16,10 @@ from app.core.config import settings
 from app.core.model_pricing import estimate_cost
 from app.core.tenant_throttle import tenant_throttle
 from app.core.token_budget import token_budget_manager
+from app.services.ai_execution_policy_service import (
+    AIExecutionPolicy,
+    ai_execution_policy_service,
+)
 from app.services.llm_adapters.base import (
     ChatRequest,
     ChatResponse,
@@ -102,10 +106,14 @@ async def _prune_runtime_tools(
     messages: list[dict],
     scene_code: str,
     agent_code: str,
+    tool_limit: int | None = None,
 ) -> list[dict] | None:
     """Prune large tool lists before direct gateway calls to avoid context bloat."""
-    if not tools or len(tools) <= settings.TOOL_EMBEDDING_GATE:
+    limit = min(tool_limit or settings.TOOL_MAX_TOOLS, settings.TOOL_MAX_TOOLS)
+    if not tools:
         return tools
+    if len(tools) <= min(settings.TOOL_EMBEDDING_GATE, limit):
+        return tools[:limit]
 
     query = _extract_user_query(messages)
     if not query:
@@ -135,11 +143,11 @@ async def _prune_runtime_tools(
                     scene_code,
                     agent_code,
                 )
-                return pruned[: settings.TOOL_MAX_TOOLS]
+                return pruned[:limit]
     except Exception as exc:
         logger.debug("[ToolRAG] runtime pruning skipped: %s", exc)
 
-    return tools[: settings.TOOL_MAX_TOOLS]
+    return tools[:limit]
 
 
 class ChatDispatchMixin:
@@ -181,6 +189,11 @@ class ChatDispatchMixin:
         """
         request_id = request_id or str(uuid.uuid4())
         start_ts = time.monotonic()
+        policy = await ai_execution_policy_service.get_policy(org_id)
+        max_tokens = min(
+            max_tokens or policy.max_output_tokens,
+            policy.max_output_tokens,
+        )
 
         # --- Resolve model ---
         model_code = await self._resolve_model(scene_code, agent_code, org_id)
@@ -204,6 +217,7 @@ class ChatDispatchMixin:
             stream=stream,
             request_id=request_id,
             start_ts=start_ts,
+            policy=policy,
         )
 
         if response.finish_reason == "error":
@@ -237,6 +251,7 @@ class ChatDispatchMixin:
                     stream=stream,
                     request_id=request_id,
                     start_ts=start_ts,
+                    policy=policy,
                 )
                 if backup_response.finish_reason != "error":
                     return backup_response
@@ -258,6 +273,7 @@ class ChatDispatchMixin:
         stream: bool,
         request_id: str,
         start_ts: float,
+        policy: AIExecutionPolicy,
     ) -> ChatResponse:
         """Execute a chat call against a single model with all guardrails."""
 
@@ -267,24 +283,25 @@ class ChatDispatchMixin:
             + (max_tokens or 4096)
         )
 
-        routing_decision = choose_model_variant(
-            primary_model=model_code,
-            scene_code=scene_code,
-            agent_code=agent_code,
-            org_id=org_id,
-            user_id=user_id,
-            estimated_tokens=estimated_tokens,
-            has_tools=bool(tools),
-        )
-        if routing_decision.changed:
-            logger.info(
-                "[LLMRouting] %s -> %s reason=%s bucket=%s",
-                model_code,
-                routing_decision.model_code,
-                routing_decision.reason,
-                routing_decision.bucket,
+        if not policy.premium_manual_only:
+            routing_decision = choose_model_variant(
+                primary_model=model_code,
+                scene_code=scene_code,
+                agent_code=agent_code,
+                org_id=org_id,
+                user_id=user_id,
+                estimated_tokens=estimated_tokens,
+                has_tools=bool(tools),
             )
-            model_code = routing_decision.model_code
+            if routing_decision.changed:
+                logger.info(
+                    "[LLMRouting] %s -> %s reason=%s bucket=%s",
+                    model_code,
+                    routing_decision.model_code,
+                    routing_decision.reason,
+                    routing_decision.bucket,
+                )
+                model_code = routing_decision.model_code
 
         # --- Quota check ---
         quota_result = await check_quota(
@@ -326,6 +343,18 @@ class ChatDispatchMixin:
             est_input_tokens = estimated_tokens - (max_tokens or 4096)
             est_output_tokens = max_tokens or 4096
             est_cost = estimate_cost(est_input_tokens, est_output_tokens, model_code)
+            if est_cost > policy.max_task_cost_usd:
+                return self._error_response(
+                    request_id,
+                    model_code,
+                    "Execution policy cost budget exceeded",
+                )
+            if estimated_tokens > (policy.max_input_tokens + policy.max_output_tokens):
+                return self._error_response(
+                    request_id,
+                    model_code,
+                    "Execution policy token budget exceeded",
+                )
             if not await token_budget_manager.check_request_cost(est_cost):
                 logger.warning(
                     f"[CostGate] Estimated cost ${est_cost:.4f} exceeds per-request cap "
@@ -391,6 +420,7 @@ class ChatDispatchMixin:
             messages=messages,
             scene_code=scene_code,
             agent_code=agent_code,
+            tool_limit=policy.context_tool_limit,
         )
 
         # --- Build request ---
@@ -408,7 +438,14 @@ class ChatDispatchMixin:
         )
 
         # --- Call adapter (with timeout protection and retry budget) ---
-        llm_call_timeout = max(5.0, min((config.timeout_ms or 60000) / 1000.0, 120.0))
+        llm_call_timeout = max(
+            5.0,
+            min(
+                (config.timeout_ms or 60000) / 1000.0,
+                policy.max_latency_ms / 1000.0,
+                120.0,
+            ),
+        )
         max_attempts = max(1, min((config.max_retries or 0) + 1, 3))
         try:
             response = None
@@ -547,6 +584,11 @@ class ChatDispatchMixin:
         """
         request_id = request_id or str(uuid.uuid4())
         start_ts = time.monotonic()
+        policy = await ai_execution_policy_service.get_policy(org_id)
+        max_tokens = min(
+            max_tokens or policy.max_output_tokens,
+            policy.max_output_tokens,
+        )
 
         # --- Resolve model ---
         model_code = await self._resolve_model(scene_code, agent_code, org_id)
@@ -562,6 +604,26 @@ class ChatDispatchMixin:
             + len(system_prompt) // 4
             + (max_tokens or 4096)
         )
+        if estimated_tokens > policy.max_input_tokens + policy.max_output_tokens:
+            yield self._error_response(
+                request_id,
+                model_code,
+                "Execution policy token budget exceeded",
+            )
+            return
+        estimated_cost = estimate_cost(
+            max(0, estimated_tokens - max_tokens), max_tokens, model_code
+        )
+        if (
+            estimated_cost > policy.max_task_cost_usd
+            or not await token_budget_manager.check_request_cost(estimated_cost)
+        ):
+            yield self._error_response(
+                request_id,
+                model_code,
+                "Execution policy cost budget exceeded",
+            )
+            return
         quota_result = await check_quota(
             tenant_id=org_id,
             model_code=model_code,
@@ -617,6 +679,7 @@ class ChatDispatchMixin:
             messages=messages,
             scene_code=scene_code,
             agent_code=agent_code,
+            tool_limit=policy.context_tool_limit,
         )
 
         # --- Build request ---
@@ -628,7 +691,7 @@ class ChatDispatchMixin:
             messages=messages,
             tools=tools if config.supports_tools else None,
             temperature=temperature or config.default_temperature,
-            max_tokens=max_tokens or config.max_tokens,
+            max_tokens=min(max_tokens, config.max_tokens),
             stream=True,
             request_id=request_id,
         )
@@ -642,6 +705,8 @@ class ChatDispatchMixin:
         try:
             async with tenant_throttle.acquire(org_id or "default"):
                 async for chunk in adapter.stream_chat(chat_request):
+                    if (time.monotonic() - start_ts) * 1000 > policy.max_latency_ms:
+                        raise TimeoutError("Execution policy deadline exceeded")
                     chunk.exec_time_ms = int((time.monotonic() - start_ts) * 1000)
 
                     total_input_tokens = chunk.usage.get(
