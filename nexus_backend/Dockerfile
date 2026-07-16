@@ -1,12 +1,22 @@
 # Stage 1: Build dependencies
 FROM python:3.11-slim-bookworm AS builder
 
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
+ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=6 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
 WORKDIR /build
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install \
-    -i https://pypi.tuna.tsinghua.edu.cn/simple \
-    --trusted-host pypi.tuna.tsinghua.edu.cn \
-    -r requirements.txt
+RUN set -eu; \
+    if ! python -m pip install --no-cache-dir --prefix=/install -r requirements.txt; then \
+        if [ "$PIP_INDEX_URL" = "https://pypi.org/simple" ]; then exit 1; fi; \
+        echo "Primary Python package index unavailable; retrying with official PyPI"; \
+        PIP_INDEX_URL=https://pypi.org/simple \
+            python -m pip install --no-cache-dir --prefix=/install -r requirements.txt; \
+    fi
 
 # Stage 2: Production image
 FROM python:3.11-slim-bookworm

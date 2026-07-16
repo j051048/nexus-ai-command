@@ -1,8 +1,8 @@
 services:
   - name: nexus-backend
     type: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn nexus_backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+    buildCommand: pip install --index-url https://pypi.org/simple --retries 6 --timeout 120 -r nexus_backend/requirements.txt
+    startCommand: cd nexus_backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
     env:
       - REDIS_URL=${REDIS_URL}
       - SUPABASE_URL=${SUPABASE_URL}

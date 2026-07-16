@@ -286,6 +286,23 @@ def test_p0_production_container_is_build_time_installed():
     assert "dockerfile: Dockerfile" in compose
 
 
+def test_p0_python_package_index_has_official_fallback():
+    root_dockerfile = read("Dockerfile")
+    backend_dockerfile = read("nexus_backend/Dockerfile")
+    zeabur = read("zeabur.yaml")
+
+    for dockerfile in (root_dockerfile, backend_dockerfile):
+        assert "ARG PIP_INDEX_URL=https://pypi.org/simple" in dockerfile
+        assert "PIP_DEFAULT_TIMEOUT=120" in dockerfile
+        assert "PIP_RETRIES=6" in dockerfile
+        assert "Primary Python package index unavailable" in dockerfile
+        assert "PIP_INDEX_URL=https://pypi.org/simple" in dockerfile
+        assert "pypi.tuna.tsinghua.edu.cn" not in dockerfile
+
+    assert "-r nexus_backend/requirements.txt" in zeabur
+    assert "cd nexus_backend && uvicorn app.main:app" in zeabur
+
+
 def test_p0_vector_index_and_rls_policy_scanner_are_enforced():
     vector_migration = read(
         "supabase/migrations/20260514_p0_document_embeddings_vector_index.sql"
