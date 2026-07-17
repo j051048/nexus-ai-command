@@ -65,5 +65,6 @@ def register_middleware(app: FastAPI) -> None:
             "X-Idempotency-Key",
             "X-Trace-ID",
             "X-CSRF-Token",
+            "X-Org-ID",
         ],
     )

@@ -426,7 +426,15 @@ export default function VMDCenter() {
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{copy.description}</p>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {degradedSources > 0 ? <span className="text-amber-700">{degradedSources} 个数据源降级</span> : <span className="text-emerald-700">数据源正常</span>}
+          {query.isError ? (
+            <span className="text-amber-700">聚合服务连接失败</span>
+          ) : query.isLoading ? (
+            <span>正在连接数据源</span>
+          ) : degradedSources > 0 ? (
+            <span className="text-amber-700">{degradedSources} 个数据源降级</span>
+          ) : (
+            <span className="text-emerald-700">数据源正常</span>
+          )}
           <Button variant="ghost" size="icon" title="刷新" onClick={() => query.refetch()} disabled={query.isFetching}><RefreshCw className={cn("h-4 w-4", query.isFetching && "animate-spin")} /></Button>
         </div>
       </header>

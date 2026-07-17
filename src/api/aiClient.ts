@@ -174,7 +174,6 @@ export const aiClient = {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Trace-ID': getTraceId(),
-      ...(silent ? { 'X-Silent-Error': '1' } : {}),
       ...(options.headers as Record<string, string>),
     };
 
@@ -189,6 +188,7 @@ export const aiClient = {
         headers,
         data: normalizeJsonBody(options.body, headers['Content-Type']),
         signal: options.signal,
+        silentError: silent,
       };
       const response = await httpClient.request<T>(requestConfig);
       return response.data;
@@ -207,7 +207,11 @@ export const aiClient = {
   },
 
   async get<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<{ data: T }> {
-    const data = await this.fetch(endpoint, { ...options, method: 'GET' });
+    const data = await this.fetch(endpoint, {
+      ...options,
+      method: 'GET',
+      _silentError: options._silentError ?? true,
+    });
     return { data };
   },
 

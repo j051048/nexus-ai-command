@@ -36,7 +36,7 @@ export function useAIWeeklyReport() {
     queryKey: ['dashboard', 'ai-weekly-report'],
     queryFn: async () => {
       const response = await httpClient.get('/api/dashboard/ai-weekly-report', {
-        headers: { 'X-Silent-Error': '1' },
+        silentError: true,
       });
       return (response.data?.data ?? response.data ?? fallbackReport) as AIWeeklyReportData;
     },

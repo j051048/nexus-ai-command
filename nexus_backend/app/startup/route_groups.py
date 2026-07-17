@@ -114,6 +114,7 @@ def register_document_routes(app: FastAPI) -> None:
         documents,
         import_data,
         industry_knowledge,
+        knowledge,
         qa_pairs,
         report_engine,
         reports,
@@ -123,6 +124,7 @@ def register_document_routes(app: FastAPI) -> None:
     for router in [
         documents.router,
         industry_knowledge.router,
+        knowledge.router,
         training.router,
         reports.router,
         qa_pairs.router,

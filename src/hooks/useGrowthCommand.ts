@@ -188,7 +188,7 @@ export function useGrowthCommand() {
     queryFn: async () => {
       const response = await httpClient.get<ApiResponse<GrowthWorkspace>>(
         "/api/growth-command/workspace",
-        { headers: { "X-Silent-Error": "1" } },
+        { silentError: true },
       );
       return response.data.data;
     },

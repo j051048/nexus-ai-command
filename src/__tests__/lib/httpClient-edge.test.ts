@@ -83,6 +83,20 @@ describe('httpClient 请求拦截器', () => {
     const method = 'get';
     expect(['post', 'put'].includes(method)).toBe(false);
   });
+
+  it('静默错误标记只保留在 Axios 内部，不发送 CORS 请求头', async () => {
+    vi.resetModules();
+    const { httpClient } = await import('@/lib/httpClient');
+    const interceptors = httpClient.interceptors.request as any;
+    const handler = interceptors.handlers[0].fulfilled;
+    const config = await handler({
+      headers: new axios.AxiosHeaders({ 'X-Silent-Error': '1' }),
+      method: 'get',
+    });
+
+    expect(config.silentError).toBe(true);
+    expect(config.headers.has('X-Silent-Error')).toBe(false);
+  });
 });
 
 describe('httpClient 响应拦截器 - 错误处理', () => {

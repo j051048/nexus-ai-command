@@ -480,6 +480,25 @@ class TestMiddlewareOrder:
         assert len(request_id) > 0
 
     @pytest.mark.asyncio
+    async def test_cors_preflight_accepts_tenant_and_trace_headers(
+        self, client: AsyncClient
+    ):
+        resp = await client.options(
+            "/api/growth-command/workspace",
+            headers={
+                "Origin": "https://aizk.flydao.top",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": (
+                    "authorization,x-org-id,x-trace-id,x-requested-with"
+                ),
+            },
+        )
+
+        assert resp.status_code == 200
+        allowed_headers = resp.headers.get("access-control-allow-headers", "").lower()
+        assert "x-org-id" in allowed_headers
+
+    @pytest.mark.asyncio
     async def test_custom_request_id_is_echoed(self, client: AsyncClient):
         """If the caller sends X-Request-ID it should be echoed back."""
         custom_id = "integration-test-req-001"

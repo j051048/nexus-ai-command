@@ -49,7 +49,7 @@ export function useAgentSloCost(days = 7) {
     queryFn: async () => {
       const response = await httpClient.get('/api/dashboard/agent-slo-cost', {
         params: { days },
-        headers: { 'X-Silent-Error': '1' },
+        silentError: true,
       });
       return (response.data?.data ?? response.data ?? fallbackSummary) as AgentSloCostSummary;
     },

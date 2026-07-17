@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -11,8 +11,18 @@ const httpClient: AxiosInstance = axios.create({
   withCredentials: true,
 });
 
+type SilentRequestConfig = AxiosRequestConfig & { silentError?: boolean };
+type SilentInternalRequestConfig = InternalAxiosRequestConfig & { silentError?: boolean };
+
 httpClient.interceptors.request.use(
   async (config) => {
+    const requestConfig = config as SilentInternalRequestConfig;
+    const legacySilentHeader = requestConfig.headers['X-Silent-Error'];
+    if (String(legacySilentHeader ?? '') === '1') {
+      requestConfig.silentError = true;
+      delete requestConfig.headers['X-Silent-Error'];
+    }
+
     try {
       const {
         data: { session },
@@ -52,7 +62,7 @@ httpClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const silent = error.config?.headers?.['X-Silent-Error'] === '1';
+    const silent = Boolean((error.config as SilentRequestConfig | undefined)?.silentError);
 
     if (silent) {
       return Promise.reject(error);
