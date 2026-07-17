@@ -14,6 +14,7 @@ import {
 import { useCreateCustomer } from '@/hooks/useCRM';
 import { toast } from 'sonner';
 import { STAGES } from './constants';
+import { SCIENTIFIC_INSTRUMENT_LINES, type InstrumentLineCode } from '@/config/growthOperatingModel';
 
 export interface CustomerFormDialogProps {
   open: boolean;
@@ -32,6 +33,9 @@ export default function CustomerFormDialog({
     stage: 'lead',
     source: '',
     estimated_value: '',
+    instrument_line_code: 'unclassified',
+    application_field: '',
+    purchase_stage: '',
   });
 
   const handleSubmit = async () => {
@@ -47,8 +51,20 @@ export default function CustomerFormDialog({
         stage: form.stage,
         source: form.source,
         estimated_value: form.estimated_value ? Number(form.estimated_value) : 0,
+        instrument_line_code:
+          form.instrument_line_code === 'unclassified'
+            ? undefined
+            : (form.instrument_line_code as InstrumentLineCode),
+        instrument_line_codes:
+          form.instrument_line_code === 'unclassified'
+            ? []
+            : [form.instrument_line_code as InstrumentLineCode],
+        application_fields: form.application_field.trim()
+          ? [form.application_field.trim()]
+          : [],
+        purchase_stage: form.purchase_stage || undefined,
       });
-      setForm({ name: '', company: '', industry: '', stage: 'lead', source: '', estimated_value: '' });
+      setForm({ name: '', company: '', industry: '', stage: 'lead', source: '', estimated_value: '', instrument_line_code: 'unclassified', application_field: '', purchase_stage: '' });
       onClose();
     } catch {
       // error toast handled in hook
@@ -76,6 +92,44 @@ export default function CustomerFormDialog({
               <Label>行业</Label>
               <Input value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })} placeholder="行业领域" />
             </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>主营产品线</Label>
+              <Select
+                value={form.instrument_line_code}
+                onValueChange={instrument_line_code => setForm({ ...form, instrument_line_code })}
+              >
+                <SelectTrigger><SelectValue placeholder="选择产品线" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unclassified">暂不分类</SelectItem>
+                  {SCIENTIFIC_INSTRUMENT_LINES.map(line => (
+                    <SelectItem key={line.code} value={line.code}>{line.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>应用场景</Label>
+              <Input
+                value={form.application_field}
+                onChange={event => setForm({ ...form, application_field: event.target.value })}
+                placeholder="如环境检测、半导体失效分析"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>采购进度</Label>
+            <Select value={form.purchase_stage} onValueChange={purchase_stage => setForm({ ...form, purchase_stage })}>
+              <SelectTrigger><SelectValue placeholder="选择当前采购进度" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="requirement">需求确认</SelectItem>
+                <SelectItem value="budget">预算申请</SelectItem>
+                <SelectItem value="technical_validation">技术验证</SelectItem>
+                <SelectItem value="tender">招投标</SelectItem>
+                <SelectItem value="contract">合同审批</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">

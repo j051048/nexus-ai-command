@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -20,9 +20,16 @@ import {
 import {
   GROWTH_OPERATING_MODEL_VERSION,
   GROWTH_WORKSPACE_ROUTES,
+  SCIENTIFIC_INSTRUMENT_LINES,
   viewFromPath,
+  type InstrumentLineCode,
   type GrowthWorkspaceView,
 } from "@/config/growthOperatingModel";
+import {
+  InstrumentLineFilter,
+  InstrumentLineLabel,
+  type InstrumentLineSelection,
+} from "@/components/growth/InstrumentLineFilter";
 import {
   useGrowthCommand,
   type GrowthAccount,
@@ -173,7 +180,7 @@ function ActionRow({ action, onOpen }: { action: GrowthAction; onOpen: (url: str
   );
 }
 
-function TodayView({ actions, onOpen }: { actions: GrowthAction[]; onOpen: (url: string) => void }) {
+function TodayView({ actions, onOpen, instrumentLine }: { actions: GrowthAction[]; onOpen: (url: string) => void; instrumentLine: InstrumentLineSelection }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
       <section className="overflow-hidden rounded-md border border-border bg-card" aria-labelledby="today-actions-title">
@@ -182,7 +189,7 @@ function TodayView({ actions, onOpen }: { actions: GrowthAction[]; onOpen: (url:
             <h2 id="today-actions-title" className="font-semibold">优先行动</h2>
             <p className="text-xs text-muted-foreground">只展示当前最值得推进的 8 项</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => onOpen("/vmd/tasks?new=1")}>
+          <Button variant="outline" size="sm" onClick={() => onOpen(`/vmd/tasks?new=1${instrumentLine === "all" ? "" : `&instrument_line=${instrumentLine}`}`)}>
             新建作战任务
           </Button>
         </div>
@@ -232,7 +239,10 @@ function SignalRow({ signal, onOpen }: { signal: GrowthSignal; onOpen: (url: str
       <div className="min-w-0">
         <div className="font-medium">{signal.title}</div>
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{signal.summary}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{signal.source_label} · {signal.evidence.length} 条证据</p>
+        <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+          <InstrumentLineLabel code={signal.instrument_line_code} />
+          <span>{signal.source_label} · {signal.evidence.length} 条证据</span>
+        </p>
       </div>
       <div className="text-sm font-medium">{signal.estimated_value ? money(signal.estimated_value) : "金额待确认"}</div>
       <Button variant="ghost" size="icon" title="查看信号" onClick={() => onOpen(signal.target_url)}>
@@ -260,7 +270,10 @@ function AccountRow({ account, onOpen }: { account: GrowthAccount; onOpen: (url:
     <tr className="border-b border-border/70 last:border-b-0">
       <td className="px-4 py-3">
         <div className="font-medium">{account.name}</div>
-        <div className="text-xs text-muted-foreground">{account.industry || "行业待补充"}</div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <InstrumentLineLabel code={account.instrument_line_code} />
+          <span>{account.application_fields[0] || account.industry || "应用场景待补充"}</span>
+        </div>
       </td>
       <td className="px-4 py-3 text-sm">{account.stage}</td>
       <td className="px-4 py-3 text-sm"><RiskBadge risk={account.risk} /></td>
@@ -292,7 +305,10 @@ function TenderRow({ tender, onOpen }: { tender: GrowthTender; onOpen: (url: str
     <article className="grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:grid-cols-[1fr_120px_120px_110px_auto] lg:items-center">
       <div>
         <div className="font-medium">{tender.name}</div>
-        <p className="mt-1 text-xs text-muted-foreground">{tender.client_name || "采购方待确认"}</p>
+        <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+          <InstrumentLineLabel code={tender.instrument_line_code} />
+          <span>{tender.application_field || tender.client_name || "应用场景待确认"}</span>
+        </p>
       </div>
       <div className="text-sm">{tender.days_left === undefined || tender.days_left === null ? "日期待确认" : `${tender.days_left} 天`}</div>
       <RiskBadge risk={tender.risk} />
@@ -362,19 +378,43 @@ function ReviewView({ data }: { data: NonNullable<ReturnType<typeof useGrowthCom
 export default function VMDCenter() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeView = viewFromPath(location.pathname);
   const copy = VIEW_COPY[activeView];
   const query = useGrowthCommand();
   const data = query.data;
+  const requestedLine = searchParams.get("line");
+  const selectedLine: InstrumentLineSelection = SCIENTIFIC_INSTRUMENT_LINES.some(
+    (line) => line.code === requestedLine,
+  )
+    ? (requestedLine as InstrumentLineCode)
+    : "all";
+  const visibleSignals = data?.signals.filter((item) => selectedLine === "all" || item.instrument_line_code === selectedLine) || [];
+  const visibleAccounts = data?.accounts.filter((item) => selectedLine === "all" || item.instrument_line_code === selectedLine) || [];
+  const visibleTenders = data?.tenders.filter((item) => selectedLine === "all" || item.instrument_line_code === selectedLine) || [];
+  const visibleActions = data?.actions.filter((item) => selectedLine === "all" || item.instrument_line_code === selectedLine) || [];
+  const lineCounts = Object.fromEntries(
+    (data?.instrument_line_summary || []).map((item) => [
+      item.code,
+      item.signals + item.accounts + item.tenders + item.tasks,
+    ]),
+  );
   const degradedSources = data ? Object.entries(data.source_health).filter(([, status]) => status === "degraded").length : 0;
 
   const renderView = () => {
     if (!data) return null;
-    if (activeView === "radar") return <RadarView signals={data.signals} onOpen={navigate} />;
-    if (activeView === "accounts") return <AccountsView accounts={data.accounts} onOpen={navigate} />;
-    if (activeView === "tenders") return <TendersView tenders={data.tenders} onOpen={navigate} />;
+    if (activeView === "radar") return <RadarView signals={visibleSignals} onOpen={navigate} />;
+    if (activeView === "accounts") return <AccountsView accounts={visibleAccounts} onOpen={navigate} />;
+    if (activeView === "tenders") return <TendersView tenders={visibleTenders} onOpen={navigate} />;
     if (activeView === "review") return <ReviewView data={data} />;
-    return <TodayView actions={data.actions} onOpen={navigate} />;
+    return <TodayView actions={visibleActions} onOpen={navigate} instrumentLine={selectedLine} />;
+  };
+
+  const selectInstrumentLine = (line: InstrumentLineSelection) => {
+    const next = new URLSearchParams(searchParams);
+    if (line === "all") next.delete("line");
+    else next.set("line", line);
+    setSearchParams(next, { replace: true });
   };
 
   return (
@@ -401,6 +441,8 @@ export default function VMDCenter() {
           );
         })}
       </nav>
+
+      <InstrumentLineFilter value={selectedLine} onChange={selectInstrumentLine} counts={lineCounts} />
 
       {query.isLoading && <div className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-72 w-full" /></div>}
       {query.isError && (

@@ -14,6 +14,7 @@ from app.services.growth_command_service import (
     growth_capability_registry,
     growth_command_service,
 )
+from app.services.scientific_instrument_domain import instrument_domain_catalog
 
 router = APIRouter(prefix="/api/growth-command", tags=["Growth Command"])
 
@@ -58,6 +59,19 @@ async def get_growth_capabilities(
             "schema_version": GROWTH_COMMAND_SCHEMA_VERSION,
             "scope": {"organization_id": organization_id, "user_id": user_id},
             "capabilities": growth_capability_registry.manifest(),
+        }
+    )
+
+
+@router.get("/domain-catalog")
+async def get_scientific_instrument_domain_catalog(
+    organization_id: str = Depends(get_current_org_id),
+    user_id: str = Depends(get_current_user_id),
+):
+    return api_success(
+        data={
+            **instrument_domain_catalog(),
+            "scope": {"organization_id": organization_id, "user_id": user_id},
         }
     )
 

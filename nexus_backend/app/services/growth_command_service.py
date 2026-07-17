@@ -14,6 +14,12 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
+from app.services.scientific_instrument_domain import (
+    build_instrument_context,
+    instrument_domain_catalog,
+    normalize_instrument_line,
+)
+
 logger = logging.getLogger(__name__)
 
 GROWTH_COMMAND_SCHEMA_VERSION = "growth-command.v1"
@@ -155,6 +161,12 @@ def _priority_rank(value: str) -> int:
 
 def _clue_signal(row: dict[str, Any]) -> dict[str, Any]:
     priority = str(row.get("priority") or "medium")
+    instrument_line_code = normalize_instrument_line(row.get("instrument_line_code"))
+    domain_context = build_instrument_context(
+        instrument_line_code,
+        application_field=row.get("application_field"),
+        product_models=row.get("product_interest") or [],
+    )
     return {
         "id": f"clue:{row.get('id')}",
         "kind": "market_signal",
@@ -173,6 +185,11 @@ def _clue_signal(row: dict[str, Any]) -> dict[str, Any]:
         "occurred_at": row.get("update_time") or row.get("create_time"),
         "target_url": f"/vmd/clues?detail={row.get('id')}",
         "estimated_value": _money(row.get("estimated_value")),
+        "instrument_line_code": instrument_line_code,
+        "instrument_line_name": domain_context.get("instrument_line_name"),
+        "application_field": row.get("application_field"),
+        "product_models": domain_context.get("product_models", []),
+        "domain_context": domain_context,
     }
 
 
@@ -191,6 +208,12 @@ def _customer_item(row: dict[str, Any], now: datetime) -> dict[str, Any]:
         "customer": "复盘交付并识别扩购机会",
         "churned": "记录流失原因并进入培育",
     }.get(stage, "更新客户下一步")
+    instrument_line_code = normalize_instrument_line(row.get("instrument_line_code"))
+    application_fields = row.get("application_fields") or []
+    domain_context = build_instrument_context(
+        instrument_line_code,
+        application_field=application_fields[0] if application_fields else None,
+    )
     return {
         "id": str(row.get("id") or ""),
         "name": row.get("company") or row.get("name") or "未命名客户",
@@ -203,6 +226,11 @@ def _customer_item(row: dict[str, Any], now: datetime) -> dict[str, Any]:
         "next_action": next_action,
         "updated_at": row.get("updated_at") or row.get("created_at"),
         "target_url": f"/crm?customer={row.get('id')}",
+        "instrument_line_code": instrument_line_code,
+        "instrument_line_name": domain_context.get("instrument_line_name"),
+        "application_fields": application_fields,
+        "purchase_stage": row.get("purchase_stage"),
+        "domain_context": domain_context,
     }
 
 
@@ -216,6 +244,12 @@ def _tender_item(row: dict[str, Any], now: datetime) -> dict[str, Any]:
         if (days_left is not None and days_left <= 3) or compliance == "has_issues"
         else "medium" if days_left is not None and days_left <= 10 else "low"
     )
+    instrument_line_code = normalize_instrument_line(row.get("instrument_line_code"))
+    domain_context = build_instrument_context(
+        instrument_line_code,
+        application_field=row.get("application_field"),
+        product_models=row.get("target_product_models") or [],
+    )
     return {
         "id": str(row.get("id") or ""),
         "name": row.get("title") or row.get("project_name") or "未命名投标项目",
@@ -228,6 +262,11 @@ def _tender_item(row: dict[str, Any], now: datetime) -> dict[str, Any]:
         "win_probability": int(row.get("win_probability") or 0),
         "risk": risk,
         "target_url": "/tender-analysis",
+        "instrument_line_code": instrument_line_code,
+        "instrument_line_name": domain_context.get("instrument_line_name"),
+        "application_field": row.get("application_field"),
+        "target_product_models": row.get("target_product_models") or [],
+        "domain_context": domain_context,
     }
 
 
@@ -271,6 +310,15 @@ def compose_growth_workspace(
                     "occurred_at": account["updated_at"],
                     "target_url": account["target_url"],
                     "estimated_value": account["estimated_value"],
+                    "instrument_line_code": account["instrument_line_code"],
+                    "instrument_line_name": account["instrument_line_name"],
+                    "application_field": (
+                        account["application_fields"][0]
+                        if account["application_fields"]
+                        else None
+                    ),
+                    "product_models": [],
+                    "domain_context": account["domain_context"],
                 }
             )
 
@@ -296,6 +344,11 @@ def compose_growth_workspace(
                     "occurred_at": tender["deadline"],
                     "target_url": tender["target_url"],
                     "estimated_value": tender["estimated_value"],
+                    "instrument_line_code": tender["instrument_line_code"],
+                    "instrument_line_name": tender["instrument_line_name"],
+                    "application_field": tender["application_field"],
+                    "product_models": tender["target_product_models"],
+                    "domain_context": tender["domain_context"],
                 }
             )
 
@@ -318,6 +371,10 @@ def compose_growth_workspace(
             ),
             "target_url": signal["target_url"],
             "source_signal_id": signal["id"],
+            "instrument_line_code": signal.get("instrument_line_code"),
+            "instrument_line_name": signal.get("instrument_line_name"),
+            "application_field": signal.get("application_field"),
+            "domain_context": signal.get("domain_context", {}),
         }
         for signal in signals[:8]
     ]
@@ -347,6 +404,51 @@ def compose_growth_workspace(
     active_tenders = [
         row for row in tender_items if row["status"] not in {"won", "lost", "cancelled"}
     ]
+    classified_records = [
+        item
+        for item in [*signals, *account_items, *tender_items, *open_tasks]
+        if normalize_instrument_line(
+            item.get("instrument_line_code") or item.get("instrument_line_code")
+        )
+    ]
+    line_summary = []
+    for instrument_line in instrument_domain_catalog()["instrument_lines"]:
+        code = instrument_line["code"]
+        line_summary.append(
+            {
+                "code": code,
+                "name": instrument_line["name"],
+                "signals": len(
+                    [
+                        item
+                        for item in signals
+                        if item.get("instrument_line_code") == code
+                    ]
+                ),
+                "accounts": len(
+                    [
+                        item
+                        for item in account_items
+                        if item.get("instrument_line_code") == code
+                    ]
+                ),
+                "tenders": len(
+                    [
+                        item
+                        for item in tender_items
+                        if item.get("instrument_line_code") == code
+                    ]
+                ),
+                "tasks": len(
+                    [
+                        item
+                        for item in open_tasks
+                        if normalize_instrument_line(item.get("instrument_line_code"))
+                        == code
+                    ]
+                ),
+            }
+        )
 
     metrics = {
         "open_opportunities": len(open_clues),
@@ -367,6 +469,7 @@ def compose_growth_workspace(
         "conversion_rate": (
             round(conversion_count / len(clues) * 100, 1) if clues else 0.0
         ),
+        "classified_records": len(classified_records),
     }
     review = {
         "completed_growth_tasks": len(completed_tasks),
@@ -424,6 +527,8 @@ def compose_growth_workspace(
         "playbooks": INDUSTRY_PLAYBOOKS,
         "capabilities": growth_capability_registry.manifest(),
         "source_health": source_health or {},
+        "domain_catalog": instrument_domain_catalog(),
+        "instrument_line_summary": line_summary,
         "sandbox": {
             "enabled": False,
             "data_isolation": "workspace",

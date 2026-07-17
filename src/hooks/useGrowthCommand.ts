@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { httpClient } from "@/lib/httpClient";
+import type { InstrumentLineCode } from "@/config/growthOperatingModel";
 
 export type GrowthPriority = "urgent" | "high" | "medium" | "low";
 export type GrowthRisk = "high" | "medium" | "low";
@@ -12,6 +13,20 @@ export interface GrowthMetrics {
   active_tasks: number;
   active_tenders: number;
   conversion_rate: number;
+  classified_records: number;
+}
+
+export interface InstrumentDomainContext {
+  domain_version: string;
+  instrument_line_code?: InstrumentLineCode | null;
+  instrument_line_name?: string;
+  application_field?: string | null;
+  product_models: string[];
+  families?: string[];
+  decision_roles?: string[];
+  evidence_requirements?: string[];
+  tender_focus?: string[];
+  classification_status: "classified" | "unclassified";
 }
 
 export interface GrowthAction {
@@ -24,6 +39,10 @@ export interface GrowthAction {
   execution_mode: "recommend" | "confirm";
   target_url: string;
   source_signal_id: string;
+  instrument_line_code?: InstrumentLineCode | null;
+  instrument_line_name?: string;
+  application_field?: string;
+  domain_context: InstrumentDomainContext;
 }
 
 export interface GrowthSignal {
@@ -38,6 +57,11 @@ export interface GrowthSignal {
   occurred_at?: string;
   target_url: string;
   estimated_value: number;
+  instrument_line_code?: InstrumentLineCode | null;
+  instrument_line_name?: string;
+  application_field?: string;
+  product_models: string[];
+  domain_context: InstrumentDomainContext;
 }
 
 export interface GrowthAccount {
@@ -52,6 +76,11 @@ export interface GrowthAccount {
   next_action: string;
   updated_at?: string;
   target_url: string;
+  instrument_line_code?: InstrumentLineCode | null;
+  instrument_line_name?: string;
+  application_fields: string[];
+  purchase_stage?: string;
+  domain_context: InstrumentDomainContext;
 }
 
 export interface GrowthTender {
@@ -66,6 +95,32 @@ export interface GrowthTender {
   win_probability: number;
   risk: GrowthRisk;
   target_url: string;
+  instrument_line_code?: InstrumentLineCode | null;
+  instrument_line_name?: string;
+  application_field?: string;
+  target_product_models: string[];
+  domain_context: InstrumentDomainContext;
+}
+
+export interface InstrumentLineSummary {
+  code: InstrumentLineCode;
+  name: string;
+  signals: number;
+  accounts: number;
+  tenders: number;
+  tasks: number;
+}
+
+export interface InstrumentLineDefinition {
+  code: InstrumentLineCode;
+  name: string;
+  short_name: string;
+  summary: string;
+  families: string[];
+  applications: string[];
+  decision_roles: string[];
+  evidence_requirements: string[];
+  tender_focus: string[];
 }
 
 export interface GrowthReview {
@@ -114,6 +169,11 @@ export interface GrowthWorkspace {
   playbooks: GrowthPlaybook[];
   capabilities: GrowthCapability[];
   source_health: Record<string, "ready" | "degraded">;
+  domain_catalog: {
+    domain_version: string;
+    instrument_lines: InstrumentLineDefinition[];
+  };
+  instrument_line_summary: InstrumentLineSummary[];
   sandbox: { enabled: boolean; data_isolation: string; production_data_mixed: boolean };
 }
 

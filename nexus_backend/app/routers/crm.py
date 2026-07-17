@@ -9,6 +9,7 @@ from app.core.auth import get_current_user_id
 from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.crm_service import ACTIVITY_TYPES, CUSTOMER_STAGES, crm_service
+from app.services.scientific_instrument_domain import normalize_instrument_line
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/crm", tags=["CRM"])
@@ -28,6 +29,12 @@ class CreateCustomerRequest(BaseModel):
     estimated_value: float | None = Field(None, ge=0)
     tags: list[str] | None = None
     metadata: dict | None = None
+    instrument_line_code: str | None = None
+    instrument_line_codes: list[str] | None = None
+    application_fields: list[str] | None = None
+    purchase_stage: str | None = Field(None, max_length=100)
+    budget_source: str | None = Field(None, max_length=200)
+    competitor_models: list[str] | None = None
 
     @field_validator("stage")
     @classmethod
@@ -36,6 +43,16 @@ class CreateCustomerRequest(BaseModel):
         if v and v not in valid:
             raise ValueError(f"stage must be one of {valid}")
         return v
+
+    @field_validator("instrument_line_code")
+    @classmethod
+    def validate_instrument_line(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = normalize_instrument_line(value)
+        if not normalized:
+            raise ValueError("不支持的科学仪器产品线")
+        return normalized
 
 
 class UpdateCustomerRequest(BaseModel):
@@ -48,6 +65,12 @@ class UpdateCustomerRequest(BaseModel):
     assigned_to: str | None = None
     tags: list[str] | None = None
     metadata: dict | None = None
+    instrument_line_code: str | None = None
+    instrument_line_codes: list[str] | None = None
+    application_fields: list[str] | None = None
+    purchase_stage: str | None = Field(None, max_length=100)
+    budget_source: str | None = Field(None, max_length=200)
+    competitor_models: list[str] | None = None
 
     @field_validator("stage")
     @classmethod
@@ -56,6 +79,16 @@ class UpdateCustomerRequest(BaseModel):
         if v and v not in valid:
             raise ValueError(f"stage must be one of {valid}")
         return v
+
+    @field_validator("instrument_line_code")
+    @classmethod
+    def validate_instrument_line(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = normalize_instrument_line(value)
+        if not normalized:
+            raise ValueError("不支持的科学仪器产品线")
+        return normalized
 
 
 class CreateContactRequest(BaseModel):
@@ -98,6 +131,7 @@ async def list_customers(
     user_id: str = Depends(get_current_user_id),
     stage: str = Query(None, description="按阶段筛选"),
     industry: str = Query(None, description="按行业筛选"),
+    instrument_line_code: str = Query(None, description="按科学仪器产品线筛选"),
     search: str = Query(None, description="搜索关键词"),
     offset: int = Query(0, ge=0, description="分页偏移量"),
     limit: int = Query(50, ge=1, le=200, description="每页数量"),
@@ -117,6 +151,8 @@ async def list_customers(
                 filters["stage"] = stage
             if industry:
                 filters["industry"] = industry
+            if instrument_line_code:
+                filters["instrument_line_code"] = instrument_line_code
             customers = await crm_service.list_customers(org_id, filters, db=db)
 
         total = len(customers)

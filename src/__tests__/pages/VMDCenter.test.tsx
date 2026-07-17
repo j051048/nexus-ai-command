@@ -16,6 +16,7 @@ const growthData = {
     active_tasks: 1,
     active_tenders: 1,
     conversion_rate: 20,
+    classified_records: 1,
   },
   actions: [
     {
@@ -28,6 +29,16 @@ const growthData = {
       execution_mode: "recommend",
       target_url: "/vmd/clues?detail=1",
       source_signal_id: "clue:1",
+      instrument_line_code: "mass_spectrometry",
+      instrument_line_name: "质谱",
+      application_field: "环境痕量检测",
+      domain_context: {
+        domain_version: "scientific-instrument.v1",
+        instrument_line_code: "mass_spectrometry",
+        instrument_line_name: "质谱",
+        product_models: ["ICP-MS 9000"],
+        classification_status: "classified",
+      },
     },
   ],
   signals: [],
@@ -59,6 +70,13 @@ const growthData = {
     },
   ],
   source_health: { clues: "ready" },
+  domain_catalog: {
+    domain_version: "scientific-instrument.v1",
+    instrument_lines: [],
+  },
+  instrument_line_summary: [
+    { code: "mass_spectrometry", name: "质谱", signals: 1, accounts: 0, tenders: 0, tasks: 0 },
+  ],
   sandbox: { enabled: false, data_isolation: "workspace", production_data_mixed: false },
 };
 
@@ -98,5 +116,12 @@ describe("Growth command center", () => {
   it("selects the radar view from the versioned route", () => {
     renderPage("/growth/radar");
     expect(screen.getByText("值得核验的行业信号")).toBeDefined();
+  });
+
+  it("filters the workspace by the canonical instrument line", () => {
+    renderPage("/dashboard?line=mass_spectrometry");
+
+    expect(screen.getByText("质谱")).toBeDefined();
+    expect(screen.getByText("高分辨质谱采购意向")).toBeDefined();
   });
 });

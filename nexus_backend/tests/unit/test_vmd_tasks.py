@@ -4,7 +4,9 @@ import pytest
 from fastapi import HTTPException, Request
 
 from app.routers.vmd_tasks import (
+    CreateVMDTaskRequest,
     cancel_vmd_task,
+    create_vmd_task,
     get_vmd_task_detail,
     list_vmd_sub_tasks,
     list_vmd_tasks,
@@ -12,6 +14,7 @@ from app.routers.vmd_tasks import (
 )
 
 PATCH_ADMIN_DB = "app.routers.vmd_tasks._get_admin_db"
+
 
 @pytest.mark.asyncio
 class TestVMDTasksUnit:
@@ -21,7 +24,7 @@ class TestVMDTasksUnit:
         """测试获取任务列表成功路径"""
         mock_data = [
             {"id": "t1", "task_name": "Task 1"},
-            {"id": "t2", "task_name": "Task 2"}
+            {"id": "t2", "task_name": "Task 2"},
         ]
 
         mock_res = MagicMock()
@@ -45,10 +48,44 @@ class TestVMDTasksUnit:
         assert response["success"] is True
         assert len(response["data"]["tasks"]) == 2
 
+    async def test_create_vmd_task_persists_domain_context(self):
+        mock_res = MagicMock()
+        mock_res.data = [{"id": 42, "task_code": "VMD-20260718-ABC12345"}]
+
+        mock_query = MagicMock()
+        mock_query.insert.return_value = mock_query
+        mock_query.execute = AsyncMock(return_value=mock_res)
+        mock_db = MagicMock()
+        mock_db.table.return_value = mock_query
+
+        mock_req = MagicMock(spec=Request)
+        mock_req.state.org_id = "9359e5a8-959e-4f88-9918-ba98022c05c8"
+        body = CreateVMDTaskRequest(
+            title="ICP-MS 新品上市作战",
+            description="围绕环境监测中心生成证据化上市方案",
+            scene_code="product_launch",
+            instrument_line_code="mass_spectrometry",
+            application_field="环境痕量检测",
+            target_product_models=["ICP-MS 9000"],
+        )
+
+        with patch(PATCH_ADMIN_DB, return_value=mock_db):
+            response = await create_vmd_task(body, mock_req, user_id="user-123")
+
+        payload = mock_query.insert.call_args.args[0]
+        assert response["success"] is True
+        assert payload["instrument_line_code"] == "mass_spectrometry"
+        assert payload["domain_context"]["instrument_line_name"] == "质谱"
+        assert payload["domain_context"]["evidence_requirements"]
+
     async def test_get_vmd_task_detail_success(self):
         """测试获取任务详情成功路径"""
         mock_res = MagicMock()
-        mock_res.data = {"id": "task-abc", "task_code": "TSK-001", "task_name": "Task Detail"}
+        mock_res.data = {
+            "id": "task-abc",
+            "task_code": "TSK-001",
+            "task_name": "Task Detail",
+        }
 
         mock_query = MagicMock()
         mock_query.select.return_value = mock_query
@@ -63,7 +100,9 @@ class TestVMDTasksUnit:
         mock_req.state.org_id = "org-123"
 
         with patch(PATCH_ADMIN_DB, return_value=mock_db):
-            response = await get_vmd_task_detail(mock_req, task_id="TSK-001", user_id="user-123")
+            response = await get_vmd_task_detail(
+                mock_req, task_id="TSK-001", user_id="user-123"
+            )
 
         assert response["success"] is True
         assert response["data"]["task_code"] == "TSK-001"
@@ -117,7 +156,9 @@ class TestVMDTasksUnit:
         mock_req = MagicMock(spec=Request)
         mock_req.state.org_id = "org-123"
 
-        with patch(PATCH_ADMIN_DB, return_value=mock_db), pytest.raises(HTTPException) as excinfo:
+        with patch(PATCH_ADMIN_DB, return_value=mock_db), pytest.raises(
+            HTTPException
+        ) as excinfo:
             await pause_vmd_task(mock_req, task_id="t1", user_id="user-123")
 
         assert excinfo.value.status_code == 400
@@ -168,7 +209,9 @@ class TestVMDTasksUnit:
         mock_req.state.org_id = "org-123"
 
         with patch(PATCH_ADMIN_DB, return_value=mock_db):
-            response = await list_vmd_sub_tasks(mock_req, task_id="t1", user_id="user-123")
+            response = await list_vmd_sub_tasks(
+                mock_req, task_id="t1", user_id="user-123"
+            )
 
         assert response["success"] is True
         assert len(response["data"]["sub_tasks"]) == 1

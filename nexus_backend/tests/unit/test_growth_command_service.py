@@ -99,3 +99,54 @@ def test_growth_capability_registry_exposes_versioned_extension_points():
     assert "crm.accounts" in keys
     assert "connector.public-tender" in keys
     assert all(item["contract_version"] == "v1" for item in manifest)
+
+
+def test_growth_workspace_projects_scientific_instrument_context():
+    result = _workspace(
+        clues=[
+            {
+                "id": "clue-ms-1",
+                "title": "ICP-MS 更新采购",
+                "status": "new",
+                "instrument_line_code": "mass_spectrometry",
+                "application_field": "环境痕量检测",
+                "product_interest": ["ICP-MS 9000"],
+                "priority": "high",
+            }
+        ],
+        customers=[
+            {
+                "id": "customer-ms-1",
+                "name": "环境监测中心",
+                "stage": "opportunity",
+                "instrument_line_code": "mass_spectrometry",
+                "application_fields": ["重金属检测"],
+            }
+        ],
+        tasks=[
+            {
+                "id": "task-ms-1",
+                "status": "executing",
+                "instrument_line_code": "mass_spectrometry",
+            }
+        ],
+    )
+
+    signal = result["signals"][0]
+    assert signal["instrument_line_name"] == "质谱"
+    assert signal["domain_context"]["classification_status"] == "classified"
+    assert signal["product_models"] == ["ICP-MS 9000"]
+    mass_spec = next(
+        item
+        for item in result["instrument_line_summary"]
+        if item["code"] == "mass_spectrometry"
+    )
+    assert mass_spec == {
+        "code": "mass_spectrometry",
+        "name": "质谱",
+        "signals": 1,
+        "accounts": 1,
+        "tenders": 0,
+        "tasks": 1,
+    }
+    assert len(result["domain_catalog"]["instrument_lines"]) == 5

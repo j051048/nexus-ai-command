@@ -71,6 +71,12 @@ import { VMDSubTaskCard } from "@/components/vmd/VMDSubTaskCard";
 import { useAuth } from "@/components/auth/AuthContext";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { VMDTaskDomainFields } from "@/components/vmd/VMDTaskDomainFields";
+import {
+  SCIENTIFIC_INSTRUMENT_LINES,
+  getInstrumentLine,
+  type InstrumentLineCode,
+} from "@/config/growthOperatingModel";
 import { toast } from "sonner";
 
 // 状态配置
@@ -135,6 +141,12 @@ const SCENE_NAMES: Record<string, string> = Object.fromEntries(
   SCENES.map((s) => [s.code, s.name]),
 );
 
+function instrumentLineFromParam(value: string | null): InstrumentLineCode | "unclassified" {
+  return SCIENTIFIC_INSTRUMENT_LINES.some((line) => line.code === value)
+    ? (value as InstrumentLineCode)
+    : "unclassified";
+}
+
 export default function VMDTaskCenter() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(searchParams.get("new") === "1");
@@ -150,6 +162,9 @@ export default function VMDTaskCenter() {
   const [sceneFilter, setSceneFilter] = useState<string>(
     searchParams.get("scene") || "all",
   );
+  const [instrumentLineFilter, setInstrumentLineFilter] = useState<string>(
+    searchParams.get("instrument_line") || "all",
+  );
   const [searchText, setSearchText] = useState("");
 
   // Form state
@@ -160,12 +175,21 @@ export default function VMDTaskCenter() {
   );
   const [formPriority, setFormPriority] = useState("normal");
   const [formDeadline, setFormDeadline] = useState("");
+  const [formInstrumentLine, setFormInstrumentLine] = useState<InstrumentLineCode | "unclassified">(
+    instrumentLineFromParam(searchParams.get("instrument_line")),
+  );
+  const [formApplicationField, setFormApplicationField] = useState("");
+  const [formProductModels, setFormProductModels] = useState("");
 
   // Queries
   const { data: tasks, isLoading } = useVMDTasks({
     status: statusFilter !== "all" ? statusFilter : undefined,
     priority: priorityFilter !== "all" ? priorityFilter : undefined,
     scene_code: sceneFilter !== "all" ? sceneFilter : undefined,
+    instrument_line_code:
+      instrumentLineFilter !== "all"
+        ? (instrumentLineFilter as InstrumentLineCode)
+        : undefined,
   });
   const { data: taskDetail, isLoading: detailLoading } =
     useVMDTaskDetail(detailId);
@@ -201,6 +225,13 @@ export default function VMDTaskCenter() {
       scene_code: formScene,
       priority: formPriority,
       deadline: formDeadline || undefined,
+      instrument_line_code:
+        formInstrumentLine === "unclassified" ? undefined : formInstrumentLine,
+      application_field: formApplicationField.trim() || undefined,
+      target_product_models: formProductModels
+        .split(/[,，]/)
+        .map((value) => value.trim())
+        .filter(Boolean),
     });
     setCreateOpen(false);
     setFormTitle("");
@@ -208,6 +239,9 @@ export default function VMDTaskCenter() {
     setFormScene("all");
     setFormPriority("normal");
     setFormDeadline("");
+    setFormInstrumentLine("unclassified");
+    setFormApplicationField("");
+    setFormProductModels("");
   };
 
   const handleSubTaskUpdate = useCallback(
@@ -312,6 +346,19 @@ export default function VMDTaskCenter() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={instrumentLineFilter} onValueChange={setInstrumentLineFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="全部产品线" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部产品线</SelectItem>
+                {SCIENTIFIC_INSTRUMENT_LINES.map((line) => (
+                  <SelectItem key={line.code} value={line.code}>
+                    {line.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -374,6 +421,11 @@ export default function VMDTaskCenter() {
                         <Badge className={cn("text-[10px]", priorityCfg.color)}>
                           {priorityCfg.label}
                         </Badge>
+                        {task.instrument_line_code && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {getInstrumentLine(task.instrument_line_code)?.name}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm font-medium truncate">
                         {task.title}
@@ -405,7 +457,7 @@ export default function VMDTaskCenter() {
 
       {/* Create Task Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>创建新任务</DialogTitle>
             <DialogDescription>
@@ -464,6 +516,14 @@ export default function VMDTaskCenter() {
                 </Select>
               </div>
             </div>
+            <VMDTaskDomainFields
+              instrumentLine={formInstrumentLine}
+              applicationField={formApplicationField}
+              productModels={formProductModels}
+              onInstrumentLineChange={setFormInstrumentLine}
+              onApplicationFieldChange={setFormApplicationField}
+              onProductModelsChange={setFormProductModels}
+            />
             <div className="space-y-2">
               <Label htmlFor="task-deadline">截止日期（可选）</Label>
               <Input
@@ -525,6 +585,11 @@ export default function VMDTaskCenter() {
                   >
                     {PRIORITY_CONFIG[taskDetail.priority]?.label}
                   </Badge>
+                  {taskDetail.instrument_line_code && (
+                    <Badge variant="outline">
+                      {getInstrumentLine(taskDetail.instrument_line_code)?.name}
+                    </Badge>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     创建于{" "}
                     {new Date(taskDetail.created_at).toLocaleString("zh-CN")}

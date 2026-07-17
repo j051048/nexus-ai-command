@@ -1,6 +1,7 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
 import { toast } from 'sonner';
+import type { InstrumentLineCode } from '@/config/growthOperatingModel';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = Record<string, any>;
@@ -17,6 +18,12 @@ export interface Customer {
   assigned_to: string | null;
   tags: string[];
   metadata: AnyData;
+  instrument_line_code?: InstrumentLineCode | null;
+  instrument_line_codes: InstrumentLineCode[];
+  application_fields: string[];
+  purchase_stage?: string | null;
+  budget_source?: string | null;
+  competitor_models: string[];
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +52,7 @@ interface Filters {
   stage?: string;
   industry?: string;
   search?: string;
+  instrument_line_code?: InstrumentLineCode;
 }
 
 export function useCustomers(filters: Filters = {}) {
@@ -55,6 +63,7 @@ export function useCustomers(filters: Filters = {}) {
       if (filters.stage) params.set('stage', filters.stage);
       if (filters.industry) params.set('industry', filters.industry);
       if (filters.search) params.set('search', filters.search);
+      if (filters.instrument_line_code) params.set('instrument_line_code', filters.instrument_line_code);
       params.set('offset', String(pageParam * 50));
       params.set('limit', '50');
 

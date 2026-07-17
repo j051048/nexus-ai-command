@@ -51,6 +51,7 @@ import {
   Activity,
   Server,
   Brain,
+  Search,
 } from 'lucide-react';
 import { aiClient } from '@/api/aiClient';
 import { pinyin } from 'pinyin-pro';

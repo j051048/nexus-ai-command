@@ -1,14 +1,47 @@
-"""VMD 任务路由"""
+"""VMD 任务路由。"""
 
 import logging
+import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.services.scientific_instrument_domain import (
+    build_instrument_context,
+    normalize_instrument_line,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vmd/tasks", tags=["VMD Tasks"])
+
+
+class CreateVMDTaskRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=500)
+    description: str = Field(default="", max_length=5000)
+    scene_code: str = Field(min_length=1, max_length=100)
+    priority: str = Field(default="normal", pattern="^(low|normal|high|urgent)$")
+    deadline: datetime | None = None
+    instrument_line_code: str | None = None
+    application_field: str | None = Field(default=None, max_length=200)
+    target_product_models: list[str] = Field(default_factory=list, max_length=20)
+
+    @field_validator("instrument_line_code")
+    @classmethod
+    def validate_instrument_line(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = normalize_instrument_line(value)
+        if not normalized:
+            raise ValueError("不支持的科学仪器产品线")
+        return normalized
+
+    @field_validator("target_product_models")
+    @classmethod
+    def clean_product_models(cls, values: list[str]) -> list[str]:
+        return [value.strip() for value in values if value.strip()][:20]
 
 
 def _get_admin_db():
@@ -25,6 +58,7 @@ async def list_vmd_tasks(
     req: Request,
     status: str | None = Query(None),
     priority: str | None = Query(None),
+    instrument_line_code: str | None = Query(None),
     user_id: str = Depends(get_current_user_id),
 ):
     """获取 VMD 任务列表，支持状态和优先级过滤"""
@@ -44,9 +78,55 @@ async def list_vmd_tasks(
         query = query.eq("status", status)
     if priority:
         query = query.eq("priority", priority)
+    if isinstance(instrument_line_code, str) and instrument_line_code:
+        normalized_line = normalize_instrument_line(instrument_line_code)
+        if normalized_line:
+            query = query.eq("instrument_line_code", normalized_line)
 
     result = await query.execute()
     return api_success(data={"tasks": result.data or []})
+
+
+@router.post("")
+async def create_vmd_task(
+    body: CreateVMDTaskRequest,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """创建带科学仪器领域上下文的 VMD 作战任务。"""
+
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, message="未识别当前企业")
+
+    now = datetime.now(UTC)
+    task_code = f"VMD-{now:%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+    domain_context = build_instrument_context(
+        body.instrument_line_code,
+        application_field=body.application_field,
+        product_models=body.target_product_models,
+    )
+    payload = {
+        "tenant_id": str(org_id),
+        "organization_id": str(org_id),
+        "task_code": task_code,
+        "user_id": user_id,
+        "created_by": user_id,
+        "title": body.title.strip(),
+        "description": body.description.strip(),
+        "original_input": body.description.strip() or body.title.strip(),
+        "scene_code": body.scene_code,
+        "status": "pending",
+        "priority": body.priority,
+        "deadline": body.deadline.isoformat() if body.deadline else None,
+        "instrument_line_code": body.instrument_line_code,
+        "application_field": body.application_field,
+        "target_product_models": body.target_product_models,
+        "domain_context": domain_context,
+    }
+    result = await _get_admin_db().table("vmd_main_task").insert(payload).execute()
+    record = (result.data or [payload])[0]
+    return api_success(data=record, message="作战任务已创建")
 
 
 @router.get("/{task_id}")
@@ -61,11 +141,7 @@ async def get_vmd_task_detail(
     db = _get_admin_db()
 
     # 支持 task_code 或 UUID
-    column = (
-        "task_code"
-        if not task_id.replace("-", "").isalnum() or len(task_id) < 20
-        else "id"
-    )
+    column = "id" if task_id.isdigit() else "task_code"
     result = (
         await db.table("vmd_main_task")
         .select("*")

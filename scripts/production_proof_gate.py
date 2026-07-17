@@ -161,6 +161,41 @@ CHECKS = [
         ),
     ),
     ProofCheck(
+        "canonical scientific-instrument domain catalog",
+        "nexus_backend/app/services/scientific_instrument_domain.py",
+        (
+            "scientific-instrument.v1",
+            "spectroscopy",
+            "chromatography",
+            "mass_spectrometry",
+            "energy_spectroscopy",
+            "electronic_instrumentation",
+            "evidence_requirements",
+            "tender_focus",
+        ),
+    ),
+    ProofCheck(
+        "scientific-instrument growth schema",
+        "supabase/migrations/20260718_scientific_instrument_growth_domain.sql",
+        (
+            "instrument_line_catalog",
+            "instrument_product_catalog",
+            "instrument_line_code",
+            "domain_context",
+            "ENABLE ROW LEVEL SECURITY",
+        ),
+    ),
+    ProofCheck(
+        "domain-aware VMD task creation",
+        "nexus_backend/app/routers/vmd_tasks.py",
+        (
+            "CreateVMDTaskRequest",
+            'router.post("")',
+            "build_instrument_context",
+            "target_product_models",
+        ),
+    ),
+    ProofCheck(
         "growth command outcome-first UI",
         "src/config/growthOperatingModel.ts",
         (

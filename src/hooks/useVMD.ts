@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
 import { toast } from 'sonner';
 import { mapVMDTaskListFromAPI, mapVMDTaskDetailFromAPI } from '@/utils/vmdMapper';
+import type { InstrumentLineCode } from '@/config/growthOperatingModel';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = Record<string, any>;
@@ -25,6 +26,10 @@ export interface VMDTask {
   deadline: string | null;
   created_at: string;
   updated_at: string;
+  instrument_line_code?: InstrumentLineCode | null;
+  application_field?: string | null;
+  target_product_models: string[];
+  domain_context?: Record<string, unknown>;
   sub_tasks?: VMDSubTask[];
 }
 
@@ -161,6 +166,7 @@ interface TaskFilters {
   scene_code?: string;
   date_from?: string;
   date_to?: string;
+  instrument_line_code?: InstrumentLineCode;
 }
 
 export function useVMDTasks(filters: TaskFilters = {}) {
@@ -173,12 +179,14 @@ export function useVMDTasks(filters: TaskFilters = {}) {
       if (filters.scene_code) params.set('scene_code', filters.scene_code);
       if (filters.date_from) params.set('date_from', filters.date_from);
       if (filters.date_to) params.set('date_to', filters.date_to);
+      if (filters.instrument_line_code) params.set('instrument_line_code', filters.instrument_line_code);
       const qs = params.toString();
-      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] | { tasks: AnyData[] } }>(
         `api/vmd/tasks${qs ? '?' + qs : ''}`
       );
       // Use centralized VMD mapper for consistent field normalization
-      return mapVMDTaskListFromAPI(res.data || []);
+      const rows = Array.isArray(res.data) ? res.data : res.data?.tasks || [];
+      return mapVMDTaskListFromAPI(rows);
     },
     staleTime: 30_000,
   });
@@ -208,7 +216,16 @@ export function useVMDTaskDetail(taskId: string | null) {
 export function useCreateVMDTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { title: string; description: string; scene_code: string; priority: string; deadline?: string }) => {
+    mutationFn: async (data: {
+      title: string;
+      description: string;
+      scene_code: string;
+      priority: string;
+      deadline?: string;
+      instrument_line_code?: InstrumentLineCode;
+      application_field?: string;
+      target_product_models?: string[];
+    }) => {
       const res = await aiClient.fetch<{ success: boolean; data: VMDTask }>(
         'api/vmd/tasks', { method: 'POST', body: JSON.stringify(data) }
       );

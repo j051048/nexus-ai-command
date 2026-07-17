@@ -58,6 +58,12 @@ class CRMService:
             "assigned_to": data.get("assigned_to"),
             "tags": data.get("tags", []),
             "metadata": data.get("metadata", {}),
+            "instrument_line_code": data.get("instrument_line_code"),
+            "instrument_line_codes": data.get("instrument_line_codes", []),
+            "application_fields": data.get("application_fields", []),
+            "purchase_stage": data.get("purchase_stage"),
+            "budget_source": data.get("budget_source"),
+            "competitor_models": data.get("competitor_models", []),
         }
 
         res = await db.table("customers").insert(insert_data).execute()
@@ -85,6 +91,12 @@ class CRMService:
             "assigned_to",
             "tags",
             "metadata",
+            "instrument_line_code",
+            "instrument_line_codes",
+            "application_fields",
+            "purchase_stage",
+            "budget_source",
+            "competitor_models",
         ]
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
         update_data["updated_at"] = datetime.now(UTC).isoformat()
@@ -142,6 +154,11 @@ class CRMService:
                     query = query.eq("industry", filters["industry"])
                 if filters.get("assigned_to"):
                     query = query.eq("assigned_to", filters["assigned_to"])
+                if filters.get("instrument_line_code"):
+                    query = query.eq(
+                        "instrument_line_code",
+                        filters["instrument_line_code"],
+                    )
 
                 query = query.order("updated_at", desc=True)
 

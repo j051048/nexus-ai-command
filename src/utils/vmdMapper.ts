@@ -104,6 +104,12 @@ export function mapVMDTaskFromAPI(raw: AnyData): VMDTask {
     deadline: raw.deadline || null,
     created_at: normalizeTimestamp(raw.created_at, raw.create_time),
     updated_at: normalizeTimestamp(raw.updated_at, raw.update_time),
+    instrument_line_code: raw.instrument_line_code || null,
+    application_field: raw.application_field || null,
+    target_product_models: Array.isArray(raw.target_product_models)
+      ? raw.target_product_models
+      : [],
+    domain_context: raw.domain_context || undefined,
     sub_tasks: raw.sub_tasks,
   };
 }
