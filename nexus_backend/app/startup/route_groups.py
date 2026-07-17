@@ -62,6 +62,7 @@ def register_crm_sales_routes(app: FastAPI) -> None:
         competitors,
         crm,
         dashboard,
+        growth_command,
         incentive,
         performance,
         sales,
@@ -70,6 +71,7 @@ def register_crm_sales_routes(app: FastAPI) -> None:
 
     for router in [
         crm.router,
+        growth_command.router,
         sales_leads.router,
         sales.router,
         competitors.router,

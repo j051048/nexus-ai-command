@@ -23,6 +23,10 @@ export function vmdRoutes() {
   return (
     <>
       <Route path="vmd" element={vmdElement("VMD", <VMDCenter />)} />
+      <Route path="growth/radar" element={vmdElement("Growth Radar", <VMDCenter />)} />
+      <Route path="growth/accounts" element={vmdElement("Growth Accounts", <VMDCenter />)} />
+      <Route path="growth/tenders" element={vmdElement("Growth Tenders", <VMDCenter />)} />
+      <Route path="growth/review" element={vmdElement("Growth Review", <VMDCenter />)} />
       <Route path="vmd/tasks" element={vmdElement("VMD Tasks", <VMDTaskCenter />)} />
       <Route path="vmd/agents" element={vmdElement("VMD Agents", <VMDAgentConfig />)} />
       <Route path="vmd/clues" element={vmdElement("VMD Clues", <VMDClueManagement />)} />

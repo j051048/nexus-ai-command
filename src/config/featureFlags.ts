@@ -44,24 +44,24 @@ export const MODULE_TIER_DESCRIPTIONS: Record<ModuleTier, string> = {
 export const MODULE_TIERS: Record<ModuleTier, ModuleFlag[]> = {
   core: [
     "approval",
+    "battlecards",
     "crm",
     "documents",
     "knowledge",
     "projects",
     "reports",
     "sales",
+    "tender",
+    "vmd",
     "workflow_designer",
   ],
   specialized: [
-    "battlecards",
     "custom_dashboard",
     "form_designer",
     "plugins",
     "report_builder",
     "soul_document",
-    "tender",
     "training",
-    "vmd",
     "work_orders",
   ],
   integration: [
@@ -93,9 +93,9 @@ export const THIRD_PARTY_FIRST_MODULES: ModuleFlag[] = [
 ];
 
 export const MODULE_FOCUS_POLICY = {
-  defaultNavigation: "five-space-workbench",
-  superScenario: "VMD + scientific-instrument sales intelligence",
-  nativeDepthRule: "Build deep native UX only for core sales, approval, knowledge, reports, and VMD scenarios.",
+  defaultNavigation: "five-view-growth-command",
+  superScenario: "AI growth command for scientific-instrument companies",
+  nativeDepthRule: "Build deep native UX for opportunity discovery, account growth, tender readiness, industry knowledge, and outcome review.",
   integrationRule: "Keep HR, finance, OA, inventory, and billing as light entry points unless a customer explicitly enables deep native workflows.",
 } as const;
 

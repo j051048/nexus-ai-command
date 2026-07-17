@@ -21,6 +21,7 @@ import {
   SalesPipeline,
   SalesTargetManager,
   TargetDashboard,
+  VMDCenter,
   WorkspaceHubPage,
 } from "./lazyImports";
 
@@ -37,7 +38,7 @@ export function coreRoutes(
   return (
     <>
       <Route index element={<Navigate to="/dashboard" replace />} />
-      <Route path="dashboard" element={routeBoundary("Dashboard", <InboxPage />)} />
+      <Route path="dashboard" element={routeBoundary("Growth Command", <VMDCenter />)} />
       <Route
         path="boss-dashboard"
         element={

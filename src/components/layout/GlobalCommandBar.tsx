@@ -134,11 +134,11 @@ export function dispatchNewChat() {
 
 const COMMAND_ITEMS: NavCommandItem[] = [
   // 核心功能
-  { label: '收件箱', path: '/dashboard', icon: Bell, keywords: ['首页', 'home', 'dashboard', '待办', '收件箱', '行动'], group: '核心空间' },
-  { label: 'CRM', path: '/crm', icon: Users, keywords: ['crm', '客户', '线索', '商机', '销售'], group: '核心空间' },
-  { label: '工作台', path: '/workbench', icon: Workflow, keywords: ['项目', '审批', '合同', 'oa', 'hr', '流程'], group: '核心空间' },
-  { label: '数据', path: '/data', icon: BarChart3, keywords: ['报表', '数据', '目标', 'dashboard', '经营'], group: '核心空间' },
-  { label: '助手', path: '/ai-center', icon: Sparkles, keywords: ['ai', 'agent', '知识库', '模型', '插件', 'ai中心', '助手中心'], group: '核心空间' },
+  { label: '今日作战', path: '/dashboard', icon: Target, keywords: ['首页', 'home', 'dashboard', '今日', '行动', '增长'], group: '增长作战' },
+  { label: '线索雷达', path: '/growth/radar', icon: Search, keywords: ['线索', '商机', '雷达', '基金', '论文', '招标'], group: '增长作战' },
+  { label: '客户与项目', path: '/growth/accounts', icon: Users, keywords: ['crm', '客户', '项目', '商机', '跟进'], group: '增长作战' },
+  { label: '投标作战', path: '/growth/tenders', icon: FileSearch, keywords: ['标书', '投标', '招标', '胜率', '合规'], group: '增长作战' },
+  { label: '经营复盘', path: '/growth/review', icon: BarChart3, keywords: ['复盘', 'roi', '采纳率', '结果', '经营'], group: '增长作战' },
   { label: '助手工作台', path: '/ai-operating-system', icon: Sparkles, keywords: ['助手工作台', 'agent sandbox', 'sop', 'aop', '知识图谱', 'demo', '角色化', '业务流程'], group: '核心空间' },
   { label: '助手优化', path: '/agent-improvement-center', icon: Brain, keywords: ['agent', '进化中心', 'prompt registry', 'context quality', 'harness', 'hermes', '自我进化', 'memory hygiene'], group: '核心空间' },
   { label: 'AI 记忆', path: '/memory-center', icon: Brain, keywords: ['记忆', 'memory', '忘记', '偏好', '仪器记录'], group: '个人' },
@@ -170,7 +170,7 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '激励钱包', path: '/rewards', icon: Gift, keywords: ['激励', 'reward', '积分', '奖励'], group: '知识与培训' },
 
   // 虚拟市场部
-  { label: '虚拟市场部', path: '/vmd', icon: Crown, keywords: ['vmd', '市场', '营销', '推广'], group: '虚拟市场部' },
+  { label: 'AI 增长作战室', path: '/vmd', icon: Crown, keywords: ['vmd', '市场', '营销', '推广', '增长'], group: '增长作战' },
   { label: 'VMD 任务中心', path: '/vmd/tasks', icon: Target, keywords: ['vmd任务', '营销任务'], group: '虚拟市场部' },
   { label: 'VMD Agent配置', path: '/vmd/agents', icon: Settings, keywords: ['vmd agent', '营销agent'], group: '虚拟市场部' },
   { label: 'VMD 线索管理', path: '/vmd/clues', icon: Users, keywords: ['vmd线索', '营销线索'], group: '虚拟市场部' },

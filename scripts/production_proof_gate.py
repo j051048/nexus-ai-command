@@ -150,6 +150,26 @@ CHECKS = [
         ("MODULE_FOCUS_POLICY", "THIRD_PARTY_FIRST_MODULES", "isThirdPartyFirstModule"),
     ),
     ProofCheck(
+        "scientific-instrument growth command contract",
+        "nexus_backend/app/services/growth_command_service.py",
+        (
+            "growth-command.v1",
+            "GrowthCapabilityProvider",
+            "compose_growth_workspace",
+            "INDUSTRY_PLAYBOOKS",
+            "production_data_mixed",
+        ),
+    ),
+    ProofCheck(
+        "growth command outcome-first UI",
+        "src/config/growthOperatingModel.ts",
+        (
+            "GROWTH_WORKSPACE_ROUTES",
+            "GrowthCapabilityProvider",
+            "growth_outcome_events",
+        ),
+    ),
+    ProofCheck(
         "schema convergence audit",
         "scripts/audit_schema_convergence.py",
         ("SCHEMA_CONVERGENCE_OK", "agent_heartbeat_runs", "organization_id"),

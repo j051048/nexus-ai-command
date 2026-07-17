@@ -56,6 +56,8 @@ import {
   Network,
   Search,
   Activity,
+  Crosshair,
+  Radar,
   Server,
 } from "lucide-react";
 import {
@@ -145,6 +147,7 @@ function moduleForHref(href: string): ModuleFlag | null {
   if (path === "battlecards") return "battlecards";
   if (path === "training") return "training";
   if (path === "vmd" || path.startsWith("vmd/")) return "vmd";
+  if (path === "dashboard" || path.startsWith("growth/")) return "vmd";
   if (path === "plugins") return "plugins";
   if (path === "soul-document") return "soul_document";
   if (path === "dev/animations" || path === "agent-debug") return "dev_tools";
@@ -157,12 +160,12 @@ function isNavFeatureEnabled(item: NavItem): boolean {
 }
 
 const NAV_CONFIG: NavItem[] = [
-  // 一级导航只暴露 5 个产品空间；其它模块通过二级分组和命令面板触达。
-  { icon: <Inbox size={18} />, label: "收件箱", href: "dashboard", group: "primary" },
-  { icon: <Contact size={18} />, label: "CRM", href: "crm", group: "primary" },
-  { icon: <Briefcase size={18} />, label: "工作台", href: "workbench", group: "primary" },
-  { icon: <BarChart3 size={18} />, label: "数据", href: "data", group: "primary" },
-  { icon: <Bot size={18} />, label: "助手", href: "ai-center", group: "primary" },
+  // 一级导航围绕科学仪器销售闭环，其它模块通过二级分组和命令面板触达。
+  { icon: <Crosshair size={18} />, label: "今日作战", href: "dashboard", group: "primary" },
+  { icon: <Radar size={18} />, label: "线索雷达", href: "growth/radar", group: "primary" },
+  { icon: <Contact size={18} />, label: "客户与项目", href: "growth/accounts", group: "primary" },
+  { icon: <FileSearch size={18} />, label: "投标作战", href: "growth/tenders", group: "primary" },
+  { icon: <BarChart3 size={18} />, label: "经营复盘", href: "growth/review", group: "primary" },
 
   // 业务域分组
   { icon: <TrendingUp size={18} />, label: "销售管道", href: "sales", group: "客户增长" },
@@ -192,7 +195,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Bot size={18} />, label: "助手工作台", href: "ai-operating-system", group: "智能助手" },
   { icon: <Brain size={18} />, label: "Agent 进化中心", href: "agent-improvement-center", roles: ["boss", "founder"], group: "智能助手" },
   { icon: <BookOpen size={18} />, label: "知识库", href: "knowledge", group: "智能助手" },
-  { icon: <Rocket size={18} />, label: "VMD", href: "vmd", group: "智能助手" },
+  { icon: <Rocket size={18} />, label: "增长作战配置", href: "vmd", group: "智能助手" },
   { icon: <Puzzle size={18} />, label: "插件", href: "plugins", group: "智能助手" },
   { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "智能助手" },
   { icon: <ShieldCheck size={18} />, label: "工具治理", href: "tools/governance", roles: ["boss", "founder"], group: "智能助手" },
