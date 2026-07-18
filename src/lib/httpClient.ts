@@ -47,7 +47,7 @@ httpClient.interceptors.request.use(
       }
     }
 
-    if (['post', 'put'].includes(method)) {
+    if (['post', 'put'].includes(method) && !config.headers['X-Idempotency-Key']) {
       config.headers['X-Idempotency-Key'] =
         `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     }

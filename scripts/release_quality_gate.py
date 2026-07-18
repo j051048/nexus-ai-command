@@ -564,7 +564,13 @@ CHECKS = [
         "P3",
         "command bar executable actions and context",
         "src/components/layout/GlobalCommandBar.tsx",
-        ("常用动作", "创建客户", "AI 当前上下文", "usePageContext"),
+        ("常用动作", "AI 当前上下文", "usePageContext"),
+    ),
+    GateCheck(
+        "P3",
+        "command bar business action catalog",
+        "src/components/layout/globalCommandCatalog.ts",
+        ("创建客户", "COMMAND_ITEMS", "AI_QUICK_ACTIONS", "EXECUTION_COMMANDS"),
     ),
     GateCheck(
         "P0",

@@ -116,6 +116,16 @@ CHECKS = [
         ("MIGRATION_GOVERNANCE_OK", "validate_applied_checksums"),
     ),
     ProofCheck(
+        "cross-table transaction governance",
+        "scripts/check_transaction_contracts.py",
+        ("TRANSACTION_CONTRACTS_OK", "validate_contracts", "ReplayStrategy"),
+    ),
+    ProofCheck(
+        "gradual domain ownership governance",
+        "scripts/check_domain_registry.py",
+        ("DOMAIN_REGISTRY_OK", "validate_registry", "router_owners"),
+    ),
+    ProofCheck(
         "LLM cost hard gate",
         "scripts/check_llm_cost_policy.py",
         ("LLM_COST_POLICY_OK", "EXPENSIVE_MARKERS", "MODEL_KEYWORDS"),
@@ -309,8 +319,13 @@ CHECKS = [
     ),
     ProofCheck(
         "transaction RPC contract",
-        "nexus_backend/tests/production_proof/test_api_client_and_transaction_contract.py",
-        ("SECURITY DEFINER", "approval", "p_org_id"),
+        "nexus_backend/app/core/transaction_contracts.py",
+        (
+            "TRANSACTION_CONTRACTS",
+            "membership.request-decision",
+            "operations.inventory-adjustment",
+            "ReplayStrategy.IDEMPOTENCY_KEY",
+        ),
     ),
     ProofCheck(
         "capacity/load contract",

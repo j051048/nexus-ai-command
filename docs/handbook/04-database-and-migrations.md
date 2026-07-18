@@ -7,11 +7,15 @@
 - `organization_id` 是新代码的标准租户列；兼容历史 `org_id` 时必须有明确收敛迁移。
 - 新租户表必须同时提交 RLS enable、策略、索引和隔离测试。
 - 多表原子业务使用 PostgreSQL RPC/事务函数，不在客户端串联多个写请求。
+- 关键事务必须登记在 `nexus_backend/app/core/transaction_contracts.py`，明确领域归属、安全模式和重放策略。
+- API 重试键必须贯穿 HTTP/Agent 调用、服务层和数据库账本；仅靠进程内缓存不构成事务幂等。
 
 ## 必跑检查
 
 ```bash
 python scripts/check_migration_governance.py
+python scripts/check_transaction_contracts.py
+python scripts/check_domain_registry.py
 python scripts/scan_migration_schema_conflicts.py
 python scripts/scan_rls_coverage.py
 python scripts/scan_rls_policy_columns.py

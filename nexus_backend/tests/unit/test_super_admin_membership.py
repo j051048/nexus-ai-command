@@ -133,6 +133,114 @@ async def test_admin_access_update_invalidates_billing_cache():
 
 
 @pytest.mark.asyncio
+async def test_direct_membership_retry_reuses_database_change_id_and_event_once():
+    service = SuperAdminService()
+    client = MagicMock()
+    first_query = MagicMock()
+    first_query.execute = AsyncMock(
+        return_value=SimpleNamespace(
+            data={
+                "change_id": "change-1",
+                "org_id": "org-1",
+                "subscription": {"plan": "professional", "status": "active"},
+                "replayed": False,
+            }
+        )
+    )
+    replay_query = MagicMock()
+    replay_query.execute = AsyncMock(
+        return_value=SimpleNamespace(
+            data={
+                "change_id": "change-1",
+                "org_id": "org-1",
+                "subscription": {"plan": "professional", "status": "active"},
+                "replayed": True,
+            }
+        )
+    )
+    client.rpc.side_effect = [first_query, replay_query]
+    service._get_global_client = MagicMock(return_value=client)
+    service._write_audit_log = AsyncMock()
+    service._publish_entitlement_change = AsyncMock()
+    service._invalidate_billing_cache = MagicMock()
+    expires_at = (datetime.now(UTC) + timedelta(days=30)).isoformat()
+
+    for _ in range(2):
+        await service.admin_set_access(
+            org_id="org-1",
+            plan="professional",
+            expires_at=expires_at,
+            reason="Contract approved",
+            admin_user_id="admin-1",
+            idempotency_key="same-http-request",
+        )
+
+    first_params = client.rpc.call_args_list[0].args[1]
+    replay_params = client.rpc.call_args_list[1].args[1]
+    assert first_params["p_change_id"] == replay_params["p_change_id"]
+    service._publish_entitlement_change.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_change_plan_converges_on_atomic_access_writer():
+    service = SuperAdminService()
+    client = MagicMock()
+    query = MagicMock()
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.limit.return_value = query
+    client.table.return_value = query
+    service._get_global_client = MagicMock(return_value=client)
+    service._maybe_first = AsyncMock(
+        return_value={"current_period_end": "2030-01-01T00:00:00+00:00"}
+    )
+    service.admin_set_access = AsyncMock(return_value={"plan": "enterprise"})
+
+    await service.admin_change_plan(
+        "org-1",
+        "enterprise",
+        "Annual upgrade",
+        "admin-1",
+        idempotency_key="change-plan-1",
+    )
+
+    service.admin_set_access.assert_awaited_once_with(
+        org_id="org-1",
+        plan="enterprise",
+        expires_at="2030-01-01T00:00:00+00:00",
+        reason="Annual upgrade",
+        admin_user_id="admin-1",
+        idempotency_key="change-plan-1",
+        idempotency_scope="change-plan",
+    )
+
+
+@pytest.mark.asyncio
+async def test_trial_management_converges_on_atomic_access_writer():
+    service = SuperAdminService()
+    service._get_global_client = MagicMock(return_value=MagicMock())
+    service.admin_set_access = AsyncMock(
+        return_value={"org_id": "org-1", "plan": "professional"}
+    )
+
+    result = await service.admin_manage_trial(
+        "org-1",
+        "start",
+        14,
+        "professional",
+        "Pilot approved",
+        "admin-1",
+        idempotency_key="trial-1",
+    )
+
+    kwargs = service.admin_set_access.await_args.kwargs
+    assert kwargs["status_override"] == "trialing"
+    assert kwargs["idempotency_scope"] == "manage-trial"
+    assert kwargs["idempotency_key"] == "trial-1"
+    assert result["trial_days"] == 14
+
+
+@pytest.mark.asyncio
 async def test_admin_can_extend_membership_from_current_expiry():
     service = SuperAdminService()
     client = MagicMock()
@@ -206,6 +314,81 @@ def test_super_admin_membership_writes_are_idempotency_protected():
     assert is_idempotency_protected_path("/api/admin/organizations/org-1/access/adjust")
     assert is_idempotency_protected_path("/api/crm/customers")
     assert is_idempotency_protected_path("/api/approval/submit-smart")
+    assert is_idempotency_protected_path("/api/inventory/out")
+
+
+@pytest.mark.asyncio
+async def test_subscription_request_decision_has_no_post_rpc_projection_writes():
+    service = SuperAdminService()
+    client = MagicMock()
+    rpc_query = MagicMock()
+    rpc_query.execute = AsyncMock(
+        return_value=SimpleNamespace(
+            data={
+                "request_id": "request-1",
+                "change_id": "change-1",
+                "org_id": "org-1",
+                "status": "approved",
+                "plan": "enterprise",
+                "current_period_end": "2030-01-01T00:00:00+00:00",
+                "replayed": False,
+            }
+        )
+    )
+    client.rpc.return_value = rpc_query
+    service._get_global_client = MagicMock(return_value=client)
+    service._invalidate_billing_cache = MagicMock()
+    service._publish_entitlement_change = AsyncMock()
+    service._write_audit_log = AsyncMock()
+
+    result = await service.decide_subscription_request(
+        request_id="request-1",
+        decision="approved",
+        reason="Approved for production",
+        admin_user_id="admin-1",
+        plan="enterprise",
+        expires_at="2030-01-01T00:00:00+00:00",
+    )
+
+    assert result["change_id"] == "change-1"
+    client.table.assert_not_called()
+    service._publish_entitlement_change.assert_awaited_once_with(
+        "org-1", "change-1", "applied", "admin-1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_replayed_subscription_request_does_not_publish_duplicate_event():
+    service = SuperAdminService()
+    client = MagicMock()
+    rpc_query = MagicMock()
+    rpc_query.execute = AsyncMock(
+        return_value=SimpleNamespace(
+            data={
+                "request_id": "request-1",
+                "change_id": "change-1",
+                "org_id": "org-1",
+                "status": "approved",
+                "plan": "enterprise",
+                "current_period_end": "2030-01-01T00:00:00+00:00",
+                "replayed": True,
+            }
+        )
+    )
+    client.rpc.return_value = rpc_query
+    service._get_global_client = MagicMock(return_value=client)
+    service._invalidate_billing_cache = MagicMock()
+    service._publish_entitlement_change = AsyncMock()
+    service._write_audit_log = AsyncMock()
+
+    await service.decide_subscription_request(
+        request_id="request-1",
+        decision="approved",
+        reason="Approved for production",
+        admin_user_id="admin-1",
+    )
+
+    service._publish_entitlement_change.assert_not_awaited()
 
 
 @pytest.mark.asyncio

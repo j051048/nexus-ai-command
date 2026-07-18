@@ -85,6 +85,7 @@ async def inventory_in(
             quantity=body.quantity,
             operator_id=user_id,
             reason=body.reason,
+            idempotency_key=req.headers.get("X-Idempotency-Key"),
             db=db,
         )
         return api_success(data={"record": result}, message="入库成功")
@@ -112,6 +113,7 @@ async def inventory_out(
             operator_id=user_id,
             receiver_id=body.receiver_id,
             reason=body.reason,
+            idempotency_key=req.headers.get("X-Idempotency-Key"),
             db=db,
         )
         return api_success(data={"record": result}, message="出库成功")

@@ -32,12 +32,17 @@ async def test_admin_set_access_route_returns_canonical_membership():
                 expires_at=expires_at,
                 reason="Contract approved",
             ),
+            idempotency_key="membership-request-1",
             user_id="admin-1",
         )
 
     assert result["success"] is True
     assert result["data"] == expected
     service.admin_set_access.assert_awaited_once()
+    assert (
+        service.admin_set_access.await_args.kwargs["idempotency_key"]
+        == "membership-request-1"
+    )
 
 
 @pytest.mark.asyncio
@@ -53,6 +58,7 @@ async def test_admin_adjust_access_days_route():
         result = await admin_adjust_access_days(
             org_id="org-1",
             body=AdjustAccessDaysRequest(days=30),
+            idempotency_key="membership-adjustment-1",
             user_id="admin-1",
         )
 
@@ -63,6 +69,7 @@ async def test_admin_adjust_access_days_route():
         days=30,
         reason="平台管理员手动调整会员期限",
         admin_user_id="admin-1",
+        idempotency_key="membership-adjustment-1",
     )
 
 

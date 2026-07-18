@@ -73,7 +73,10 @@ describe('frontend density guard', () => {
   });
 
   it('keeps hidden modules reachable through action-oriented command entries', () => {
-    const commandBar = source('src/components/layout/GlobalCommandBar.tsx');
+    const commandBar = [
+      source('src/components/layout/GlobalCommandBar.tsx'),
+      source('src/components/layout/globalCommandCatalog.ts'),
+    ].join('\n');
     const workspace = source('src/pages/ProductSpaceHubPage.tsx');
 
     expect(commandBar).toContain('助手工作台');

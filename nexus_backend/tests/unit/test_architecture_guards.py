@@ -797,7 +797,9 @@ def test_unified_action_inbox_is_wired():
 
 def test_navigation_is_consolidated_into_five_product_spaces():
     sidebar = read("src/components/layout/Sidebar.tsx")
-    command_bar = read("src/components/layout/GlobalCommandBar.tsx")
+    command_bar = read("src/components/layout/GlobalCommandBar.tsx") + read(
+        "src/components/layout/globalCommandCatalog.ts"
+    )
     lazy_imports = read("src/routes/lazyImports.ts")
     core_routes = read("src/routes/coreRoutes.tsx")
     hub_page = read("src/pages/ProductSpaceHubPage.tsx")
@@ -832,7 +834,9 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     work_state = read("src/components/common/WorkState.tsx")
     inbox_page = read("src/pages/InboxPage.tsx")
     mobile_actions = read("src/components/mobile/MobileActionCardStack.tsx")
-    command_bar = read("src/components/layout/GlobalCommandBar.tsx")
+    command_bar = read("src/components/layout/GlobalCommandBar.tsx") + read(
+        "src/components/layout/globalCommandCatalog.ts"
+    )
     layout = read("src/components/layout/ChatFirstLayout.tsx")
     mobile_nav = read("src/hooks/useMobileNavigation.ts")
     approval_center = read("src/components/approval/ApprovalCenter.tsx")
@@ -936,7 +940,9 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     core_routes = read("src/routes/coreRoutes.tsx")
     lazy_imports = read("src/routes/lazyImports.ts")
     sidebar = read("src/components/layout/Sidebar.tsx")
-    command_bar = read("src/components/layout/GlobalCommandBar.tsx")
+    command_bar = read("src/components/layout/GlobalCommandBar.tsx") + read(
+        "src/components/layout/globalCommandCatalog.ts"
+    )
     inbox = read("src/pages/InboxPage.tsx")
     acceptance = read("e2e/customer-business-acceptance.spec.ts")
 
@@ -1032,7 +1038,9 @@ def test_agent_evolution_engine_is_wired_end_to_end():
     core_routes = read("src/routes/coreRoutes.tsx")
     lazy_imports = read("src/routes/lazyImports.ts")
     sidebar = read("src/components/layout/Sidebar.tsx")
-    command_bar = read("src/components/layout/GlobalCommandBar.tsx")
+    command_bar = read("src/components/layout/GlobalCommandBar.tsx") + read(
+        "src/components/layout/globalCommandCatalog.ts"
+    )
 
     for token in [
         "PromptManifest",

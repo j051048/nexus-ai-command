@@ -33,11 +33,13 @@ async def test_inventory_in_uses_atomic_rpc():
         "00000000-0000-0000-0000-000000000002",
         5,
         "00000000-0000-0000-0000-000000000003",
+        idempotency_key="inventory-attempt-1",
         db=db,
     )
     assert result["new_quantity"] == 12
     _, params = db.rpc.call_args.args
     assert params["p_delta"] == 5
+    assert params["p_idempotency_key"] == "inventory-attempt-1"
 
 
 @pytest.mark.asyncio
@@ -48,10 +50,12 @@ async def test_inventory_out_uses_negative_atomic_delta():
         "00000000-0000-0000-0000-000000000002",
         5,
         "00000000-0000-0000-0000-000000000003",
+        idempotency_key="inventory-attempt-2",
         db=db,
     )
     _, params = db.rpc.call_args.args
     assert params["p_delta"] == -5
+    assert params["p_idempotency_key"] == "inventory-attempt-2"
 
 
 @pytest.mark.asyncio

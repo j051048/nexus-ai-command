@@ -85,6 +85,12 @@ jobs:
       - name: Migration governance
         working-directory: ${{ github.workspace }}
         run: python scripts/check_migration_governance.py
+      - name: Transaction contract governance
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_transaction_contracts.py
+      - name: Domain ownership governance
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_domain_registry.py
       - name: Engineering handover readiness
         working-directory: ${{ github.workspace }}
         run: python scripts/check_handover_readiness.py

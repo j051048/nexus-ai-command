@@ -106,6 +106,18 @@ describe('httpClient interceptors', () => {
       expect(config.headers['X-CSRF-Token']).toBeUndefined();
       expect(config.headers['X-Idempotency-Key']).toBeUndefined();
     });
+
+    it('应该保留调用方提供的幂等性 Key，确保重试命中同一事务', async () => {
+      requestConfig.method = 'post';
+      requestConfig.headers = { 'X-Idempotency-Key': 'stable-operation-1' };
+
+      // @ts-expect-error access private handlers for test
+      const handler = httpClient.interceptors.request.handlers[0];
+      // @ts-expect-error mock request config type mismatch
+      const config = await handler.fulfilled(requestConfig);
+
+      expect(config.headers['X-Idempotency-Key']).toBe('stable-operation-1');
+    });
   });
 
   describe('Response Interceptor Error Handling', () => {

@@ -62,6 +62,14 @@ DOMAIN_REGISTRY: dict[str, DomainDescriptor] = {
         owner="enterprise-core",
         maturity="supported",
     ),
+    "operations": DomainDescriptor(
+        code="operations",
+        routers=("inventory", "assets", "work_orders"),
+        services=("inventory_service", "asset_service", "work_order_service"),
+        repositories=(),
+        owner="enterprise-core",
+        maturity="supported",
+    ),
     "integrations": DomainDescriptor(
         code="integrations",
         routers=("im_callbacks", "im_oauth", "im_settings", "kingdee", "webhooks"),

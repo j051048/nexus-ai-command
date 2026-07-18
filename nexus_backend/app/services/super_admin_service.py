@@ -76,6 +76,21 @@ def _rpc_payload(data: Any) -> dict[str, Any]:
     raise RuntimeError("Membership transaction returned an invalid payload")
 
 
+def _durable_change_id(scope: str, org_id: str, idempotency_key: str | None) -> str:
+    """Map an HTTP idempotency key to the UUID used by the database ledger."""
+    if idempotency_key is None:
+        return str(uuid.uuid4())
+    normalized = idempotency_key.strip()
+    if not normalized or len(normalized) > 128:
+        raise ValueError("Invalid idempotency key")
+    return str(
+        uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"nexus:membership:{scope}:{org_id}:{normalized}",
+        )
+    )
+
+
 class SuperAdminService:
     """Cross-tenant management for the platform operator console."""
 
@@ -423,7 +438,12 @@ class SuperAdminService:
         ]
 
     async def admin_change_plan(
-        self, org_id: str, plan: str, reason: str, admin_user_id: str
+        self,
+        org_id: str,
+        plan: str,
+        reason: str,
+        admin_user_id: str,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         if plan not in VALID_PLANS:
             raise ValueError(f"Invalid plan: {plan}")
@@ -431,31 +451,21 @@ class SuperAdminService:
             raise ValueError("A reason is required for plan changes")
 
         client = self._get_global_client()
-        await client.table("organizations").update({"tier": plan, "plan": plan}).eq(
-            "id", org_id
-        ).execute()
-        await client.table("subscriptions").upsert(
-            {
-                "org_id": org_id,
-                "plan": plan,
-                "status": "active",
-                "access_source": "admin_override",
-                "approved_by": admin_user_id,
-                "approved_at": datetime.now(UTC).isoformat(),
-                "notes": reason,
-                "updated_at": datetime.now(UTC).isoformat(),
-            },
-            on_conflict="org_id",
-        ).execute()
-        self._invalidate_billing_cache(org_id)
-        await self._write_audit_log(
-            client,
-            "admin_change_plan",
-            admin_user_id,
-            org_id,
-            {"new_plan": plan, "reason": reason},
+        current = await self._maybe_first(
+            client.table("subscriptions")
+            .select("current_period_end")
+            .eq("org_id", org_id)
+            .limit(1)
         )
-        return {"org_id": org_id, "plan": plan, "status": "active"}
+        return await self.admin_set_access(
+            org_id=org_id,
+            plan=plan,
+            expires_at=(current or {}).get("current_period_end"),
+            reason=reason,
+            admin_user_id=admin_user_id,
+            idempotency_key=idempotency_key,
+            idempotency_scope="change-plan",
+        )
 
     async def admin_set_access(
         self,
@@ -465,6 +475,9 @@ class SuperAdminService:
         reason: str,
         admin_user_id: str,
         source: str = "admin_override",
+        idempotency_key: str | None = None,
+        idempotency_scope: str = "set-access",
+        status_override: str | None = None,
     ) -> dict[str, Any]:
         """Grant or update membership access using an exact expiry date."""
         if plan not in VALID_PLANS:
@@ -480,9 +493,12 @@ class SuperAdminService:
 
         client = self._get_global_client()
         now = datetime.now(UTC).isoformat()
-        status = "active" if plan != "free" else "inactive"
-        change_id = str(uuid.uuid4())
+        status = status_override or ("active" if plan != "free" else "inactive")
+        if status not in {"active", "inactive", "trialing"}:
+            raise ValueError("Invalid membership status")
+        change_id = _durable_change_id(idempotency_scope, org_id, idempotency_key)
         expiry_value = parsed_expiry.isoformat() if parsed_expiry else None
+        replayed = False
         try:
             transaction = await client.rpc(
                 "set_subscription_access_atomic",
@@ -500,6 +516,7 @@ class SuperAdminService:
             transaction_payload = _rpc_payload(transaction.data)
             subscription_payload = transaction_payload.get("subscription") or {}
             change_id = str(transaction_payload.get("change_id") or change_id)
+            replayed = bool(transaction_payload.get("replayed"))
         except APIError as exc:
             if _api_error_code(exc) != "PGRST202":
                 raise
@@ -519,9 +536,10 @@ class SuperAdminService:
                 now=now,
             )
         self._invalidate_billing_cache(org_id)
-        await self._publish_entitlement_change(
-            org_id, change_id, "applied", admin_user_id
-        )
+        if not replayed:
+            await self._publish_entitlement_change(
+                org_id, change_id, "applied", admin_user_id
+            )
         await self._write_audit_log(
             client,
             "admin_set_subscription_access",
@@ -534,6 +552,7 @@ class SuperAdminService:
                 ),
                 "source": source,
                 "reason": reason,
+                "replayed": replayed,
             },
         )
         return {
@@ -545,6 +564,7 @@ class SuperAdminService:
             ),
             "access_source": str(subscription_payload.get("access_source") or source),
             "change_id": change_id,
+            "replayed": replayed,
         }
 
     async def _legacy_set_access(
@@ -616,6 +636,7 @@ class SuperAdminService:
         days: int,
         reason: str,
         admin_user_id: str,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Extend or shorten one organization's membership from its current end."""
         if days == 0 or days < -3650 or days > 3650:
@@ -643,7 +664,13 @@ class SuperAdminService:
 
         if new_end <= now:
             result = await self.admin_set_access(
-                org_id, "free", None, reason, admin_user_id
+                org_id,
+                "free",
+                None,
+                reason,
+                admin_user_id,
+                idempotency_key=idempotency_key,
+                idempotency_scope="adjust-access",
             )
         else:
             current_plan = str((current or {}).get("plan") or "enterprise")
@@ -651,7 +678,13 @@ class SuperAdminService:
                 current_plan if current_plan in VALID_PLANS - {"free"} else "enterprise"
             )
             result = await self.admin_set_access(
-                org_id, plan, new_end.isoformat(), reason, admin_user_id
+                org_id,
+                plan,
+                new_end.isoformat(),
+                reason,
+                admin_user_id,
+                idempotency_key=idempotency_key,
+                idempotency_scope="adjust-access",
             )
         result["adjusted_days"] = days
         return result
@@ -688,6 +721,7 @@ class SuperAdminService:
         plan: str,
         reason: str,
         admin_user_id: str,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         if action not in VALID_TRIAL_ACTIONS:
             raise ValueError(f"Invalid trial action: {action}")
@@ -714,38 +748,25 @@ class SuperAdminService:
             if current_end and current_end > now:
                 base_date = current_end
         period_end = base_date + timedelta(days=days)
-        await client.table("subscriptions").upsert(
-            {
-                "org_id": org_id,
-                "plan": plan,
-                "status": "trialing",
-                "current_period_end": period_end.isoformat(),
-                "access_source": "admin_override",
-                "approved_by": admin_user_id,
-                "approved_at": now.isoformat(),
-                "notes": reason,
-                "updated_at": now.isoformat(),
-            },
-            on_conflict="org_id",
-        ).execute()
-        await client.table("organizations").update({"plan": plan, "tier": plan}).eq(
-            "id", org_id
-        ).execute()
-        self._invalidate_billing_cache(org_id)
-        await self._write_audit_log(
-            client,
-            "admin_manage_trial",
-            admin_user_id,
-            org_id,
-            {"action": action, "plan": plan, "days": days, "reason": reason},
+        result = await self.admin_set_access(
+            org_id=org_id,
+            plan=plan,
+            expires_at=period_end.isoformat(),
+            reason=reason,
+            admin_user_id=admin_user_id,
+            source="admin_override",
+            idempotency_key=idempotency_key,
+            idempotency_scope="manage-trial",
+            status_override="trialing",
         )
-        return {
-            "org_id": org_id,
-            "action": action,
-            "plan": plan,
-            "trial_days": days,
-            "trial_end": period_end.isoformat(),
-        }
+        result.update(
+            {
+                "action": action,
+                "trial_days": days,
+                "trial_end": period_end.isoformat(),
+            }
+        )
+        return result
 
     async def list_subscription_requests(
         self, status: str = "pending", limit: int = 100
@@ -807,20 +828,6 @@ class SuperAdminService:
             raise ValueError("A review reason is required")
 
         client = self._get_global_client()
-        request_record = await self._maybe_first(
-            client.table("subscription_access_requests")
-            .select("org_id")
-            .eq("id", request_id)
-            .limit(1)
-        )
-        previous_snapshot = None
-        if request_record:
-            previous_snapshot = await self._maybe_first(
-                client.table("subscriptions")
-                .select("*")
-                .eq("org_id", request_record["org_id"])
-                .limit(1)
-            )
         rpc_result = await client.rpc(
             "resolve_subscription_access_request",
             {
@@ -840,39 +847,12 @@ class SuperAdminService:
 
         org_id = str(result_data["org_id"])
         if decision == "approved":
-            await client.table("organizations").update(
-                {"plan": result_data["plan"], "tier": result_data["plan"]}
-            ).eq("id", org_id).execute()
-            change_id = str(uuid.uuid4())
-            now = datetime.now(UTC).isoformat()
-            await client.table("subscription_access_versions").insert(
-                {
-                    "id": change_id,
-                    "org_id": org_id,
-                    "request_id": request_id,
-                    "change_kind": "request",
-                    "change_status": "applied",
-                    "previous_snapshot": previous_snapshot,
-                    "next_snapshot": {
-                        "plan": result_data["plan"],
-                        "status": "active",
-                        "current_period_end": result_data.get("current_period_end"),
-                        "access_source": "admin_approved",
-                    },
-                    "reason": reason,
-                    "effective_at": now,
-                    "applied_at": now,
-                    "created_by": admin_user_id,
-                    "applied_by": admin_user_id,
-                    "created_at": now,
-                    "updated_at": now,
-                }
-            ).execute()
-            result_data["change_id"] = change_id
+            change_id = str(result_data["change_id"])
             self._invalidate_billing_cache(org_id)
-            await self._publish_entitlement_change(
-                org_id, change_id, "applied", admin_user_id
-            )
+            if not result_data.get("replayed"):
+                await self._publish_entitlement_change(
+                    org_id, change_id, "applied", admin_user_id
+                )
 
         await self._write_audit_log(
             client,

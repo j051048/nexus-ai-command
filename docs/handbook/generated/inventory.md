@@ -6,10 +6,10 @@
 
 | 范围 | 文件数 | 代码行数 |
 |---|---:|---:|
-| 前端 `src` | 509 | 98561 |
-| 后端 `nexus_backend/app` | 559 | 157440 |
-| 前端单元/集成测试 | 49 | 6469 |
-| 后端测试 | 186 | 30770 |
+| 前端 `src` | 520 | 98764 |
+| 后端 `nexus_backend/app` | 562 | 157712 |
+| 前端单元/集成测试 | 51 | 6580 |
+| 后端测试 | 190 | 31516 |
 | Playwright E2E | 15 | 2876 |
 
 ## 运行时资产
@@ -20,8 +20,8 @@
 | FastAPI 路由模块 | 105 | `nexus_backend/app/routers` |
 | 后端服务模块 | 184 | `nexus_backend/app/services` |
 | Agent 工具模块 | 67 | `nexus_backend/app/tools` |
-| 正向 SQL 迁移 | 121 | `supabase/migrations/*.sql` |
-| 回滚 SQL | 10 | `supabase/migrations/rollback` |
+| 正向 SQL 迁移 | 125 | `supabase/migrations/*.sql` |
+| 回滚 SQL | 11 | `supabase/migrations/rollback` |
 | 强制生产聊天模型 | `deepseek-v4-flash` | `nexus_backend/app/core/config.py` |
 
 ## 前端最大文件
@@ -35,8 +35,8 @@
 | `src/pages/OACenter.tsx` | 1255 |
 | `src/lib/animations.ts` | 1185 |
 | `src/pages/crm/CustomerDetailSheet.tsx` | 1086 |
-| `src/hooks/useVMD.ts` | 1052 |
 | `src/pages/LLMModelManagement.tsx` | 1051 |
 | `src/pages/OrgChartPage.tsx` | 991 |
 | `src/pages/BattlecardLibrary.tsx` | 933 |
-| `src/hooks/useAIStream.ts` | 830 |
+| `src/pages/AgentDebugPanel.tsx` | 816 |
+| `src/pages/FinanceCenter.tsx` | 805 |

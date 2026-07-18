@@ -12,6 +12,7 @@ import {
   type QuotaInfo,
   type StreamCallbacks,
 } from '@/hooks/ai-stream/protocol';
+import { useNetworkStatus } from '@/hooks/ai-stream/useNetworkStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { getApiBaseUrl } from '@/lib/apiConfig';
 import type { AIMessage, ThinkingStep } from '@/types/nexus';
@@ -57,24 +58,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
   const pendingConfirmationRef = useRef<ConfirmationRequest | null>(null);
   pendingConfirmationRef.current = pendingConfirmation;
 
-  // ── Weak network degradation: online/offline detection ──
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  useEffect(() => {
-    const handleOffline = () => {
-      setIsOffline(true);
-      toast.warning('网络已断开，AI 功能暂时不可用', { id: 'network-status', duration: Infinity });
-    };
-    const handleOnline = () => {
-      setIsOffline(false);
-      toast.success('网络已恢复', { id: 'network-status', duration: 3000 });
-    };
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('online', handleOnline);
-    return () => {
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('online', handleOnline);
-    };
-  }, []);
+  const isOffline = useNetworkStatus();
 
   /** Tier 1 primary: Zeabur backend directly */
   const getBackendUrl = useCallback(() => {

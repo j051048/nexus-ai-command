@@ -38,6 +38,7 @@ _PROTECTED_PREFIXES = (
     "/api/approval",
     "/api/crm",
     "/api/contracts",
+    "/api/inventory",
     "/api/vmd/",
     "/api/v1/approval",
     "/api/v1/crm",

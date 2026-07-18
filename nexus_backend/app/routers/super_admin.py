@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel, Field
 
 from app.core.dependencies import require_platform_super_admin
@@ -51,6 +51,11 @@ require_manage_organizations = require_admin_permission("manage_organizations")
 require_manage_commercial = require_admin_permission("manage_commercial")
 require_view_audit = require_admin_permission("view_audit")
 require_manage_admins = require_admin_permission("manage_admins")
+
+
+def _request_idempotency_key(value: Any) -> str | None:
+    """Normalize FastAPI's header default for direct function-level tests."""
+    return value if isinstance(value, str) else None
 
 
 # ============== Request Models ==============
@@ -473,12 +478,17 @@ async def list_audit_logs(
 async def admin_change_plan(
     org_id: str,
     body: ChangePlanRequest,
+    idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key"),
     user_id: str = Depends(require_manage_memberships),
 ):
     """超级管理员手动变更组织订阅计划"""
     try:
         result = await super_admin_service.admin_change_plan(
-            org_id=org_id, plan=body.plan, reason=body.reason, admin_user_id=user_id
+            org_id=org_id,
+            plan=body.plan,
+            reason=body.reason,
+            admin_user_id=user_id,
+            idempotency_key=_request_idempotency_key(idempotency_key),
         )
         return api_success(data=result, message="订阅计划已变更")
     except ValueError as e:
@@ -520,6 +530,7 @@ async def admin_update_quotas(
 async def admin_set_access(
     org_id: str,
     body: SetAccessRequest,
+    idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key"),
     user_id: str = Depends(require_manage_memberships),
 ):
     """Grant, renew, or revoke an organization's membership access."""
@@ -530,6 +541,7 @@ async def admin_set_access(
             expires_at=body.expires_at.isoformat() if body.expires_at else None,
             reason=body.reason,
             admin_user_id=user_id,
+            idempotency_key=_request_idempotency_key(idempotency_key),
         )
         return api_success(data=result, message="会员权益已更新")
     except ValueError as exc:
@@ -540,6 +552,7 @@ async def admin_set_access(
 async def admin_adjust_access_days(
     org_id: str,
     body: AdjustAccessDaysRequest,
+    idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key"),
     user_id: str = Depends(require_manage_memberships),
 ):
     """Extend or shorten an organization's membership by a number of days."""
@@ -549,6 +562,7 @@ async def admin_adjust_access_days(
             days=body.days,
             reason=body.reason,
             admin_user_id=user_id,
+            idempotency_key=_request_idempotency_key(idempotency_key),
         )
         return api_success(data=result, message="会员期限已调整")
     except ValueError as exc:
@@ -600,6 +614,7 @@ async def decide_subscription_request(
 async def admin_manage_trial(
     org_id: str,
     body: ManageTrialRequest,
+    idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key"),
     user_id: str = Depends(require_manage_memberships),
 ):
     """超级管理员手动管理组织试用期"""
@@ -611,6 +626,7 @@ async def admin_manage_trial(
             plan=body.plan,
             reason=body.reason,
             admin_user_id=user_id,
+            idempotency_key=_request_idempotency_key(idempotency_key),
         )
         return api_success(data=result, message="试用期已更新")
     except ValueError as e:

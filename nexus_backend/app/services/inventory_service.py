@@ -79,6 +79,7 @@ class InventoryService:
         operator_id: str,
         reason: str | None = None,
         metadata: dict | None = None,
+        idempotency_key: str | None = None,
         db=None,
     ) -> dict:
         """
@@ -113,6 +114,7 @@ class InventoryService:
                     "p_receiver_id": None,
                     "p_reason": reason,
                     "p_metadata": metadata or {},
+                    "p_idempotency_key": idempotency_key,
                 },
             ).execute()
             payload = result.data or {}
@@ -136,6 +138,7 @@ class InventoryService:
         operator_id: str,
         receiver_id: str | None = None,
         reason: str | None = None,
+        idempotency_key: str | None = None,
         db=None,
     ) -> dict:
         """
@@ -170,6 +173,7 @@ class InventoryService:
                     "p_receiver_id": receiver_id,
                     "p_reason": reason,
                     "p_metadata": {},
+                    "p_idempotency_key": idempotency_key,
                 },
             ).execute()
             payload = result.data or {}

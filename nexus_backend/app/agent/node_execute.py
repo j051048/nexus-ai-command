@@ -744,6 +744,7 @@ async def _execute_single_tool(
                         "model": config.model,
                         "org_id": config.org_id,
                         "token": config.token,
+                        "idempotency_key": idempotency_key,
                     },
                 ),
                 timeout=timeout,

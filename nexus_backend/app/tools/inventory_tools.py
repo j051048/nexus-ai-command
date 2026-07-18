@@ -186,6 +186,7 @@ class InventoryInTool(BaseTool):
                 quantity=quantity,
                 operator_id=user_id,
                 reason=reason,
+                idempotency_key=(config or {}).get("idempotency_key"),
                 db=client,
             )
 
@@ -281,6 +282,7 @@ class InventoryOutTool(BaseTool):
                 operator_id=user_id,
                 receiver_id=receiver_id,
                 reason=reason,
+                idempotency_key=(config or {}).get("idempotency_key"),
                 db=client,
             )
 

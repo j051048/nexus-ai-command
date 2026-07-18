@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from app.core.transaction_contracts import TRANSACTION_CONTRACTS, ReplayStrategy
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -29,12 +30,40 @@ def test_frontend_api_clients_have_single_default_transport():
 
 
 def test_complex_business_operations_have_transaction_rpc_contract():
-    migration_text = "\n".join(
-        path.read_text(encoding="utf-8", errors="replace")
-        for path in (ROOT / "supabase" / "migrations").glob("*.sql")
+    assert len(TRANSACTION_CONTRACTS) >= 3
+    assert {contract.domain for contract in TRANSACTION_CONTRACTS} >= {
+        "admin_trust",
+        "operations",
+    }
+    for contract in TRANSACTION_CONTRACTS:
+        migration = ROOT / contract.migration
+        caller = ROOT / contract.caller
+        assert migration.exists(), contract.code
+        assert caller.exists(), contract.code
+        sql = migration.read_text(encoding="utf-8", errors="replace")
+        source = caller.read_text(encoding="utf-8", errors="replace")
+        assert f"FUNCTION public.{contract.rpc_name}" in sql
+        assert contract.security_mode in sql
+        if contract.replay_strategy == ReplayStrategy.IDEMPOTENCY_KEY:
+            assert contract.idempotency_parameter in sql
+            assert contract.idempotency_parameter in source
+
+
+def test_transaction_and_domain_governance_are_executable_ci_gates():
+    transaction_gate = (ROOT / "scripts" / "check_transaction_contracts.py").read_text(
+        encoding="utf-8", errors="replace"
     )
-    assert "SECURITY DEFINER" in migration_text
-    assert "approval" in migration_text.lower()
+    domain_gate = (ROOT / "scripts" / "check_domain_registry.py").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    workflow = (ROOT / ".github" / "workflows" / "test-full.yml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+
+    assert "TRANSACTION_CONTRACTS_OK" in transaction_gate
+    assert "DOMAIN_REGISTRY_OK" in domain_gate
+    assert "python scripts/check_transaction_contracts.py" in workflow
+    assert "python scripts/check_domain_registry.py" in workflow
 
 
 def test_mini_supabase_client_has_org_scope_and_rpc_injection():
