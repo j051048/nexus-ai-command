@@ -722,7 +722,7 @@ export async function loginViaForm(page: Page, role = 'boss') {
 
   if (!loginFormReady) {
     await expect(sidebar).toBeVisible({ timeout: 10000 });
-    await expect(sidebar.getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(sidebar).toHaveAttribute('data-app-role', role, { timeout: 10000 });
     await dismissProductTourIfVisible(page);
     return;
   }

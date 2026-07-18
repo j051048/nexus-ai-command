@@ -83,7 +83,7 @@ export function EnhancedAIChatPanel({
 
       <div
         className={cn(
-          'bg-[hsl(var(--panel))] border-border transition-all duration-300 flex flex-col',
+          'relative isolate bg-[hsl(var(--panel))] border-border transition-all duration-300 flex flex-col',
           chat.isMobile && isExpanded && variant !== 'embedded' ? 'fixed inset-0 z-50 bg-background' : '',
           chat.isMobile && variant === 'embedded' ? 'relative h-full w-full bg-background' : '',
           !chat.isMobile && variant === 'overlay' ? 'fixed z-50 shadow-[0_-4px_20px_-1px_rgba(0,0,0,0.1)]' : '',
@@ -195,8 +195,6 @@ export function EnhancedAIChatPanel({
               fileInputRef={chat.fileInputRef}
               handleFileUpload={chat.handleFileUpload}
               variant={variant}
-              quotaAlert={chat.quotaAlert}
-              setQuotaAlert={chat.setQuotaAlert}
               showToolPalette={chat.showToolPalette}
               setShowToolPalette={chat.setShowToolPalette}
               onSelectTool={chat.handleSelectTool}

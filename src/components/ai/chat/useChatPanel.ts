@@ -16,12 +16,6 @@ import { useSavedPrompts } from '@/hooks/useSavedPrompts';
 import { useAISettings } from '@/hooks/useAISettings';
 import { handleEditMessage as treeEditMessage, handleSwitchBranch as treeSwitchBranch } from '@/lib/messageTree';
 
-interface QuotaAlert {
-  alert_level: 'normal' | 'warning' | 'critical' | 'exhausted';
-  usage_percentage: number;
-  alert_message: string | null;
-}
-
 interface AgentTag {
   id: string;
   name: string;
@@ -93,7 +87,6 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
   const { savePrompt } = useSavedPrompts();
   const { data: aiSettings } = useAISettings();
   const autoExpandTrace = aiSettings?.behavior_preferences?.auto_expand_trace ?? false;
-  const [quotaAlert, setQuotaAlert] = useState<QuotaAlert | null>(null);
 
   // Image upload state
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -139,13 +132,6 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
       if (img.previewUrl === previewUrl) { URL.revokeObjectURL(previewUrl); return false; }
       return true;
     }));
-  }, []);
-
-  // Quota alert fetch
-  useEffect(() => {
-    aiClient.fetch<{ data: QuotaAlert }>('api/usage/quota-alert')
-      .then((res) => { if (res.data && res.data.alert_level !== 'normal') setQuotaAlert(res.data); })
-      .catch(() => {});
   }, []);
 
   // Body scroll lock
@@ -608,7 +594,7 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
     voiceMode, setVoiceMode, showMobileMenu, setShowMobileMenu, isTranscribing,
     showHistory, setShowHistory, entityDialogEntity, setEntityDialogEntity,
     isAiTyping, aiStatus, showTrace, setShowTrace, showToolPalette, setShowToolPalette,
-    quotaAlert, setQuotaAlert, pendingImages,
+    pendingImages,
     // Refs
     messagesEndRef, inputRef, fileInputRef, imageInputRef,
     // Stream state

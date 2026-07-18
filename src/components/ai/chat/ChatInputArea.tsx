@@ -22,12 +22,6 @@ interface AgentTag {
   icon: React.ReactNode;
 }
 
-interface QuotaAlert {
-  alert_level: 'normal' | 'warning' | 'critical' | 'exhausted';
-  usage_percentage: number;
-  alert_message: string | null;
-}
-
 interface ChatInputAreaProps {
   input: string;
   setInput: (v: string) => void;
@@ -52,8 +46,6 @@ interface ChatInputAreaProps {
   fileInputRef: React.RefObject<HTMLInputElement>;
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   variant: 'overlay' | 'embedded';
-  quotaAlert: QuotaAlert | null;
-  setQuotaAlert: (v: QuotaAlert | null) => void;
   showToolPalette?: boolean;
   setShowToolPalette?: (v: boolean) => void;
   onSelectTool?: (tool: { name: string; description: string; domain: string | null }) => void;
@@ -92,8 +84,6 @@ export const ChatInputArea = React.memo(function ChatInputArea({
   toggleRecording,
   inputRef,
   variant,
-  quotaAlert,
-  setQuotaAlert,
   showToolPalette,
   setShowToolPalette,
   onSelectTool,
@@ -115,10 +105,10 @@ export const ChatInputArea = React.memo(function ChatInputArea({
     <>
 
       <div className={cn(
-        "sticky bottom-0 z-20 border-t bg-[hsl(var(--panel-strong))] px-3 py-3.5 md:px-4",
+        "sticky bottom-0 z-20 border-t bg-[hsl(var(--panel-strong)/0.97)] px-3 py-3.5 shadow-[0_-8px_24px_hsl(220_28%_12%/0.035)] md:px-4",
         variant === 'embedded' ? 'pb-3' : 'pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
       )}>
-        <div className="relative mx-auto max-w-4xl rounded-lg border border-border/90 bg-card p-2 shadow-[var(--shadow-card)] focus-within:border-primary/35 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.06),var(--shadow-card)]">
+        <div className="relative mx-auto max-w-4xl rounded-lg border border-border bg-card p-2 shadow-[var(--shadow-card)] focus-within:border-primary/45 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.07),var(--shadow-card)]">
           
           {showAgents && (
             <div className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-lg border bg-popover p-3 shadow-lg">

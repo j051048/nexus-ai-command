@@ -56,7 +56,7 @@ function normalizeApiErrorMessage(status?: number, message?: string): string {
       normalized.includes('not found') ||
       normalized.startsWith('api request failed (404)'))
   ) {
-    return '请求的接口不存在或暂未启用，请刷新页面或联系管理员';
+    return '当前功能暂不可用，请稍后重试';
   }
   if (trimmed) return trimmed;
   return status ? `请求失败 (${status})` : '请求失败，请重试';
@@ -192,6 +192,7 @@ function normalizeJsonBody(
 export const aiClient = {
   async fetch<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const silent = options._silentError;
+    const method = String(options.method ?? 'GET').toUpperCase();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Trace-ID': getTraceId(),
@@ -205,7 +206,7 @@ export const aiClient = {
     try {
       const requestConfig: AxiosRequestConfig = {
         url: endpoint,
-        method: (options.method ?? 'GET') as Method,
+        method: method as Method,
         headers,
         data: normalizeJsonBody(options.body, headers['Content-Type']),
         signal: options.signal,
@@ -219,7 +220,21 @@ export const aiClient = {
         const errorMessage = parseAxiosErrorMessage(maybeAxios);
         const retryAfterHeader = maybeAxios.response.headers?.['retry-after'];
         const retryAfter = parseInt(String(retryAfterHeader || '0'), 10) || undefined;
-        handleErrorResponse(maybeAxios.response.status, errorMessage, silent, retryAfter);
+        // Read views own their loading/error state. A missing optional GET endpoint can
+        // occur briefly during rolling deployments and should not interrupt every page.
+        const suppressReadNotFound = method === 'GET' && maybeAxios.response.status === 404;
+        if (suppressReadNotFound && !silent && import.meta.env.DEV) {
+          console.warn('[aiClient] Optional read endpoint unavailable', {
+            endpoint,
+            status: maybeAxios.response.status,
+          });
+        }
+        handleErrorResponse(
+          maybeAxios.response.status,
+          errorMessage,
+          silent || suppressReadNotFound,
+          retryAfter
+        );
         throw new Error(errorMessage);
       }
       handleNetworkError(requestError as Error, silent);

@@ -189,7 +189,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
   }, []);
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground">
+    <div className="workspace-canvas flex h-[100dvh] w-full overflow-hidden text-foreground">
       {isPendingBoss && (
         <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center gap-2 bg-warning px-4 py-2 text-center text-xs text-warning-foreground">
           <Clock className="h-3.5 w-3.5" />
@@ -197,7 +197,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
         </div>
       )}
 
-      <div className={cn('relative z-20 hidden h-full border-r border-border md:flex', isPendingBoss && 'pt-9')}>
+      <div className={cn('relative z-20 hidden h-full md:flex', isPendingBoss && 'pt-9')}>
         <Sidebar />
       </div>
 
@@ -205,7 +205,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
         <div
           ref={chatPanelRef}
           className={cn(
-            'relative z-10 flex h-full shrink-0 flex-col border-r border-border bg-[hsl(var(--panel))] shadow-[var(--shadow-panel)] transition-[width,opacity] duration-200',
+            'relative z-10 flex h-full shrink-0 flex-col border-r border-border/90 bg-[hsl(var(--panel))] shadow-[var(--shadow-panel)] transition-[width,opacity] duration-200 before:absolute before:inset-x-0 before:top-0 before:z-30 before:h-0.5 before:bg-primary/70',
             !isChatOpen && 'w-0 overflow-hidden opacity-0',
           )}
           style={
@@ -247,8 +247,11 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
         >
           <TrialBanner />
 
-          <header className="relative z-20 flex h-12 items-center justify-between border-b bg-card/95 px-5 shadow-[0_1px_0_hsl(var(--border)/0.45)]">
-            <span className="text-sm font-medium text-foreground">{getPageTitle()}</span>
+          <header className="relative z-20 flex h-[3.25rem] items-center justify-between border-b bg-[hsl(var(--panel-strong)/0.96)] px-5 shadow-[0_1px_0_hsl(var(--border)/0.55)]">
+            <div className="flex items-center gap-2.5">
+              <span className="h-4 w-0.5 rounded-full bg-primary" aria-hidden="true" />
+              <span className="text-sm font-semibold text-foreground">{getPageTitle()}</span>
+            </div>
             <div className="flex items-center gap-2">
               <div className="hidden items-center rounded-md border bg-background p-0.5 lg:flex" role="group" aria-label="工作区模式">
                 <Button
@@ -309,9 +312,9 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto bg-background p-4 md:p-5">
+          <main className="workspace-canvas flex-1 overflow-y-auto p-4 md:p-6">
             <div className="mx-auto min-h-full max-w-[1600px] pb-20 xl:max-w-[1800px]">
-              <div className="mb-4">
+              <div className="mb-5 opacity-80">
                 <Breadcrumbs
                   items={[
                     { label: 'Nexus AI', href: '/' },

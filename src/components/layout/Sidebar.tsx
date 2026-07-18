@@ -351,17 +351,18 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
 
   return (
     <aside 
-      data-testid="sidebar-main" 
+      data-testid="sidebar-main"
+      data-app-role={role || user?.role || "employee"}
       aria-label="主要系统导航"
       className={cn(
-        "relative z-40 flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+        "relative z-40 flex h-full flex-col border-r border-sidebar-border bg-sidebar shadow-[4px_0_20px_hsl(220_28%_12%/0.035)] transition-[width] duration-200",
         isCollapsed ? "w-16" : "w-60"
       )}
     >
       <div className={cn("flex h-14 items-center gap-3 border-b border-sidebar-border px-4", isCollapsed && "justify-center")}>
         <div 
           onClick={() => navigate("/")}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md bg-primary text-primary-foreground"
+          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-primary/70 bg-primary text-primary-foreground shadow-[0_3px_10px_hsl(var(--primary)/0.18)]"
         >
           <Bot className="h-4 w-4" />
         </div>
@@ -382,7 +383,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
               type="text"
               aria-label="搜索系统功能 (快捷键 ⌘K)"
               placeholder="搜索功能 (⌘K)"
-              className="h-9 w-full rounded-md border border-sidebar-border bg-background pl-9 pr-3 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:border-sidebar-primary focus:outline-none"
+              className="h-9 w-full rounded-md border border-sidebar-border bg-[hsl(var(--panel-strong))] pl-9 pr-3 text-sm text-sidebar-foreground shadow-[inset_0_1px_0_hsl(0_0%_100%/0.65)] placeholder:text-sidebar-foreground/40 focus:border-sidebar-primary focus:outline-none focus:ring-2 focus:ring-sidebar-primary/10"
               onFocus={() => {
                 const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
                 document.dispatchEvent(event);

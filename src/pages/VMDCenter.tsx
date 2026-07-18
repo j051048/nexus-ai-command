@@ -142,14 +142,14 @@ function MetricStrip({ metrics }: { metrics: GrowthMetrics }) {
     ["进行中投标", metrics.active_tenders, Clock3],
   ] as const;
   return (
-    <div className="grid border-y border-border/80 sm:grid-cols-3 xl:grid-cols-5" data-testid="growth-metric-strip">
+    <div className="metric-ribbon grid overflow-hidden rounded-lg sm:grid-cols-3 xl:grid-cols-5" data-testid="growth-metric-strip">
       {items.map(([label, value, Icon], index) => (
-        <div key={label} className={cn("px-4 py-3", index > 0 && "sm:border-l sm:border-border/70")}>
+        <div key={label} className={cn("relative px-4 py-3.5", index > 0 && "sm:border-l sm:border-border/70")}>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className={cn("h-3.5 w-3.5", index === 1 ? "data-accent" : "text-primary/75")} />
             {label}
           </div>
-          <div className="mt-1 text-lg font-semibold text-foreground">{value}</div>
+          <div className={cn("mt-1.5 text-lg font-semibold text-foreground", index === 1 && "data-accent")}>{value}</div>
         </div>
       ))}
     </div>
@@ -158,7 +158,7 @@ function MetricStrip({ metrics }: { metrics: GrowthMetrics }) {
 
 function ActionRow({ action, onOpen }: { action: GrowthAction; onOpen: (url: string) => void }) {
   return (
-    <article className="grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 md:grid-cols-[auto_1fr_auto] md:items-start">
+    <article className="grid gap-3 border-b border-border/70 px-4 py-4 transition-colors last:border-b-0 hover:bg-[hsl(var(--surface-subtle))] md:grid-cols-[auto_1fr_auto] md:items-start">
       <PriorityBadge priority={action.priority} />
       <div className="min-w-0">
         <div className="font-medium text-foreground">{action.title}</div>
@@ -183,7 +183,7 @@ function ActionRow({ action, onOpen }: { action: GrowthAction; onOpen: (url: str
 function TodayView({ actions, onOpen, instrumentLine }: { actions: GrowthAction[]; onOpen: (url: string) => void; instrumentLine: InstrumentLineSelection }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-      <section className="overflow-hidden rounded-md border border-border bg-card" aria-labelledby="today-actions-title">
+      <section className="operational-panel overflow-hidden rounded-lg" aria-labelledby="today-actions-title">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <h2 id="today-actions-title" className="font-semibold">优先行动</h2>
@@ -198,7 +198,7 @@ function TodayView({ actions, onOpen, instrumentLine }: { actions: GrowthAction[
         )}
       </section>
 
-      <aside className="space-y-5 border-l-0 xl:border-l xl:border-border/70 xl:pl-6">
+      <aside className="space-y-5 rounded-lg border border-border/80 bg-[hsl(var(--surface-subtle))] p-5 xl:self-start">
         <div>
           <div className="flex items-center gap-2 text-sm font-medium">
             <Bot className="h-4 w-4" />
@@ -420,10 +420,13 @@ export default function VMDCenter() {
   return (
     <main className="mx-auto w-full max-w-[1380px] space-y-5 pb-20" data-testid="growth-command-center">
       <header className="flex flex-col gap-4 border-b border-border/80 pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-primary"><Sparkles className="h-3.5 w-3.5" />{copy.eyebrow}</div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal text-foreground">{copy.title}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{copy.description}</p>
+        <div className="flex min-w-0 gap-4">
+          <span className="mt-1 h-16 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-primary"><Sparkles className="h-3.5 w-3.5" />{copy.eyebrow}</div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-normal text-foreground">{copy.title}</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{copy.description}</p>
+          </div>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {query.isError ? (
@@ -443,7 +446,7 @@ export default function VMDCenter() {
         {GROWTH_WORKSPACE_ROUTES.map((item) => {
           const Icon = item.icon;
           return (
-            <button key={item.key} onClick={() => navigate(item.path)} className={cn("flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm transition-colors", activeView === item.key ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+            <button key={item.key} onClick={() => navigate(item.path)} className={cn("flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm transition-colors", activeView === item.key ? "border-primary bg-card font-medium text-foreground shadow-[0_-1px_0_hsl(var(--border))]" : "border-transparent text-muted-foreground hover:bg-card/50 hover:text-foreground")}>
               <Icon className="h-4 w-4" />{item.label}
             </button>
           );
