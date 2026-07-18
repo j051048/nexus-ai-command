@@ -22,7 +22,7 @@ This runbook is for the first 20-50 employee deployment.
 ## Incident response
 
 1. AI provider outage:
-   set `AI_FALLBACK_API_KEY` and `AI_FALLBACK_BASE_URL`, or route to the mini model until the primary recovers.
+   set `AI_FALLBACK_API_KEY` and `AI_FALLBACK_BASE_URL` for an approved OpenAI-compatible endpoint. Keep `LLM_FORCE_DEFAULT_MODEL=true`; do not silently upgrade scheduled work to an expensive model.
 
 2. Cost spike:
    lower `MAX_CONCURRENT_LLM_PER_TENANT`, `TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT`, and `LLM_MAX_COST_PER_REQUEST`.
@@ -62,10 +62,12 @@ $env:DATABASE_URL="postgresql://..."
 
 ## Module rollout policy
 
-Default enabled for first customer launch:
-`approval`, `assets`, `battlecards`, `billing`, `certificates`, `crm`, `custom_dashboard`, `documents`, `finance`, `form_designer`, `hr`, `import`, `inventory`, `knowledge`, `oa`, `plugins`, `projects`, `report_builder`, `reports`, `sales`, `soul_document`, `tender`, `training`, `vmd`, `workflow_designer`, `work_orders`.
+Default enabled for the first scientific-instrument customer launch:
+`crm`, `sales`, `battlecards`, `tender`, `vmd`, `documents`, `knowledge`, `approval`, `projects`, `reports`.
 
-Keep disabled:
-`dev_tools`.
+Enable only after customer acceptance and an assigned owner:
+`assets`, `billing`, `certificates`, `finance`, `form_designer`, `hr`, `import`, `inventory`, `oa`, `plugins`, `report_builder`, `soul_document`, `training`, `workflow_designer`, `work_orders`.
+
+Keep disabled in customer environments: `dev_tools`.
 
 Integration modules are usable only after their production credentials are configured. For Kingdee-backed flows, set `KINGDEE_BASE_URL` and `KINGDEE_API_KEY`; otherwise the API will return a controlled integration error.

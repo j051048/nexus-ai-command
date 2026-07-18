@@ -9,8 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -23,14 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -42,16 +32,9 @@ import {
   Plus,
   Search,
   ListTodo,
-  Bot,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Loader2,
   FileDown,
   ChevronRight,
-  Play,
   Trash2,
-  Eye,
 } from "lucide-react";
 import {
   useVMDTasks,
@@ -68,78 +51,21 @@ import {
 import { SCENES } from "@/components/vmd/SceneSelector";
 import { VMDSubTaskChat } from "@/components/vmd/VMDSubTaskChat";
 import { VMDSubTaskCard } from "@/components/vmd/VMDSubTaskCard";
+import { VMDCreateTaskDialog } from "@/components/vmd/VMDCreateTaskDialog";
+import {
+  VMD_SCENE_NAMES,
+  VMD_TASK_PRIORITY_CONFIG,
+  VMD_TASK_STATUS_CONFIG,
+} from "@/components/vmd/vmdTaskConfig";
 import { useAuth } from "@/components/auth/AuthContext";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { VMDTaskDomainFields } from "@/components/vmd/VMDTaskDomainFields";
 import {
   SCIENTIFIC_INSTRUMENT_LINES,
   getInstrumentLine,
   type InstrumentLineCode,
 } from "@/config/growthOperatingModel";
 import { toast } from "sonner";
-
-// 状态配置
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; color: string; icon: React.ElementType }
-> = {
-  planning: {
-    label: "规划中",
-    color:
-      "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-    icon: Bot,
-  },
-  pending: {
-    label: "待处理",
-    color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-    icon: Clock,
-  },
-  executing: {
-    label: "执行中",
-    color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-    icon: Play,
-  },
-  reviewing: {
-    label: "审核中",
-    color:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
-    icon: Eye,
-  },
-  done: {
-    label: "已完成",
-    color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-    icon: CheckCircle2,
-  },
-  failed: {
-    label: "失败",
-    color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-    icon: XCircle,
-  },
-};
-
-const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
-  low: {
-    label: "低",
-    color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  },
-  normal: {
-    label: "普通",
-    color: "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400",
-  },
-  high: {
-    label: "高",
-    color: "bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-400",
-  },
-  urgent: {
-    label: "紧急",
-    color: "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400",
-  },
-};
-
-const SCENE_NAMES: Record<string, string> = Object.fromEntries(
-  SCENES.map((s) => [s.code, s.name]),
-);
 
 function instrumentLineFromParam(value: string | null): InstrumentLineCode | "unclassified" {
   return SCIENTIFIC_INSTRUMENT_LINES.some((line) => line.code === value)
@@ -313,7 +239,7 @@ export default function VMDTaskCenter() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部状态</SelectItem>
-                {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                {Object.entries(VMD_TASK_STATUS_CONFIG).map(([k, v]) => (
                   <SelectItem key={k} value={k}>
                     {v.label}
                   </SelectItem>
@@ -326,7 +252,7 @@ export default function VMDTaskCenter() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部优先级</SelectItem>
-                {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
+                {Object.entries(VMD_TASK_PRIORITY_CONFIG).map(([k, v]) => (
                   <SelectItem key={k} value={k}>
                     {v.label}
                   </SelectItem>
@@ -386,9 +312,9 @@ export default function VMDTaskCenter() {
         <div className="space-y-3">
           {filteredTasks.map((task) => {
             const statusCfg =
-              STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
+              VMD_TASK_STATUS_CONFIG[task.status] || VMD_TASK_STATUS_CONFIG.pending;
             const priorityCfg =
-              PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.normal;
+              VMD_TASK_PRIORITY_CONFIG[task.priority] || VMD_TASK_PRIORITY_CONFIG.normal;
             const StatusIcon = statusCfg.icon;
             return (
               <Card
@@ -433,7 +359,7 @@ export default function VMDTaskCenter() {
                     </div>
                     <div className="hidden sm:flex items-center gap-3 shrink-0">
                       <Badge variant="outline" className="text-xs">
-                        {SCENE_NAMES[task.scene_code] || task.scene_code}
+                        {VMD_SCENE_NAMES[task.scene_code] || task.scene_code}
                       </Badge>
                       <div className="w-24">
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
@@ -455,98 +381,28 @@ export default function VMDTaskCenter() {
         </div>
       )}
 
-      {/* Create Task Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>创建新任务</DialogTitle>
-            <DialogDescription>
-              描述您的营销需求，AI Agent 将自动规划执行方案
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="task-title">任务标题</Label>
-              <Input
-                id="task-title"
-                placeholder="例如：Q2新品上市全案策划"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="task-desc">任务描述</Label>
-              <Textarea
-                id="task-desc"
-                placeholder="用自然语言描述您的需求，AI 将自动拆解为可执行子任务..."
-                rows={4}
-                value={formDesc}
-                onChange={(e) => setFormDesc(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>场景类型</Label>
-                <Select value={formScene} onValueChange={setFormScene}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择场景" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SCENES.map((s) => (
-                      <SelectItem key={s.code} value={s.code}>
-                        {s.icon} {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>优先级</Label>
-                <Select value={formPriority} onValueChange={setFormPriority}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>
-                        {v.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <VMDTaskDomainFields
-              instrumentLine={formInstrumentLine}
-              applicationField={formApplicationField}
-              productModels={formProductModels}
-              onInstrumentLineChange={setFormInstrumentLine}
-              onApplicationFieldChange={setFormApplicationField}
-              onProductModelsChange={setFormProductModels}
-            />
-            <div className="space-y-2">
-              <Label htmlFor="task-deadline">截止日期（可选）</Label>
-              <Input
-                id="task-deadline"
-                type="date"
-                value={formDeadline}
-                onChange={(e) => setFormDeadline(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleCreate} disabled={createTask.isPending}>
-              {createTask.isPending && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
-              创建任务
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VMDCreateTaskDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title={formTitle}
+        setTitle={setFormTitle}
+        description={formDesc}
+        setDescription={setFormDesc}
+        scene={formScene}
+        setScene={setFormScene}
+        priority={formPriority}
+        setPriority={setFormPriority}
+        deadline={formDeadline}
+        setDeadline={setFormDeadline}
+        instrumentLine={formInstrumentLine}
+        setInstrumentLine={setFormInstrumentLine}
+        applicationField={formApplicationField}
+        setApplicationField={setFormApplicationField}
+        productModels={formProductModels}
+        setProductModels={setFormProductModels}
+        onCreate={handleCreate}
+        isPending={createTask.isPending}
+      />
 
       {/* Task Detail Sheet */}
       <Sheet
@@ -560,7 +416,7 @@ export default function VMDTaskCenter() {
             <SheetTitle>{taskDetail?.title || "任务详情"}</SheetTitle>
             <SheetDescription>
               {taskDetail?.task_code} |{" "}
-              {SCENE_NAMES[taskDetail?.scene_code || ""] ||
+              {VMD_SCENE_NAMES[taskDetail?.scene_code || ""] ||
                 taskDetail?.scene_code}
             </SheetDescription>
           </SheetHeader>
@@ -576,14 +432,14 @@ export default function VMDTaskCenter() {
                 {/* Task Overview */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <Badge
-                    className={cn(STATUS_CONFIG[taskDetail.status]?.color)}
+                    className={cn(VMD_TASK_STATUS_CONFIG[taskDetail.status]?.color)}
                   >
-                    {STATUS_CONFIG[taskDetail.status]?.label}
+                    {VMD_TASK_STATUS_CONFIG[taskDetail.status]?.label}
                   </Badge>
                   <Badge
-                    className={cn(PRIORITY_CONFIG[taskDetail.priority]?.color)}
+                    className={cn(VMD_TASK_PRIORITY_CONFIG[taskDetail.priority]?.color)}
                   >
-                    {PRIORITY_CONFIG[taskDetail.priority]?.label}
+                    {VMD_TASK_PRIORITY_CONFIG[taskDetail.priority]?.label}
                   </Badge>
                   {taskDetail.instrument_line_code && (
                     <Badge variant="outline">

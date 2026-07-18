@@ -1,0 +1,11 @@
+# Replace the fallback owner with the permanent engineering lead when the team is formed.
+* @j051048
+
+/src/components/ai/ @j051048
+/src/pages/ @j051048
+/nexus_backend/app/agent/ @j051048
+/nexus_backend/app/core/ @j051048
+/nexus_backend/app/services/llm_gateway/ @j051048
+/supabase/migrations/ @j051048
+/.github/workflows/ @j051048
+/docs/handbook/ @j051048

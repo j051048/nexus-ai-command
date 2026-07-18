@@ -19,6 +19,7 @@
     "check:size": "node scripts/check_source_size.mjs",
     "check:text": "node scripts/check_text_quality.mjs",
     "check:ui": "node scripts/check_ui_aesthetics.mjs",
+    "check:handover": "python scripts/check_handover_readiness.py && python scripts/check_exception_governance.py",
     "quality:frontend": "npm run check:size && npm run check:ui && npm run build && npm run check:bundle && npm run check:text",
     "analyze": "vite build --mode analyze"
   },

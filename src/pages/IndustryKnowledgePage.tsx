@@ -34,7 +34,7 @@ export default function IndustryKnowledgePage() {
   const [query, setQuery] = useState('');
   const [type, setType] = useState<ScientificInstrumentAssetType | 'all'>('all');
   const { data, isLoading } = useIndustryKnowledgeAssets();
-  const assets = data?.items ?? [];
+  const assets = useMemo(() => data?.items ?? [], [data?.items]);
 
   const filteredAssets = useMemo(() => {
     const normalized = query.trim().toLowerCase();

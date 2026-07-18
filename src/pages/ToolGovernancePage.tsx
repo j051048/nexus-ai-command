@@ -166,7 +166,7 @@ export default function ToolGovernancePage() {
     fetchGovernance();
   }, [fetchGovernance]);
 
-  const tools = data?.tools || [];
+  const tools = useMemo(() => data?.tools || [], [data?.tools]);
   const filteredTools = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return tools.filter((tool) => {

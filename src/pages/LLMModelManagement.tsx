@@ -12,11 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import {
   Plus,
@@ -28,21 +25,16 @@ import {
   Zap,
   TestTube,
   CheckCircle2,
-  XCircle,
   Settings2,
   BarChart3,
   ShoppingBag,
   Search,
-  Sparkles,
   ArrowRight,
   Info,
   Wrench,
   MessageSquare,
   Hash,
   RefreshCw,
-  Rocket,
-  Crown,
-  Leaf,
   ShieldCheck,
   Route,
   Play,
@@ -87,79 +79,20 @@ import {
   useSimulateAIExecutionPolicy,
   type PolicySimulationResult,
 } from '@/hooks/useAIExecutionPolicy';
-
-// Provider 配置
-const PROVIDERS = [
-  { value: 'openai', label: 'OpenAI兼容' },
-  { value: 'baidu', label: '百度文心' },
-  { value: 'aliyun', label: '阿里通义' },
-  { value: 'tencent', label: '腾讯混元' },
-  { value: 'bytedance', label: '字节豆包' },
-  { value: 'deepseek', label: 'DeepSeek' },
-  { value: 'yi', label: '零一万物' },
-  { value: 'anthropic', label: 'Anthropic' },
-];
-
-const PROVIDER_NAMES: Record<string, string> = Object.fromEntries(PROVIDERS.map(p => [p.value, p.label]));
-
-// 4-Tier 智能路由配置
-const TIERS = [
-  { value: 'economy', label: '经济层', icon: Leaf, color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-950/30', description: '简单问候、FAQ — 低成本高速响应' },
-  { value: 'balanced', label: '均衡层', icon: Zap, color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950/30', description: '单工具查询、状态查看 — 兼顾成本与能力' },
-  { value: 'power', label: '强力层', icon: Rocket, color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950/30', description: '多步分析、报告生成 — 高级推理能力' },
-  { value: 'flagship', label: '旗舰层', icon: Crown, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950/30', description: '审批、财务操作 — 最高准确性保证' },
-] as const;
-
-const emptyModel: Partial<LLMModel> = {
-  provider_type: 'openai',
-  model_code: '',
-  model_name: '',
-  api_base_url: '',
-  api_key: '',
-  secret_key: '',
-  model_id: '',
-  model_type: 'chat',
-  timeout_ms: 30000,
-  max_tokens: 4096,
-  context_window: 8192,
-  supports_tools: true,
-  supports_streaming: true,
-  input_price: 0,
-  output_price: 0,
-  is_active: true,
-  is_default: false,
-};
-
-// Tag 配色
-const TAG_COLORS: Record<string, string> = {
-  '推荐': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
-  '高性价比': 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20',
-  '多模态': 'bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/20',
-  '深度推理': 'bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/20',
-  '推理': 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20',
-  '国产': 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/20',
-  '超长上下文': 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/20',
-  '长上下文': 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/20',
-  '经济': 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20',
-  '开源': 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/20',
-  '向量': 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/20',
-  '免费': 'bg-lime-500/15 text-lime-700 dark:text-lime-400 border-lime-500/20',
-  '最新': 'bg-pink-500/15 text-pink-700 dark:text-pink-400 border-pink-500/20',
-  '最强推理': 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20',
-  '实验': 'bg-gray-500/15 text-gray-700 dark:text-gray-400 border-gray-500/20',
-};
-
-function formatContextWindow(n: number): string {
-  if (!n) return '-';
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1000) return `${Math.round(n / 1000)}K`;
-  return String(n);
-}
+import { ModelEditorDialog } from '@/components/ai/model-management/ModelEditorDialog';
+import { QuickAddModelDialog } from '@/components/ai/model-management/QuickAddModelDialog';
+import {
+  EMPTY_MODEL,
+  MODEL_PROVIDER_NAMES,
+  MODEL_TAG_COLORS,
+  MODEL_TIERS,
+  formatContextWindow,
+} from '@/components/ai/model-management/modelManagementConfig';
 
 export default function LLMModelManagement() {
   const [activeTab, setActiveTab] = useState('overview');
   const [editOpen, setEditOpen] = useState(false);
-  const [editModel, setEditModel] = useState<Partial<LLMModel>>(emptyModel);
+  const [editModel, setEditModel] = useState<Partial<LLMModel>>(EMPTY_MODEL);
   const [isEditing, setIsEditing] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; latency_ms: number } | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -219,7 +152,7 @@ export default function LLMModelManagement() {
   };
 
   const handleOpenCreate = () => {
-    setEditModel({ ...emptyModel });
+    setEditModel({ ...EMPTY_MODEL });
     setIsEditing(false);
     setTestResult(null);
     setEditOpen(true);
@@ -322,13 +255,13 @@ export default function LLMModelManagement() {
         });
       } else {
         await createRule.mutateAsync({
-          rule_name: `默认${TIERS.find((t) => t.value === tier)?.label || tier}规则`,
+          rule_name: `默认${MODEL_TIERS.find((item) => item.value === tier)?.label || tier}规则`,
           scene_code: '*',
           agent_code: '*',
           primary_model_id: primaryModelId,
           backup_model_id: backupModelId || undefined,
           complexity_tier: tier,
-          priority: TIERS.findIndex((t) => t.value === tier),
+          priority: MODEL_TIERS.findIndex((item) => item.value === tier),
         });
       }
     } catch {
@@ -564,7 +497,7 @@ export default function LLMModelManagement() {
                         </td>
                         <td className="p-3">
                           <Badge variant="secondary" className="text-xs">
-                            {PROVIDER_NAMES[model.provider_type] || model.provider_type}
+                            {MODEL_PROVIDER_NAMES[model.provider_type] || model.provider_type}
                           </Badge>
                         </td>
                         <td className="p-3">
@@ -687,7 +620,7 @@ export default function LLMModelManagement() {
                   variant={marketTagFilter === tag ? 'default' : 'outline'}
                   className={cn(
                     'cursor-pointer select-none text-xs',
-                    marketTagFilter === tag ? '' : TAG_COLORS[tag] || 'bg-muted'
+                    marketTagFilter === tag ? '' : MODEL_TAG_COLORS[tag] || 'bg-muted'
                   )}
                   onClick={() => setMarketTagFilter(marketTagFilter === tag ? undefined : tag)}
                 >
@@ -745,7 +678,7 @@ export default function LLMModelManagement() {
                                     key={tag}
                                     className={cn(
                                       'inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded border',
-                                      TAG_COLORS[tag] || 'bg-muted text-muted-foreground'
+                                      MODEL_TAG_COLORS[tag] || 'bg-muted text-muted-foreground'
                                     )}
                                   >
                                     {tag}
@@ -837,7 +770,7 @@ export default function LLMModelManagement() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {TIERS.map((tier) => {
+                {MODEL_TIERS.map((tier) => {
                   const TierIcon = tier.icon;
                   const rule = getRuleForTier(tier.value);
                   const activeModels = models?.filter((m) => m.is_active && m.model_type === 'chat') || [];
@@ -942,7 +875,7 @@ export default function LLMModelManagement() {
             )}
 
             {/* Additional custom rules table (non-tier rules) */}
-            {rules && rules.filter((r) => !r.complexity_tier || !TIERS.some(t => t.value === r.complexity_tier)).length > 0 && (
+            {rules && rules.filter((r) => !r.complexity_tier || !MODEL_TIERS.some((tier) => tier.value === r.complexity_tier)).length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">其他调度规则</CardTitle>
@@ -961,7 +894,7 @@ export default function LLMModelManagement() {
                       </thead>
                       <tbody>
                         {rules
-                          .filter((r) => !r.complexity_tier || !TIERS.some(t => t.value === r.complexity_tier))
+                          .filter((r) => !r.complexity_tier || !MODEL_TIERS.some((tier) => tier.value === r.complexity_tier))
                           .map((rule) => {
                             const allActiveModels = models?.filter((m) => m.is_active) || [];
                             return (
@@ -1095,294 +1028,24 @@ export default function LLMModelManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* Create/Edit Model Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>{isEditing ? '编辑模型' : '新增模型'}</DialogTitle>
-            <DialogDescription>配置 LLM 模型的接入参数和能力选项</DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-4 py-2">
-              {/* Provider */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>模型厂商</Label>
-                  <Select
-                    value={editModel.provider_type || 'openai'}
-                    onValueChange={(v) => setEditModel({ ...editModel, provider_type: v })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PROVIDERS.map(p => (
-                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>模型类型</Label>
-                  <Select
-                    value={editModel.model_type || 'chat'}
-                    onValueChange={(v) => setEditModel({ ...editModel, model_type: v as 'chat' | 'embedding' })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="chat">对话模型</SelectItem>
-                      <SelectItem value="embedding">向量模型</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Code & Name */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>模型编码</Label>
-                  <Input
-                    placeholder="例如: gpt-4o"
-                    value={editModel.model_code || ''}
-                    onChange={(e) => setEditModel({ ...editModel, model_code: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>模型名称</Label>
-                  <Input
-                    placeholder="例如: GPT-4o"
-                    value={editModel.model_name || ''}
-                    onChange={(e) => setEditModel({ ...editModel, model_name: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* API Configuration */}
-              <div className="space-y-2">
-                <Label>API Base URL</Label>
-                <Input
-                  placeholder="https://api.openai.com/v1"
-                  value={editModel.api_base_url || ''}
-                  onChange={(e) => setEditModel({ ...editModel, api_base_url: e.target.value })}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>API Key</Label>
-                  <Input
-                    type="password"
-                    placeholder="sk-..."
-                    value={editModel.api_key || ''}
-                    onChange={(e) => setEditModel({ ...editModel, api_key: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Secret Key（可选）</Label>
-                  <Input
-                    type="password"
-                    placeholder="百度等平台需要"
-                    value={editModel.secret_key || ''}
-                    onChange={(e) => setEditModel({ ...editModel, secret_key: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Model ID</Label>
-                <Input
-                  placeholder="模型标识符"
-                  value={editModel.model_id || ''}
-                  onChange={(e) => setEditModel({ ...editModel, model_id: e.target.value })}
-                />
-              </div>
-
-              {/* Performance Parameters */}
-              <Separator />
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>超时时间 (ms)</Label>
-                  <Input
-                    type="number"
-                    value={editModel.timeout_ms || 30000}
-                    onChange={(e) => setEditModel({ ...editModel, timeout_ms: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>最大Token</Label>
-                  <Input
-                    type="number"
-                    value={editModel.max_tokens || 4096}
-                    onChange={(e) => setEditModel({ ...editModel, max_tokens: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>上下文窗口</Label>
-                  <Input
-                    type="number"
-                    value={editModel.context_window || 8192}
-                    onChange={(e) => setEditModel({ ...editModel, context_window: Number(e.target.value) })}
-                  />
-                </div>
-              </div>
-
-              {/* Capabilities */}
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="supports_tools"
-                    checked={editModel.supports_tools ?? true}
-                    onCheckedChange={(checked) => setEditModel({ ...editModel, supports_tools: !!checked })}
-                  />
-                  <Label htmlFor="supports_tools" className="text-sm">支持工具调用</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="supports_streaming"
-                    checked={editModel.supports_streaming ?? true}
-                    onCheckedChange={(checked) => setEditModel({ ...editModel, supports_streaming: !!checked })}
-                  />
-                  <Label htmlFor="supports_streaming" className="text-sm">支持流式输出</Label>
-                </div>
-              </div>
-
-              {/* Pricing */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>输入价格 (元/千Token)</Label>
-                  <Input
-                    type="number"
-                    step="0.001"
-                    value={editModel.input_price || 0}
-                    onChange={(e) => setEditModel({ ...editModel, input_price: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>输出价格 (元/千Token)</Label>
-                  <Input
-                    type="number"
-                    step="0.001"
-                    value={editModel.output_price || 0}
-                    onChange={(e) => setEditModel({ ...editModel, output_price: Number(e.target.value) })}
-                  />
-                </div>
-              </div>
-
-              {/* Test Result */}
-              {isEditing && editModel.id && (
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => editModel.id && handleTest(editModel.id)}
-                    disabled={testingId === editModel.id}
-                  >
-                    {testingId === editModel.id ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <TestTube className="w-4 h-4 mr-2" />
-                    )}
-                    测试连通性
-                  </Button>
-                  {testResult && (
-                    <span className={cn("text-sm flex items-center gap-1", testResult.success ? "text-green-600" : "text-red-600")}>
-                      {testResult.success ? (
-                        <><CheckCircle2 className="w-4 h-4" /> 连通成功 ({testResult.latency_ms}ms)</>
-                      ) : (
-                        <><XCircle className="w-4 h-4" /> 连通失败</>
-                      )}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>取消</Button>
-            <Button
-              onClick={handleSave}
-              disabled={createModel.isPending || updateModel.isPending}
-            >
-              {(createModel.isPending || updateModel.isPending) && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Quick Add Confirmation Dialog */}
-      <Dialog open={!!confirmAddModel} onOpenChange={(open) => !open && setConfirmAddModel(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              一键添加模型
-            </DialogTitle>
-            <DialogDescription>
-              以下参数已从知识库自动预填充，确认后即可添加到您的模型列表
-            </DialogDescription>
-          </DialogHeader>
-          {confirmAddModel && (
-            <div className="space-y-3 py-2">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-xs text-muted-foreground block">模型名称</span>
-                  <span className="font-medium">{confirmAddModel.name}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">模型 ID</span>
-                  <span className="font-mono text-xs">{confirmAddModel.model_id}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">厂商</span>
-                  <span>{confirmAddModel.provider_label}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">类型</span>
-                  <span>{confirmAddModel.type === 'chat' ? '对话模型' : '向量模型'}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">上下文窗口</span>
-                  <span>{formatContextWindow(confirmAddModel.context_window)}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">最大输出</span>
-                  <span>{formatContextWindow(confirmAddModel.max_tokens)}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">输入价格</span>
-                  <span>${confirmAddModel.input_price_per_1m}/M tokens</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">输出价格</span>
-                  <span>${confirmAddModel.output_price_per_1m}/M tokens</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                {confirmAddModel.supports_tools && (
-                  <span className="flex items-center gap-1"><Wrench className="w-3 h-3 text-emerald-500" /> 工具调用</span>
-                )}
-                {confirmAddModel.supports_streaming && (
-                  <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-blue-500" /> 流式输出</span>
-                )}
-              </div>
-              {!confirmAddModel.has_metadata && (
-                <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3">
-                  <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>该模型不在知识库中，部分参数为默认值，添加后可能需要手动调整。</span>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmAddModel(null)}>取消</Button>
-            <Button onClick={handleQuickAdd} disabled={quickAdd.isPending}>
-              {quickAdd.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              确认添加
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ModelEditorDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        isEditing={isEditing}
+        model={editModel}
+        setModel={setEditModel}
+        onSave={handleSave}
+        onTest={handleTest}
+        testingId={testingId}
+        testResult={testResult}
+        isSaving={createModel.isPending || updateModel.isPending}
+      />
+      <QuickAddModelDialog
+        model={confirmAddModel}
+        onOpenChange={(open) => !open && setConfirmAddModel(null)}
+        onConfirm={handleQuickAdd}
+        isPending={quickAdd.isPending}
+      />
     </div>
   );
 }
