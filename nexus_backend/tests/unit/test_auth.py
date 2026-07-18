@@ -17,7 +17,12 @@ class TestGetCurrentUserId:
         monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-secret-key-for-testing-only")
         monkeypatch.setenv("ENV", "test")
 
-    def _make_token(self, payload: dict, secret: str = "test-secret-key-for-testing-only", algorithm: str = "HS256"):
+    def _make_token(
+        self,
+        payload: dict,
+        secret: str = "test-secret-key-for-testing-only",
+        algorithm: str = "HS256",
+    ):
         import jwt as pyjwt
 
         return pyjwt.encode(payload, secret, algorithm=algorithm)
@@ -79,7 +84,9 @@ class TestGetCurrentUserId:
             "exp": 9999999999,
             "aud": "authenticated",
         }
-        token = pyjwt.encode(payload, "test-secret-key-for-testing-only", algorithm="HS256")
+        token = pyjwt.encode(
+            payload, "test-secret-key-for-testing-only", algorithm="HS256"
+        )
 
         user_id = await auth_module.get_current_user_id(
             request=request, authorization=f"Bearer {token}"
@@ -105,7 +112,9 @@ class TestGetCurrentUserId:
             "exp": 1000000000,  # Way in the past
             "aud": "authenticated",
         }
-        token = pyjwt.encode(payload, "test-secret-key-for-testing-only", algorithm="HS256")
+        token = pyjwt.encode(
+            payload, "test-secret-key-for-testing-only", algorithm="HS256"
+        )
 
         with pytest.raises(Exception) as exc_info:
             await auth_module.get_current_user_id(
@@ -128,7 +137,9 @@ class TestGetCurrentUserId:
         request.state = MagicMock(spec=[])
 
         payload = {"sub": "user-wrong", "exp": 9999999999, "aud": "authenticated"}
-        token = pyjwt.encode(payload, "wrong-secret", algorithm="HS256")
+        token = pyjwt.encode(
+            payload, "wrong-secret-for-auth-rejection-test-32b", algorithm="HS256"
+        )
 
         with pytest.raises(Exception) as exc_info:
             await auth_module.get_current_user_id(
@@ -163,7 +174,8 @@ class TestGetCurrentUserId:
         # Manually craft a token-like string (alg:none tokens)
         with pytest.raises(Exception) as exc_info:
             await auth_module.get_current_user_id(
-                request=request, authorization="Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJoYWNrZXIifQ."
+                request=request,
+                authorization="Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJoYWNrZXIifQ.",
             )
         assert exc_info.value.status_code == 401
 

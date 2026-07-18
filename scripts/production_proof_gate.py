@@ -55,6 +55,37 @@ CHECKS = [
         ("GoldenFlowRunner", "cross_tenant_access_denied", "missing evidence"),
     ),
     ProofCheck(
+        "real isolated staging golden flow",
+        "scripts/run_staging_golden_flows.py",
+        (
+            "STAGING_GOLDEN_ORG_ID",
+            "invoke_agent",
+            "submit_approval",
+            "prove_tenant_isolation",
+            "cleanup",
+        ),
+    ),
+    ProofCheck(
+        "atomic membership entitlement transaction",
+        "supabase/migrations/20260718_membership_atomic_access.sql",
+        (
+            "set_subscription_access_atomic",
+            "ON CONFLICT (org_id)",
+            "subscription_access_versions",
+            "Idempotency key",
+        ),
+    ),
+    ProofCheck(
+        "test network isolation",
+        "nexus_backend/tests/conftest.py",
+        ("block_unapproved_external_network", "ALLOW_TEST_NETWORK"),
+    ),
+    ProofCheck(
+        "sensitive exception governance",
+        "scripts/check_exception_governance.py",
+        ("STRICT_FUNCTIONS", "admin_set_access", "_apply_cost_policy"),
+    ),
+    ProofCheck(
         "agent graph e2e contract",
         "nexus_backend/tests/production_proof/test_agent_graph_e2e_contract.py",
         ("graph.ainvoke", "RUN_REAL_AGENT_GRAPH_E2E", "expected_tool_calls"),

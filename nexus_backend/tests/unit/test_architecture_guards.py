@@ -57,7 +57,7 @@ def test_production_requires_durable_state_and_redis():
 
 
 def test_sse_client_has_backpressure_bounds():
-    content = read("src/hooks/useAIStream.ts")
+    content = read("src/hooks/useAIStream.ts") + read("src/hooks/ai-stream/protocol.ts")
     assert "MAX_SSE_BUFFER_CHARS" in content
     assert "reader.cancel()" in content
 
@@ -352,7 +352,7 @@ def test_p0_irreversible_tools_always_reach_critic():
             'logger.info(f"[Graph] All tools succeeded', 1
         )[0]
     )
-    assert "Irreversible tool detected after reflect" in graph
+    assert "irreversible tool detected → reflect" in graph
     assert "and not has_irreversible_tool(state)" in critic
 
 
@@ -781,10 +781,7 @@ def test_unified_action_inbox_is_wired():
     assert '"/actions/{action_id}/events"' in router
     assert "action_events" in router
     assert "inbox.router" in startup
-    assert (
-        'path="dashboard" element={routeBoundary("Dashboard", <InboxPage />)}'
-        in core_routes
-    )
+    assert 'path="inbox" element={routeBoundary("Inbox", <InboxPage />)}' in core_routes
     assert 'path="performance-dashboard"' in core_routes
     assert "useInboxActions" in hook
     assert "useExecuteInboxAction" in hook
@@ -792,7 +789,7 @@ def test_unified_action_inbox_is_wired():
     assert "/api/inbox/actions" in hook
     assert "**/api/inbox/actions**" in e2e_mocks
     assert "/events" in e2e_mocks
-    assert "今日重点" in inbox_page
+    assert "收件箱" in inbox_page
     assert "data?.summary.total" in inbox_page
     assert "handleCommand" in inbox_page
     assert "handleActionEvent" in inbox_page
@@ -805,11 +802,14 @@ def test_navigation_is_consolidated_into_five_product_spaces():
     core_routes = read("src/routes/coreRoutes.tsx")
     hub_page = read("src/pages/ProductSpaceHubPage.tsx")
 
-    assert 'label: "收件箱", href: "dashboard", group: "primary"' in sidebar
-    assert 'label: "CRM", href: "crm", group: "primary"' in sidebar
-    assert 'label: "工作台", href: "workbench", group: "primary"' in sidebar
-    assert 'label: "数据", href: "data", group: "primary"' in sidebar
-    assert 'label: "助手", href: "ai-center", group: "primary"' in sidebar
+    for label, href in [
+        ("今日作战", "dashboard"),
+        ("线索雷达", "growth/radar"),
+        ("客户与项目", "growth/accounts"),
+        ("投标作战", "growth/tenders"),
+        ("经营复盘", "growth/review"),
+    ]:
+        assert f'label: "{label}", href: "{href}", group: "primary"' in sidebar
     assert "SPACE_MATCH_PREFIXES" in sidebar
     assert "WorkspaceHubPage" in lazy_imports
     assert "DataHubPage" in lazy_imports
@@ -854,7 +854,7 @@ def test_ai_copilot_is_proactive_and_embedded_in_core_pages():
     assert "AI 合同风控摘要" in contract_page
     assert "ActionInboxInsightStrip" in inbox_page
     assert "查看依据" in inbox_page
-    assert "RoleGuidanceStrip" in inbox_page
+    assert "AITrustBadge" in inbox_page
     assert "参考依据" in inbox_page
     assert "risk_flags" in inbox_page
     assert "MobileActionCardStack" in mobile_actions
@@ -887,7 +887,7 @@ def test_p0_p1_action_first_mobile_and_audit_contracts_are_wired():
     assert "path === '/workbench'" in mobile_layout
     assert "'/workbench'" in mobile_nav
     assert "label: '收件箱'" in mobile_tab
-    assert "AI 风险依据" in crm_page
+    assert 'surfaceId="crm-next-action"' in crm_page
 
 
 def test_p2_mobile_module_tiers_and_industry_expert_are_wired():
@@ -949,7 +949,7 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     assert "DEMO_WORKSPACE_ARTIFACTS" in model
     assert "ROLE_WORKBENCH_PROFILES" in model
 
-    assert "AI 作战室" in page
+    assert "AI 运营工作台" in page
     assert "真实运营数据" in page
     assert "AI 价值与信任仪表盘" in page
     assert "SOP → AOP 自然语言定义器" in page
@@ -1020,7 +1020,15 @@ def test_agent_evolution_engine_is_wired_end_to_end():
     context_engine = read("nexus_backend/app/agent/context_engine.py")
     router = read("nexus_backend/app/routers/ai_operating_system.py")
     hook = read("src/hooks/useAIOperatingSystem.ts")
-    page = read("src/pages/AgentImprovementCenterPage.tsx")
+    page = read("src/pages/AgentImprovementCenterPage.tsx") + "\n".join(
+        read(f"src/components/agent-ops/{name}.tsx")
+        for name in [
+            "AgentOpsOverview",
+            "AgentOpsQuality",
+            "AgentOpsReleases",
+            "AgentOpsRuntime",
+        ]
+    )
     core_routes = read("src/routes/coreRoutes.tsx")
     lazy_imports = read("src/routes/lazyImports.ts")
     sidebar = read("src/components/layout/Sidebar.tsx")
@@ -1119,14 +1127,14 @@ def test_agent_evolution_engine_is_wired_end_to_end():
         assert token in hook
         assert token in page
 
-    assert "内置 Agent 自我进化控制台" in page
-    assert "Hermes 式改进提案" in page
-    assert "Context Quality & Memory Hygiene" in page
-    assert "10项 Agent Evolution Ops" in page
-    assert "Agent Skill Marketplace" in page
-    assert "Multi-Agent Protocol" in page
-    assert "Red Team Center" in page
-    assert "Customer Visible Trust Center" in page
+    assert "Agent 运营中心" in page
+    assert "改进提案与人工决策" in page
+    assert "Context 与记忆卫生" in page
+    assert "高级运行时能力" in page
+    assert "技能健康" in page
+    assert "多 Agent 协作协议" in page
+    assert "失败样本与红队发现" in page
+    assert "客户可见信任摘要" in page
     assert "AgentImprovementCenterPage" in lazy_imports
     assert 'path="agent-improvement-center"' in core_routes
     assert "Agent 进化中心" in sidebar

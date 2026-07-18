@@ -30,18 +30,33 @@ async def test_cross_tenant_access_rejection():
 
     # 模拟 select 链（同步链式调用 + 异步 execute）
     mock_execute_select = AsyncMock(return_value=MagicMock(data=None))
-    mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.is_.return_value.maybe_single.return_value.execute = mock_execute_select
+    mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.is_.return_value.maybe_single.return_value.execute = (
+        mock_execute_select
+    )
 
-    # 模拟 insert 时 RLS 拒绝
-    mock_execute_insert = AsyncMock(side_effect=Exception("PGRST301: Row Level Security policy violation"))
+    # 原子记忆 RPC 是当前唯一写入边界，模拟数据库在该边界拒绝跨租户写入。
+    mock_execute_insert = AsyncMock(
+        side_effect=Exception("PGRST301: Row Level Security policy violation")
+    )
+    mock_client.rpc.return_value.execute = mock_execute_insert
     mock_client.table.return_value.insert.return_value.execute = mock_execute_insert
 
-    with patch("app.services.conversation_memory.storage.supabase", mock_client):
+    with (
+        patch("app.services.conversation_memory.storage.supabase", mock_client),
+        patch(
+            "app.services.conversation_memory.storage.generate_embedding",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
         try:
-            await save_memory(user_id_a, "malicious_key", "secret_content", org_id=org_id_b)
+            await save_memory(
+                user_id_a, "malicious_key", "secret_content", org_id=org_id_b
+            )
             pytest.fail("跨租户写入未被阻断！")
         except Exception as e:
             assert "Row Level Security" in str(e)
+    mock_client.rpc.assert_called_once()
 
 
 @pytest.mark.security
@@ -67,7 +82,9 @@ def test_sensitive_field_leaking_in_api_response():
             "name": "测试公司",
             "contact_phone": sanitize_pii(raw_phone),
             "admin_email": sanitize_pii(raw_email),
-            "notes": sanitize_pii(f"负责人身份证 {raw_id_card}，银行卡 {raw_bank_card}"),
+            "notes": sanitize_pii(
+                f"负责人身份证 {raw_id_card}，银行卡 {raw_bank_card}"
+            ),
         }
     }
     response_text = json.dumps(fake_api_response, ensure_ascii=False)
@@ -75,7 +92,10 @@ def test_sensitive_field_leaking_in_api_response():
     # 用正则检测响应中是否残留未脱敏的 PII
     pii_patterns = [
         (r"1[3-9]\d{9}", "手机号"),
-        (r"[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]", "身份证"),
+        (
+            r"[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]",
+            "身份证",
+        ),
         (r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "邮箱"),
         (r"[4-6]\d{15,18}", "银行卡"),
     ]
@@ -99,8 +119,6 @@ async def test_tool_tenant_context_purity():
     config_b = {"org_id": "org-bbb", "token": "tok-b"}
 
     captured_org_ids = []
-
-    original_list_departments = AsyncMock()
 
     async def fake_list_departments(org_id, parent_id=None, db=None):
         # 记录每次调用收到的 org_id

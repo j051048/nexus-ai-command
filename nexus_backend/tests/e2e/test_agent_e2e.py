@@ -38,16 +38,37 @@ def _mock_supabase_client():
             self._count = count
             self._single = False
 
-        def select(self, *a, **kw): return self
-        def eq(self, *a, **kw): return self
-        def neq(self, *a, **kw): return self
-        def insert(self, data, **kw): return self
-        def delete(self, **kw): return self
-        def order(self, *a, **kw): return self
-        def limit(self, *a, **kw): return self
-        def ilike(self, *a, **kw): return self
-        def maybe_single(self): self._single = True; return self
-        def single(self): self._single = True; return self
+        def select(self, *a, **kw):
+            return self
+
+        def eq(self, *a, **kw):
+            return self
+
+        def neq(self, *a, **kw):
+            return self
+
+        def insert(self, data, **kw):
+            return self
+
+        def delete(self, **kw):
+            return self
+
+        def order(self, *a, **kw):
+            return self
+
+        def limit(self, *a, **kw):
+            return self
+
+        def ilike(self, *a, **kw):
+            return self
+
+        def maybe_single(self):
+            self._single = True
+            return self
+
+        def single(self):
+            self._single = True
+            return self
 
         async def execute(self):
             from dataclasses import dataclass
@@ -78,12 +99,19 @@ async def patched_app():
     with (
         patch("app.core.database.supabase", mock_db),
         patch("app.services.cache_service.cache_service.init", new_callable=AsyncMock),
-        patch("app.services.cache_service.cache_service.ping", new_callable=AsyncMock, return_value=False),
+        patch(
+            "app.services.cache_service.cache_service.ping",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
         patch("app.services.event_bus.event_bus.start", new_callable=AsyncMock),
         patch("app.services.event_bus.event_bus.stop", new_callable=AsyncMock),
-        patch("app.services.audit_logger.audit_logger.force_flush", new_callable=AsyncMock),
+        patch(
+            "app.services.audit_logger.audit_logger.force_flush", new_callable=AsyncMock
+        ),
     ):
         from app.main import app
+
         yield app
 
 
@@ -157,9 +185,12 @@ class TestChatEndpointE2E:
     @pytest.mark.asyncio
     async def test_chat_requires_auth(self, client):
         """POST /api/chat without auth returns 401/403."""
-        resp = await client.post("/api/chat", json={
-            "messages": [{"role": "user", "content": "hello"}],
-        })
+        resp = await client.post(
+            "/api/chat",
+            json={
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+        )
         assert resp.status_code in (401, 403)
 
     @pytest.mark.asyncio
@@ -173,13 +204,27 @@ class TestChatEndpointE2E:
 
         with (
             patch("app.agent.run_agent_stream", side_effect=fake_stream),
-            patch("app.routers.chat.ChatService.get_system_prompt", new_callable=AsyncMock, return_value="You are helpful."),
-            patch("app.routers.chat.validate_request_tokens", return_value=(True, 100, None)),
+            patch(
+                "app.routers.chat.ChatService.get_system_prompt",
+                new_callable=AsyncMock,
+                return_value="You are helpful.",
+            ),
+            patch(
+                "app.routers.chat.validate_request_tokens",
+                return_value=(True, 100, None),
+            ),
             patch("app.routers.chat.check_user_input", return_value=(True, None)),
         ):
             resp = await authed_client.post(
                 "/api/chat",
-                json={"messages": [{"role": "user", "content": "你好"}]},
+                json={
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "请分析本月客户转化并生成改进建议",
+                        }
+                    ]
+                },
                 headers={"Authorization": "Bearer fake-e2e-token"},
             )
 
@@ -188,7 +233,11 @@ class TestChatEndpointE2E:
 
             # Parse SSE events
             body = resp.text
-            events = [line.removeprefix("data: ") for line in body.strip().split("\n") if line.startswith("data: ")]
+            events = [
+                line.removeprefix("data: ")
+                for line in body.strip().split("\n")
+                if line.startswith("data: ")
+            ]
             assert len(events) >= 2
             assert events[-1] == "[DONE]"
 
@@ -201,7 +250,9 @@ class TestChatEndpointE2E:
     @pytest.mark.asyncio
     async def test_chat_content_moderation_blocks_unsafe(self, authed_client):
         """Content moderation blocks unsafe input with error stream."""
-        with patch("app.routers.chat.check_user_input", return_value=(False, "检测到敏感信息")):
+        with patch(
+            "app.routers.chat.check_user_input", return_value=(False, "检测到敏感信息")
+        ):
             resp = await authed_client.post(
                 "/api/chat",
                 json={"messages": [{"role": "user", "content": "unsafe content"}]},
@@ -217,7 +268,10 @@ class TestChatEndpointE2E:
         """Missing API key returns an error in the SSE stream."""
         with (
             patch("app.routers.chat.check_user_input", return_value=(True, None)),
-            patch("app.routers.chat.validate_request_tokens", return_value=(True, 100, None)),
+            patch(
+                "app.routers.chat.validate_request_tokens",
+                return_value=(True, 100, None),
+            ),
             patch.dict("os.environ", {"OPENAI_API_KEY": ""}, clear=False),
         ):
             resp = await authed_client.post(
@@ -263,6 +317,7 @@ class TestAgentStreamFormat:
     def test_sse_status_format(self):
         """Status events are valid SSE JSON."""
         from app.agent.sse_protocol import _sse_status
+
         result = _sse_status("正在分析...")
         assert result.startswith("data: ")
         assert result.endswith("\n\n")
@@ -272,6 +327,7 @@ class TestAgentStreamFormat:
     def test_sse_content_format(self):
         """Content events follow OpenAI-compatible format."""
         from app.agent.sse_protocol import _sse_content
+
         result = _sse_content("hello")
         parsed = json.loads(result.removeprefix("data: ").strip())
         assert parsed["choices"][0]["delta"]["content"] == "hello"
@@ -280,7 +336,10 @@ class TestAgentStreamFormat:
         """Thinking step events contain expected fields."""
         from app.agent.sse_protocol import _sse_thinking
         from app.agent.state import ThinkingStep
-        step = ThinkingStep(phase="planning", content="Analyzing...", tool_name="search")
+
+        step = ThinkingStep(
+            phase="planning", content="Analyzing...", tool_name="search"
+        )
         result = _sse_thinking(step)
         parsed = json.loads(result.removeprefix("data: ").strip())
         assert "thinking_step" in parsed

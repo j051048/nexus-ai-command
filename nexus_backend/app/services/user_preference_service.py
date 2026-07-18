@@ -59,7 +59,7 @@ class UserPreferenceService:
         """
         from app.core.database import supabase
 
-        supabase.table("user_notification_preferences").insert(
+        await supabase.table("user_notification_preferences").insert(
             {
                 "user_id": user_id,
                 "notification_type": notification_type,
@@ -71,7 +71,7 @@ class UserPreferenceService:
         if action == "muted":
             settings = await self._load_settings(user_id)
             muted = list(set(settings.get("muted_types", []) + [notification_type]))
-            self._upsert_settings(user_id, {"muted_types": muted})
+            await self._upsert_settings(user_id, {"muted_types": muted})
 
         # 清除该用户缓存
         _cache_delete_prefix(f"pref:{user_id}")
@@ -134,16 +134,16 @@ class UserPreferenceService:
     # ── update_settings ─────────────────────────────────────
     async def update_settings(self, user_id: str, updates: dict) -> dict:
         """更新用户偏好配置，返回最新设置"""
-        self._upsert_settings(user_id, updates)
+        await self._upsert_settings(user_id, updates)
         _cache_delete_prefix(f"pref:{user_id}")
         return await self.get_user_preferences(user_id)
 
     # ── 内部方法 ────────────────────────────────────────────
-    def _upsert_settings(self, user_id: str, updates: dict):
+    async def _upsert_settings(self, user_id: str, updates: dict) -> None:
         from app.core.database import supabase
 
         row = {"user_id": user_id, **updates, "updated_at": "now()"}
-        supabase.table("user_preference_settings").upsert(
+        await supabase.table("user_preference_settings").upsert(
             row, on_conflict="user_id"
         ).execute()
 
@@ -155,7 +155,7 @@ class UserPreferenceService:
 
         from app.core.database import supabase
 
-        resp = (
+        resp = await (
             supabase.table("user_preference_settings")
             .select("*")
             .eq("user_id", user_id)
@@ -174,7 +174,7 @@ class UserPreferenceService:
         from app.core.database import supabase
 
         today_str = datetime.now(UTC).strftime("%Y-%m-%d")
-        resp = (
+        resp = await (
             supabase.table("user_notification_preferences")
             .select("id", count="exact")
             .eq("user_id", user_id)
@@ -194,7 +194,7 @@ class UserPreferenceService:
 
         from app.core.database import supabase
 
-        resp = (
+        resp = await (
             supabase.table("user_notification_preferences")
             .select("action")
             .eq("user_id", user_id)
@@ -215,7 +215,7 @@ class UserPreferenceService:
         """获取各通知类型的统计"""
         from app.core.database import supabase
 
-        resp = (
+        resp = await (
             supabase.table("user_notification_preferences")
             .select("notification_type, action")
             .eq("user_id", user_id)

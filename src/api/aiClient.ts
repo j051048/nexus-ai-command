@@ -49,14 +49,12 @@ function normalizeApiErrorMessage(status?: number, message?: string): string {
   const trimmed = message?.trim() || '';
   const normalized = trimmed.toLowerCase();
   if (
-    status === 404
-    && (
-      !trimmed
-      || normalized === 'not found'
-      || normalized === '404'
-      || normalized.includes('not found')
-      || normalized.startsWith('api request failed (404)')
-    )
+    status === 404 &&
+    (!trimmed ||
+      normalized === 'not found' ||
+      normalized === '404' ||
+      normalized.includes('not found') ||
+      normalized.startsWith('api request failed (404)'))
   ) {
     return '请求的接口不存在或暂未启用，请刷新页面或联系管理员';
   }
@@ -64,7 +62,12 @@ function normalizeApiErrorMessage(status?: number, message?: string): string {
   return status ? `请求失败 (${status})` : '请求失败，请重试';
 }
 
-function handleErrorResponse(status: number, errorMessage: string, silent?: boolean, retryAfter?: number): void {
+function handleErrorResponse(
+  status: number,
+  errorMessage: string,
+  silent?: boolean,
+  retryAfter?: number
+): void {
   if (silent) return;
 
   switch (status) {
@@ -114,7 +117,11 @@ function handleNetworkError(error: Error, silent?: boolean): void {
   if (silent || error.name === 'AbortError') return;
 
   const message = error.message || '';
-  if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('network')) {
+  if (
+    message.includes('Failed to fetch') ||
+    message.includes('NetworkError') ||
+    message.includes('network')
+  ) {
     toast.error('网络不可用，请检查网络连接', { id: 'network-error' });
   } else {
     toast.error(message || '请求失败，请重试');
@@ -130,7 +137,10 @@ async function parseErrorMessage(response: Response): Promise<string> {
     } else if (typeof errorData.detail === 'string') {
       errorMessage = errorData.detail;
     } else if (Array.isArray(errorData.detail)) {
-      errorMessage = errorData.detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(', ');
+      errorMessage = errorData.detail
+        .map((item: { msg?: string }) => item.msg)
+        .filter(Boolean)
+        .join(', ');
     }
   } catch {
     const text = await response.text().catch(() => response.statusText);
@@ -141,23 +151,34 @@ async function parseErrorMessage(response: Response): Promise<string> {
 
 function parseAxiosErrorMessage(error: AxiosError<unknown>): string {
   const status = error.response?.status;
-  const data = error.response?.data as {
-    error?: { message?: string };
-    detail?: string | Array<{ msg?: string }>;
-    message?: string;
-  } | undefined;
+  const data = error.response?.data as
+    | {
+        error?: { message?: string };
+        detail?: string | Array<{ msg?: string }>;
+        message?: string;
+      }
+    | undefined;
 
   if (data?.error?.message) return normalizeApiErrorMessage(status, data.error.message);
   if (typeof data?.detail === 'string') return normalizeApiErrorMessage(status, data.detail);
   if (Array.isArray(data?.detail)) {
-    const detail = data.detail.map((item) => item.msg).filter(Boolean).join(', ');
+    const detail = data.detail
+      .map((item) => item.msg)
+      .filter(Boolean)
+      .join(', ');
     if (detail) return normalizeApiErrorMessage(status, detail);
   }
   if (data?.message) return normalizeApiErrorMessage(status, data.message);
-  return normalizeApiErrorMessage(status, status ? `API Request Failed (${status})` : error.message || 'API Request Failed');
+  return normalizeApiErrorMessage(
+    status,
+    status ? `API Request Failed (${status})` : error.message || 'API Request Failed'
+  );
 }
 
-function normalizeJsonBody(body: BodyInit | null | undefined, contentType: string | undefined): unknown {
+function normalizeJsonBody(
+  body: BodyInit | null | undefined,
+  contentType: string | undefined
+): unknown {
   if (typeof body === 'string' && contentType?.includes('application/json')) {
     try {
       return JSON.parse(body);
@@ -206,6 +227,26 @@ export const aiClient = {
     }
   },
 
+  async stream(endpoint: string, options: RequestOptions = {}): Promise<Response> {
+    const { requireAuth, _retried, _silentError, ...requestInit } = options;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Trace-ID': getTraceId(),
+      ...(options.headers as Record<string, string>),
+    };
+    if (requireAuth !== false) {
+      const token = await getAuthToken();
+      if (!token) throw new Error('请先登录后再使用 AI 助手');
+      headers.Authorization = `Bearer ${token}`;
+    }
+    try {
+      return await fetch(buildUrl(endpoint), { ...requestInit, headers });
+    } catch (networkError) {
+      handleNetworkError(networkError as Error, _silentError);
+      throw networkError;
+    }
+  },
+
   async get<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<{ data: T }> {
     const data = await this.fetch(endpoint, {
       ...options,
@@ -215,7 +256,11 @@ export const aiClient = {
     return { data };
   },
 
-  async post<T = unknown>(endpoint: string, body?: unknown, options: RequestOptions = {}): Promise<{ data: T }> {
+  async post<T = unknown>(
+    endpoint: string,
+    body?: unknown,
+    options: RequestOptions = {}
+  ): Promise<{ data: T }> {
     const data = await this.fetch(endpoint, {
       ...options,
       method: 'POST',
@@ -224,7 +269,11 @@ export const aiClient = {
     return { data };
   },
 
-  async put<T = unknown>(endpoint: string, body?: unknown, options: RequestOptions = {}): Promise<{ data: T }> {
+  async put<T = unknown>(
+    endpoint: string,
+    body?: unknown,
+    options: RequestOptions = {}
+  ): Promise<{ data: T }> {
     const data = await this.fetch(endpoint, {
       ...options,
       method: 'PUT',
@@ -238,23 +287,40 @@ export const aiClient = {
     return { data };
   },
 
-  async processApproval(data: { requester_id: string; type: string; amount: number; details: string }) {
+  async processApproval(data: {
+    requester_id: string;
+    type: string;
+    amount: number;
+    details: string;
+  }) {
     return this.fetch('api/approval/process', {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<{ decision: string; reason: string }>;
   },
 
-  async chat(messages: { role: string; content: string; [key: string]: unknown }[], model = 'deepseek-v4-flash') {
+  async chat(
+    messages: { role: string; content: string; [key: string]: unknown }[],
+    model = 'deepseek-v4-flash'
+  ) {
     return this.fetch('api/chat', {
       method: 'POST',
       body: JSON.stringify({ messages, model }),
     });
   },
 
-  async uploadAudio(audioBlob: Blob, mimeType: string): Promise<{ data: { text: string; empty?: boolean } }> {
+  async uploadAudio(
+    audioBlob: Blob,
+    mimeType: string
+  ): Promise<{ data: { text: string; empty?: boolean } }> {
     const fullUrl = buildUrl('api/audio/transcribe');
-    const ext = mimeType.includes('wav') ? '.wav' : mimeType.includes('mp4') ? '.m4a' : mimeType.includes('mp3') ? '.mp3' : '.webm';
+    const ext = mimeType.includes('wav')
+      ? '.wav'
+      : mimeType.includes('mp4')
+        ? '.m4a'
+        : mimeType.includes('mp3')
+          ? '.mp3'
+          : '.webm';
     const formData = new FormData();
     formData.append('file', audioBlob, `recording${ext}`);
 

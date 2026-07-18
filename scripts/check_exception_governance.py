@@ -9,10 +9,21 @@ import json
 from collections import Counter
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = ROOT / "nexus_backend" / "app"
 BASELINE = ROOT / "docs" / "handbook" / "generated" / "exception_debt.json"
+
+# These paths handle money, entitlements, or global model-cost policy. Broad
+# catches here can turn integrity failures into plausible-looking success or
+# erase the error category needed by operators.
+STRICT_FUNCTIONS: dict[str, set[str]] = {
+    "routers/super_admin.py": {"admin_set_access", "admin_adjust_access_days"},
+    "services/super_admin_service.py": {
+        "admin_set_access",
+        "admin_adjust_access_days",
+    },
+    "services/llm_gateway/model_resolution.py": {"_apply_cost_policy"},
+}
 
 
 def is_broad(handler: ast.ExceptHandler) -> bool:
@@ -52,6 +63,30 @@ def scan() -> dict[str, object]:
     }
 
 
+def scan_strict_functions() -> list[str]:
+    failures: list[str] = []
+    for relative_name, function_names in STRICT_FUNCTIONS.items():
+        path = APP_ROOT / relative_name
+        tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
+        found: set[str] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.name not in function_names:
+                continue
+            found.add(node.name)
+            if any(
+                isinstance(child, ast.ExceptHandler) and is_broad(child)
+                for child in ast.walk(node)
+            ):
+                failures.append(f"{relative_name}:{node.name} uses broad catch")
+        missing = function_names - found
+        failures.extend(
+            f"{relative_name}:{name} is missing" for name in sorted(missing)
+        )
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write-baseline", action="store_true")
@@ -68,7 +103,7 @@ def main() -> int:
         print("EXCEPTION_GOVERNANCE_FAIL missing baseline")
         return 1
     baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
-    failures: list[str] = []
+    failures: list[str] = scan_strict_functions()
     if int(current["total"]) > int(baseline["total"]):
         failures.append(f"total {current['total']} > {baseline['total']}")
     current_areas = current["by_area"]

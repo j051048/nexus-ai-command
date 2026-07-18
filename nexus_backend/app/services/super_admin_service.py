@@ -12,36 +12,23 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from postgrest.exceptions import APIError
+
+from app.domains.admin_trust.membership import (
+    VALID_PLANS,
+)
+from app.domains.admin_trust.membership import (
+    access_state as _access_state,
+)
+from app.domains.admin_trust.membership import (
+    parse_datetime as _parse_datetime,
+)
 from app.services.event_bus import Event, EventType, event_bus
 
 logger = logging.getLogger(__name__)
 
-VALID_PLANS = {"free", "starter", "professional", "enterprise"}
 VALID_TRIAL_ACTIONS = {"start", "extend"}
 VALID_ACCESS_DECISIONS = {"approved", "rejected"}
-
-
-def _parse_datetime(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
-    except ValueError:
-        return None
-
-
-def _access_state(subscription: dict[str, Any] | None) -> str:
-    if not subscription:
-        return "unconfigured"
-    expires_at = _parse_datetime(subscription.get("current_period_end"))
-    if expires_at and expires_at <= datetime.now(UTC):
-        return "expired"
-    if subscription.get("status") in {"past_due", "suspended", "cancelled"}:
-        return str(subscription.get("status"))
-    if subscription.get("plan") == "free":
-        return "free"
-    return "active"
 
 
 def canonical_subscription_map(
@@ -69,6 +56,24 @@ def canonical_subscription_map(
         return (1 if _access_state(subscription) == "active" else 0, timestamp)
 
     return {org_id: max(rows, key=priority) for org_id, rows in grouped.items() if rows}
+
+
+def _api_error_code(exc: APIError) -> str:
+    """Extract a PostgREST error code without depending on SDK internals."""
+    code = getattr(exc, "code", None)
+    if code:
+        return str(code)
+    if exc.args and isinstance(exc.args[0], dict):
+        return str(exc.args[0].get("code") or "")
+    return ""
+
+
+def _rpc_payload(data: Any) -> dict[str, Any]:
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        return data[0]
+    raise RuntimeError("Membership transaction returned an invalid payload")
 
 
 class SuperAdminService:
@@ -476,6 +481,87 @@ class SuperAdminService:
         client = self._get_global_client()
         now = datetime.now(UTC).isoformat()
         status = "active" if plan != "free" else "inactive"
+        change_id = str(uuid.uuid4())
+        expiry_value = parsed_expiry.isoformat() if parsed_expiry else None
+        try:
+            transaction = await client.rpc(
+                "set_subscription_access_atomic",
+                {
+                    "p_change_id": change_id,
+                    "p_org_id": org_id,
+                    "p_plan": plan,
+                    "p_status": status,
+                    "p_current_period_end": expiry_value,
+                    "p_access_source": source,
+                    "p_admin_user_id": admin_user_id,
+                    "p_reason": reason,
+                },
+            ).execute()
+            transaction_payload = _rpc_payload(transaction.data)
+            subscription_payload = transaction_payload.get("subscription") or {}
+            change_id = str(transaction_payload.get("change_id") or change_id)
+        except APIError as exc:
+            if _api_error_code(exc) != "PGRST202":
+                raise
+            logger.warning(
+                "Atomic membership RPC is not available; using compatibility path"
+            )
+            subscription_payload = await self._legacy_set_access(
+                client=client,
+                org_id=org_id,
+                plan=plan,
+                status=status,
+                expires_at=expiry_value,
+                source=source,
+                reason=reason,
+                admin_user_id=admin_user_id,
+                change_id=change_id,
+                now=now,
+            )
+        self._invalidate_billing_cache(org_id)
+        await self._publish_entitlement_change(
+            org_id, change_id, "applied", admin_user_id
+        )
+        await self._write_audit_log(
+            client,
+            "admin_set_subscription_access",
+            admin_user_id,
+            org_id,
+            {
+                "plan": plan,
+                "expires_at": subscription_payload.get(
+                    "current_period_end", expiry_value
+                ),
+                "source": source,
+                "reason": reason,
+            },
+        )
+        return {
+            "org_id": org_id,
+            "plan": str(subscription_payload.get("plan") or plan),
+            "status": str(subscription_payload.get("status") or status),
+            "current_period_end": subscription_payload.get(
+                "current_period_end", expiry_value
+            ),
+            "access_source": str(subscription_payload.get("access_source") or source),
+            "change_id": change_id,
+        }
+
+    async def _legacy_set_access(
+        self,
+        *,
+        client,
+        org_id: str,
+        plan: str,
+        status: str,
+        expires_at: str | None,
+        source: str,
+        reason: str,
+        admin_user_id: str,
+        change_id: str,
+        now: str,
+    ) -> dict[str, Any]:
+        """Compatibility path used only while the atomic RPC is being deployed."""
         previous_snapshot = await self._maybe_first(
             client.table("subscriptions").select("*").eq("org_id", org_id).limit(1)
         )
@@ -483,7 +569,7 @@ class SuperAdminService:
             "org_id": org_id,
             "plan": plan,
             "status": status,
-            "current_period_end": parsed_expiry.isoformat() if parsed_expiry else None,
+            "current_period_end": expires_at,
             "access_source": source,
             "approved_by": admin_user_id,
             "approved_at": now,
@@ -497,11 +583,9 @@ class SuperAdminService:
         )
         if not result.data:
             raise RuntimeError("Failed to update subscription access")
-
         await client.table("organizations").update({"plan": plan, "tier": plan}).eq(
             "id", org_id
         ).execute()
-        change_id = str(uuid.uuid4())
         await client.table("subscription_access_versions").insert(
             {
                 "id": change_id,
@@ -512,7 +596,7 @@ class SuperAdminService:
                 "next_snapshot": {
                     "plan": plan,
                     "status": status,
-                    "current_period_end": payload["current_period_end"],
+                    "current_period_end": expires_at,
                     "access_source": source,
                 },
                 "reason": reason,
@@ -524,30 +608,7 @@ class SuperAdminService:
                 "updated_at": now,
             }
         ).execute()
-        self._invalidate_billing_cache(org_id)
-        await self._publish_entitlement_change(
-            org_id, change_id, "applied", admin_user_id
-        )
-        await self._write_audit_log(
-            client,
-            "admin_set_subscription_access",
-            admin_user_id,
-            org_id,
-            {
-                "plan": plan,
-                "expires_at": payload["current_period_end"],
-                "source": source,
-                "reason": reason,
-            },
-        )
-        return {
-            "org_id": org_id,
-            "plan": plan,
-            "status": status,
-            "current_period_end": payload["current_period_end"],
-            "access_source": source,
-            "change_id": change_id,
-        }
+        return payload
 
     async def admin_adjust_access_days(
         self,

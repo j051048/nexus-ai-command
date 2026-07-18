@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -28,19 +27,29 @@ def test_core_product_focus_is_guarded_by_module_tiers():
 
 def test_agent_quality_and_business_audit_are_customer_visible():
     ops_page = read("src/pages/AIOperatingSystemPage.tsx")
-    improvement_page = read("src/pages/AgentImprovementCenterPage.tsx")
+    improvement_page = read("src/pages/AgentImprovementCenterPage.tsx") + "\n".join(
+        read(f"src/components/agent-ops/{name}.tsx")
+        for name in [
+            "AgentOpsOverview",
+            "AgentOpsQuality",
+            "AgentOpsReleases",
+            "AgentOpsRuntime",
+        ]
+    )
     ops_service = read("nexus_backend/app/services/agent_evolution_ops_service.py")
     dashboard_router = read("nexus_backend/app/routers/dashboard.py")
     action_analytics = read("src/pages/ActionAnalyticsPage.tsx")
+    operating_system_hook = read("src/hooks/useAIOperatingSystem.ts")
 
     assert "AI 价值与信任仪表盘" in ops_page
     assert "audit_summary" in ops_page
-    assert "reward_model" in improvement_page
+    assert "质量门禁" in improvement_page
     assert "redteam_center" in improvement_page
     assert "build_trust_center_report" in ops_service
     assert "agent_ci_score" in ops_service
+    assert "reward_model" in operating_system_hook
     assert "/roi" in dashboard_router
     assert "/ai-weekly-report" in dashboard_router
-    assert "Boss View" in improvement_page
-    assert "Admin Control Plane" in improvement_page
+    assert "客户可见信任摘要" in improvement_page
+    assert "改进提案与人工决策" in improvement_page
     assert "高风险未闭环" in action_analytics or "楂橀闄╂湭闂幆" in action_analytics

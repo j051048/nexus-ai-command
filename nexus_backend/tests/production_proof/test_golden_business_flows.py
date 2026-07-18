@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -31,25 +34,30 @@ def test_five_golden_business_flows_execute_with_evidence(golden_flows):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
-async def test_real_golden_business_flows_are_explicitly_gated(golden_flows):
+def test_real_golden_business_flows_are_explicitly_gated(golden_flows):
     if os.getenv("RUN_REAL_GOLDEN_FLOWS") != "1":
-        pytest.skip(
-            "Set RUN_REAL_GOLDEN_FLOWS=1 with TEST_SUPABASE_* and TEST_LLM_* to run real golden flows."
-        )
+        pytest.skip("Set RUN_REAL_GOLDEN_FLOWS=1 with isolated STAGING_* credentials.")
 
     missing = [
         name
         for name in (
-            "TEST_SUPABASE_URL",
-            "TEST_SUPABASE_SERVICE_KEY",
-            "TEST_LLM_RECORDING_MODE",
+            "STAGING_API_URL",
+            "STAGING_GOLDEN_ORG_ID",
+            "STAGING_EMPLOYEE_TOKEN",
+            "STAGING_BOSS_TOKEN",
+            "STAGING_OTHER_ORG_CUSTOMER_ID",
         )
         if not os.getenv(name)
     ]
     assert not missing, f"Missing real golden flow env vars: {missing}"
-
-    # This test intentionally becomes the execution anchor for real business
-    # flows. The offline manifest test above prevents the anchor from being
-    # deleted; real environments can plug the same flow ids into their runners.
-    assert len(golden_flows) >= 5
+    root = Path(__file__).resolve().parents[3]
+    completed = subprocess.run(
+        [sys.executable, str(root / "scripts" / "run_staging_golden_flows.py")],
+        cwd=root,
+        env={**os.environ, "ALLOW_TEST_NETWORK": "1"},
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr

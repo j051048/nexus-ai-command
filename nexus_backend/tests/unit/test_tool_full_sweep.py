@@ -13,7 +13,8 @@ from tests.e2e.test_tool_e2e_regression import _load_tool
 # 排除一些由于环境特殊、初始化极重或需要真实硬件连接的工具（如有）
 EXCLUDED_TOOLS = []
 
-ALL_REGISTERED_TOOLS = [t for t in _TOOL_MODULES.keys() if t not in EXCLUDED_TOOLS]
+ALL_REGISTERED_TOOLS = [t for t in _TOOL_MODULES if t not in EXCLUDED_TOOLS]
+
 
 @pytest.mark.parametrize("tool_name", ALL_REGISTERED_TOOLS)
 def test_tool_specification_standards(tool_name):
@@ -22,7 +23,9 @@ def test_tool_specification_standards(tool_name):
     """
     tool = _load_tool(tool_name)
 
-    assert tool.name == tool_name, f"工具内部名称 ({tool.name}) 与注册名 ({tool_name}) 不一致"
+    assert (
+        tool.name == tool_name
+    ), f"工具内部名称 ({tool.name}) 与注册名 ({tool_name}) 不一致"
     assert tool.description, f"工具 {tool_name} 缺少描述 (LLM 无法识别)"
     assert len(tool.description) > 10, f"工具 {tool_name} 描述过短"
 
@@ -50,8 +53,9 @@ async def test_tool_run_crashes_protected(tool_name):
     dummy_args = {}
 
     # 我们 patch 掉底层客户端和 AI 服务
-    with patch("app.tools._shared.supabase", new_callable=MagicMock) as mock_db, \
-         patch("app.services.ai_service.AIService.call_llm", new_callable=AsyncMock) as mock_llm:
+    with patch("app.tools._shared.supabase", new_callable=MagicMock), patch(
+        "app.services.ai_service.AIService.call_llm", new_callable=AsyncMock
+    ) as mock_llm:
 
         mock_llm.return_value = "Mock LLM Response for Test"
 
@@ -63,4 +67,6 @@ async def test_tool_run_crashes_protected(tool_name):
             pass
         except Exception as e:
             # 不允许底层代码崩溃（如 AttributeError, NameError 等）
-            pytest.fail(f"工具 {tool_name} 在基础调用中抛出非业务异常: {type(e).__name__}: {e}")
+            pytest.fail(
+                f"工具 {tool_name} 在基础调用中抛出非业务异常: {type(e).__name__}: {e}"
+            )

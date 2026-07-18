@@ -135,11 +135,11 @@ export function dispatchNewChat() {
 
 const COMMAND_ITEMS: NavCommandItem[] = [
   // 核心功能
-  { label: '今日作战', path: '/dashboard', icon: Target, keywords: ['首页', 'home', 'dashboard', '今日', '行动', '增长'], group: '增长作战' },
-  { label: '线索雷达', path: '/growth/radar', icon: Search, keywords: ['线索', '商机', '雷达', '基金', '论文', '招标'], group: '增长作战' },
-  { label: '客户与项目', path: '/growth/accounts', icon: Users, keywords: ['crm', '客户', '项目', '商机', '跟进'], group: '增长作战' },
-  { label: '投标作战', path: '/growth/tenders', icon: FileSearch, keywords: ['标书', '投标', '招标', '胜率', '合规'], group: '增长作战' },
-  { label: '经营复盘', path: '/growth/review', icon: BarChart3, keywords: ['复盘', 'roi', '采纳率', '结果', '经营'], group: '增长作战' },
+  { label: '今日工作', path: '/dashboard', icon: Target, keywords: ['首页', 'home', 'dashboard', '今日', '行动', '增长'], group: '业务增长' },
+  { label: '线索雷达', path: '/growth/radar', icon: Search, keywords: ['线索', '商机', '雷达', '基金', '论文', '招标'], group: '业务增长' },
+  { label: '客户与项目', path: '/growth/accounts', icon: Users, keywords: ['crm', '客户', '项目', '商机', '跟进'], group: '业务增长' },
+  { label: '投标支持', path: '/growth/tenders', icon: FileSearch, keywords: ['标书', '投标', '招标', '胜率', '合规'], group: '业务增长' },
+  { label: '经营复盘', path: '/growth/review', icon: BarChart3, keywords: ['复盘', 'roi', '采纳率', '结果', '经营'], group: '业务增长' },
   { label: '助手工作台', path: '/ai-operating-system', icon: Sparkles, keywords: ['助手工作台', 'agent sandbox', 'sop', 'aop', '知识图谱', 'demo', '角色化', '业务流程'], group: '核心空间' },
   { label: '助手优化', path: '/agent-improvement-center', icon: Brain, keywords: ['agent', '进化中心', 'prompt registry', 'context quality', 'harness', 'hermes', '自我进化', 'memory hygiene'], group: '核心空间' },
   { label: 'AI 记忆', path: '/memory-center', icon: Brain, keywords: ['记忆', 'memory', '忘记', '偏好', '仪器记录'], group: '个人' },
@@ -163,7 +163,7 @@ const COMMAND_ITEMS: NavCommandItem[] = [
 
   // 招投标
   { label: '标书分析', path: '/tender-analysis', icon: FileSearch, keywords: ['标书', 'tender', '招标', '投标'], group: '招投标' },
-  { label: '竞品对比卡', path: '/battlecards', icon: Swords, keywords: ['竞标', 'battlecard', '竞品', '作战卡'], group: '招投标' },
+  { label: '竞品对比卡', path: '/battlecards', icon: Swords, keywords: ['竞标', 'battlecard', '竞品', '对比卡'], group: '招投标' },
 
   // 知识与培训
   { label: '知识库', path: '/knowledge', icon: BookOpen, keywords: ['知识', 'knowledge', '文档', 'rag'], group: '知识与培训' },
@@ -171,7 +171,7 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '激励钱包', path: '/rewards', icon: Gift, keywords: ['激励', 'reward', '积分', '奖励'], group: '知识与培训' },
 
   // 虚拟市场部
-  { label: 'AI 增长作战室', path: '/vmd', icon: Crown, keywords: ['vmd', '市场', '营销', '推广', '增长'], group: '增长作战' },
+  { label: 'AI 增长工作台', path: '/vmd', icon: Crown, keywords: ['vmd', '市场', '营销', '推广', '增长'], group: '业务增长' },
   { label: 'VMD 任务中心', path: '/vmd/tasks', icon: Target, keywords: ['vmd任务', '营销任务'], group: '虚拟市场部' },
   { label: 'VMD Agent配置', path: '/vmd/agents', icon: Settings, keywords: ['vmd agent', '营销agent'], group: '虚拟市场部' },
   { label: 'VMD 线索管理', path: '/vmd/clues', icon: Users, keywords: ['vmd线索', '营销线索'], group: '虚拟市场部' },

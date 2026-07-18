@@ -50,6 +50,13 @@ warn_unused_configs = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short --timeout=30"
+markers = [
+    "integration: tests that exercise multiple backend boundaries or live services",
+    "regression: behavior locked by a previously observed production defect",
+    "security: tenant isolation, authorization, and adversarial-input tests",
+    "benchmark: repeatable performance-baseline tests",
+    "performance: latency, throughput, and resource-budget tests",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]

@@ -95,7 +95,7 @@ class TestAuthenticationErrors:
         # 生成一个过期的 token
         expired_token = pyjwt.encode(
             {"sub": "user-expired", "exp": 1000000000, "aud": "authenticated"},
-            "wrong-secret-key",
+            "wrong-secret-key-for-expired-token-test-32b",
             algorithm="HS256",
         )
         resp = await async_client.post(

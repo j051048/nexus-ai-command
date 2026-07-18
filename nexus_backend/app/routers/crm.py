@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.auth import get_current_user_id
@@ -183,6 +183,8 @@ async def create_customer(
         return api_success(data={"customer": customer}, message="客户创建成功")
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Create customer error: user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
@@ -201,6 +203,8 @@ async def get_customer(
         if not customer:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "客户不存在")
         return api_success(data={"customer": customer})
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Get customer error: id={customer_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
@@ -222,6 +226,8 @@ async def update_customer(
         return api_success(data={"customer": customer}, message="客户信息已更新")
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Update customer error: id={customer_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
@@ -322,6 +328,8 @@ async def delete_customer(
         db = getattr(req.state, "db", None)
         await crm_service.delete_customer(customer_id, db=db)
         return api_success(data=None, message="客户已删除")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Delete customer error: id={customer_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")

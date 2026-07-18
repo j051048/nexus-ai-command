@@ -534,9 +534,6 @@ async def admin_set_access(
         return api_success(data=result, message="会员权益已更新")
     except ValueError as exc:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
-    except Exception as exc:
-        logger.error("Failed to update organization access: %s", exc)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "会员权益更新失败")
 
 
 @router.post("/organizations/{org_id}/access/adjust")
@@ -556,9 +553,6 @@ async def admin_adjust_access_days(
         return api_success(data=result, message="会员期限已调整")
     except ValueError as exc:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(exc))
-    except Exception as exc:
-        logger.error("Failed to adjust organization access: %s", exc)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "会员期限调整失败")
 
 
 @router.get("/subscription-requests")

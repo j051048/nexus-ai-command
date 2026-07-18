@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from postgrest.exceptions import APIError
 
 from app.services.billing_service import BillingPlan, Subscription
 from app.services.super_admin_service import (
@@ -93,8 +94,25 @@ async def test_admin_access_update_invalidates_billing_cache():
     query.insert.return_value = query
     query.execute = AsyncMock(return_value=SimpleNamespace(data=[{"org_id": "org-1"}]))
     client.table.return_value = query
+    rpc_query = MagicMock()
+    rpc_query.execute = AsyncMock(
+        return_value=SimpleNamespace(
+            data={
+                "change_id": "change-1",
+                "org_id": "org-1",
+                "status": "applied",
+                "subscription": {
+                    "plan": "professional",
+                    "status": "active",
+                    "access_source": "admin_override",
+                },
+            }
+        )
+    )
+    client.rpc.return_value = rpc_query
     service._get_global_client = MagicMock(return_value=client)
     service._write_audit_log = AsyncMock()
+    service._publish_entitlement_change = AsyncMock()
     expires_at = (datetime.now(UTC) + timedelta(days=365)).isoformat()
 
     with patch.object(service, "_invalidate_billing_cache") as invalidate:
@@ -107,7 +125,8 @@ async def test_admin_access_update_invalidates_billing_cache():
         )
 
     invalidate.assert_called_once_with("org-1")
-    assert query.upsert.call_args.kwargs["on_conflict"] == "org_id"
+    client.rpc.assert_called_once()
+    assert client.rpc.call_args.args[0] == "set_subscription_access_atomic"
     assert result["plan"] == "professional"
     assert result["status"] == "active"
     assert result["current_period_end"] == expires_at
@@ -178,3 +197,82 @@ async def test_long_term_membership_cannot_be_accidentally_converted_by_adjustme
         )
 
     service.admin_set_access.assert_not_awaited()
+
+
+def test_super_admin_membership_writes_are_idempotency_protected():
+    from app.core.idempotency_middleware import is_idempotency_protected_path
+
+    assert is_idempotency_protected_path("/api/admin/organizations/org-1/access")
+    assert is_idempotency_protected_path("/api/admin/organizations/org-1/access/adjust")
+    assert is_idempotency_protected_path("/api/crm/customers")
+    assert is_idempotency_protected_path("/api/approval/submit-smart")
+
+
+@pytest.mark.asyncio
+async def test_atomic_membership_rpc_only_falls_back_when_migration_is_missing():
+    service = SuperAdminService()
+    client = MagicMock()
+    rpc_query = MagicMock()
+    rpc_query.execute = AsyncMock(
+        side_effect=APIError(
+            {
+                "code": "PGRST202",
+                "message": "function not found",
+                "details": None,
+                "hint": None,
+            }
+        )
+    )
+    client.rpc.return_value = rpc_query
+    service._get_global_client = MagicMock(return_value=client)
+    service._legacy_set_access = AsyncMock(
+        return_value={
+            "plan": "professional",
+            "status": "active",
+            "access_source": "admin_override",
+        }
+    )
+    service._write_audit_log = AsyncMock()
+    service._publish_entitlement_change = AsyncMock()
+
+    result = await service.admin_set_access(
+        org_id="org-1",
+        plan="professional",
+        expires_at=(datetime.now(UTC) + timedelta(days=30)).isoformat(),
+        reason="Compatibility rollout",
+        admin_user_id="admin-1",
+    )
+
+    service._legacy_set_access.assert_awaited_once()
+    assert result["status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_atomic_membership_rpc_does_not_mask_integrity_failures():
+    service = SuperAdminService()
+    client = MagicMock()
+    rpc_query = MagicMock()
+    rpc_query.execute = AsyncMock(
+        side_effect=APIError(
+            {
+                "code": "23505",
+                "message": "duplicate key",
+                "details": None,
+                "hint": None,
+            }
+        )
+    )
+    client.rpc.return_value = rpc_query
+    service._get_global_client = MagicMock(return_value=client)
+    service._legacy_set_access = AsyncMock()
+
+    with pytest.raises(APIError):
+        await service.admin_set_access(
+            org_id="org-1",
+            plan="professional",
+            expires_at=(datetime.now(UTC) + timedelta(days=30)).isoformat(),
+            reason="Must fail closed",
+            admin_user_id="admin-1",
+        )
+
+    service._legacy_set_access.assert_not_awaited()

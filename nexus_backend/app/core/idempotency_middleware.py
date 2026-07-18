@@ -32,8 +32,13 @@ _WRITE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
 # Paths that should be idempotency-protected (write endpoints)
 # Other paths are passed through without idempotency check
 _PROTECTED_PREFIXES = (
+    "/api/admin/",
     "/api/chat",
     "/api/mcp/",
+    "/api/approval",
+    "/api/crm",
+    "/api/contracts",
+    "/api/vmd/",
     "/api/v1/approval",
     "/api/v1/crm",
     "/api/v1/contracts",
@@ -79,6 +84,11 @@ def _memory_set(cache_key: str, data: dict, ttl: int) -> None:
     _memory_cache[cache_key] = (time.time() + ttl, data)
 
 
+def is_idempotency_protected_path(path: str) -> bool:
+    """Return whether writes to path participate in response deduplication."""
+    return any(path.startswith(prefix) for prefix in _PROTECTED_PREFIXES)
+
+
 class IdempotencyMiddleware(BaseHTTPMiddleware):
     """
     Middleware that enforces idempotency for write operations.
@@ -97,7 +107,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         # Only check protected paths
         path = request.url.path
-        if not any(path.startswith(p) for p in _PROTECTED_PREFIXES):
+        if not is_idempotency_protected_path(path):
             return await call_next(request)
 
         # Get idempotency key from header

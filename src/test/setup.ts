@@ -1,9 +1,22 @@
-import "@testing-library/jest-dom";
-import { vi } from "vitest";
+import '@testing-library/jest-dom';
+import { vi } from 'vitest';
+
+const guardedFetch = vi.fn(async (input: RequestInfo | URL) => {
+  const url = typeof input === 'string' ? input : input.toString();
+  throw new Error(
+    `Unexpected network request in frontend test: ${url}. Mock fetch or the API client explicitly.`
+  );
+});
+
+Object.defineProperty(globalThis, 'fetch', {
+  configurable: true,
+  writable: true,
+  value: guardedFetch,
+});
 
 // Fix for jsdom/vitest environment
 if (typeof window !== 'undefined') {
-  Object.defineProperty(window, "matchMedia", {
+  Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
       matches: false,
@@ -17,7 +30,7 @@ if (typeof window !== 'undefined') {
     }),
   });
 
-  Object.defineProperty(window, "localStorage", {
+  Object.defineProperty(window, 'localStorage', {
     value: {
       getItem: vi.fn(() => null),
       setItem: vi.fn(),
