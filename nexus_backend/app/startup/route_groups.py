@@ -67,11 +67,15 @@ def register_crm_sales_routes(app: FastAPI) -> None:
         performance,
         sales,
         sales_leads,
+        solution_workspace,
+        tender_workspace,
     )
 
     for router in [
         crm.router,
         growth_command.router,
+        solution_workspace.router,
+        tender_workspace.router,
         sales_leads.router,
         sales.router,
         competitors.router,

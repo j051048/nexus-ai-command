@@ -9,6 +9,8 @@ import {
   VMDCompliancePage,
   VMDDashboard,
   VMDTaskCenter,
+  SolutionWorkspacePage,
+  TenderAnalysisPage,
 } from "./lazyImports";
 
 function vmdElement(moduleName: string, child: React.ReactNode) {
@@ -19,13 +21,22 @@ function vmdElement(moduleName: string, child: React.ReactNode) {
   );
 }
 
+function tenderElement(child: React.ReactNode) {
+  return (
+    <ModuleGate flag="tender">
+      <ModuleRouteBoundary moduleName="Tender Workspace">{child}</ModuleRouteBoundary>
+    </ModuleGate>
+  );
+}
+
 export function vmdRoutes() {
   return (
     <>
       <Route path="vmd" element={vmdElement("VMD", <VMDCenter />)} />
       <Route path="growth/radar" element={vmdElement("Growth Radar", <VMDCenter />)} />
       <Route path="growth/accounts" element={vmdElement("Growth Accounts", <VMDCenter />)} />
-      <Route path="growth/tenders" element={vmdElement("Growth Tenders", <VMDCenter />)} />
+      <Route path="growth/solutions" element={vmdElement("Solution Workspace", <SolutionWorkspacePage />)} />
+      <Route path="growth/tenders" element={tenderElement(<TenderAnalysisPage />)} />
       <Route path="growth/review" element={vmdElement("Growth Review", <VMDCenter />)} />
       <Route path="vmd/tasks" element={vmdElement("VMD Tasks", <VMDTaskCenter />)} />
       <Route path="vmd/agents" element={vmdElement("VMD Agents", <VMDAgentConfig />)} />

@@ -31,6 +31,7 @@ import {
   Inbox,
   ClipboardList,
   Package,
+  PanelsTopLeft,
   Award,
   Warehouse,
   Fingerprint,
@@ -97,7 +98,8 @@ function moduleForPath(path: string): ModuleFlag | null {
   if (path.startsWith('/knowledge')) return 'knowledge';
   if (path.startsWith('/workflows') || path.startsWith('/workflow-templates')) return 'workflow_designer';
   if (path.startsWith('/form-designer')) return 'form_designer';
-  if (path.startsWith('/tender-analysis')) return 'tender';
+  if (path.startsWith('/tender-analysis') || path.startsWith('/growth/tenders')) return 'tender';
+  if (path.startsWith('/growth/solutions')) return 'vmd';
   if (path.startsWith('/battlecards')) return 'battlecards';
   if (path.startsWith('/vmd')) return 'vmd';
   if (path.startsWith('/llm/models')) return 'vmd';
@@ -158,7 +160,8 @@ export default function MobileWorkbenchPage() {
       items: [
         { label: '销售管道', path: '/sales', icon: TrendingUp },
         { label: 'CRM 客户', path: '/crm', icon: Contact },
-        { label: '标书审阅', path: '/tender-analysis', icon: FileSearch },
+        { label: '方案作战', path: '/growth/solutions', icon: PanelsTopLeft },
+        { label: '投标作战', path: '/growth/tenders', icon: FileSearch },
         { label: '竞品库', path: '/battlecards', icon: Swords },
       ],
     },

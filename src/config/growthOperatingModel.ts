@@ -3,13 +3,14 @@ import {
   Building2,
   Crosshair,
   FileSearch,
+  PanelsTopLeft,
   Radar,
   type LucideIcon,
 } from "lucide-react";
 
 export const GROWTH_OPERATING_MODEL_VERSION = "growth-command.v1";
 
-export type GrowthWorkspaceView = "today" | "radar" | "accounts" | "tenders" | "review";
+export type GrowthWorkspaceView = "today" | "radar" | "accounts" | "solutions" | "tenders" | "review";
 
 export interface GrowthWorkspaceRoute {
   key: GrowthWorkspaceView;
@@ -44,6 +45,14 @@ export const GROWTH_WORKSPACE_ROUTES: GrowthWorkspaceRoute[] = [
     path: "/growth/accounts",
     icon: Building2,
     purpose: "围绕下一步推进客户，而不是维护静态档案",
+  },
+  {
+    key: "solutions",
+    label: "方案作战",
+    shortLabel: "方案",
+    path: "/growth/solutions",
+    icon: PanelsTopLeft,
+    purpose: "基于客户需求和企业知识生成可核验的分层方案",
   },
   {
     key: "tenders",
@@ -117,6 +126,7 @@ export const GROWTH_EXTENSION_CONTRACTS = {
 export function viewFromPath(pathname: string): GrowthWorkspaceView {
   if (pathname.includes("/growth/radar")) return "radar";
   if (pathname.includes("/growth/accounts")) return "accounts";
+  if (pathname.includes("/growth/solutions")) return "solutions";
   if (pathname.includes("/growth/tenders")) return "tenders";
   if (pathname.includes("/growth/review")) return "review";
   return "today";

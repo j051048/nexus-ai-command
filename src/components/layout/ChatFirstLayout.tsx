@@ -36,6 +36,11 @@ const MIN_CHAT_WIDTH = 400;
 const MAX_CHAT_WIDTH = 840;
 const MIN_BUSINESS_WIDTH = 640;
 const CHAT_WIDTH_PRESETS = [420, 560, 720] as const;
+const BUSINESS_FOCUS_ROUTES = new Set([
+  '/growth/solutions',
+  '/growth/tenders',
+  '/tender-analysis',
+]);
 
 function readStoredChatWidth() {
   if (typeof window === 'undefined') return DEFAULT_CHAT_WIDTH;
@@ -114,7 +119,9 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     if (path.includes('sales')) return '销售管道';
     if (path.includes('projects')) return '项目管理';
     if (path.includes('approval')) return '智能审批';
-    if (path.includes('knowledge')) return '知识库';
+    if (path.includes('growth/solutions')) return '方案作战';
+    if (path.includes('tender')) return '投标作战';
+    if (path.includes('knowledge')) return '知识资产';
     if (path.includes('vmd')) return '虚拟市场部';
     if (path.includes('org-chart')) return '组织架构';
     if (path.includes('settings')) return '系统设置';
@@ -181,6 +188,12 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
   useEffect(() => {
     if (isPageRoute) setIsCanvasOpen(true);
   }, [location.pathname, isPageRoute]);
+
+  useEffect(() => {
+    const focusBusiness = BUSINESS_FOCUS_ROUTES.has(location.pathname);
+    setIsCanvasOpen(true);
+    setIsChatOpen(!focusBusiness);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handler = () => setIsChatOpen(true);

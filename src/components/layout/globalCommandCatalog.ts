@@ -23,6 +23,7 @@ import {
   ListTodo,
   MessageSquare,
   Package,
+  PanelsTopLeft,
   Plug,
   Search,
   Server,
@@ -64,7 +65,7 @@ function moduleForPath(path: string): ModuleFlag | null {
   const normalized = path.split('?')[0].replace(/^\/+/, '');
   if (normalized === 'crm') return 'crm';
   if (normalized === 'contracts' || normalized === 'documents') return 'documents';
-  if (normalized === 'knowledge') return 'knowledge';
+  if (normalized === 'knowledge' || normalized.startsWith('knowledge/')) return 'knowledge';
   if (normalized === 'approval') return 'approval';
   if (normalized === 'sales') return 'sales';
   if (normalized === 'projects') return 'projects';
@@ -81,6 +82,9 @@ function moduleForPath(path: string): ModuleFlag | null {
   if (normalized === 'form-designer' || normalized.startsWith('form-designer/')) return 'form_designer';
   if (normalized === 'custom-dashboard') return 'custom_dashboard';
   if (normalized === 'tender-analysis') return 'tender';
+  if (normalized.startsWith('growth/')) {
+    return normalized === 'growth/tenders' ? 'tender' : 'vmd';
+  }
   if (normalized === 'battlecards') return 'battlecards';
   if (normalized === 'training') return 'training';
   if (normalized === 'vmd' || normalized.startsWith('vmd/')) return 'vmd';
@@ -99,7 +103,8 @@ export const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '今日工作', path: '/dashboard', icon: Target, keywords: ['首页', 'home', 'dashboard', '今日', '行动', '增长'], group: '业务增长' },
   { label: '线索雷达', path: '/growth/radar', icon: Search, keywords: ['线索', '商机', '雷达', '基金', '论文', '招标'], group: '业务增长' },
   { label: '客户与项目', path: '/growth/accounts', icon: Users, keywords: ['crm', '客户', '项目', '商机', '跟进'], group: '业务增长' },
-  { label: '投标支持', path: '/growth/tenders', icon: FileSearch, keywords: ['标书', '投标', '招标', '胜率', '合规'], group: '业务增长' },
+  { label: '方案作战', path: '/growth/solutions', icon: PanelsTopLeft, keywords: ['方案', '解决方案', '售前', '配置', '选型', '预算', '客户方案'], group: '业务增长' },
+  { label: '投标作战', path: '/growth/tenders', icon: FileSearch, keywords: ['标书', '审阅', '生成标书', '投标', '招标', '应答矩阵', '胜率', '合规'], group: '业务增长' },
   { label: '经营复盘', path: '/growth/review', icon: BarChart3, keywords: ['复盘', 'roi', '采纳率', '结果', '经营'], group: '业务增长' },
   { label: '助手工作台', path: '/ai-operating-system', icon: Sparkles, keywords: ['助手工作台', 'agent sandbox', 'sop', 'aop', '知识图谱', 'demo', '角色化', '业务流程'], group: '核心空间' },
   { label: '助手优化', path: '/agent-improvement-center', icon: Brain, keywords: ['agent', '进化中心', 'prompt registry', 'context quality', 'harness', 'hermes', '自我进化', 'memory hygiene'], group: '核心空间' },
@@ -119,9 +124,10 @@ export const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '资产管理', path: '/assets', icon: Package, keywords: ['资产', '设备', '领用', '归还', 'asset'], group: '办公协同' },
   { label: '库存管理', path: '/inventory', icon: Warehouse, keywords: ['库存', '进销存', '出入库', '盘点', 'inventory'], group: '办公协同' },
   { label: '企业证照', path: '/certificates', icon: Award, keywords: ['证照', '资质', '证书', '许可', 'certificate'], group: '办公协同' },
-  { label: '标书分析', path: '/tender-analysis', icon: FileSearch, keywords: ['标书', 'tender', '招标', '投标'], group: '招投标' },
   { label: '竞品对比卡', path: '/battlecards', icon: Swords, keywords: ['竞标', 'battlecard', '竞品', '对比卡'], group: '招投标' },
-  { label: '知识库', path: '/knowledge', icon: BookOpen, keywords: ['知识', 'knowledge', '文档', 'rag'], group: '知识与培训' },
+  { label: '企业知识资产', path: '/knowledge', icon: BookOpen, keywords: ['知识', 'knowledge', '文档', 'rag', '产品资料', '手册', '竞品'], group: '知识与培训' },
+  { label: '行业知识资产', path: '/knowledge/industry', icon: BookOpen, keywords: ['行业知识', '科学仪器', '竞品战卡', '销售打法'], group: '知识与培训' },
+  { label: '知识关系洞察', path: '/knowledge/graph', icon: Brain, keywords: ['知识图谱', '关系', '实体', 'graph'], group: '知识与培训' },
   { label: '培训中心', path: '/training', icon: GraduationCap, keywords: ['培训', 'training', '学习'], group: '知识与培训' },
   { label: '激励钱包', path: '/rewards', icon: Gift, keywords: ['激励', 'reward', '积分', '奖励'], group: '知识与培训' },
   { label: 'AI 增长工作台', path: '/vmd', icon: Crown, keywords: ['vmd', '市场', '营销', '推广', '增长'], group: '业务增长' },
@@ -179,7 +185,9 @@ export const PAGE_SUGGESTIONS: Record<string, Array<{ label: string; prompt: str
   '/approval': [{ label: '查看待审批', prompt: '有哪些待我审批的事项？' }, { label: '审批趋势分析', prompt: '分析最近的审批通过率和趋势' }],
   '/workbench': [{ label: '今日推进顺序', prompt: '请根据审批、合同和项目状态，生成今天工作台的推进顺序。' }, { label: '查找堵点', prompt: '请帮我找出当前工作台里最可能阻塞成交或交付的事项。' }],
   '/contracts': [{ label: '合同风险清单', prompt: '请基于当前合同台账，按金额、到期日、审核状态生成合同风险清单。' }, { label: '续签提醒', prompt: '请找出 30 天内到期或需要续签的合同，并生成跟进话术。' }],
-  '/tender-analysis': [{ label: '标书审阅清单', prompt: '请给我一份投标文件审阅清单，优先检查否决项、技术偏离和评分风险。' }, { label: '生成投标策略', prompt: '请根据招标文件评分标准，生成投标响应策略和材料准备清单。' }],
+  '/growth/solutions': [{ label: '梳理方案需求', prompt: '请根据当前客户、行业、预算和应用场景，列出生成解决方案前必须核验的信息。' }, { label: '检查证据缺口', prompt: '请检查当前方案中的关键参数、预算与外部承诺，列出仍缺少企业资料依据的内容。' }],
+  '/growth/tenders': [{ label: '标书审阅清单', prompt: '请给我一份投标文件审阅清单，优先检查否决项、技术偏离和评分风险。' }, { label: '生成应答矩阵', prompt: '请根据招标文件评分标准，生成带证据引用和责任人的应答矩阵草稿。' }],
+  '/tender-analysis': [{ label: '标书审阅清单', prompt: '请给我一份投标文件审阅清单，优先检查否决项、技术偏离和评分风险。' }, { label: '生成应答矩阵', prompt: '请根据招标文件评分标准，生成带证据引用和责任人的应答矩阵草稿。' }],
   '/sales': [{ label: '本周业绩', prompt: '总结本周的销售业绩情况' }, { label: '商机预测', prompt: '预测本月的商机转化情况' }],
   '/dashboard': [{ label: '今日概览', prompt: '帮我总结今天的工作要点' }, { label: '异常预警', prompt: '有哪些需要关注的异常指标？' }],
   '/knowledge': [{ label: '搜索知识库', prompt: '在知识库中搜索' }, { label: '文档推荐', prompt: '推荐与当前工作相关的文档' }],
@@ -212,6 +220,7 @@ export const EXECUTION_COMMANDS = [
   { label: '写跟进邮件', path: '/crm', prompt: '请根据当前客户上下文，写一封专业的销售跟进邮件，并列出需要人工确认的信息。', icon: MessageSquare },
   { label: '合同风险清单', path: '/contracts', prompt: '请基于当前合同台账，输出到期、金额、付款条款和客户主体的风险清单。', icon: FileText },
   { label: '创建合同', path: '/contracts', prompt: '请帮我创建合同草稿，并先询问合同标题、客户、金额、起止日期、付款条款和负责人。', icon: FileText },
-  { label: '发起投标分析', path: '/tender-analysis', prompt: '请打开投标分析流程，并提示我上传招标文件，然后优先检查否决项、技术偏离和评分风险。', icon: FileSearch },
+  { label: '生成客户方案', path: '/growth/solutions', prompt: '请打开方案作战流程，先关联客户并补齐应用场景、预算、仪器谱系和交付约束，再基于企业知识资产生成三档配置建议。', icon: PanelsTopLeft },
+  { label: '发起投标作战', path: '/growth/tenders', prompt: '请打开投标作战流程，先建立项目并上传招标文件，然后检查否决项、技术偏离、评分风险和证据缺口。', icon: FileSearch },
   { label: '发起审批', path: '/approval', prompt: '请帮我发起审批，并先询问审批类型、金额、事由、附件和审批人。', icon: FileCheck },
 ];

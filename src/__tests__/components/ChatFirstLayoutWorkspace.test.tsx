@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { ChatFirstLayout } from '@/components/layout/ChatFirstLayout';
@@ -59,5 +59,19 @@ describe('ChatFirstLayout workspace modes', () => {
     fireEvent.click(screen.getByLabelText('切换助手面板宽度'));
     expect(screen.getByRole('separator', { name: '调整助手面板宽度' })).toHaveAttribute('aria-valuenow', '720');
     expect(screen.getByText('Business surface')).toBeInTheDocument();
+  });
+
+  it('gives the tender workspace full business width by default', async () => {
+    render(
+      <MemoryRouter initialEntries={['/growth/tenders']}>
+        <ChatFirstLayout><div>Business surface</div></ChatFirstLayout>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole('separator', { name: '调整助手面板宽度' })).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('投标作战')).toBeInTheDocument();
+    expect(screen.getByLabelText('打开助手面板')).toHaveTextContent('助手待命');
   });
 });

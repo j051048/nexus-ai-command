@@ -147,6 +147,8 @@ async def upload_documents(
         "contract",
         "training",
         "product",
+        "competitor",
+        "case",
         "tender",
         "bid",
         "proposal",
@@ -518,7 +520,19 @@ async def update_document(
 
 class UpdateCategoryRequest(BaseModel):
     doc_type: Literal[
-        "contract", "tender", "bid", "product", "proposal", "invoice", "legal", "other"
+        "contract",
+        "tender",
+        "bid",
+        "product",
+        "manual",
+        "regulation",
+        "training",
+        "competitor",
+        "case",
+        "proposal",
+        "invoice",
+        "legal",
+        "other",
     ] = Field(..., description="文档分类")
 
 
@@ -569,7 +583,19 @@ class BulkImportDocumentItem(BaseModel):
     )
     content: str = Field(..., min_length=10, description="文档正文内容")
     doc_type: Literal[
-        "contract", "tender", "bid", "product", "proposal", "invoice", "legal", "other"
+        "contract",
+        "tender",
+        "bid",
+        "product",
+        "manual",
+        "regulation",
+        "training",
+        "competitor",
+        "case",
+        "proposal",
+        "invoice",
+        "legal",
+        "other",
     ] = Field(default="other", description="文档分类")
     library_code: str | None = Field(
         default=None, description="目标知识库编码（如 product_lib）"

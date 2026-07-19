@@ -582,8 +582,8 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                                         onClick={() => {
                                             const docType = doc.doc_type || (doc.extracted_data as Record<string, unknown>)?.doc_type;
                                             if ((docType === 'bid' || docType === 'tender') && onNavigate) {
-                                                onNavigate('tender-analysis');
-                                                toast.success("已为您打开标书深度分析视图");
+                                                onNavigate('growth/tenders');
+                                                toast.success("已为您打开投标作战台");
                                             } else {
                                                 // Check for contract or other types
                                                 if (doc.doc_type === 'contract') {

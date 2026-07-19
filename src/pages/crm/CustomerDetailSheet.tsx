@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ import {
   LineChart,
   ListChecks,
   Swords,
+  PanelsTopLeft,
 } from 'lucide-react';
 import {
   useCustomerTimeline,
@@ -735,6 +737,7 @@ export default function CustomerDetailSheet({
   open,
   onClose,
 }: CustomerDetailSheetProps) {
+  const navigate = useNavigate();
   const { data: timeline = [], isLoading: timelineLoading } = useCustomerTimeline(customer?.id || null);
   const { data: contacts = [], isLoading: contactsLoading } = useCustomerContacts(customer?.id || null);
   const { data: health } = useCustomerHealth(customer?.id || null);
@@ -798,6 +801,18 @@ export default function CustomerDetailSheet({
               </div>
             </div>
             <SheetDescription>{customer.company}</SheetDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 w-fit"
+              onClick={() => {
+                onClose();
+                navigate(`/growth/solutions?customer=${encodeURIComponent(customer.id)}`);
+              }}
+            >
+              <PanelsTopLeft className="mr-2 h-4 w-4" />
+              生成客户方案
+            </Button>
           </SheetHeader>
 
           <CustomerDetailActionStrip

@@ -110,6 +110,7 @@ export const SMALL_COMPANY_LAUNCH_MODULES: ModuleFlag[] = [
   "plugins",
   "projects",
   "reports",
+  "tender",
   "vmd",
   "workflow_designer",
 ];

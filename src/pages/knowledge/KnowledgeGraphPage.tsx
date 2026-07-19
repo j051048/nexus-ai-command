@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { KnowledgeSubnav } from '@/components/knowledge/KnowledgeSubnav';
 import {
   useSearchEntities,
   useEntityRelations,
@@ -74,10 +75,10 @@ export default function KnowledgeGraphPage() {
             <div className="p-2 bg-primary/10 rounded-lg">
               <Network className="w-6 h-6 text-primary" />
             </div>
-            知识图谱
+            关系洞察
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            实体关系可视化 · 智能搜索 · 模式洞察
+            从客户、产品、项目与资料之间发现可复用关系
           </p>
         </div>
 
@@ -97,6 +98,8 @@ export default function KnowledgeGraphPage() {
           </div>
         )}
       </div>
+
+      <KnowledgeSubnav />
 
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">

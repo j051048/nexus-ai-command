@@ -16,10 +16,12 @@ export const RewardsWallet = lazyWithRetry(() => import("@/components/rewards/Re
 export const SalesTargetManager = lazyWithRetry(() => import("@/components/targets/SalesTargetManager").then(m => ({ default: m.SalesTargetManager })));
 export const TargetDashboard = lazyWithRetry(() => import("@/pages/TargetDashboard"));
 export const TenderAnalysisPage = lazyWithRetry(() => import("@/pages/TenderAnalysisPage").then(m => ({ default: m.TenderAnalysisPage })));
+export const SolutionWorkspacePage = lazyWithRetry(() => import("@/pages/SolutionWorkspacePage"));
 export const BattlecardLibrary = lazyWithRetry(() => import("@/pages/BattlecardLibrary").then(m => ({ default: m.BattlecardLibrary })));
 
 // Documents & Knowledge
 export const DocumentsPage = lazyWithRetry(() => import("@/components/documents/DocumentsPage").then(m => ({ default: m.DocumentsPage })));
+export const KnowledgeAssetsPage = lazyWithRetry(() => import("@/features/knowledge/KnowledgeAssetsPage"));
 export const KnowledgeGraphPage = lazyWithRetry(() => import("@/pages/knowledge/KnowledgeGraphPage"));
 export const DataImportPage = lazyWithRetry(() => import("@/pages/DataImportPage"));
 

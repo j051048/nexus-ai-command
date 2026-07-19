@@ -93,6 +93,11 @@ class VectorService:
         "bid": "投标文件",
         "product": "产品资料",
         "contract": "合同",
+        "manual": "仪器手册",
+        "regulation": "法规与标准",
+        "training": "培训资料",
+        "competitor": "竞品资料",
+        "case": "客户案例",
         "proposal": "方案文档",
         "invoice": "发票",
     }

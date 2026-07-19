@@ -105,8 +105,8 @@ test.describe("Comprehensive System Test", () => {
 
     // 4. Navigation Check
     console.log("Checking sidebar navigation...");
-    await page.getByRole("link", { name: "标书审阅" }).click();
-    await expect(page).toHaveURL(/.*tender-analysis/);
+    await page.getByRole("link", { name: "投标作战" }).click();
+    await expect(page).toHaveURL(/.*growth\/tenders/);
 
     console.log("Comprehensive test passed");
   });

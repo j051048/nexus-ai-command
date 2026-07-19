@@ -25,7 +25,11 @@ describe('frontend density guard', () => {
     const customerDetailAction = source('src/pages/crm/CustomerDetailActionStrip.tsx');
     const approval = source('src/components/approval/ApprovalCenter.tsx');
     const contracts = source('src/pages/ContractManagement.tsx');
-    const tender = source('src/pages/TenderAnalysisPage.tsx');
+    const tender = [
+      source('src/pages/TenderAnalysisPage.tsx'),
+      source('src/features/tender/TenderWorkspaceContent.tsx'),
+      source('src/features/tender/TenderReportSections.tsx'),
+    ].join('\n');
     const aiPanel = source('src/components/ai/AIInsightPanel.tsx');
 
     expect(aiPanel).toContain('border-l-primary');
@@ -81,7 +85,7 @@ describe('frontend density guard', () => {
 
     expect(commandBar).toContain('助手工作台');
     expect(commandBar).not.toContain('AI 作战室');
-    expect(commandBar).toContain('发起投标分析');
+    expect(commandBar).toContain('发起投标作战');
     expect(commandBar).toContain('创建合同');
     expect(commandBar).toContain('生成今日计划');
     expect(workspace).toContain('data-testid="space-next-action"');

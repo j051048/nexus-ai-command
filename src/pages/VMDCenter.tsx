@@ -74,6 +74,11 @@ const VIEW_COPY: Record<GrowthWorkspaceView, { eyebrow: string; title: string; d
     title: "围绕下一步推进客户",
     description: "优先显示停滞风险、预计价值和明确动作，完整档案仍在 CRM 中维护。",
   },
+  solutions: {
+    eyebrow: "方案作战",
+    title: "把客户需求变成可核验的解决方案",
+    description: "连接客户事实、产品目录与企业知识资产，生成基础、推荐、进阶三档方案，并在外发前完成人工审校。",
+  },
   tenders: {
     eyebrow: "投标作战",
     title: "在截止日前暴露关键缺口",
@@ -219,7 +224,7 @@ function TodayView({ actions, onOpen, instrumentLine }: { actions: GrowthAction[
             <button className="flex w-full items-center justify-between text-left text-muted-foreground hover:text-foreground" onClick={() => onOpen("/vmd/tasks")}>
               任务与交付物 <ArrowRight className="h-3.5 w-3.5" />
             </button>
-            <button className="flex w-full items-center justify-between text-left text-muted-foreground hover:text-foreground" onClick={() => onOpen("/industry-knowledge")}>
+            <button className="flex w-full items-center justify-between text-left text-muted-foreground hover:text-foreground" onClick={() => onOpen("/knowledge/industry")}>
               行业知识资产 <ArrowRight className="h-3.5 w-3.5" />
             </button>
             <button className="flex w-full items-center justify-between text-left text-muted-foreground hover:text-foreground" onClick={() => onOpen("/vmd/agents")}>

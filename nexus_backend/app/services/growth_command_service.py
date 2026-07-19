@@ -67,6 +67,9 @@ class CoreGrowthProvider:
             GrowthCapability("vmd.clues", "行业线索", "signal", "ready"),
             GrowthCapability("tender.projects", "投标机会", "signal", "ready"),
             GrowthCapability(
+                "solution.projects", "客户解决方案", "action", "ready", "medium", True
+            ),
+            GrowthCapability(
                 "vmd.playbooks", "增长任务编排", "action", "ready", "medium", True
             ),
             GrowthCapability(
@@ -117,6 +120,15 @@ INDUSTRY_PLAYBOOKS: list[dict[str, Any]] = [
         "outcome": "在截止日前暴露资格、技术和商务缺口",
         "agents": ["tender", "compliance", "content", "director"],
         "acceptance": ["评分项逐条映射", "缺口有负责人", "最终提交由人工确认"],
+        "risk_policy": "human_approval_required",
+    },
+    {
+        "key": "instrument-solution-design",
+        "name": "客户解决方案生成",
+        "category": "solution_design",
+        "outcome": "形成基于企业证据、可人工审校的三档客户方案",
+        "agents": ["sales", "content", "compliance", "director"],
+        "acceptance": ["客户事实已确认", "关键参数有证据", "外发门禁全部通过"],
         "risk_policy": "human_approval_required",
     },
     {
@@ -261,7 +273,7 @@ def _tender_item(row: dict[str, Any], now: datetime) -> dict[str, Any]:
         "compliance_status": compliance,
         "win_probability": int(row.get("win_probability") or 0),
         "risk": risk,
-        "target_url": "/tender-analysis",
+        "target_url": f"/growth/tenders?project={row.get('id')}",
         "instrument_line_code": instrument_line_code,
         "instrument_line_name": domain_context.get("instrument_line_name"),
         "application_field": row.get("application_field"),

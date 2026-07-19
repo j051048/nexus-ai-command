@@ -9,6 +9,7 @@ import {
 } from '@/config/scientificInstrumentKnowledge';
 import { useIndustryKnowledgeAssets } from '@/hooks/useIndustryKnowledgeAssets';
 import { cn } from '@/lib/utils';
+import { KnowledgeSubnav } from '@/components/knowledge/KnowledgeSubnav';
 
 const TYPE_FILTERS: Array<ScientificInstrumentAssetType | 'all'> = [
   'all',
@@ -54,7 +55,9 @@ export default function IndustryKnowledgePage() {
   }, [assets, query, type]);
 
   return (
-    <main className="mx-auto max-w-7xl space-y-5 p-6">
+    <main className="min-h-full bg-background">
+      <KnowledgeSubnav />
+      <div className="mx-auto max-w-7xl space-y-5 p-6">
       <header className="grid gap-4 border-b pb-5 lg:grid-cols-[1fr_360px] lg:items-end">
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
@@ -205,6 +208,7 @@ export default function IndustryKnowledgePage() {
           </section>
         </aside>
       </section>
+      </div>
     </main>
   );
 }

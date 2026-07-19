@@ -10,6 +10,8 @@ import {
   DataImportPage,
   DocumentsPage,
   InventoryPage,
+  IndustryKnowledgePage,
+  KnowledgeAssetsPage,
   KnowledgeGraphPage,
   TenderAnalysisPage,
   TrainingCenter,
@@ -32,7 +34,9 @@ export function businessRoutes() {
       <Route path="tender-analysis" element={guarded("tender", "Tender Analysis", <TenderAnalysisPage />)} />
       <Route path="battlecards" element={guarded("battlecards", "Battlecards", <BattlecardLibrary />)} />
       <Route path="documents" element={guarded("documents", "Documents", <DocumentsPage />)} />
-      <Route path="knowledge" element={guarded("knowledge", "Knowledge Graph", <KnowledgeGraphPage />)} />
+      <Route path="knowledge" element={guarded("knowledge", "Knowledge Assets", <KnowledgeAssetsPage />)} />
+      <Route path="knowledge/industry" element={guarded("knowledge", "Industry Knowledge", <IndustryKnowledgePage />)} />
+      <Route path="knowledge/graph" element={guarded("knowledge", "Knowledge Graph", <KnowledgeGraphPage />)} />
       <Route path="import" element={guarded("import", "Data Import", <DataImportPage />)} />
       <Route path="training" element={guarded("training", "Training Center", <TrainingCenter />)} />
       <Route path="work-orders" element={guarded("work_orders", "Work Orders", <WorkOrderPage />)} />
