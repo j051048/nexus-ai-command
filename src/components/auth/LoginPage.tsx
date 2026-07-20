@@ -5,11 +5,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogIn, UserPlus, Loader2, Briefcase, Users, KeyRound, ArrowLeft, Mail, Ticket, CircleDot, ShieldCheck, Zap } from 'lucide-react';
+import {
+  Activity,
+  ArrowLeft,
+  Briefcase,
+  Database,
+  FileCheck2,
+  KeyRound,
+  Loader2,
+  LockKeyhole,
+  LogIn,
+  Mail,
+  Radar,
+  ShieldCheck,
+  Ticket,
+  UserPlus,
+  Users,
+  Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { httpClient } from '@/lib/httpClient';
+import './LoginPage.css';
 
 type AppRole = 'boss' | 'employee';
 
@@ -38,9 +56,12 @@ export function LoginPage() {
   // Derived brand values with defaults
   const brandName = brand.company_name || 'Project Nexus';
   const brandInitial = brandName.charAt(0).toUpperCase();
-  const brandTitle = brand.login_title || '企业级 AI 中控枢纽';
-  const brandSubtitle = brand.login_subtitle || '重塑智能化工作流';
-  const brandTagline = brand.tagline || '消除数据孤岛，赋能业务创新。基于先进的大模型架构，为您提供全天候的智能协作与决策支持。';
+  const brandTitle = brand.login_title || '科学仪器企业的 AI 增长作战室';
+  const brandSubtitle = brand.login_subtitle || '从商机到方案交付，持续推进每一步';
+  const brandTagline = brand.tagline || '面向光谱、色谱、质谱、能谱与电子仪器团队，把客户信号、企业知识、方案标书和业务行动汇入同一条可信工作流。';
+  const loginStyle = brand.primary_color
+    ? ({ '--login-accent': brand.primary_color } as React.CSSProperties)
+    : undefined;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -158,7 +179,7 @@ export function LoginPage() {
   const renderAuthContent = () => {
     if (showForgotPassword) {
       return (
-        <div className="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm sm:p-10">
+        <div className="login-auth-card login-auth-card--reset relative overflow-hidden p-7 sm:p-9">
           <div className="text-center mb-8 relative z-10">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md border bg-muted/40">
               <KeyRound className="h-5 w-5 text-primary" />
@@ -236,9 +257,9 @@ export function LoginPage() {
 
     // Default Login/Register Tabs
     return (
-      <div className="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm sm:p-10">
+      <div className="login-auth-card relative overflow-hidden p-7 sm:p-9">
         <Tabs defaultValue="login" className="space-y-8 relative z-10">
-          <TabsList className="grid h-10 w-full grid-cols-2">
+          <TabsList className="login-auth-tabs grid h-10 w-full grid-cols-2">
             <TabsTrigger value="login" className="flex items-center gap-2 text-sm font-medium">
               <LogIn className="w-4 h-4" />
               立即登录
@@ -469,105 +490,128 @@ export function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen overflow-x-hidden bg-background lg:grid-cols-2">
-      {/* Left Side - Brand Presentation (Hidden on mobile) */}
-      <div className="relative hidden h-full flex-col justify-between overflow-hidden border-r bg-muted/30 p-12 text-foreground lg:flex xl:p-20">
-        <div className="relative z-10 flex flex-col gap-8 ml-auto max-w-xl w-full translate-x-4">
-          <div className="flex items-center gap-3">
-            {brand.logo_url ? (
-              <img src={brand.logo_url} alt={brandName} className="w-10 h-10 rounded-xl object-cover border border-white/10" />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <span className="text-base font-semibold">{brandInitial}</span>
+    <div className="nexus-login-shell" style={loginStyle}>
+      <section className="login-visual-panel" aria-label="Nexus AI Command 产品能力">
+        <div className="login-visual-grid" aria-hidden="true" />
+        <div className="login-visual-scan" aria-hidden="true" />
+
+        <div className="login-visual-content">
+          <header className="login-brand-row">
+            <div className="login-brand-lockup">
+              {brand.logo_url ? (
+                <img src={brand.logo_url} alt={brandName} className="login-brand-logo" />
+              ) : (
+                <div className="login-brand-logo login-brand-logo--letter" aria-hidden="true">
+                  {brandInitial}
+                </div>
+              )}
+              <div>
+                <span className="login-brand-name">{brandName}</span>
+                <span className="login-brand-kicker">NEXUS AI COMMAND</span>
               </div>
-            )}
-            <span className="text-lg font-semibold">
-              {brandName}
-            </span>
-          </div>
-          
-          <div className="mt-8">
-            <h1 className="mb-5 text-3xl font-semibold leading-tight">
-              {brandTitle}
-              <br />
-              <span className="mt-2 inline-block text-primary">
-                {brandSubtitle}
-              </span>
-            </h1>
-            <p className="max-w-md text-base leading-relaxed text-muted-foreground">
-              {brandTagline}
-            </p>
+            </div>
+            <div className="login-system-status">
+              <Activity className="h-4 w-4" />
+              <span>AI 作战系统在线</span>
+            </div>
+          </header>
+
+          <div className="login-hero-copy">
+            <p className="login-eyebrow">SCIENTIFIC INSTRUMENT GROWTH OS</p>
+            <h1>{brandTitle}</h1>
+            <p className="login-hero-subtitle">{brandSubtitle}</p>
+            <p className="login-hero-description">{brandTagline}</p>
           </div>
 
-          {/* Feature Highlight List */}
-          <div className="mt-10 space-y-4 max-w-md">
+          <div className="login-capability-list">
             {(brand.feature_cards && brand.feature_cards.length > 0
               ? brand.feature_cards
               : [
-                  { icon: 'sparkles', title: '深层智慧洞察', desc: '秒级解析高维数据，辅助制定战略级决策' },
-                  { icon: 'zap', title: '工作流自动化', desc: '通过智能 Agent 矩阵，无缝串联日常繁冗任务' },
-                  { icon: 'shield', title: '强隔离安全架构', desc: '租户沙箱级别的私有化安全隔离，保障核心资产无忧' },
+                  { icon: 'radar', title: '商机雷达', desc: '识别高价值客户信号，排出今天的下一步行动' },
+                  { icon: 'file', title: '方案与标书', desc: '基于企业知识生成可引用、可评审的客户方案' },
+                  { icon: 'database', title: '知识与证据', desc: '统一产品、竞品与历史项目，回答可追溯' },
                 ]
-            ).map((feature, i) => {
-              const iconEl = feature.icon === 'zap' ? <Zap className="h-4 w-4 text-primary" />
-                : feature.icon === 'shield' ? <ShieldCheck className="h-4 w-4 text-primary" />
-                : <CircleDot className="h-4 w-4 text-primary" />;
+            ).slice(0, 3).map((feature, i) => {
+              const iconEl = feature.icon === 'zap' ? <Zap className="h-5 w-5" />
+                : feature.icon === 'shield' ? <ShieldCheck className="h-5 w-5" />
+                : feature.icon === 'file' ? <FileCheck2 className="h-5 w-5" />
+                : feature.icon === 'database' ? <Database className="h-5 w-5" />
+                : <Radar className="h-5 w-5" />;
               return (
-              <div key={i} className="group relative flex items-start gap-4 border-t py-4">
-                <div className="relative z-10 mt-0.5 rounded-md border bg-background p-2">
-                  {iconEl}
+                <div key={`${feature.title}-${i}`} className="login-capability-item">
+                  <div className="login-capability-icon">{iconEl}</div>
+                  <div>
+                    <h2>{feature.title}</h2>
+                    <p>{feature.desc}</p>
+                  </div>
                 </div>
-                <div className="relative z-10">
-                  <h3 className="text-sm font-semibold">{feature.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{feature.desc}</p>
-                </div>
-              </div>
               );
             })}
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="relative z-10 flex items-center justify-between text-sm text-zinc-500 ml-auto max-w-xl w-full translate-x-4">
-          <p>© 2026 {brandName}. All rights reserved.</p>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-zinc-300 transition-colors">隐私政策</a>
-            <a href="#" className="hover:text-zinc-300 transition-colors">服务协议</a>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Side - Auth Forms Container */}
-      <div className="flex items-center justify-start p-6 sm:p-12 xl:p-20 relative overflow-hidden bg-background h-full">
-        {/* Subtle ambient color wash behind the form */}
-        <div className="absolute top-0 right-0 w-full h-full overflow-hidden pointer-events-none z-0">
-           <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[100px]" />
-        </div>
-
-        <div className="relative z-10 w-full max-w-md space-y-8">
-          
-          {/* Mobile Logo Only (Hidden on Desktop) */}
-          <div className="lg:hidden text-center mb-8">
-            {brand.logo_url ? (
-              <img src={brand.logo_url} alt={brandName} className="mx-auto mb-5 h-12 w-12 rounded-md border object-cover" />
-            ) : (
-              <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <span className="text-xl font-semibold">{brandInitial}</span>
+          <div className="login-product-preview" aria-label="Nexus AI Command 业务作战界面预览">
+            <div className="login-preview-toolbar">
+              <div className="login-preview-dots" aria-hidden="true"><span /><span /><span /></div>
+              <span>今日增长作战室</span>
+              <span className="login-preview-live">LIVE</span>
+            </div>
+            <div className="login-preview-body">
+              <img
+                src="/login-command-preview.webp"
+                alt="Nexus AI Command 商机与行动工作台"
+                loading="eager"
+                decoding="async"
+              />
+              <div className="login-preview-signal">
+                <Radar className="h-4 w-4" />
+                AI 已识别 3 个高价值业务信号
               </div>
-            )}
-            <h1 className="text-3xl font-extrabold text-foreground tracking-tight">{brandName}</h1>
-            <p className="text-muted-foreground mt-2 font-medium">{brandSubtitle}</p>
+            </div>
           </div>
-          
+
+          <footer className="login-trust-rail">
+            <span><ShieldCheck className="h-4 w-4" />租户数据隔离</span>
+            <span><FileCheck2 className="h-4 w-4" />依据可追溯</span>
+            <span><LockKeyhole className="h-4 w-4" />高风险操作确认</span>
+          </footer>
+        </div>
+      </section>
+
+      <section className="login-form-panel" aria-label="账户登录与注册">
+        <div className="login-form-grid" aria-hidden="true" />
+        <div className="login-form-wrap">
+          <div className="login-mobile-brand lg:hidden">
+            {brand.logo_url ? (
+              <img src={brand.logo_url} alt={brandName} className="login-mobile-logo" />
+            ) : (
+              <div className="login-mobile-logo login-brand-logo--letter" aria-hidden="true">{brandInitial}</div>
+            )}
+            <div>
+              <h1>{brandName}</h1>
+              <p>{brandSubtitle}</p>
+            </div>
+          </div>
+
+          <div className="login-form-heading hidden lg:block">
+            <p>SECURE WORKSPACE</p>
+            <h2>欢迎回来</h2>
+            <span>登录后继续推进今天的商机、方案与交付任务。</span>
+          </div>
+
           {renderAuthContent()}
-          
-          <div className="text-center pt-2 animate-in fade-in slide-in-from-bottom-4 delay-500">
-             <p className="text-xs text-muted-foreground/60">
-               {brandName} 采用最高等级数据加密协议保障您的安全
-             </p>
+
+          <div className="login-security-note">
+            <ShieldCheck className="h-4 w-4" />
+            <span>{brandName} 使用企业级加密与租户隔离保护您的数据</span>
+          </div>
+
+          <div className="login-legal-links">
+            <span>© 2026 {brandName}</span>
+            <a href="#">隐私政策</a>
+            <a href="#">服务协议</a>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

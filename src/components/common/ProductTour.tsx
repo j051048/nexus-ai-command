@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Joyride, Step, STATUS } from 'react-joyride';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '@/components/auth/AuthContext';
 
 const tourSteps: Step[] = [
   {
@@ -27,16 +29,25 @@ const tourSteps: Step[] = [
 
 export function ProductTour() {
   const [run, setRun] = useState(false);
+  const { user, loading } = useAuth();
+  const { pathname } = useLocation();
 
   useEffect(() => {
-    // 如果是测试环境，或者已经看过引导，则不开启
+    // The tour belongs to the authenticated workspace. Keeping it off public
+    // and platform-admin routes prevents first-visit overlays on auth screens.
     const isTest = import.meta.env.VITE_SKIP_TOUR === 'true';
     const hasSeenTour = localStorage.getItem('hasSeenTour') === 'true';
-    if (!hasSeenTour && !isTest) {
+    const isWorkspaceRoute = !['/login', '/reset-password', '/admin'].some(
+      route => pathname === route || pathname.startsWith(`${route}/`),
+    );
+
+    if (!loading && user && isWorkspaceRoute && !hasSeenTour && !isTest) {
       const timer = setTimeout(() => setRun(true), 1000);
       return () => clearTimeout(timer);
     }
-  }, []);
+
+    setRun(false);
+  }, [loading, pathname, user]);
 
   // Use any with eslint-disable for the complex Joyride callback data type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
