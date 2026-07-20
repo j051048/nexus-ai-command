@@ -10,6 +10,7 @@ from app.core.auth import get_current_user_id
 from app.core.dependencies import get_request_db, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import BatchDeleteRequest, StandardResponse
+from app.services.audit_logger import audit_logger
 from app.services.etl_service import etl_service
 
 logger = logging.getLogger(__name__)
@@ -603,6 +604,21 @@ async def review_knowledge_document(
     result = await query.execute()
     if not result.data:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "文档不存在或无权审核")
+    await audit_logger.log(
+        action="knowledge.document.review",
+        actor_user_id=user_id,
+        org_id=org_id,
+        target_id=document_id,
+        target_table="documents",
+        details={
+            "review_status": body.review_status,
+            "source_version": body.source_version,
+            "valid_until": body.valid_until.isoformat() if body.valid_until else None,
+            "quality_score": body.quality_score,
+        },
+        request=req,
+    )
+    await audit_logger.force_flush()
     return api_success(data=result.data[0], message="知识资料审核状态已更新")
 
 

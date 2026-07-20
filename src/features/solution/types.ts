@@ -18,6 +18,7 @@ export interface SolutionBrief {
   application_scenario?: string;
   deadline?: string;
   template_id?: string | null;
+  scenario_pack_code?: string | null;
 }
 
 export interface SolutionRequirement {
@@ -41,6 +42,24 @@ export interface SolutionCommercialSummary {
   catalog_models?: number;
   validation_errors?: string[];
   validation_warnings?: string[];
+  subtotal?: number;
+  tax_rate?: number;
+  tax?: number;
+  total?: number;
+  approval_required?: boolean;
+  approval_reasons?: string[];
+}
+
+export interface SolutionQuoteLine {
+  model_code: string;
+  product_name?: string;
+  category?: 'instrument' | 'accessory' | 'consumable' | 'software' | 'service';
+  quantity: number;
+  unit_price?: number;
+  discount_percent?: number;
+  net_unit_price?: number;
+  line_total?: number;
+  currency?: string;
 }
 
 export interface SolutionPackage {
@@ -51,6 +70,7 @@ export interface SolutionPackage {
   components: string[];
   rationale: string;
   tradeoffs: string[];
+  line_items?: SolutionQuoteLine[];
   commercial?: SolutionCommercialSummary;
 }
 
@@ -91,6 +111,9 @@ export interface SolutionWorkspaceState {
     usage?: Record<string, number>;
     degraded?: boolean;
     knowledge_context_available?: boolean;
+    cached?: boolean;
+    duration_ms?: number;
+    fingerprint?: string;
   };
   quality: SolutionQuality;
   extension_data: Record<string, unknown>;
@@ -116,6 +139,8 @@ export interface SolutionProject {
   outcome?: Record<string, unknown>;
   source_document_ids?: string[];
   linked_tender_project_id?: number | null;
+  quality_evaluation?: SolutionEvaluation;
+  bid_readiness?: TenderReadiness;
   updated_at?: string;
 }
 
@@ -130,6 +155,11 @@ export interface SolutionVersionSummary {
     degraded?: boolean;
   };
   created_at?: string;
+}
+
+export interface SolutionVersionDetail extends SolutionVersionSummary {
+  content: SolutionWorkspaceState;
+  evidence_refs?: string[];
 }
 
 export interface SolutionCustomerOption {
@@ -193,6 +223,66 @@ export interface SolutionContextOptions {
   products: SolutionProductOption[];
   templates: SolutionTemplateOption[];
   documents: SolutionDocumentOption[];
+  scenario_packs: SolutionScenarioPack[];
+  capabilities?: {
+    manage_catalog: boolean;
+    view_cost: boolean;
+    deliver_solution: boolean;
+    manage_connectors: boolean;
+  };
+}
+
+export interface SolutionScenarioPack {
+  code: string;
+  name: string;
+  instrument_line_code: string;
+  industry: string;
+  required_facts: string[];
+  section_outline: string[];
+}
+
+export interface SolutionEvaluation {
+  evaluator_version: string;
+  score: number;
+  dimensions: Record<string, number>;
+  findings: Array<{ severity: string; code: string; message: string }>;
+  ready: boolean;
+}
+
+export interface TenderReadiness {
+  score: number;
+  decision: 'bid' | 'review' | 'no_bid';
+  coverage_percent: number;
+  major_deviations: number;
+  deadline_days?: number | null;
+  factors: Record<string, number>;
+  deviations: Array<Record<string, unknown>>;
+}
+
+export interface SolutionReviewComment {
+  id: string;
+  section_id: string;
+  content: string;
+  status: 'open' | 'resolved';
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface SolutionCPQPreview {
+  quotes: Array<SolutionCommercialSummary & { package_id: string; line_items: SolutionQuoteLine[]; valid: boolean }>;
+  valid: boolean;
+  approval_required: boolean;
+}
+
+export interface SolutionCommercialApproval {
+  id: string;
+  project_id: string;
+  package_id: string;
+  quote_snapshot: Record<string, unknown>;
+  reason?: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  requested_at?: string;
+  decided_at?: string | null;
 }
 
 export interface SolutionAnalytics {
@@ -217,4 +307,14 @@ export interface SolutionConnector {
   status: 'disabled' | 'active' | 'error';
   capabilities: string[];
   last_health_at?: string | null;
+}
+
+export interface SolutionDeliveryEvent {
+  id: string;
+  project_id: string;
+  channel: string;
+  status: 'sent' | 'failed';
+  artifact_name?: string;
+  artifact_metadata?: Record<string, unknown>;
+  created_at?: string;
 }

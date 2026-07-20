@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -12,12 +13,26 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_org_id, get_current_user_id
-from app.core.dependencies import get_request_db
+from app.core.dependencies import (
+    get_current_user_role,
+    get_request_db,
+    require_role,
+)
 from app.core.errors import ErrorCode, api_error, api_success
+from app.services.audit_logger import audit_logger
 from app.services.solution_commercial_service import (
     enrich_workspace_commercials,
     solution_value_metrics,
 )
+from app.services.solution_generation_policy import (
+    compact_generation_context,
+    generation_fingerprint,
+)
+from app.services.solution_scenario_catalog import (
+    get_scenario_pack,
+    list_scenario_packs,
+)
+from app.services.solution_tender_service import build_tender_readiness
 from app.services.solution_workspace_service import (
     STAGES,
     WORKSPACE_SCHEMA_VERSION,
@@ -34,6 +49,7 @@ from app.services.solution_workspace_service import (
 from app.services.vector_service import vector_service
 
 router = APIRouter(prefix="/api/solution-workspace", tags=["Solution Workspace"])
+require_solution_catalog_admin = require_role(["admin", "founder", "boss"])
 
 
 class SolutionProjectCreate(BaseModel):
@@ -48,6 +64,7 @@ class SolutionProjectCreate(BaseModel):
     application_scenario: str | None = Field(default=None, max_length=1000)
     deadline: datetime | None = None
     template_id: UUID | None = None
+    scenario_pack_code: str | None = Field(default=None, max_length=160)
 
 
 class SolutionProjectUpdate(BaseModel):
@@ -183,7 +200,7 @@ async def get_manifest(
 async def get_context_options(
     db=Depends(get_request_db),
     organization_id: str = Depends(get_current_org_id),
-    _user_id: str = Depends(get_current_user_id),
+    role: str = Depends(get_current_user_role),
 ):
     customers = (
         await db.table("customers")
@@ -195,11 +212,19 @@ async def get_context_options(
         .limit(200)
         .execute()
     )
+    can_manage_catalog = role in {"admin", "founder", "boss"}
+    can_deliver_solution = role in {"manager", "admin", "founder", "boss"}
+    product_fields = (
+        "id,instrument_line_code,product_name,model_code,positioning,application_fields,"
+        "key_specs,competitor_models,knowledge_refs,currency,list_price,lead_time_days,"
+        "warranty_months,lifecycle_status,validation_status,configuration_schema,"
+        "compatibility_rules,service_items,consumables,evidence_refs,revision"
+    )
+    if can_manage_catalog:
+        product_fields += ",standard_cost"
     products = (
         await db.table("instrument_product_catalog")
-        .select(
-            "id,instrument_line_code,product_name,model_code,positioning,application_fields,key_specs,competitor_models,knowledge_refs,currency,list_price,standard_cost,lead_time_days,warranty_months,lifecycle_status,validation_status,configuration_schema,compatibility_rules,service_items,consumables,evidence_refs,revision"
-        )
+        .select(product_fields)
         .eq("organization_id", organization_id)
         .eq("is_active", True)
         .order("updated_at", desc=True)
@@ -233,6 +258,13 @@ async def get_context_options(
             "products": products.data or [],
             "templates": templates.data or [],
             "documents": documents.data or [],
+            "scenario_packs": list_scenario_packs(),
+            "capabilities": {
+                "manage_catalog": can_manage_catalog,
+                "view_cost": can_manage_catalog,
+                "deliver_solution": can_deliver_solution,
+                "manage_connectors": can_manage_catalog,
+            },
         }
     )
 
@@ -242,7 +274,7 @@ async def upsert_product_catalog(
     body: ProductCatalogWrite,
     db=Depends(get_request_db),
     organization_id: str = Depends(get_current_org_id),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_solution_catalog_admin),
 ):
     payload = body.model_dump(mode="json")
     payload.update(
@@ -262,6 +294,18 @@ async def upsert_product_catalog(
     )
     if not result.data:
         raise api_error(ErrorCode.DB_QUERY_ERROR, "保存产品目录失败")
+    await audit_logger.log(
+        action="solution.product_catalog.save",
+        actor_user_id=user_id,
+        org_id=organization_id,
+        target_id=str(result.data[0].get("id") or ""),
+        target_table="instrument_product_catalog",
+        details={
+            "model_code": body.model_code,
+            "validation_status": body.validation_status,
+        },
+    )
+    await audit_logger.force_flush()
     return api_success(data=result.data[0], message="产品目录已保存")
 
 
@@ -270,7 +314,7 @@ async def archive_product_catalog(
     product_id: UUID,
     db=Depends(get_request_db),
     organization_id: str = Depends(get_current_org_id),
-    _user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_solution_catalog_admin),
 ):
     result = (
         await db.table("instrument_product_catalog")
@@ -281,6 +325,14 @@ async def archive_product_catalog(
     )
     if not result.data:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "产品不存在")
+    await audit_logger.log(
+        action="solution.product_catalog.archive",
+        actor_user_id=user_id,
+        org_id=organization_id,
+        target_id=str(product_id),
+        target_table="instrument_product_catalog",
+    )
+    await audit_logger.force_flush()
     return api_success(data=result.data[0], message="产品已归档")
 
 
@@ -310,7 +362,17 @@ async def create_project(
 ):
     brief = body.model_dump(mode="json")
     brief["customer_id"] = str(body.customer_id) if body.customer_id else None
+    scenario_pack = get_scenario_pack(body.scenario_pack_code)
+    if body.scenario_pack_code and not scenario_pack:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "所选行业场景包不存在")
+    if scenario_pack:
+        brief["instrument_line_code"] = (
+            brief.get("instrument_line_code") or scenario_pack["instrument_line_code"]
+        )
+        brief["industry"] = brief.get("industry") or scenario_pack["industry"]
     workspace = build_initial_workspace(brief)
+    if scenario_pack:
+        workspace["extension_data"]["scenario_pack"] = scenario_pack
     if body.template_id:
         template_result = (
             await db.table("solution_templates")
@@ -348,6 +410,7 @@ async def create_project(
         "updated_by": user_id,
     }
     payload.pop("template_id", None)
+    payload.pop("scenario_pack_code", None)
     result = await db.table("solution_projects").insert(payload).execute()
     if not result.data:
         raise api_error(ErrorCode.DB_QUERY_ERROR, "创建方案项目失败")
@@ -531,6 +594,7 @@ async def extract_project_requirements(
 @router.post("/projects/{project_id}/generate")
 async def generate_project_solution(
     project_id: UUID,
+    force: bool = Query(default=False),
     db=Depends(get_request_db),
     organization_id: str = Depends(get_current_org_id),
     user_id: str = Depends(get_current_user_id),
@@ -545,7 +609,7 @@ async def generate_project_solution(
     products_result = (
         await db.table("instrument_product_catalog")
         .select(
-            "instrument_line_code,product_name,model_code,positioning,application_fields,key_specs,knowledge_refs,currency,list_price,standard_cost,lead_time_days,warranty_months,lifecycle_status,validation_status,configuration_schema,compatibility_rules,service_items,consumables,evidence_refs"
+            "id,instrument_line_code,product_name,model_code,positioning,application_fields,key_specs,knowledge_refs,currency,list_price,standard_cost,lead_time_days,warranty_months,lifecycle_status,validation_status,configuration_schema,compatibility_rules,service_items,consumables,evidence_refs,revision"
         )
         .eq("organization_id", organization_id)
         .eq("is_active", True)
@@ -615,6 +679,23 @@ async def generate_project_solution(
             for item in evidence_catalog
             if item.get("document_id") not in explicit_ids
         ]
+    products, evidence_catalog = compact_generation_context(products, evidence_catalog)
+    fingerprint = generation_fingerprint(brief, workspace, products, evidence_catalog)
+    if (
+        not force
+        and project.get("generation_fingerprint") == fingerprint
+        and int(project.get("current_version") or 0) > 0
+    ):
+        return api_success(
+            data={
+                "project": project,
+                "version": int(project.get("current_version") or 0),
+                "degraded": bool((workspace.get("generation") or {}).get("degraded")),
+                "cached": True,
+            },
+            message="输入与资料未变化，已复用最近版本",
+        )
+    generation_started = time.perf_counter()
     knowledge_context = json.dumps(evidence_catalog, ensure_ascii=False, default=str)
     workspace_extension = dict(workspace.get("extension_data") or {})
     workspace_extension["evidence_catalog"] = evidence_catalog
@@ -640,6 +721,10 @@ async def generate_project_solution(
         user_id=user_id,
         organization_id=organization_id,
     )
+    generation["duration_ms"] = round((time.perf_counter() - generation_started) * 1000)
+    generation["cached"] = False
+    generation["fingerprint"] = fingerprint
+    generated_workspace["generation"] = generation
     next_version = int(project.get("current_version") or 0) + 1
     version_payload = {
         "organization_id": organization_id,
@@ -663,6 +748,7 @@ async def generate_project_solution(
                 "workspace": generated_workspace,
                 "current_version": next_version,
                 "status": "review",
+                "generation_fingerprint": fingerprint,
                 "updated_by": user_id,
                 "updated_at": datetime.now(UTC).isoformat(),
             }
@@ -676,6 +762,7 @@ async def generate_project_solution(
             "project": (updated.data or [{}])[0],
             "version": next_version,
             "degraded": generation.get("degraded", False),
+            "cached": False,
         },
         message="方案草稿已生成",
     )
@@ -719,18 +806,14 @@ async def export_solution(
     except Exception:
         brand = {}
     if output_format == "markdown":
-        return Response(
-            workspace_markdown(project).encode("utf-8"),
-            media_type="text/markdown; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="{safe_name}.md"'},
-        )
-    if output_format == "pdf":
-        return Response(
-            export_pdf(project),
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{safe_name}.pdf"'},
-        )
-    if output_format == "xlsx":
+        content = workspace_markdown(project).encode("utf-8")
+        media_type = "text/markdown; charset=utf-8"
+        suffix = "md"
+    elif output_format == "pdf":
+        content = export_pdf(project)
+        media_type = "application/pdf"
+        suffix = "pdf"
+    elif output_format == "xlsx":
         content = export_xlsx(project)
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         suffix = "xlsx"
@@ -755,6 +838,15 @@ async def export_solution(
         ).execute()
     except Exception:
         pass
+    await audit_logger.log(
+        action="solution.export",
+        actor_user_id=user_id,
+        org_id=organization_id,
+        target_id=str(project_id),
+        target_table="solution_projects",
+        details={"format": suffix, "version": project.get("current_version")},
+    )
+    await audit_logger.force_flush()
     return Response(
         content,
         media_type=media_type,
@@ -849,6 +941,19 @@ async def record_outcome(
                         "updated_at": datetime.now(UTC).isoformat(),
                     }
                 ).eq("organization_id", organization_id).eq("id", template_id).execute()
+    await audit_logger.log(
+        action="solution.outcome.record",
+        actor_user_id=user_id,
+        org_id=organization_id,
+        target_id=str(project_id),
+        target_table="solution_projects",
+        details={
+            "outcome_type": body.outcome_type,
+            "amount": body.amount,
+            "currency": body.currency,
+        },
+    )
+    await audit_logger.force_flush()
     return api_success(data=outcome, message="方案结果已记录")
 
 
@@ -857,7 +962,7 @@ async def promote_template(
     project_id: UUID,
     db=Depends(get_request_db),
     organization_id: str = Depends(get_current_org_id),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_solution_catalog_admin),
 ):
     project = await _get_project(db, organization_id, project_id)
     if project.get("status") not in {"approved", "sent", "won"}:
@@ -882,6 +987,15 @@ async def promote_template(
         .upsert(payload, on_conflict="organization_id,name")
         .execute()
     )
+    await audit_logger.log(
+        action="solution.template.promote",
+        actor_user_id=user_id,
+        org_id=organization_id,
+        target_id=str(project_id),
+        target_table="solution_templates",
+        details={"source_status": project.get("status")},
+    )
+    await audit_logger.force_flush()
     return api_success(data=(result.data or [{}])[0], message="已沉淀为企业方案模板")
 
 
@@ -909,6 +1023,7 @@ async def create_tender_from_solution(
             return api_success(data=linked.data, message="已存在关联投标项目")
 
     workspace = project.get("workspace") or {}
+    bid_readiness = build_tender_readiness(project)
     requirements = workspace.get("requirements") or []
     packages = workspace.get("packages") or []
     recommended = next(
@@ -947,6 +1062,7 @@ async def create_tender_from_solution(
         "extension_data": {
             "source_solution_project_id": str(project_id),
             "source_solution_version": project.get("current_version"),
+            "bid_readiness": bid_readiness,
         },
     }
     now = datetime.now(UTC).isoformat()
@@ -973,6 +1089,10 @@ async def create_tender_from_solution(
         "scoring_matrix": {
             "items": response_matrix,
             "schema_version": "tender-workspace.v1",
+            "coverage_percent": bid_readiness["coverage_percent"],
+            "deviations": bid_readiness["deviations"],
+            "bid_decision": bid_readiness["decision"],
+            "bid_score": bid_readiness["score"],
         },
         "evidence_refs": [
             item.get("evidence_ref")
@@ -992,10 +1112,24 @@ async def create_tender_from_solution(
     await db.table("solution_projects").update(
         {
             "linked_tender_project_id": tender.get("id"),
+            "bid_readiness": bid_readiness,
             "updated_by": user_id,
             "updated_at": now,
         }
     ).eq("organization_id", organization_id).eq("id", str(project_id)).execute()
+    await audit_logger.log(
+        action="solution.tender.create",
+        actor_user_id=user_id,
+        org_id=organization_id,
+        target_id=str(project_id),
+        target_table="bid_project",
+        details={
+            "tender_id": tender.get("id"),
+            "decision": bid_readiness["decision"],
+            "score": bid_readiness["score"],
+        },
+    )
+    await audit_logger.force_flush()
     return api_success(data=tender, message="方案已转为投标项目")
 
 
@@ -1079,7 +1213,7 @@ async def save_solution_connector(
     body: ConnectorWrite,
     db=Depends(get_request_db),
     organization_id: str = Depends(get_current_org_id),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_solution_catalog_admin),
 ):
     if connector_code != body.connector_code:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "连接器编码不一致")
@@ -1094,4 +1228,13 @@ async def save_solution_connector(
         .upsert(payload, on_conflict="organization_id,connector_code")
         .execute()
     )
+    await audit_logger.log(
+        action="solution.connector.configure",
+        actor_user_id=user_id,
+        org_id=organization_id,
+        target_id=body.connector_code,
+        target_table="enterprise_connector_registry",
+        details={"connector_type": body.connector_type, "status": body.status},
+    )
+    await audit_logger.force_flush()
     return api_success(data=(result.data or [payload])[0], message="连接器配置已保存")

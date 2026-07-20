@@ -1,0 +1,18 @@
+{
+  "dataset_version": "solution-quality.v1",
+  "description": "科学仪器方案质量确定性回归集。领域专家可持续追加，不允许自动改写标注。",
+  "cases": [
+    {"id": "chromatography-pharma-grounded", "line": "chromatography", "industry": "制药", "expected_ready": true, "focus": ["evidence", "gmp", "commercial"]},
+    {"id": "chromatography-testing-throughput", "line": "chromatography", "industry": "第三方检测", "expected_ready": true, "focus": ["throughput", "consumables"]},
+    {"id": "mass-spec-unsupported-sensitivity", "line": "mass_spectrometry", "industry": "制药", "expected_ready": false, "focus": ["unsupported_claim"], "mutation": "unsupported_claim"},
+    {"id": "mass-spec-environment-gap", "line": "mass_spectrometry", "industry": "高校科研", "expected_ready": false, "focus": ["site_requirements"], "mutation": "missing_evidence"},
+    {"id": "spectroscopy-food-method", "line": "spectroscopy", "industry": "环境与食品", "expected_ready": true, "focus": ["standard_method", "lod"]},
+    {"id": "spectroscopy-budget-overrun", "line": "spectroscopy", "industry": "高校科研", "expected_ready": false, "focus": ["budget"], "mutation": "commercial_invalid"},
+    {"id": "energy-semi-cleanroom", "line": "energy_spectroscopy", "industry": "半导体", "expected_ready": true, "focus": ["cleanroom", "automation"]},
+    {"id": "energy-missing-safety", "line": "energy_spectroscopy", "industry": "新能源", "expected_ready": false, "focus": ["safety"], "mutation": "missing_evidence"},
+    {"id": "electronics-semi-interface", "line": "electronic_instrumentation", "industry": "半导体", "expected_ready": true, "focus": ["interface", "calibration"]},
+    {"id": "electronics-unknown-model", "line": "electronic_instrumentation", "industry": "高校科研", "expected_ready": false, "focus": ["catalog"], "mutation": "compatibility_error"},
+    {"id": "cross-line-mixed-currency", "line": "chromatography", "industry": "第三方检测", "expected_ready": false, "focus": ["currency"], "mutation": "commercial_invalid"},
+    {"id": "verified-case-reuse", "line": "spectroscopy", "industry": "环境与食品", "expected_ready": true, "focus": ["template", "evidence_version"]}
+  ]
+}

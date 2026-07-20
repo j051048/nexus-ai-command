@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, FileDown, FileSearch, Gavel, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, FileDown, FileSearch, Gavel, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { SCIENTIFIC_INSTRUMENT_LINES } from '@/config/growthOperatingModel';
 
 import { ProductCatalogManager } from './ProductCatalogManager';
+import {
+  SolutionCPQWorkbench,
+  SolutionConnectorDelivery,
+  SolutionQualityPanel,
+  SolutionSectionWorkbench,
+  SolutionVersionCompare,
+  TenderReadinessPanel,
+} from './SolutionOperationalPanels';
 import type {
   SolutionBrief,
   SolutionDocumentOption,
@@ -108,12 +116,24 @@ export function RequirementsPanel({ workspace, onChange, documents = [], isExtra
 
 function PackageColumn({ item, onChange }: { item: SolutionPackage; onChange: (item: SolutionPackage) => void }) {
   const commercial = item.commercial;
+  const lineItems = item.line_items?.length
+    ? item.line_items
+    : item.product_models.map((model_code) => ({ model_code, quantity: 1, discount_percent: 0 }));
+  const updateModels = (value: string) => {
+    const product_models = value.split('\n').map((model) => model.trim()).filter(Boolean);
+    onChange({
+      ...item,
+      product_models,
+      line_items: product_models.map((model_code) => lineItems.find((line) => line.model_code === model_code) || { model_code, quantity: 1, discount_percent: 0 }),
+    });
+  };
   return (
     <article className="border-l px-4 first:border-l-0">
       <Input value={item.name} onChange={(event) => onChange({ ...item, name: event.target.value })} className="font-semibold" />
       <Textarea value={item.positioning} onChange={(event) => onChange({ ...item, positioning: event.target.value })} className="mt-3 min-h-20" placeholder="方案定位" />
       <label className="mt-4 block text-xs font-medium text-muted-foreground">产品型号（每行一个）</label>
-      <Textarea value={item.product_models.join('\n')} onChange={(event) => onChange({ ...item, product_models: event.target.value.split('\n').filter(Boolean) })} className="mt-1 min-h-24" />
+      <Textarea value={item.product_models.join('\n')} onChange={(event) => updateModels(event.target.value)} className="mt-1 min-h-24" />
+      {!!lineItems.length && <div className="mt-2 divide-y border-y">{lineItems.map((line, lineIndex) => <div key={`${line.model_code}-${lineIndex}`} className="grid grid-cols-[minmax(0,1fr)_56px_64px] items-center gap-2 py-2 text-xs"><span className="truncate font-medium">{line.model_code}</span><Input aria-label={`${line.model_code} 数量`} title="数量" className="h-7 px-2" type="number" min={1} value={line.quantity} onChange={(event) => onChange({ ...item, line_items: lineItems.map((current, index) => index === lineIndex ? { ...current, quantity: Math.max(1, Number(event.target.value) || 1) } : current) })} /><Input aria-label={`${line.model_code} 折扣`} title="折扣百分比" className="h-7 px-2" type="number" min={0} max={100} value={line.discount_percent || 0} onChange={(event) => onChange({ ...item, line_items: lineItems.map((current, index) => index === lineIndex ? { ...current, discount_percent: Math.max(0, Math.min(100, Number(event.target.value) || 0)) } : current) })} /></div>)}</div>}
       <label className="mt-4 block text-xs font-medium text-muted-foreground">配置与服务（每行一个）</label>
       <Textarea value={item.components.join('\n')} onChange={(event) => onChange({ ...item, components: event.target.value.split('\n').filter(Boolean) })} className="mt-1 min-h-32" />
       <label className="mt-4 block text-xs font-medium text-muted-foreground">推荐理由</label>
@@ -129,44 +149,35 @@ function PackageColumn({ item, onChange }: { item: SolutionPackage; onChange: (i
   );
 }
 
-export function ConfigurationPanel({ workspace, onChange, products = [] }: BasePanelProps & { products?: SolutionProductOption[] }) {
+export function ConfigurationPanel({ workspace, onChange, products = [], projectId, canManageCatalog = false }: BasePanelProps & { products?: SolutionProductOption[]; projectId: string; canManageCatalog?: boolean }) {
   return (
     <section>
       <div className="mb-4"><h2 className="font-semibold">三档配置建议</h2><p className="text-sm text-muted-foreground">同一需求给出基础、推荐、进阶三种取舍，价格与参数仍需人工核对。</p></div>
-      <ProductCatalogManager products={products} />
+      {canManageCatalog && <ProductCatalogManager products={products} />}
+      <SolutionCPQWorkbench projectId={projectId} workspace={workspace} onChange={onChange} />
       {workspace.packages.length ? <div className="grid border-y py-4 lg:grid-cols-3">{workspace.packages.slice(0, 3).map((item, index) => <PackageColumn key={item.id} item={item} onChange={(next) => onChange({ ...workspace, packages: workspace.packages.map((current, itemIndex) => itemIndex === index ? next : current) })} />)}</div> : <div className="border-y py-16 text-center text-sm text-muted-foreground"><Sparkles className="mx-auto mb-3 h-6 w-6" />生成方案后，这里会出现基础、推荐和进阶三档配置。</div>}
     </section>
   );
 }
 
-export function DraftPanel({ workspace, onChange }: BasePanelProps) {
-  return (
-    <section className="space-y-4">
-      <div><h2 className="font-semibold">方案章节</h2><p className="text-sm text-muted-foreground">编辑结论，并明确每段使用了哪些企业资料。</p></div>
-      {workspace.sections.map((section, index) => (
-        <article key={section.id} className="border-b pb-5">
-          <div className="flex items-center gap-2"><Input value={section.title} onChange={(event) => onChange({ ...workspace, sections: workspace.sections.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item) })} className="font-semibold" /><Button variant={section.status === 'approved' ? 'default' : 'outline'} size="sm" onClick={() => onChange({ ...workspace, sections: workspace.sections.map((item, itemIndex) => itemIndex === index ? { ...item, status: item.status === 'approved' ? 'review' : 'approved' } : item) })}>{section.status === 'approved' && <Check className="mr-1 h-3.5 w-3.5" />}{section.status === 'approved' ? '已批准' : '批准本段'}</Button></div>
-          <Textarea value={section.content} onChange={(event) => onChange({ ...workspace, sections: workspace.sections.map((item, itemIndex) => itemIndex === index ? { ...item, content: event.target.value } : item) })} className="mt-3 min-h-40 leading-6" />
-          <Input value={section.evidence_refs.join('；')} onChange={(event) => onChange({ ...workspace, sections: workspace.sections.map((item, itemIndex) => itemIndex === index ? { ...item, evidence_refs: event.target.value.split(/[；;]/).map((value) => value.trim()).filter(Boolean) } : item) })} className="mt-2" placeholder="证据引用：产品手册第 12 页；历史方案 A" />
-        </article>
-      ))}
-      {!workspace.sections.length && <div className="border-y py-16 text-center text-sm text-muted-foreground">当前没有章节草稿。</div>}
-    </section>
-  );
+export function DraftPanel({ workspace, onChange, projectId }: BasePanelProps & { projectId: string }) {
+  if (!workspace.sections.length) return <div className="border-y py-16 text-center text-sm text-muted-foreground">当前没有章节草稿。</div>;
+  return <SolutionSectionWorkbench projectId={projectId} workspace={workspace} onChange={onChange} />;
 }
 
-export function ReviewPanel({ workspace, onChange }: BasePanelProps) {
+export function ReviewPanel({ workspace, onChange, projectId }: BasePanelProps & { projectId: string }) {
   const readiness = solutionReadiness(workspace);
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <><SolutionQualityPanel projectId={projectId} /><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
       <section><h2 className="font-semibold">外发前人工门禁</h2><div className="mt-4 divide-y border-y">{workspace.review_gates.map((gate, index) => <label key={gate.id} className="flex cursor-pointer items-center gap-3 py-4"><input type="checkbox" checked={gate.passed} onChange={(event) => onChange({ ...workspace, review_gates: workspace.review_gates.map((item, itemIndex) => itemIndex === index ? { ...item, passed: event.target.checked } : item) })} className="h-4 w-4" /><span className="text-sm font-medium">{gate.label}</span><Badge variant={gate.passed ? 'default' : 'outline'} className="ml-auto">{gate.passed ? '已确认' : '待确认'}</Badge></label>)}</div></section>
       <aside className="border-l pl-5"><h3 className="font-medium">质量摘要</h3><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between"><dt className="text-muted-foreground">方案准备度</dt><dd className="font-semibold">{readiness.score}%</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">待核验必选项</dt><dd>{readiness.mustOpen}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">证据引用</dt><dd>{readiness.evidenceCount}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">已批准章节</dt><dd>{readiness.approvedSections}</dd></div></dl><p className="mt-5 text-xs leading-5 text-muted-foreground">系统不会自动对外发送。只有证据、预算和承诺全部通过人工门禁后才开放导出。</p></aside>
-    </div>
+    </div></>
   );
 }
 
 interface DeliveryPanelProps extends BasePanelProps {
   projectId: string;
+  canDeliver?: boolean;
   versions?: SolutionVersionSummary[];
   onExport: (format: 'markdown' | 'docx' | 'pdf' | 'xlsx') => Promise<void>;
   onOutcome: (input: { outcome_type: 'proposal' | 'won' | 'lost' | 'revenue' | 'time_saved'; amount?: number; note?: string }) => Promise<void>;
@@ -175,13 +186,15 @@ interface DeliveryPanelProps extends BasePanelProps {
   onFeedback: (changeType: 'accepted' | 'edited' | 'rejected') => Promise<void>;
 }
 
-export function DeliveryPanel({ workspace, projectId, versions = [], onExport, onOutcome, onPromoteTemplate, onCreateTender, onFeedback }: DeliveryPanelProps) {
+export function DeliveryPanel({ workspace, projectId, canDeliver = false, versions = [], onExport, onOutcome, onPromoteTemplate, onCreateTender, onFeedback }: DeliveryPanelProps) {
   const readiness = solutionReadiness(workspace);
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <section><h2 className="font-semibold">导出交付物</h2><p className="mt-1 text-sm text-muted-foreground">DOCX/PDF 面向客户，XLSX 用于需求与配置内审；导出不会再次调用 AI。</p><div className="mt-5 flex flex-wrap gap-2">{(['docx', 'pdf', 'xlsx', 'markdown'] as const).map((format) => <Button key={format} variant={format === 'docx' ? 'default' : 'outline'} disabled={!projectId || !readiness.canExport} onClick={() => onExport(format)}><FileDown className="mr-2 h-4 w-4" />{format.toUpperCase()}</Button>)}</div><Button className="mt-3" variant="outline" disabled={!projectId} onClick={onCreateTender}><Gavel className="mr-2 h-4 w-4" />转为投标项目</Button>{!readiness.canExport && <p className="mt-3 text-xs text-amber-700">请先核验必选需求、补齐证据、批准全部章节并完成人工门禁。</p>}</section>
       <section className="border-l pl-6"><h2 className="font-semibold">结果回流</h2><p className="mt-1 text-sm text-muted-foreground">记录采用、修改、赢单和丢单，持续校准行业模板。</p><div className="mt-5 flex flex-wrap gap-2"><Button variant="outline" onClick={() => onFeedback('accepted')}>采用本版</Button><Button variant="outline" onClick={() => onFeedback('edited')}>人工改写</Button><Button variant="outline" onClick={() => onOutcome({ outcome_type: 'won' })}>赢单</Button><Button variant="outline" onClick={() => onOutcome({ outcome_type: 'lost' })}>丢单</Button><Button variant="outline" onClick={() => onOutcome({ outcome_type: 'time_saved', amount: 8, note: '方案生成与整理预计节省工时' })}>节省 8 小时</Button></div><Button className="mt-4" variant="secondary" onClick={onPromoteTemplate}>沉淀为企业模板</Button></section>
-      <section className="border-t pt-5 lg:col-span-2"><h2 className="font-semibold">版本记录</h2><p className="mt-1 text-sm text-muted-foreground">每次 AI 生成都会保留独立版本，方便审计模型、时间与降级状态。</p><div className="mt-4 divide-y border-y">{versions.map((version) => <div key={version.id} className="flex flex-wrap items-center gap-3 py-3 text-sm"><span className="font-medium">v{version.version_number}</span><span className="min-w-0 flex-1 truncate">{version.title}</span><Badge variant="outline">{version.generation_metadata?.degraded ? '兜底草稿' : version.generation_metadata?.model || '模型未记录'}</Badge>{version.created_at && <time className="text-xs text-muted-foreground">{new Date(version.created_at).toLocaleString('zh-CN')}</time>}</div>)}{!versions.length && <div className="py-8 text-center text-sm text-muted-foreground">生成第一版方案后，版本记录会出现在这里。</div>}</div></section>
+      <div className="lg:col-span-2"><TenderReadinessPanel projectId={projectId} /></div>
+      <SolutionConnectorDelivery projectId={projectId} canDeliver={canDeliver} />
+      <section className="border-t pt-5 lg:col-span-2"><h2 className="font-semibold">版本记录</h2><p className="mt-1 text-sm text-muted-foreground">每次 AI 生成都会保留独立版本，方便审计模型、时间与降级状态。</p><SolutionVersionCompare projectId={projectId} workspace={workspace} versions={versions} /><div className="mt-4 divide-y border-y">{versions.map((version) => <div key={version.id} className="flex flex-wrap items-center gap-3 py-3 text-sm"><span className="font-medium">v{version.version_number}</span><span className="min-w-0 flex-1 truncate">{version.title}</span><Badge variant="outline">{version.generation_metadata?.degraded ? '兜底草稿' : version.generation_metadata?.model || '模型未记录'}</Badge>{version.created_at && <time className="text-xs text-muted-foreground">{new Date(version.created_at).toLocaleString('zh-CN')}</time>}</div>)}{!versions.length && <div className="py-8 text-center text-sm text-muted-foreground">生成第一版方案后，版本记录会出现在这里。</div>}</div></section>
     </div>
   );
 }

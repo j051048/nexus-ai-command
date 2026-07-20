@@ -109,6 +109,10 @@ export default function SolutionWorkspacePage() {
     try {
       await saveWorkspace.mutateAsync(workspace);
       const result = await generateSolution.mutateAsync();
+      if (result.cached) {
+        toast.success(`输入与资料未变化，已复用第 ${result.version} 版，未产生新的模型费用`);
+        return;
+      }
       toast[result.degraded ? 'warning' : 'success'](
         result.degraded
           ? '模型服务暂时不可用，已生成可编辑的结构化兜底草稿'
@@ -224,11 +228,11 @@ export default function SolutionWorkspacePage() {
         {!selectedProjectId && !projectsQuery.isLoading ? (
           <div className="flex min-h-[380px] flex-col items-center justify-center text-center"><FolderKanban className="h-8 w-8 text-muted-foreground" /><h2 className="mt-4 font-semibold">先建立第一个客户方案</h2><p className="mt-1 max-w-md text-sm text-muted-foreground">关联客户与应用场景后，系统会从企业知识资产和产品目录中检索依据。</p><Button className="mt-5" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />新建客户方案</Button></div>
         ) : (
-          <SolutionWorkspaceContent stage={workspace.active_stage} projectId={selectedProjectId || ''} workspace={workspace} versions={versionsQuery.data} documents={contextQuery.data?.documents} products={contextQuery.data?.products} isExtracting={extractRequirements.isPending} onChange={setWorkspace} onExtract={handleExtract} onExport={handleExport} onOutcome={handleOutcome} onPromoteTemplate={handlePromoteTemplate} onCreateTender={handleCreateTender} onFeedback={handleFeedback} />
+          <SolutionWorkspaceContent stage={workspace.active_stage} projectId={selectedProjectId || ''} workspace={workspace} versions={versionsQuery.data} documents={contextQuery.data?.documents} products={contextQuery.data?.products} canManageCatalog={contextQuery.data?.capabilities?.manage_catalog} canDeliver={contextQuery.data?.capabilities?.deliver_solution} isExtracting={extractRequirements.isPending} onChange={setWorkspace} onExtract={handleExtract} onExport={handleExport} onOutcome={handleOutcome} onPromoteTemplate={handlePromoteTemplate} onCreateTender={handleCreateTender} onFeedback={handleFeedback} />
         )}
       </main>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-xs text-muted-foreground"><span>AI 只在主动生成或重构时调用；编辑、校验和导出不消耗对话模型。</span><span>{workspace.generation.model ? `最近生成模型：${workspace.generation.model}` : '尚未生成 AI 草稿'}</span></footer>
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-xs text-muted-foreground"><span>AI 只在主动生成或重构时调用；编辑、校验和导出不消耗对话模型。</span><span>{workspace.generation.model ? `最近生成：${workspace.generation.model}${workspace.generation.duration_ms ? ` · ${(workspace.generation.duration_ms / 1000).toFixed(1)} 秒` : ''}` : '尚未生成 AI 草稿'}</span></footer>
       <SolutionProjectDialog
         open={createOpen}
         options={contextQuery.data}

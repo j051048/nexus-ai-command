@@ -5,10 +5,18 @@ import { httpClient } from '@/lib/httpClient';
 import type {
   SolutionBrief,
   SolutionAnalytics,
+  SolutionCPQPreview,
+  SolutionCommercialApproval,
+  SolutionConnector,
   SolutionContextOptions,
+  SolutionDeliveryEvent,
+  SolutionEvaluation,
   SolutionProductOption,
   SolutionProject,
+  SolutionReviewComment,
+  TenderReadiness,
   SolutionVersionSummary,
+  SolutionVersionDetail,
   SolutionWorkspaceState,
 } from './types';
 
@@ -120,10 +128,12 @@ export function useSaveSolutionWorkspace(projectId: string | null) {
 export function useGenerateSolution(projectId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (input?: { force?: boolean }) => {
       if (!projectId) throw new Error('请先创建或选择方案项目');
-      const response = await httpClient.post<ApiEnvelope<{ project: SolutionProject; version: number; degraded: boolean }>>(
+      const response = await httpClient.post<ApiEnvelope<{ project: SolutionProject; version: number; degraded: boolean; cached?: boolean }>>(
         `/api/solution-workspace/projects/${projectId}/generate`,
+        undefined,
+        { params: { force: input?.force || false } },
       );
       return response.data.data;
     },
@@ -134,6 +144,175 @@ export function useGenerateSolution(projectId: string | null) {
       void queryClient.invalidateQueries({
         queryKey: ['solution-workspace', 'versions', project.id],
       });
+    },
+  });
+}
+
+export function useSolutionCPQ(projectId: string | null) {
+  return useMutation({
+    mutationFn: async (input: { workspace: SolutionWorkspaceState; price_book_id?: string; tax_rate?: number }) => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<SolutionCPQPreview>>(
+        `/api/solution-workspace/projects/${projectId}/cpq-preview`,
+        input,
+      );
+      return response.data.data;
+    },
+  });
+}
+
+export function useCommercialApprovals(projectId: string | null) {
+  return useQuery({
+    queryKey: ['solution-workspace', 'commercial-approvals', projectId],
+    queryFn: async () => {
+      const response = await httpClient.get<ApiEnvelope<{ approvals: SolutionCommercialApproval[] }>>(
+        `/api/solution-workspace/projects/${projectId}/commercial-approvals`,
+        { silentError: true },
+      );
+      return response.data.data.approvals;
+    },
+    enabled: Boolean(projectId),
+    retry: false,
+  });
+}
+
+export function useRequestCommercialApproval(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      package_id: string;
+      workspace: SolutionWorkspaceState;
+      price_book_id?: string;
+      tax_rate?: number;
+      reason: string;
+    }) => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<SolutionCommercialApproval>>(
+        `/api/solution-workspace/projects/${projectId}/commercial-approvals`,
+        input,
+      );
+      return response.data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({
+      queryKey: ['solution-workspace', 'commercial-approvals', projectId],
+    }),
+  });
+}
+
+export function useSolutionEvaluation(projectId: string | null) {
+  return useMutation({
+    mutationFn: async () => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<SolutionEvaluation>>(
+        `/api/solution-workspace/projects/${projectId}/evaluate`,
+      );
+      return response.data.data;
+    },
+  });
+}
+
+export function useTenderReadiness(projectId: string | null) {
+  return useQuery({
+    queryKey: ['solution-workspace', 'tender-readiness', projectId],
+    queryFn: async () => {
+      const response = await httpClient.get<ApiEnvelope<TenderReadiness>>(
+        `/api/solution-workspace/projects/${projectId}/tender-readiness`,
+        { silentError: true },
+      );
+      return response.data.data;
+    },
+    enabled: Boolean(projectId),
+    staleTime: 30_000,
+    retry: false,
+  });
+}
+
+export function useSolutionConnectors(enabled = true) {
+  return useQuery({
+    queryKey: ['solution-workspace', 'connectors', 'v1'],
+    queryFn: async () => {
+      const response = await httpClient.get<ApiEnvelope<{ connectors: SolutionConnector[] }>>(
+        '/api/solution-workspace/connectors',
+        { silentError: true },
+      );
+      return response.data.data.connectors;
+    },
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useDeliverSolution(projectId: string | null) {
+  return useMutation({
+    mutationFn: async (input: { connector_code: string; request_key: string }) => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<SolutionDeliveryEvent>>(
+        `/api/solution-workspace/projects/${projectId}/deliver`,
+        input,
+      );
+      return response.data.data;
+    },
+  });
+}
+
+export function useSolutionComments(projectId: string | null) {
+  return useQuery({
+    queryKey: ['solution-workspace', 'comments', projectId],
+    queryFn: async () => {
+      const response = await httpClient.get<ApiEnvelope<{ comments: SolutionReviewComment[] }>>(
+        `/api/solution-workspace/projects/${projectId}/comments`,
+        { silentError: true },
+      );
+      return response.data.data.comments;
+    },
+    enabled: Boolean(projectId),
+    retry: false,
+  });
+}
+
+export function useSolutionVersionDetail(projectId: string | null, versionNumber: number | null) {
+  return useQuery({
+    queryKey: ['solution-workspace', 'version-detail', projectId, versionNumber],
+    queryFn: async () => {
+      const response = await httpClient.get<ApiEnvelope<SolutionVersionDetail>>(
+        `/api/solution-workspace/projects/${projectId}/versions/${versionNumber}`,
+        { silentError: true },
+      );
+      return response.data.data;
+    },
+    enabled: Boolean(projectId && versionNumber),
+    retry: false,
+  });
+}
+
+export function useCreateSolutionComment(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { section_id: string; content: string }) => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<SolutionReviewComment>>(
+        `/api/solution-workspace/projects/${projectId}/comments`,
+        input,
+      );
+      return response.data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['solution-workspace', 'comments', projectId] }),
+  });
+}
+
+export function useRewriteSolutionSection(projectId: string | null) {
+  return useMutation({
+    mutationFn: async (input: { section_id: string; mode: 'concise' | 'technical' | 'executive' | 'proofread'; instruction?: string }) => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<{
+        section_id: string;
+        original_content: string;
+        revised_content: string;
+        evidence_refs: string[];
+        model?: string;
+      }>>(`/api/solution-workspace/projects/${projectId}/rewrite-section`, input);
+      return response.data.data;
     },
   });
 }

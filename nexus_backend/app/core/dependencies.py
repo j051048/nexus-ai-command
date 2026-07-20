@@ -114,6 +114,13 @@ async def _get_user_role(user_id: str) -> str | None:
     return "employee"
 
 
+async def get_current_user_role(
+    user_id: str = Depends(get_current_user_id),
+) -> str:
+    """Return the authenticated tenant role for response shaping and policy checks."""
+    return await _get_user_role(user_id) or "employee"
+
+
 async def _is_platform_super_admin(user_id: str) -> bool:
     """Return whether the user has platform-level super-admin privileges.
 

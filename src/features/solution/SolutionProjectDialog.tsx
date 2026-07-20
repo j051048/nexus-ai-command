@@ -65,6 +65,16 @@ export function SolutionProjectDialog({
     }));
   };
 
+  const selectScenarioPack = (code: string) => {
+    const pack = options?.scenario_packs?.find((item) => item.code === code);
+    setForm((current) => ({
+      ...current,
+      scenario_pack_code: code || null,
+      instrument_line_code: pack?.instrument_line_code || current.instrument_line_code,
+      industry: pack?.industry || current.industry,
+    }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -77,6 +87,14 @@ export function SolutionProjectDialog({
           <label className="space-y-1.5 text-sm font-medium md:col-span-2">
             方案名称
             <Input value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="例如：华东制药实验室液相色谱升级方案" />
+          </label>
+          <label className="space-y-1.5 text-sm font-medium md:col-span-2">
+            行业场景包
+            <select value={form.scenario_pack_code || ''} onChange={(event) => selectScenarioPack(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+              <option value="">不使用场景包</option>
+              {options?.scenario_packs?.map((pack) => <option key={pack.code} value={pack.code}>{pack.name}</option>)}
+            </select>
+            {form.scenario_pack_code && <span className="block text-xs font-normal text-muted-foreground">场景包只预置核验清单和章节结构，不会填入未经确认的客户事实。</span>}
           </label>
           <label className="space-y-1.5 text-sm font-medium">
             关联客户

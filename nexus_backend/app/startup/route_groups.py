@@ -68,6 +68,7 @@ def register_crm_sales_routes(app: FastAPI) -> None:
         sales,
         sales_leads,
         solution_workspace,
+        solution_workspace_ops,
         tender_workspace,
     )
 
@@ -75,6 +76,7 @@ def register_crm_sales_routes(app: FastAPI) -> None:
         crm.router,
         growth_command.router,
         solution_workspace.router,
+        solution_workspace_ops.router,
         tender_workspace.router,
         sales_leads.router,
         sales.router,

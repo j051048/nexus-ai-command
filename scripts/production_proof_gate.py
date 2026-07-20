@@ -518,6 +518,40 @@ CHECKS = [
         ),
     ),
     ProofCheck(
+        "scientific solution operational schema",
+        "supabase/migrations/20260721_solution_workspace_operational_depth.sql",
+        (
+            "solution_price_books",
+            "solution_commercial_approvals",
+            "solution_review_comments",
+            "solution_quality_eval_runs",
+            "request_key",
+        ),
+    ),
+    ProofCheck(
+        "scientific solution operational services",
+        "nexus_backend/app/routers/solution_workspace_ops.py",
+        (
+            "cpq-preview",
+            "commercial-approvals",
+            "rewrite-section",
+            "tender-readiness",
+            "learning-insights",
+            "deliver",
+        ),
+    ),
+    ProofCheck(
+        "scientific solution real staging flow",
+        "scripts/run_staging_golden_flows.py",
+        (
+            "prove_solution_workflow",
+            "solution.generate",
+            "solution.evaluate",
+            "solution.tender_readiness",
+            "solution.export",
+        ),
+    ),
+    ProofCheck(
         "production proof wired to CI",
         ".github/workflows/ci.yml",
         ("production_proof_gate.py", "tests/production_proof"),
@@ -549,6 +583,17 @@ def validate_agent_eval_case_count() -> tuple[bool, str]:
     return True, ""
 
 
+def validate_solution_eval_case_count() -> tuple[bool, str]:
+    dataset = json.loads(
+        (ROOT / "nexus_backend/evals/datasets/solution_quality_cases.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    if len(dataset.get("cases") or []) < 12:
+        return False, "solution eval case count below 12"
+    return True, ""
+
+
 def main() -> int:
     failures: list[str] = []
     print("Production proof gate")
@@ -565,6 +610,11 @@ def main() -> int:
 
     ok, reason = validate_agent_eval_case_count()
     print(f"{'OK' if ok else 'FAIL':<4} agent eval case count")
+    if not ok:
+        failures.append(reason)
+
+    ok, reason = validate_solution_eval_case_count()
+    print(f"{'OK' if ok else 'FAIL':<4} solution eval case count")
     if not ok:
         failures.append(reason)
 
