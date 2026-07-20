@@ -69,4 +69,16 @@ describe('solution workspace model', () => {
     workspace.sections[0].status = 'review';
     expect(solutionReadiness(workspace).canExport).toBe(false);
   });
+
+  it('blocks delivery when catalog configuration has deterministic errors', () => {
+    const workspace = readyWorkspace();
+    workspace.extension_data.commercial_validation = {
+      valid: false,
+      errors: ['UNKNOWN model is not in the product catalog'],
+    };
+
+    expect(solutionReadiness(workspace).commercialValid).toBe(false);
+    expect(solutionReadiness(workspace).canExport).toBe(false);
+    expect(solutionReadiness(workspace).score).toBe(90);
+  });
 });

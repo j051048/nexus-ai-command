@@ -10,14 +10,16 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from docx import Document
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 
 from app.services.llm_gateway import llm_gateway
+from app.services.scientific_instrument_domain import build_instrument_context
+from app.services.solution_commercial_service import (
+    enrich_workspace_commercials,
+    extract_requirement_candidates,
+)
 
 WORKSPACE_SCHEMA_VERSION = "solution-workspace.v1"
 STAGES = ["brief", "requirements", "configuration", "draft", "review", "delivery"]
@@ -185,6 +187,8 @@ def validate_workspace(workspace: dict[str, Any]) -> dict[str, Any]:
             or not str(item.get("evidence_ref") or "").strip()
         )
     )
+    commercial = (workspace.get("extension_data") or {}).get("commercial_validation")
+    commercial_valid = not isinstance(commercial, dict) or bool(commercial.get("valid"))
     checks = {
         "has_brief": bool((workspace.get("brief") or {}).get("title")),
         "has_requirements": bool(requirements),
@@ -196,6 +200,7 @@ def validate_workspace(workspace: dict[str, Any]) -> dict[str, Any]:
         "must_requirements_verified": open_claims == 0,
         "review_gates_passed": bool(review_gates)
         and all(bool(item.get("passed")) for item in review_gates),
+        "commercial_configuration_valid": commercial_valid,
     }
     return {
         "checks": checks,
@@ -203,6 +208,101 @@ def validate_workspace(workspace: dict[str, Any]) -> dict[str, Any]:
         "evidence_count": evidence_count,
         "open_claims": open_claims,
         "completion": round(sum(checks.values()) / len(checks) * 100),
+    }
+
+
+async def extract_requirements(
+    *,
+    documents: list[dict[str, Any]],
+    brief: dict[str, Any],
+    user_id: str,
+    organization_id: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Extract a traceable requirement matrix, with deterministic fallback."""
+    fallback = extract_requirement_candidates(documents)
+    document_payload = []
+    for document in documents[:12]:
+        extracted = document.get("extracted_data") or {}
+        if isinstance(extracted, dict):
+            content = extracted.get("full_text_context") or extracted.get("summary")
+        else:
+            content = str(extracted)
+        document_payload.append(
+            {
+                "id": str(document.get("id") or ""),
+                "name": document.get("name"),
+                "doc_type": document.get("doc_type"),
+                "source_version": document.get("source_version"),
+                "valid_until": document.get("valid_until"),
+                "content": str(content or "")[:10000],
+            }
+        )
+    if not document_payload:
+        return fallback, {"degraded": True, "reason": "no_documents"}
+    response = await llm_gateway.chat(
+        scene_code="solution_requirement_extraction",
+        agent_code="scientific_requirement_analyst",
+        user_id=user_id,
+        org_id=organization_id,
+        system_prompt=(
+            "你是科学仪器售前需求分析师。只提取资料中明确存在的需求，不补造参数。"
+            "输出 JSON 对象 {requirements: []}。每项必须包含 title、priority、"
+            "source_document_id、source_name、source_excerpt；priority 只能是 must、"
+            "should、optional。否决项、必须项、强制项归类为 must。"
+        ),
+        messages=[
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {"brief": brief, "documents": document_payload},
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            }
+        ],
+        temperature=0,
+        max_tokens=2600,
+    )
+    parsed = (
+        _parse_json_object(response.content)
+        if response.finish_reason != "error"
+        else None
+    )
+    rows = parsed.get("requirements") if isinstance(parsed, dict) else None
+    if not isinstance(rows, list):
+        return fallback, {
+            "degraded": True,
+            "model": response.model_code,
+            "usage": response.usage,
+        }
+    document_names = {
+        str(item.get("id")): item.get("name") for item in document_payload
+    }
+    normalized: list[dict[str, Any]] = []
+    for index, row in enumerate(rows[:100]):
+        if not isinstance(row, dict) or not str(row.get("title") or "").strip():
+            continue
+        source_id = str(row.get("source_document_id") or "")
+        normalized.append(
+            {
+                "id": f"req-doc-{index + 1}",
+                "title": str(row["title"]).strip()[:500],
+                "priority": (
+                    row.get("priority")
+                    if row.get("priority") in {"must", "should", "optional"}
+                    else "should"
+                ),
+                "status": "open",
+                "evidence_ref": source_id or None,
+                "source_document_id": source_id or None,
+                "source_name": row.get("source_name") or document_names.get(source_id),
+                "source_excerpt": str(row.get("source_excerpt") or "")[:500],
+            }
+        )
+    return normalized or fallback, {
+        "degraded": not bool(normalized),
+        "model": response.model_code,
+        "usage": response.usage,
     }
 
 
@@ -221,6 +321,10 @@ async def generate_solution(
     template_context = json.dumps(template or {}, ensure_ascii=False, default=str)[
         :5000
     ]
+    domain_context = build_instrument_context(
+        brief.get("instrument_line_code"),
+        application_field=brief.get("application_scenario"),
+    )
     system_prompt = """你是科学仪器企业的资深售前方案架构师，覆盖光谱、色谱、质谱、能谱及电子测试仪器。
 只允许依据输入的客户事实、产品目录和企业知识资料写作。不得虚构参数、资质、交付周期、价格或客户案例；证据不足时明确写“待核验”。
 输出严格 JSON 对象，字段仅包含 requirements、packages、sections。packages 必须提供基础、推荐、进阶三档；sections 中每段必须有 evidence_refs 数组。
@@ -231,6 +335,7 @@ async def generate_solution(
         "product_catalog": product_context,
         "enterprise_knowledge": source_context,
         "approved_template": template_context,
+        "instrument_domain_playbook": domain_context,
         "output_schema": {
             "requirements": [
                 {
@@ -285,19 +390,22 @@ async def generate_solution(
     )
     degraded = generated is None
     generated = generated or _fallback_draft(brief, products)
-    workspace = {
-        **current_workspace,
-        **generated,
-        "schema_version": WORKSPACE_SCHEMA_VERSION,
-        "active_stage": "review",
-        "generation": {
-            "generated_at": datetime.now(UTC).isoformat(),
-            "model": response.model_code,
-            "usage": response.usage,
-            "degraded": degraded,
-            "knowledge_context_available": bool(knowledge_context),
+    workspace = enrich_workspace_commercials(
+        {
+            **current_workspace,
+            **generated,
+            "schema_version": WORKSPACE_SCHEMA_VERSION,
+            "active_stage": "review",
+            "generation": {
+                "generated_at": datetime.now(UTC).isoformat(),
+                "model": response.model_code,
+                "usage": response.usage,
+                "degraded": degraded,
+                "knowledge_context_available": bool(knowledge_context),
+            },
         },
-    }
+        products,
+    )
     workspace["quality"] = validate_workspace(workspace)
     return workspace, workspace["generation"]
 
@@ -336,10 +444,24 @@ def workspace_markdown(project: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def export_docx(project: dict[str, Any]) -> bytes:
+def export_docx(project: dict[str, Any], brand: dict[str, Any] | None = None) -> bytes:
     markdown = workspace_markdown(project)
     document = Document()
+    brand = brand or {}
+    title = document.add_heading(project.get("title") or "客户解决方案", level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle = document.add_paragraph(
+        str(brand.get("company_name") or brand.get("name") or "企业解决方案")
+    )
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    document.add_paragraph(
+        f"项目编号：{project.get('project_code') or '-'}    "
+        f"版本：v{project.get('current_version') or 0}"
+    ).alignment = WD_ALIGN_PARAGRAPH.CENTER
+    document.add_page_break()
     for line in markdown.splitlines():
+        if line.startswith("# "):
+            continue
         if line.startswith("### "):
             document.add_heading(line[4:], level=3)
         elif line.startswith("## "):
@@ -357,7 +479,114 @@ def export_docx(project: dict[str, Any]) -> bytes:
     return buffer.getvalue()
 
 
+def export_xlsx(project: dict[str, Any]) -> bytes:
+    """Export requirement and configuration matrices for internal review."""
+    workspace = project.get("workspace") or {}
+    workbook = Workbook()
+    requirements_sheet = workbook.active
+    requirements_sheet.title = "Requirement Matrix"
+    requirement_headers = [
+        "Priority",
+        "Requirement",
+        "Status",
+        "Evidence",
+        "Source",
+        "Excerpt",
+    ]
+    requirements_sheet.append(requirement_headers)
+    for requirement in workspace.get("requirements") or []:
+        requirements_sheet.append(
+            [
+                requirement.get("priority"),
+                requirement.get("title"),
+                requirement.get("status"),
+                requirement.get("evidence_ref"),
+                requirement.get("source_name"),
+                requirement.get("source_excerpt"),
+            ]
+        )
+
+    configuration_sheet = workbook.create_sheet("Configuration")
+    configuration_headers = [
+        "Package",
+        "Positioning",
+        "Models",
+        "Components",
+        "Currency",
+        "List Price",
+        "Standard Cost",
+        "Gross Margin %",
+        "Lead Time Days",
+        "Warnings",
+    ]
+    configuration_sheet.append(configuration_headers)
+    for package in workspace.get("packages") or []:
+        commercial = package.get("commercial") or {}
+        configuration_sheet.append(
+            [
+                package.get("name"),
+                package.get("positioning"),
+                "\n".join(package.get("product_models") or []),
+                "\n".join(package.get("components") or []),
+                commercial.get("currency"),
+                commercial.get("list_price"),
+                commercial.get("standard_cost"),
+                commercial.get("gross_margin_percent"),
+                commercial.get("lead_time_days"),
+                "\n".join(commercial.get("validation_warnings") or []),
+            ]
+        )
+
+    evidence_sheet = workbook.create_sheet("Evidence")
+    evidence_sheet.append(
+        ["Document", "Title", "Type", "Version", "Valid Until", "Score", "Excerpt"]
+    )
+    evidence_catalog = (workspace.get("extension_data") or {}).get(
+        "evidence_catalog"
+    ) or []
+    for evidence in evidence_catalog:
+        evidence_sheet.append(
+            [
+                evidence.get("document_id"),
+                evidence.get("title"),
+                evidence.get("doc_type"),
+                evidence.get("source_version"),
+                evidence.get("valid_until"),
+                evidence.get("score"),
+                evidence.get("excerpt"),
+            ]
+        )
+
+    for sheet in workbook.worksheets:
+        for cell in sheet[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="1F4B6E")
+            cell.alignment = Alignment(vertical="center")
+        sheet.freeze_panes = "A2"
+        sheet.auto_filter.ref = sheet.dimensions
+        for column in sheet.columns:
+            letter = column[0].column_letter
+            max_length = min(
+                48,
+                max(len(str(cell.value or "")) for cell in column) + 2,
+            )
+            sheet.column_dimensions[letter].width = max(12, max_length)
+        for row in sheet.iter_rows(min_row=2):
+            for cell in row:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
 def export_pdf(project: dict[str, Any]) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
     buffer = io.BytesIO()
     pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
     styles = getSampleStyleSheet()

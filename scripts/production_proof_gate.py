@@ -348,6 +348,50 @@ CHECKS = [
         ("MODULE_TIER_LABELS", "reward_model", "audit_summary"),
     ),
     ProofCheck(
+        "solution commercial data foundation",
+        "supabase/migrations/20260720_solution_commercial_depth.sql",
+        (
+            "instrument_product_catalog",
+            "solution_feedback_events",
+            "solution_delivery_events",
+            "enterprise_connector_registry",
+            "ENABLE ROW LEVEL SECURITY",
+        ),
+    ),
+    ProofCheck(
+        "evidence-grounded solution commercial service",
+        "nexus_backend/app/services/solution_commercial_service.py",
+        (
+            "enrich_workspace_commercials",
+            "extract_requirement_candidates",
+            "solution_value_metrics",
+            "validation_errors",
+            "gross_margin_percent",
+        ),
+    ),
+    ProofCheck(
+        "solution workspace operating contract",
+        "nexus_backend/app/routers/solution_workspace.py",
+        (
+            "/extract-requirements",
+            "/create-tender",
+            "/analytics",
+            "/connectors",
+            "search_evidence",
+            "export_xlsx",
+        ),
+    ),
+    ProofCheck(
+        "knowledge asset governance contract",
+        "nexus_backend/app/routers/documents.py",
+        (
+            '"/{document_id}/review"',
+            "review_status",
+            "source_version",
+            "quality_score",
+        ),
+    ),
+    ProofCheck(
         "GraphRAG P0-P2 foundation contract",
         "nexus_backend/tests/production_proof/test_graph_rag_p0_p2_contract.py",
         (

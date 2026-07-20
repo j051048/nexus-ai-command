@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
@@ -14,6 +15,7 @@ from app.services.etl_service import etl_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
+require_kb_admin = require_role(["admin", "founder", "boss"])
 
 
 def _is_postgrest_204(e: Exception) -> bool:
@@ -240,6 +242,7 @@ async def upload_documents(
                 visibility=visibility,
                 department=user_department,
                 content_hash=content_hash,
+                category=category,
                 organization_id=org_id,
             )
 
@@ -253,6 +256,7 @@ async def upload_documents(
                 base_url=base_url,
                 user_id=user_id,
                 organization_id=org_id,
+                category=category,
             )
 
             results.append(
@@ -536,6 +540,13 @@ class UpdateCategoryRequest(BaseModel):
     ] = Field(..., description="文档分类")
 
 
+class KnowledgeReviewRequest(BaseModel):
+    review_status: Literal["pending", "verified", "rejected", "expired"]
+    source_version: str | None = Field(default=None, max_length=80)
+    valid_until: datetime | None = None
+    quality_score: float | None = Field(default=None, ge=0, le=1)
+
+
 @router.patch("/{document_id}/category", response_model=StandardResponse)
 async def update_document_category(
     document_id: str,
@@ -569,10 +580,33 @@ async def update_document_category(
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新分类失败")
 
 
-# ============== Bulk Import Endpoint ==============
+@router.patch("/{document_id}/review", response_model=StandardResponse)
+async def review_knowledge_document(
+    document_id: str,
+    body: KnowledgeReviewRequest,
+    req: Request,
+    user_id: str = Depends(require_kb_admin),
+):
+    """Verify the version, validity and retrieval quality of a knowledge asset."""
+    client = get_request_db(req)
+    org_id = getattr(req.state, "org_id", None)
+    payload = body.model_dump(mode="json")
+    payload.update(
+        {
+            "reviewed_by": user_id,
+            "reviewed_at": datetime.now(UTC).isoformat(),
+        }
+    )
+    query = client.table("documents").update(payload).eq("id", document_id)
+    if org_id:
+        query = query.eq("organization_id", org_id)
+    result = await query.execute()
+    if not result.data:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "文档不存在或无权审核")
+    return api_success(data=result.data[0], message="知识资料审核状态已更新")
 
-# Role check dependency: admin / founder / boss only
-require_kb_admin = require_role(["admin", "founder", "boss"])
+
+# ============== Bulk Import Endpoint ==============
 
 
 class BulkImportDocumentItem(BaseModel):

@@ -48,7 +48,26 @@ async function setupSolutionMocks(page: Page) {
     if (url.pathname.endsWith('/context-options')) {
       await fulfillJson(route, {
         success: true,
-        data: { customers: [], products: [], templates: [] },
+        data: { customers: [], products: [], templates: [], documents: [] },
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/analytics')) {
+      await fulfillJson(route, {
+        success: true,
+        data: {
+          projects: 1,
+          generated_projects: 0,
+          delivered_projects: 0,
+          won_projects: 0,
+          win_rate: 0,
+          average_readiness: 0,
+          feedback_events: 0,
+          acceptance_rate: 0,
+          delivery_events: 0,
+          total_tokens: 0,
+          estimated_cost_usd: 0,
+        },
       });
       return;
     }

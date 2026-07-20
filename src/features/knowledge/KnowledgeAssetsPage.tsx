@@ -45,6 +45,11 @@ interface KnowledgeDocument {
   status?: string;
   created_at?: string;
   extracted_data?: { summary?: string; tags?: string[] } | string;
+  review_status?: 'pending' | 'verified' | 'rejected' | 'expired';
+  source_version?: string | null;
+  valid_until?: string | null;
+  quality_score?: number | null;
+  indexed_at?: string | null;
 }
 
 function normalizeDocument(row: KnowledgeDocument): KnowledgeDocument {
@@ -112,6 +117,27 @@ export default function KnowledgeAssetsPage() {
   const indexedCount = documents.filter((document) =>
     ['ready', 'completed'].includes(document.status || ''),
   ).length;
+  const verifiedCount = documents.filter((document) => document.review_status === 'verified').length;
+  const staleCount = documents.filter((document) =>
+    document.review_status === 'expired'
+    || Boolean(document.valid_until && new Date(document.valid_until).getTime() < Date.now()),
+  ).length;
+
+  const reviewDocument = async (document: KnowledgeDocument, reviewStatus: 'verified' | 'expired') => {
+    try {
+      const response = await httpClient.patch(`/api/documents/${document.id}/review`, {
+        review_status: reviewStatus,
+        source_version: document.source_version || 'current',
+        valid_until: document.valid_until || null,
+        quality_score: reviewStatus === 'verified' ? (document.quality_score ?? 1) : document.quality_score,
+      }, { silentError: true });
+      const updated = response.data?.data;
+      setDocuments((current) => current.map((item) => item.id === document.id ? normalizeDocument({ ...item, ...updated }) : item));
+      toast.success(reviewStatus === 'verified' ? '资料已标记为可信证据' : '资料已停止用于正式证据');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '资料审核状态更新失败');
+    }
+  };
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -201,7 +227,7 @@ export default function KnowledgeAssetsPage() {
       <KnowledgeSubnav />
 
       <div className="mx-auto max-w-7xl px-6 py-5">
-        <section className="grid border-y sm:grid-cols-3">
+        <section className="grid border-y sm:grid-cols-4">
           <div className="py-4 sm:border-r sm:px-4 sm:first:pl-0">
             <div className="text-2xl font-semibold">{documents.length}</div>
             <div className="mt-1 text-xs text-muted-foreground">企业资料</div>
@@ -210,9 +236,13 @@ export default function KnowledgeAssetsPage() {
             <div className="text-2xl font-semibold">{indexedCount}</div>
             <div className="mt-1 text-xs text-muted-foreground">可被 AI 检索</div>
           </div>
-          <div className="py-4 sm:px-4">
+          <div className="py-4 sm:border-r sm:px-4">
             <div className="text-2xl font-semibold">{new Set(documents.map((item) => item.doc_type || item.category)).size}</div>
             <div className="mt-1 text-xs text-muted-foreground">知识分类</div>
+          </div>
+          <div className="py-4 sm:px-4">
+            <div className="text-2xl font-semibold">{verifiedCount}<span className="ml-2 text-sm font-normal text-amber-700">{staleCount ? `${staleCount} 过期` : ''}</span></div>
+            <div className="mt-1 text-xs text-muted-foreground">已审核可信资料</div>
           </div>
         </section>
 
@@ -275,6 +305,7 @@ export default function KnowledgeAssetsPage() {
                       ) : (
                         <span className="text-xs text-amber-700">处理中</span>
                       )}
+                      <Badge variant={document.review_status === 'verified' ? 'default' : 'secondary'}>{document.review_status === 'verified' ? '可信证据' : document.review_status === 'expired' ? '已过期' : '待审核'}</Badge>
                     </div>
                     <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                       {extracted?.summary || '等待 AI 提取摘要与可引用证据'}
@@ -282,8 +313,12 @@ export default function KnowledgeAssetsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  {document.source_version && <span>v{document.source_version}</span>}
+                  {document.valid_until && <time>有效至 {new Date(document.valid_until).toLocaleDateString('zh-CN')}</time>}
                   <span className="flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" />{visibilityLabel(document.visibility)}</span>
                   {document.created_at && <time>{new Date(document.created_at).toLocaleDateString('zh-CN')}</time>}
+                  {document.review_status !== 'verified' && isReady && <Button variant="ghost" size="sm" onClick={() => reviewDocument(document, 'verified')}>设为可信</Button>}
+                  {document.review_status === 'verified' && <Button variant="ghost" size="sm" onClick={() => reviewDocument(document, 'expired')}>停用证据</Button>}
                 </div>
               </article>
             );

@@ -14,6 +14,7 @@ import io  # noqa: F401
 import json
 import logging
 import re
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -223,6 +224,7 @@ class ETLService:
 
         record = {
             "name": filename,
+            "doc_type": category,
             "status": "pending",
             "progress": 0,
             "stage": "uploading",
@@ -278,6 +280,7 @@ class ETLService:
         base_url: str = None,
         user_id: str = None,
         organization_id: str = None,
+        category: str | None = None,
     ) -> dict:
         """Main ETL pipeline: parse -> extract metadata -> generate embeddings."""
         logger.info(
@@ -334,13 +337,22 @@ class ETLService:
                     if doc_id:
                         safe_text = self._scrub_pii(text)
                         details["full_text_context"] = safe_text[:100000]
+                        resolved_category = (
+                            category
+                            if category and category != "other"
+                            else details.get("doc_type", "other")
+                        )
+                        details["doc_type"] = resolved_category
+                        details["manual_category"] = bool(
+                            category and category != "other"
+                        )
 
                         await (
                             supabase.table("documents")
                             .update(
                                 {
                                     "extracted_data": details,
-                                    "doc_type": details.get("doc_type", "other"),
+                                    "doc_type": resolved_category,
                                     "status": "processing",
                                 }
                             )
@@ -369,8 +381,18 @@ class ETLService:
                     )
 
                     if embedding_success:
-                        await self._update_progress(
-                            doc_id, 100, "completed", status="ready"
+                        await (
+                            supabase.table("documents")
+                            .update(
+                                {
+                                    "progress": 100,
+                                    "stage": "completed",
+                                    "status": "ready",
+                                    "indexed_at": datetime.now(UTC).isoformat(),
+                                }
+                            )
+                            .eq("id", doc_id)
+                            .execute()
                         )
                         logger.info(
                             f"[ETL] Pipeline complete: doc={doc_id} file={filename}"

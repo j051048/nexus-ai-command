@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpenCheck, CheckCircle2, FileStack, FolderKanban, Gauge, Loader2, Plus, Save, Sparkles } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +11,16 @@ import { SolutionWorkspaceContent } from '@/features/solution/SolutionWorkspaceC
 import type { SolutionStage, SolutionWorkspaceState } from '@/features/solution/types';
 import {
   downloadSolution,
+  useCreateTenderFromSolution,
   useCreateSolutionProject,
+  useExtractSolutionRequirements,
   useGenerateSolution,
   usePromoteSolutionTemplate,
   useSaveSolutionWorkspace,
+  useSolutionAnalytics,
   useSolutionContextOptions,
   useSolutionOutcome,
+  useSolutionFeedback,
   useSolutionProjects,
   useSolutionVersions,
 } from '@/features/solution/useSolutionWorkspace';
@@ -37,12 +41,14 @@ function nextAction(stage: SolutionStage, readiness: ReturnType<typeof solutionR
 }
 
 export default function SolutionWorkspacePage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const openedCustomerRef = useRef<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [workspace, setWorkspace] = useState<SolutionWorkspaceState>(() => createSolutionWorkspace());
   const projectsQuery = useSolutionProjects();
   const contextQuery = useSolutionContextOptions();
+  const analyticsQuery = useSolutionAnalytics();
   const createProject = useCreateSolutionProject();
   const selectedProjectId = searchParams.get('project');
   const initialCustomerId = searchParams.get('customer');
@@ -52,6 +58,9 @@ export default function SolutionWorkspacePage() {
   );
   const saveWorkspace = useSaveSolutionWorkspace(selectedProjectId);
   const generateSolution = useGenerateSolution(selectedProjectId);
+  const extractRequirements = useExtractSolutionRequirements(selectedProjectId);
+  const createTender = useCreateTenderFromSolution(selectedProjectId);
+  const solutionFeedback = useSolutionFeedback(selectedProjectId);
   const outcome = useSolutionOutcome(selectedProjectId);
   const promoteTemplate = usePromoteSolutionTemplate(selectedProjectId);
   const versionsQuery = useSolutionVersions(selectedProjectId);
@@ -110,7 +119,19 @@ export default function SolutionWorkspacePage() {
     }
   };
 
-  const handleExport = async (format: 'markdown' | 'docx' | 'pdf') => {
+  const handleExtract = async (documentIds: string[]) => {
+    try {
+      const result = await extractRequirements.mutateAsync({ document_ids: documentIds });
+      if (result.project.workspace) setWorkspace(result.project.workspace);
+      toast[result.degraded ? 'warning' : 'success'](
+        result.degraded ? '已使用本地规则生成需求，请重点复核必选项' : `已提取 ${result.extracted_count} 条带来源需求`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '需求提取失败');
+    }
+  };
+
+  const handleExport = async (format: 'markdown' | 'docx' | 'pdf' | 'xlsx') => {
     if (!selectedProjectId) return;
     try {
       await downloadSolution(selectedProjectId, format);
@@ -118,6 +139,21 @@ export default function SolutionWorkspacePage() {
     } catch {
       toast.error('仍有未核验项，完成审校后再导出');
     }
+  };
+
+  const handleCreateTender = async () => {
+    try {
+      const tender = await createTender.mutateAsync();
+      toast.success('已生成关联投标项目与应答矩阵');
+      navigate(`/tender-analysis?project=${tender.id}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '转为投标项目失败');
+    }
+  };
+
+  const handleFeedback = async (changeType: 'accepted' | 'edited' | 'rejected') => {
+    await solutionFeedback.mutateAsync({ change_type: changeType });
+    toast.success('本次反馈已进入方案学习样本');
   };
 
   const handleOutcome = async (input: Parameters<typeof outcome.mutateAsync>[0]) => {
@@ -166,6 +202,16 @@ export default function SolutionWorkspacePage() {
         ].map((metric) => <div key={metric.label} className="border-b p-4 odd:border-r [&:nth-child(n+3)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0"><div className="flex items-center gap-2 text-xs text-muted-foreground"><metric.icon className="h-3.5 w-3.5" />{metric.label}</div><div className="mt-2 truncate text-sm font-semibold tabular-nums">{metric.value}</div></div>)}
       </section>
 
+      {analyticsQuery.data && (
+        <section className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b pb-3 text-xs text-muted-foreground" aria-label="方案价值指标">
+          <span>团队方案 <strong className="text-foreground">{analyticsQuery.data.projects}</strong></span>
+          <span>赢单率 <strong className="text-foreground">{analyticsQuery.data.win_rate}%</strong></span>
+          <span>AI 采用率 <strong className="text-foreground">{analyticsQuery.data.acceptance_rate}%</strong></span>
+          <span>累计 Token <strong className="text-foreground">{analyticsQuery.data.total_tokens.toLocaleString()}</strong></span>
+          <span>估算成本 <strong className="text-foreground">${analyticsQuery.data.estimated_cost_usd.toFixed(4)}</strong></span>
+        </section>
+      )}
+
       <section className="flex flex-col gap-3 border-l-2 border-primary bg-primary/[0.035] px-4 py-3 md:flex-row md:items-center">
         <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
         <div className="min-w-0 flex-1"><div className="text-sm font-semibold">{action[0]}</div><div className="text-xs text-muted-foreground">{action[1]}</div></div>
@@ -178,7 +224,7 @@ export default function SolutionWorkspacePage() {
         {!selectedProjectId && !projectsQuery.isLoading ? (
           <div className="flex min-h-[380px] flex-col items-center justify-center text-center"><FolderKanban className="h-8 w-8 text-muted-foreground" /><h2 className="mt-4 font-semibold">先建立第一个客户方案</h2><p className="mt-1 max-w-md text-sm text-muted-foreground">关联客户与应用场景后，系统会从企业知识资产和产品目录中检索依据。</p><Button className="mt-5" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />新建客户方案</Button></div>
         ) : (
-          <SolutionWorkspaceContent stage={workspace.active_stage} projectId={selectedProjectId || ''} workspace={workspace} versions={versionsQuery.data} onChange={setWorkspace} onExport={handleExport} onOutcome={handleOutcome} onPromoteTemplate={handlePromoteTemplate} />
+          <SolutionWorkspaceContent stage={workspace.active_stage} projectId={selectedProjectId || ''} workspace={workspace} versions={versionsQuery.data} documents={contextQuery.data?.documents} products={contextQuery.data?.products} isExtracting={extractRequirements.isPending} onChange={setWorkspace} onExtract={handleExtract} onExport={handleExport} onOutcome={handleOutcome} onPromoteTemplate={handlePromoteTemplate} onCreateTender={handleCreateTender} onFeedback={handleFeedback} />
         )}
       </main>
 

@@ -376,6 +376,87 @@ class VectorService:
                 return f"知识库检索失败，请稍后重试。如果问题持续，请联系管理员。（错误: {str(e)[:80]}）"
             return self._search_mock(query)
 
+    async def search_evidence(
+        self,
+        query: str,
+        user_id: str,
+        limit: int = 6,
+        *,
+        org_id: str,
+        config: dict | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return hybrid-search results as auditable evidence records."""
+        if not _valid_uuid(org_id):
+            logger.error("Structured evidence search called without a valid org_id")
+            return []
+        query = sanitize_search_query(query)
+        if not query:
+            return []
+        limit = min(max(1, limit), 10)
+        api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
+        raw_url = (
+            (config or {}).get("base_url")
+            or settings.AI_BASE_URL
+            or "https://api.openai.com/v1"
+        )
+        base_url = (
+            raw_url.split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
+        )
+        embedding_model = EMBEDDING_MODEL
+        try:
+            gw_api_key, gw_base_url, gw_model = await self._get_embedding_config(org_id)
+            api_key = gw_api_key or api_key
+            base_url = (gw_base_url or base_url).rstrip("/")
+            embedding_model = gw_model or embedding_model
+        except Exception as exc:
+            logger.debug("Embedding configuration fallback: %s", exc)
+        if not api_key:
+            return []
+        if "/v1" not in base_url and "api.openai.com" not in base_url:
+            base_url = f"{base_url}/v1"
+        client = AsyncOpenAI(
+            api_key=api_key, base_url=base_url, timeout=_OPENAI_TIMEOUT
+        )
+        try:
+            result = await self._search_supabase(
+                query,
+                user_id,
+                limit,
+                client,
+                org_id=org_id,
+                embedding_model=embedding_model,
+                structured=True,
+            )
+            evidence = result if isinstance(result, list) else []
+            document_ids = [
+                item["document_id"] for item in evidence if item.get("document_id")
+            ]
+            if document_ids:
+                governance = (
+                    await supabase.table("documents")
+                    .select(
+                        "id,name,doc_type,review_status,source_version,valid_until,quality_score"
+                    )
+                    .eq("organization_id", org_id)
+                    .in_("id", document_ids)
+                    .execute()
+                )
+                by_id = {str(item["id"]): item for item in governance.data or []}
+                governed: list[dict[str, Any]] = []
+                for item in evidence:
+                    record = by_id.get(str(item.get("document_id")))
+                    if record and record.get("review_status") in {
+                        "rejected",
+                        "expired",
+                    }:
+                        continue
+                    governed.append({**item, **(record or {})})
+                return governed
+            return evidence
+        except Exception as exc:
+            logger.error("Structured evidence search failed: %s", exc)
+            return []
+
     async def _search_supabase(
         self,
         query: str,
@@ -385,7 +466,8 @@ class VectorService:
         filters: dict[str, Any] = None,
         org_id: str = None,
         embedding_model: str = None,
-    ) -> str:
+        structured: bool = False,
+    ) -> str | list[dict[str, Any]]:
         """
         Implementation for Hybrid Search (Vector + Keyword) with RRF.
 
@@ -452,10 +534,21 @@ class VectorService:
                 flattened = []
                 for item in res.data or []:
                     doc_data = item.pop("documents", {})
+                    doc_metadata = doc_data.get("metadata") or {}
+                    if not isinstance(doc_metadata, dict):
+                        doc_metadata = {}
                     flattened.append(
                         {
                             **item,
-                            "doc_metadata": doc_data.get("metadata"),
+                            "document_id": doc_data.get("id"),
+                            "doc_metadata": {
+                                **doc_metadata,
+                                "document_id": doc_data.get("id"),
+                                "title": doc_data.get("name"),
+                                "source_version": doc_data.get("source_version"),
+                                "valid_until": doc_data.get("valid_until"),
+                                "review_status": doc_data.get("review_status"),
+                            },
                             "doc_type": doc_data.get("doc_type"),
                         }
                     )
@@ -473,7 +566,11 @@ class VectorService:
             logger.info("Vector search returned empty, using keyword results only")
             top_docs = keyword_res[:limit]
             if not top_docs:
+                if structured:
+                    return []
                 return f"知识库中未找到与 '{query}' 相关的公开或个人信息。建议您可以尝试更换关键词，或者上传相关文档后再试。"
+            if structured:
+                return [self._as_evidence(item) for item in top_docs]
             results = []
             for item in top_docs:
                 content = item.get("content", "").strip()
@@ -514,6 +611,8 @@ class VectorService:
             top_docs = top_docs_unsorted[:limit]
 
         if not top_docs:
+            if structured:
+                return []
             return f"知识库中未找到与 '{query}' 相关的公开或个人信息。建议您可以尝试更换关键词，或者上传相关文档后再试。"
 
         results = []
@@ -550,6 +649,10 @@ class VectorService:
                 if parent_content:
                     content = parent_content
 
+            if structured:
+                results.append(self._as_evidence({**item, "content": content}))
+                continue
+
             meta = item.get("metadata") or item.get("doc_metadata") or {}
             source = meta.get("source") or meta.get("file_name") or "公司知识库"
             type_label = self._get_doc_type_label(item)
@@ -558,7 +661,37 @@ class VectorService:
                 f"{prefix}{content} [来源: {source}] (相似度: {item['score']:.4f})"
             )
 
+        if structured:
+            return results
         return "为您检索到以下相关企业知识:\n\n- " + "\n- ".join(results)
+
+    @staticmethod
+    def _as_evidence(item: dict[str, Any]) -> dict[str, Any]:
+        metadata = item.get("metadata") or item.get("doc_metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        source = (
+            metadata.get("source")
+            or metadata.get("file_name")
+            or "enterprise_knowledge"
+        )
+        return {
+            "document_id": str(
+                item.get("document_id")
+                or metadata.get("document_id")
+                or item.get("id")
+                or ""
+            ),
+            "chunk_id": str(item.get("id") or ""),
+            "title": metadata.get("title") or source,
+            "source": source,
+            "doc_type": item.get("doc_type") or metadata.get("doc_type") or "other",
+            "excerpt": str(item.get("content") or "")[:1200],
+            "score": round(float(item.get("score") or item.get("similarity") or 0), 6),
+            "source_version": metadata.get("source_version") or metadata.get("version"),
+            "valid_until": metadata.get("valid_until"),
+            "review_status": metadata.get("review_status"),
+        }
 
     def _rrf_fusion(self, result_sets: list[list[Any]], k: int = 60) -> dict[any, dict]:
         """Reciprocal Rank Fusion"""

@@ -40,6 +40,10 @@ export function createSolutionWorkspace(brief: Partial<SolutionBrief> = {}): Sol
 }
 
 export function solutionReadiness(workspace: SolutionWorkspaceState) {
+  const commercialValidation = workspace.extension_data.commercial_validation as
+    | { valid?: boolean; errors?: string[]; warnings?: string[] }
+    | undefined;
+  const commercialValid = commercialValidation?.valid !== false;
   const verified = workspace.requirements.filter((item) => item.status === 'verified').length;
   const mustOpen = workspace.requirements.filter(
     (item) => item.priority === 'must'
@@ -62,7 +66,8 @@ export function solutionReadiness(workspace: SolutionWorkspaceState) {
     evidenceCount ? 10 : 0,
     workspace.review_gates.length > 0 && passedGates === workspace.review_gates.length ? 10 : 0,
   ];
-  const score = scoreParts.reduce((sum, item) => sum + item, 0);
+  const rawScore = scoreParts.reduce((sum, item) => sum + item, 0);
+  const score = commercialValid ? rawScore : Math.max(0, rawScore - 10);
   return {
     score,
     verified,
@@ -70,7 +75,10 @@ export function solutionReadiness(workspace: SolutionWorkspaceState) {
     approvedSections,
     passedGates,
     evidenceCount,
-    canExport: score === 100,
+    commercialValid,
+    commercialErrors: commercialValidation?.errors ?? [],
+    commercialWarnings: commercialValidation?.warnings ?? [],
+    canExport: rawScore === 100 && commercialValid,
   };
 }
 

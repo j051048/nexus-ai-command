@@ -3,6 +3,7 @@ from app.services.solution_workspace_service import (
     apply_template_structure,
     build_initial_workspace,
     export_pdf,
+    export_xlsx,
     validate_workspace,
     workspace_markdown,
 )
@@ -106,3 +107,15 @@ def test_exports_keep_evidence_notice_and_escape_pdf_markup():
     assert "产品手册第 12 页" in markdown
     assert "人工审核" in markdown
     assert pdf.startswith(b"%PDF")
+
+
+def test_xlsx_export_contains_requirement_and_configuration_sheets():
+    project = {
+        "title": "液相色谱升级方案",
+        "workspace": _ready_workspace(),
+    }
+
+    workbook = export_xlsx(project)
+
+    assert workbook.startswith(b"PK")
+    assert len(workbook) > 1000

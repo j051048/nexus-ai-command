@@ -26,6 +26,21 @@ export interface SolutionRequirement {
   priority: 'must' | 'should' | 'optional';
   status: 'open' | 'verified' | 'excluded';
   evidence_ref?: string | null;
+  source_document_id?: string | null;
+  source_name?: string | null;
+  source_excerpt?: string | null;
+}
+
+export interface SolutionCommercialSummary {
+  currency?: string;
+  list_price?: number | null;
+  standard_cost?: number | null;
+  gross_margin_percent?: number | null;
+  lead_time_days?: number | null;
+  warranty_months?: number | null;
+  catalog_models?: number;
+  validation_errors?: string[];
+  validation_warnings?: string[];
 }
 
 export interface SolutionPackage {
@@ -36,6 +51,7 @@ export interface SolutionPackage {
   components: string[];
   rationale: string;
   tradeoffs: string[];
+  commercial?: SolutionCommercialSummary;
 }
 
 export interface SolutionSection {
@@ -98,6 +114,8 @@ export interface SolutionProject {
   current_version: number;
   workspace: SolutionWorkspaceState;
   outcome?: Record<string, unknown>;
+  source_document_ids?: string[];
+  linked_tender_project_id?: number | null;
   updated_at?: string;
 }
 
@@ -132,6 +150,32 @@ export interface SolutionProductOption {
   model_code?: string;
   positioning?: string;
   application_fields?: string[];
+  key_specs?: Record<string, unknown>;
+  currency?: string;
+  list_price?: number | null;
+  standard_cost?: number | null;
+  lead_time_days?: number | null;
+  warranty_months?: number | null;
+  lifecycle_status?: 'draft' | 'active' | 'limited' | 'eol';
+  validation_status?: 'draft' | 'verified' | 'rejected';
+  configuration_schema?: Record<string, unknown>;
+  compatibility_rules?: Array<Record<string, unknown>>;
+  service_items?: Array<Record<string, unknown> | string>;
+  consumables?: Array<Record<string, unknown> | string>;
+  evidence_refs?: Array<Record<string, unknown> | string>;
+  is_active?: boolean;
+}
+
+export interface SolutionDocumentOption {
+  id: string;
+  name: string;
+  doc_type?: string;
+  status?: string;
+  review_status?: 'pending' | 'verified' | 'rejected' | 'expired';
+  source_version?: string | null;
+  valid_until?: string | null;
+  quality_score?: number | null;
+  indexed_at?: string | null;
 }
 
 export interface SolutionTemplateOption {
@@ -148,4 +192,29 @@ export interface SolutionContextOptions {
   customers: SolutionCustomerOption[];
   products: SolutionProductOption[];
   templates: SolutionTemplateOption[];
+  documents: SolutionDocumentOption[];
+}
+
+export interface SolutionAnalytics {
+  projects: number;
+  generated_projects: number;
+  delivered_projects: number;
+  won_projects: number;
+  win_rate: number;
+  average_readiness: number;
+  feedback_events: number;
+  acceptance_rate: number;
+  delivery_events: number;
+  total_tokens: number;
+  estimated_cost_usd: number;
+}
+
+export interface SolutionConnector {
+  id?: string;
+  connector_code: string;
+  display_name: string;
+  connector_type: 'crm' | 'erp' | 'im' | 'storage' | 'email' | 'custom';
+  status: 'disabled' | 'active' | 'error';
+  capabilities: string[];
+  last_health_at?: string | null;
 }

@@ -4,7 +4,9 @@ import { httpClient } from '@/lib/httpClient';
 
 import type {
   SolutionBrief,
+  SolutionAnalytics,
   SolutionContextOptions,
+  SolutionProductOption,
   SolutionProject,
   SolutionVersionSummary,
   SolutionWorkspaceState,
@@ -39,6 +41,21 @@ export function useSolutionContextOptions() {
     queryFn: async () => {
       const response = await httpClient.get<ApiEnvelope<SolutionContextOptions>>(
         '/api/solution-workspace/context-options',
+        { silentError: true },
+      );
+      return response.data.data;
+    },
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+export function useSolutionAnalytics() {
+  return useQuery({
+    queryKey: ['solution-workspace', 'analytics', 'v1'],
+    queryFn: async () => {
+      const response = await httpClient.get<ApiEnvelope<SolutionAnalytics>>(
+        '/api/solution-workspace/analytics',
         { silentError: true },
       );
       return response.data.data;
@@ -121,6 +138,78 @@ export function useGenerateSolution(projectId: string | null) {
   });
 }
 
+export function useExtractSolutionRequirements(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { document_ids: string[]; replace_existing?: boolean }) => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<{
+        project: SolutionProject;
+        extracted_count: number;
+        degraded: boolean;
+      }>>(`/api/solution-workspace/projects/${projectId}/extract-requirements`, input);
+      return response.data.data;
+    },
+    onSuccess: ({ project }) => {
+      queryClient.setQueryData<SolutionProject[]>(PROJECTS_KEY, (current = []) =>
+        current.map((item) => (item.id === project.id ? project : item)),
+      );
+    },
+  });
+}
+
+export function useSaveSolutionProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SolutionProductOption & { model_code: string; product_name: string }) => {
+      const response = await httpClient.post<ApiEnvelope<SolutionProductOption>>(
+        '/api/solution-workspace/products',
+        input,
+      );
+      return response.data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({
+      queryKey: ['solution-workspace', 'context-options', 'v1'],
+    }),
+  });
+}
+
+export function useCreateTenderFromSolution(projectId: string | null) {
+  return useMutation({
+    mutationFn: async () => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<{ id: number }>>(
+        `/api/solution-workspace/projects/${projectId}/create-tender`,
+      );
+      return response.data.data;
+    },
+  });
+}
+
+export function useSolutionFeedback(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      section_id?: string;
+      rating?: number;
+      change_type: 'accepted' | 'edited' | 'rejected' | 'other';
+      note?: string;
+      original_content?: string;
+      revised_content?: string;
+    }) => {
+      if (!projectId) throw new Error('请先创建或选择方案项目');
+      const response = await httpClient.post<ApiEnvelope<Record<string, unknown>>>(
+        `/api/solution-workspace/projects/${projectId}/feedback`,
+        input,
+      );
+      return response.data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({
+      queryKey: ['solution-workspace', 'analytics', 'v1'],
+    }),
+  });
+}
+
 export function useSolutionOutcome(projectId: string | null) {
   return useMutation({
     mutationFn: async (input: { outcome_type: 'proposal' | 'won' | 'lost' | 'revenue' | 'time_saved'; amount?: number; currency?: string; note?: string }) => {
@@ -146,7 +235,7 @@ export function usePromoteSolutionTemplate(projectId: string | null) {
   });
 }
 
-export async function downloadSolution(projectId: string, format: 'markdown' | 'docx' | 'pdf') {
+export async function downloadSolution(projectId: string, format: 'markdown' | 'docx' | 'pdf' | 'xlsx') {
   const response = await httpClient.get(`/api/solution-workspace/projects/${projectId}/export`, {
     params: { format },
     responseType: 'blob',
