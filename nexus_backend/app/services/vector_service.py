@@ -432,15 +432,43 @@ class VectorService:
                 item["document_id"] for item in evidence if item.get("document_id")
             ]
             if document_ids:
-                governance = (
-                    await supabase.table("documents")
-                    .select(
-                        "id,name,doc_type,review_status,source_version,valid_until,quality_score"
-                    )
-                    .eq("organization_id", org_id)
-                    .in_("id", document_ids)
-                    .execute()
+                governance_fields = (
+                    "id,name,doc_type,review_status,source_version,valid_until,"
+                    "quality_score,visibility,department,owner_id"
                 )
+                try:
+                    governance = (
+                        await supabase.table("documents")
+                        .select(governance_fields)
+                        .eq("organization_id", org_id)
+                        .in_("id", document_ids)
+                        .execute()
+                    )
+                except Exception:
+                    # Older deployments may not expose all ABAC columns yet;
+                    # RLS/RPC isolation still applies while schema converges.
+                    governance = (
+                        await supabase.table("documents")
+                        .select(
+                            "id,name,doc_type,review_status,source_version,valid_until,quality_score"
+                        )
+                        .eq("organization_id", org_id)
+                        .in_("id", document_ids)
+                        .execute()
+                    )
+                user_department = None
+                try:
+                    user_row = (
+                        await supabase.table("users")
+                        .select("department")
+                        .eq("id", user_id)
+                        .eq("organization_id", org_id)
+                        .maybe_single()
+                        .execute()
+                    )
+                    user_department = (user_row.data or {}).get("department")
+                except Exception:
+                    user_department = None
                 by_id = {str(item["id"]): item for item in governance.data or []}
                 governed: list[dict[str, Any]] = []
                 for item in evidence:
@@ -449,6 +477,16 @@ class VectorService:
                         "rejected",
                         "expired",
                     }:
+                        continue
+                    visibility = (record or {}).get("visibility")
+                    if visibility == "private" and str(
+                        (record or {}).get("owner_id")
+                    ) != str(user_id):
+                        continue
+                    if visibility == "department" and (
+                        not user_department
+                        or (record or {}).get("department") != user_department
+                    ):
                         continue
                     governed.append({**item, **(record or {})})
                 return governed

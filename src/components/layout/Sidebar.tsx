@@ -80,6 +80,8 @@ import { useExceptions } from "@/hooks/useExceptions";
 import { usePendingApprovalsCount } from "@/hooks/useApprovals";
 import { useUnreadCount } from "@/hooks/useNotificationCenter";
 import { isModuleEnabled, type ModuleFlag } from "@/config/featureFlags";
+import { activationProgress } from "@/features/activation/activationState";
+import { useActivationState } from "@/hooks/useActivationState";
 
 type AppRole = "boss" | "manager" | "ai_assistant" | "employee" | "founder";
 
@@ -164,13 +166,13 @@ function isNavFeatureEnabled(item: NavItem): boolean {
 const NAV_CONFIG: NavItem[] = [
   // 一级导航围绕科学仪器销售闭环，其它模块通过二级分组和命令面板触达。
   { icon: <Crosshair size={18} />, label: "今日作战", href: "dashboard", group: "primary" },
-  { icon: <Radar size={18} />, label: "线索雷达", href: "growth/radar", group: "primary" },
   { icon: <Contact size={18} />, label: "客户与项目", href: "growth/accounts", group: "primary" },
   { icon: <PanelsTopLeft size={18} />, label: "方案作战", href: "growth/solutions", group: "primary" },
   { icon: <FileSearch size={18} />, label: "投标作战", href: "growth/tenders", group: "primary" },
-  { icon: <BarChart3 size={18} />, label: "经营复盘", href: "growth/review", group: "primary" },
+  { icon: <BookOpen size={18} />, label: "企业资料", href: "knowledge", group: "primary" },
 
   // 业务域分组
+  { icon: <Radar size={18} />, label: "线索雷达", href: "growth/radar", group: "客户增长" },
   { icon: <TrendingUp size={18} />, label: "销售管道", href: "sales", group: "客户增长" },
   { icon: <FileSignature size={18} />, label: "合同", href: "contracts", roles: ["manager", "boss", "founder"], group: "客户增长" },
   { icon: <Swords size={18} />, label: "竞品库", href: "battlecards", group: "客户增长" },
@@ -183,6 +185,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Workflow size={18} />, label: "流程", href: "workflows", roles: ["boss", "founder"], group: "协作" },
 
   // 数据域分组
+  { icon: <BarChart3 size={18} />, label: "经营复盘", href: "growth/review", group: "经营数据" },
   { icon: <BarChart3 size={18} />, label: "数据报表", href: "reports", group: "经营数据" },
   { icon: <Target size={18} />, label: "目标看板", href: "target-dashboard", group: "经营数据" },
   { icon: <BarChart3 size={18} />, label: "AI 报表引擎", href: "report-builder", roles: ["boss", "founder", "manager"], group: "经营数据" },
@@ -196,7 +199,6 @@ const NAV_CONFIG: NavItem[] = [
   // AI 能力域
   { icon: <Bot size={18} />, label: "助手工作台", href: "ai-operating-system", group: "智能助手" },
   { icon: <Brain size={18} />, label: "Agent 进化中心", href: "agent-improvement-center", roles: ["boss", "founder"], group: "智能助手" },
-  { icon: <BookOpen size={18} />, label: "知识资产", href: "knowledge", group: "智能助手" },
   { icon: <Rocket size={18} />, label: "增长作战配置", href: "vmd", group: "智能助手" },
   { icon: <Puzzle size={18} />, label: "插件", href: "plugins", group: "智能助手" },
   { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "智能助手" },
@@ -262,6 +264,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
   const [enabledModules, setEnabledModules] = useState<string[]>(loadEnabledModules);
   const [showModuleManager, setShowModuleManager] = useState(false);
+  const { state: activationState, isComplete: activationComplete, open: openActivation } = useActivationState();
 
   const { data: exceptions = [] } = useExceptions();
   const pendingApprovalsQuery = usePendingApprovalsCount();
@@ -397,7 +400,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
 
       <div className="flex-1 overflow-y-auto no-scrollbar py-2">
         {NAV_GROUPS.filter(group =>
-          group === "primary" || enabledModules.includes(group)
+          group === "primary" || (activationComplete && enabledModules.includes(group))
         ).map(group =>
           renderNavGroup(group, NAV_CONFIG.filter(i => {
             const hasRole = !i.roles || i.roles.includes((role || user?.role || "employee") as AppRole);
@@ -405,8 +408,26 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
           }))
         )}
 
+        {!isCollapsed && !activationComplete && (
+          <div className="mx-3 mt-2 border-t border-sidebar-border pt-3">
+            <button
+              type="button"
+              onClick={openActivation}
+              className="w-full rounded-md border border-primary/20 bg-primary/[0.035] px-3 py-3 text-left transition-colors hover:bg-primary/[0.06]"
+            >
+              <span className="flex items-center justify-between text-xs font-medium text-sidebar-foreground">
+                完成企业资料设置
+                <span className="text-primary">{Math.min(activationProgress(activationState.step) + 1, 4)}/4</span>
+              </span>
+              <span className="mt-2 block h-1 overflow-hidden rounded-full bg-sidebar-accent">
+                <span className="block h-full bg-primary" style={{ width: `${Math.min((activationProgress(activationState.step) + 1) * 25, 100)}%` }} />
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* 模块管理器 */}
-        {!isCollapsed && (
+        {!isCollapsed && activationComplete && (
           <div className="px-3 mt-2 border-t border-sidebar-border pt-2">
             <button
               onClick={() => setShowModuleManager(!showModuleManager)}

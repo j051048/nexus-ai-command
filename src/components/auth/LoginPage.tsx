@@ -28,9 +28,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { httpClient } from '@/lib/httpClient';
 import './LoginPage.css';
-
 type AppRole = 'boss' | 'employee';
-
 interface BrandConfig {
   logo_url?: string;
   primary_color?: string;
@@ -43,7 +41,6 @@ interface BrandConfig {
 
 export function LoginPage() {
   const [brand, setBrand] = useState<BrandConfig>({});
-
   // Load org brand config (public, no auth required)
   useEffect(() => {
     httpClient.get<{ status: number; data?: BrandConfig }>('/api/organization/brand')
@@ -52,7 +49,6 @@ export function LoginPage() {
       })
       .catch(() => { /* brand is optional */ });
   }, []);
-
   // Derived brand values with defaults
   const brandName = brand.company_name || 'Project Nexus';
   const brandInitial = brandName.charAt(0).toUpperCase();
@@ -78,7 +74,6 @@ export function LoginPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     const { error } = await signIn(email, password);
 
     if (error) {

@@ -806,10 +806,10 @@ def test_navigation_is_consolidated_into_five_product_spaces():
 
     for label, href in [
         ("今日作战", "dashboard"),
-        ("线索雷达", "growth/radar"),
         ("客户与项目", "growth/accounts"),
+        ("方案作战", "growth/solutions"),
         ("投标作战", "growth/tenders"),
-        ("经营复盘", "growth/review"),
+        ("企业资料", "knowledge"),
     ]:
         assert f'label: "{label}", href: "{href}", group: "primary"' in sidebar
     assert "SPACE_MATCH_PREFIXES" in sidebar

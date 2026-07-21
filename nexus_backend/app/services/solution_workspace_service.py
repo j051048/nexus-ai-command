@@ -14,12 +14,18 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from app.agent.artifact_contract import ArtifactSpec, ArtifactType
+from app.agent.scientific_writing_skills import (
+    build_writing_skill_prompt,
+    enrich_artifact_spec,
+)
 from app.services.llm_gateway import llm_gateway
 from app.services.scientific_instrument_domain import build_instrument_context
 from app.services.solution_commercial_service import (
     enrich_workspace_commercials,
     extract_requirement_candidates,
 )
+from app.services.solution_quality_eval_service import evaluate_solution
 
 WORKSPACE_SCHEMA_VERSION = "solution-workspace.v1"
 STAGES = ["brief", "requirements", "configuration", "draft", "review", "delivery"]
@@ -202,12 +208,15 @@ def validate_workspace(workspace: dict[str, Any]) -> dict[str, Any]:
         and all(bool(item.get("passed")) for item in review_gates),
         "commercial_configuration_valid": commercial_valid,
     }
+    deterministic_quality = evaluate_solution(workspace, stage="external")
+    checks["deterministic_quality_ready"] = deterministic_quality["ready"]
     return {
         "checks": checks,
         "ready_for_external_use": all(checks.values()),
         "evidence_count": evidence_count,
         "open_claims": open_claims,
         "completion": round(sum(checks.values()) / len(checks) * 100),
+        "deterministic_evaluation": deterministic_quality,
     }
 
 
@@ -325,10 +334,24 @@ async def generate_solution(
         brief.get("instrument_line_code"),
         application_field=brief.get("application_scenario"),
     )
+    artifact_spec = enrich_artifact_spec(
+        current_workspace.get("artifact_spec")
+        or ArtifactSpec(
+            artifact_type=ArtifactType.CUSTOMER_SOLUTION,
+            external_delivery=True,
+            strict_quality=True,
+            instrument_line=brief.get("instrument_line_code"),
+            industry=brief.get("industry"),
+            region=brief.get("region"),
+            requested_formats=["docx", "pdf", "xlsx"],
+        )
+    )
+    writing_contract = build_writing_skill_prompt(artifact_spec)
     system_prompt = """你是科学仪器企业的资深售前方案架构师，覆盖光谱、色谱、质谱、能谱及电子测试仪器。
 只允许依据输入的客户事实、产品目录和企业知识资料写作。不得虚构参数、资质、交付周期、价格或客户案例；证据不足时明确写“待核验”。
 输出严格 JSON 对象，字段仅包含 requirements、packages、sections。packages 必须提供基础、推荐、进阶三档；sections 中每段必须有 evidence_refs 数组。
 外发、报价和承诺均由人工确认，本次只生成可编辑草稿。"""
+    system_prompt += "\n\n" + writing_contract
     prompt = {
         "brief": brief,
         "existing_workspace": current_workspace,
@@ -336,6 +359,7 @@ async def generate_solution(
         "enterprise_knowledge": source_context,
         "approved_template": template_context,
         "instrument_domain_playbook": domain_context,
+        "artifact_spec": artifact_spec.model_dump(mode="json"),
         "output_schema": {
             "requirements": [
                 {
@@ -395,6 +419,7 @@ async def generate_solution(
             **current_workspace,
             **generated,
             "schema_version": WORKSPACE_SCHEMA_VERSION,
+            "artifact_spec": artifact_spec.model_dump(mode="json"),
             "active_stage": "review",
             "generation": {
                 "generated_at": datetime.now(UTC).isoformat(),
@@ -406,7 +431,58 @@ async def generate_solution(
         },
         products,
     )
-    workspace["quality"] = validate_workspace(workspace)
+    quality = evaluate_solution(workspace, stage="draft")
+    repair_count = 0
+    evidence_packet = (workspace.get("extension_data") or {}).get("evidence_packet", {})
+    while (
+        repair_count < artifact_spec.max_repair_cycles
+        and not quality.get("artifact_quality", {}).get("ready", False)
+        and evidence_packet.get("sufficient", False)
+        and quality.get("repairable_findings")
+    ):
+        repair_count += 1
+        repair_response = await llm_gateway.chat(
+            scene_code="solution_section_repair",
+            agent_code="scientific_solution_editor",
+            user_id=user_id,
+            org_id=organization_id,
+            system_prompt=(
+                writing_contract
+                + "\nRepair only the sections. Return strict JSON: {sections: [...]}。"
+            ),
+            messages=[
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "sections": workspace.get("sections") or [],
+                            "findings": quality.get("repairable_findings") or [],
+                            "enterprise_knowledge": source_context,
+                        },
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                }
+            ],
+            temperature=0.1,
+            max_tokens=2600,
+        )
+        repaired = (
+            _parse_json_object(repair_response.content)
+            if repair_response.finish_reason != "error"
+            else None
+        )
+        if not repaired or not isinstance(repaired.get("sections"), list):
+            break
+        workspace["sections"] = repaired["sections"]
+        quality = evaluate_solution(workspace, stage="draft")
+
+    workspace["generation"]["repair_count"] = repair_count
+    workspace["generation"]["artifact_quality_score"] = quality.get("score", 0)
+    workspace["quality"] = {
+        **validate_workspace(workspace),
+        "deterministic_evaluation": quality,
+    }
     return workspace, workspace["generation"]
 
 
@@ -421,6 +497,19 @@ def workspace_markdown(project: dict[str, Any]) -> str:
             "",
         ]
     )
+    requirements = workspace.get("requirements") or []
+    if requirements:
+        lines.extend(["## 需求与验收矩阵", ""])
+        for item in requirements:
+            lines.append(
+                "- [{status}] {title} | 优先级: {priority} | 证据: {evidence}".format(
+                    status=item.get("status") or "open",
+                    title=item.get("title") or "未命名需求",
+                    priority=item.get("priority") or "should",
+                    evidence=item.get("evidence_ref") or "待核验",
+                )
+            )
+        lines.append("")
     for section in workspace.get("sections") or []:
         lines.extend(
             [
@@ -439,6 +528,22 @@ def workspace_markdown(project: dict[str, Any]) -> str:
         )
         for component in package.get("components") or []:
             lines.append(f"- {component}")
+        lines.append("")
+    evidence_catalog = (workspace.get("extension_data") or {}).get(
+        "evidence_catalog", []
+    )
+    if evidence_catalog:
+        lines.extend(["## 证据附录", ""])
+        for item in evidence_catalog[:20]:
+            citation = (
+                f"EVID:{item.get('document_id')}:{item.get('chunk_id')}"
+                if item.get("document_id") and item.get("chunk_id")
+                else item.get("document_id") or "待核验"
+            )
+            version = item.get("source_version") or "未标注版本"
+            lines.append(
+                f"- [{citation}] {item.get('title') or item.get('source') or '企业资料'} ({version})"
+            )
         lines.append("")
     lines.append("> 本文档为 AI 辅助草稿，参数、价格、交期与外部承诺须经人工审核。")
     return "\n".join(lines)

@@ -299,6 +299,7 @@ class AgentState(TypedDict, total=False):
     task_profile: dict  # Deterministic task risk and depth assessment
     execution_depth: str  # direct / verify / critic
     inference_receipt: dict  # Verifiable run summary attached at completion
+    artifact_spec: dict  # Typed deliverable contract inferred from the request
 
     # ── Plan ──
     plan: str  # Natural language plan from planning node
@@ -317,6 +318,8 @@ class AgentState(TypedDict, total=False):
     # ── RAG context (auto-injected by memory / rag_inject node) ──
     rag_context: str  # Retrieved knowledge base context
     rag_sources: list[str]  # Source citations for the RAG context
+    evidence_packet: dict  # Structured, tenant-scoped evidence and coverage
+    evidence_contract: dict  # Context compiler + evidence citation contract
 
     # ── Final output ──
     final_response: str  # The text response to send to user
@@ -347,6 +350,8 @@ class AgentState(TypedDict, total=False):
     )
     critic_feedback: str  # Critic evaluation summary
     critic_passed: bool  # Whether critic approved the response
+    artifact_quality: dict  # Deterministic external-delivery quality result
+    artifact_repair_count: int  # Bounded critic repair attempts
 
     # ── VMD Multi-Agent Orchestration ──
     agent_code: str  # Current agent role code (e.g., "content_agent")
@@ -406,11 +411,12 @@ class AgentState(TypedDict, total=False):
 
     # ── Schema version (for checkpoint restore compatibility) ──
     _schema_version: int  # Current schema version; used to migrate stale checkpoints
+    _skill_injected: bool  # Skill matching is independent from memory hydration
 
 
 # ─── Schema Version & Migration ──────────────────────────────────────────────
 
-CURRENT_SCHEMA_VERSION = 3  # Bump when adding/removing/renaming AgentState fields
+CURRENT_SCHEMA_VERSION = 4  # Bump when adding/removing/renaming AgentState fields
 
 # Fields added in each version (for forward-compatible migration)
 _SCHEMA_DEFAULTS: dict[int, dict[str, Any]] = {
@@ -429,6 +435,15 @@ _SCHEMA_DEFAULTS: dict[int, dict[str, Any]] = {
         "task_profile": {},
         "execution_depth": "direct",
         "inference_receipt": {},
+    },
+    4: {
+        "_schema_version": 4,
+        "artifact_spec": {},
+        "evidence_packet": {},
+        "evidence_contract": {},
+        "artifact_quality": {},
+        "artifact_repair_count": 0,
+        "_skill_injected": False,
     },
 }
 

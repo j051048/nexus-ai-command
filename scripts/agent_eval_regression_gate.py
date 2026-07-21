@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_ROOT = ROOT / "nexus_backend"
 
@@ -30,6 +29,9 @@ def _pct(value: float) -> str:
 
 def main() -> int:
     from app.services.agent_eval_baseline_service import agent_eval_baseline_service
+    from app.services.scientific_artifact_eval_service import (
+        scientific_artifact_eval_service,
+    )
     from app.services.scientific_instrument_eval_service import (
         scientific_instrument_eval_service,
     )
@@ -71,6 +73,10 @@ def main() -> int:
         BACKEND_ROOT / "evals" / "datasets" / "scientific_instrument_agent_cases.json"
     )
     instrument_result = scientific_instrument_eval_service.evaluate(instrument_cases)
+    artifact_matrix = _load_json(
+        BACKEND_ROOT / "evals" / "datasets" / "scientific_artifact_quality_matrix.json"
+    )
+    artifact_result = scientific_artifact_eval_service.evaluate(artifact_matrix)
     accuracy = float(result["accuracy"])
     release_min = float(thresholds["intent_accuracy_min"])
     baseline = float(baselines["router_accuracy"])
@@ -96,6 +102,17 @@ def main() -> int:
             "instrument policy accuracy "
             f"{_pct(float(instrument_result['accuracy']))} is below {_pct(instrument_min)}"
         )
+    if artifact_result["case_count"] < 125:
+        failures.append("scientific artifact matrix has fewer than 125 cases")
+    if artifact_result["case_count"] != artifact_result["expected_case_count"]:
+        failures.append(
+            "scientific artifact matrix expansion does not match expected_case_count"
+        )
+    if float(artifact_result["accuracy"]) < 0.98:
+        failures.append(
+            "scientific artifact contract accuracy "
+            f"{_pct(float(artifact_result['accuracy']))} is below 98.00%"
+        )
 
     report = {
         "gate": "agent_eval_regression",
@@ -115,6 +132,14 @@ def main() -> int:
             "failed_cases": [
                 item for item in instrument_result["results"] if not item.get("passed")
             ],
+        },
+        "scientific_artifact": {
+            "case_count": artifact_result["case_count"],
+            "accuracy": artifact_result["accuracy"],
+            "release_min": 0.98,
+            "failed_cases": [
+                item for item in artifact_result["results"] if not item.get("passed")
+            ][:20],
         },
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))

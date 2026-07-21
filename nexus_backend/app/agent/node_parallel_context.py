@@ -45,21 +45,29 @@ async def _retrieve_rag_context(state: AgentState) -> dict:
         return {"rag_context": "", "rag_sources": []}
 
     try:
-        from app.services.vector_service import vector_service
+        from app.agent.artifact_contract import infer_artifact_spec
+        from app.agent.scientific_writing_skills import enrich_artifact_spec
+        from app.services.agent_evidence_service import retrieve_agent_evidence
 
-        result = await vector_service.search(
-            query=last_user_msg,
-            user_id=config.user_id,
-            limit=config.rag_inject_limit,
-            org_id=config.org_id,
+        spec = enrich_artifact_spec(
+            state.get("artifact_spec") or infer_artifact_spec(last_user_msg)
         )
-
-        if isinstance(result, str) and result.strip():
-            logger.info(f"[ParallelContext] RAG retrieval returned {len(result)} chars")
-            return {
-                "rag_context": result,
-                "rag_sources": [],  # Sources extracted by plan_node's RAG injection
-            }
+        packet = await retrieve_agent_evidence(
+            query=last_user_msg,
+            config=config,
+            artifact_spec=spec,
+        )
+        if packet.prompt_context:
+            logger.info(
+                "[ParallelContext] evidence records=%d coverage=%.2f",
+                len(packet.records),
+                packet.coverage,
+            )
+        return {
+            "rag_context": packet.prompt_context,
+            "rag_sources": [record.title for record in packet.records],
+            "evidence_packet": packet.model_dump(mode="json"),
+        }
     except Exception as e:
         logger.warning(f"[ParallelContext] RAG retrieval failed: {e}")
 
@@ -99,6 +107,22 @@ async def parallel_context_and_plan(
     )
 
     try:
+        from app.agent.artifact_contract import is_strict_artifact
+
+        # External deliverables must plan from the retrieved evidence, so their
+        # first pass is intentionally sequential. Ordinary chat keeps the
+        # latency-optimized parallel path.
+        if is_strict_artifact(state.get("artifact_spec")):
+            rag_result = await _retrieve_rag_context(state)
+            planning_state = {**state, **rag_result}
+            plan_result = await plan_node(planning_state, config)
+            return {
+                **rag_result,
+                **plan_result,
+                "thinking_steps": [thinking_step]
+                + plan_result.get("thinking_steps", []),
+            }
+
         # Run both in parallel
         rag_task = asyncio.create_task(_retrieve_rag_context(state))
         plan_task = asyncio.create_task(plan_node(state, config))
@@ -124,6 +148,9 @@ async def parallel_context_and_plan(
                 f"[ParallelContext] Injected {len(rag_context)} chars of RAG context "
                 f"from parallel retrieval"
             )
+        if rag_result.get("evidence_packet"):
+            plan_result["evidence_packet"] = rag_result["evidence_packet"]
+            plan_result["rag_sources"] = rag_result.get("rag_sources", [])
 
         # Add parallel execution thinking step
         existing_steps = plan_result.get("thinking_steps", [])

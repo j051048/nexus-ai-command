@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { StreamingMarkdown } from './StreamingMarkdown';
-import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw, Pencil, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, AlertCircle, RefreshCw, Pencil, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SyntaxProps {
   children?: React.ReactNode;
@@ -94,6 +94,7 @@ import { getEnterAnimationClass } from '@/lib/animations';
 import { GenUIContainer } from './GenUIContainer';
 import { InlineActions } from './genui/InlineActions';
 import { ExecutionPulse } from './ExecutionPulse';
+import { MessageDeliverableMenu } from '@/components/deliverables/MessageDeliverableMenu';
 
 // ---------------------------------------------------------------------------
 // Layer 3: Infer GenUI component name from props structure
@@ -550,6 +551,10 @@ export const MessageBubble = React.memo(function MessageBubble({
               />
             )}
 
+            {!isTyping && message.content.length >= 120 && (
+              <MessageDeliverableMenu content={message.content} />
+            )}
+
             {/* Branch Navigator */}
             {branchInfo && branchInfo.total > 1 && (
               <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
@@ -666,17 +671,6 @@ export const MessageBubble = React.memo(function MessageBubble({
                 <DropdownMenuItem onClick={handleCopy}>
                   <Copy className="w-4 h-4 mr-2" />
                   复制内容
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  const blob = new Blob([message.content], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'ai-response.txt';
-                  a.click();
-                }}>
-                  <Download className="w-4 h-4 mr-2" />
-                  导出文本
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

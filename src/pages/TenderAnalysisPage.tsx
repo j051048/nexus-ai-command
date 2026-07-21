@@ -17,6 +17,8 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
+import { ContextAIActionMenu } from '@/components/ai/ContextAIActionMenu';
+import { EvidenceDrawer, type EvidenceDrawerItem } from '@/components/ai/EvidenceDrawer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/contexts/UserContext';
@@ -138,6 +140,25 @@ export function TenderAnalysisPage() {
 
   const activeDefinition = TENDER_STAGE_DEFINITIONS.find((stage) => stage.id === workspace.active_stage);
   const selectedName = projectName(selectedProject);
+  const evidenceItems = useMemo<EvidenceDrawerItem[]>(() => {
+    const matrixItems = workspace.response_matrix.map((requirement) => ({
+      id: requirement.id,
+      title: requirement.requirement,
+      description: requirement.source_excerpt,
+      status: requirement.status === 'ready' && requirement.evidence_ref ? 'verified' as const : requirement.evidence_ref ? 'pending' as const : 'gap' as const,
+      source: requirement.evidence_ref || workspace.source_document_name || undefined,
+    }));
+    if (workspace.source_document_name) {
+      matrixItems.unshift({
+        id: `source-${workspace.source_document_id || workspace.source_document_name}`,
+        title: workspace.source_document_name,
+        description: '招标原文',
+        status: 'verified' as const,
+        source: '项目源文件',
+      });
+    }
+    return matrixItems.slice(0, 40);
+  }, [workspace.response_matrix, workspace.source_document_id, workspace.source_document_name]);
 
   return (
     <div className="mx-auto max-w-[1320px] space-y-5 pb-20" data-testid="tender-workspace">
@@ -208,6 +229,15 @@ export function TenderAnalysisPage() {
           },
         ]}
       />
+
+      <section className="flex flex-wrap justify-end gap-2" aria-label="投标快捷操作">
+        <EvidenceDrawer items={evidenceItems} title="投标原文与应答依据" />
+        <ContextAIActionMenu label="AI 辅助" actions={[
+          { label: '检查废标风险', prompt: `请检查投标项目“${selectedName}”的否决项、资格条件、签章、有效期和强制参数。按风险高低列出，并引用招标原文。` },
+          { label: '补齐应答证据', prompt: `请检查投标项目“${selectedName}”的应答矩阵，只列出缺少企业资料证据或责任人的条目，不得编造参数与资质。` },
+          { label: '审校商务口径', prompt: `请复核投标项目“${selectedName}”的报价、交期、付款、质保和售后口径是否一致，只输出冲突和待确认项。` },
+        ]} />
+      </section>
 
       <TenderStageRail activeStage={workspace.active_stage} onStageChange={changeStage} completedStages={completedStages} />
 

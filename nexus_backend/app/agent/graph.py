@@ -65,6 +65,7 @@ _background_tasks: set[asyncio.Task] = set()
 
 from langgraph.graph import END, StateGraph
 
+from app.agent.artifact_contract import is_strict_artifact
 from app.agent.checkpointer import get_checkpointer
 from app.agent.execution_policy import get_iteration_budget, get_reflection_budget
 from app.agent.loop_detector import detect_loop, tool_call_fingerprint
@@ -273,6 +274,10 @@ def _check_fast_synthesis(state: AgentState) -> str | None:
         )
         return "reflect"
 
+    if is_strict_artifact(state.get("artifact_spec")):
+        logger.info("[Graph] External artifact bypasses fast synthesis -> reflect")
+        return "reflect"
+
     complexity = state.get("complexity")
     logger.info(f"[Graph] All tools succeeded + {complexity} → fast synthesize")
     return "synthesize"
@@ -433,7 +438,7 @@ def _after_reflect(state: AgentState) -> str:
     """
     # Dynamic SLO degradation: skip expensive downstream nodes if running out of time
     wall_clock_start = state.get("wall_clock_start")
-    if wall_clock_start:
+    if wall_clock_start and not is_strict_artifact(state.get("artifact_spec")):
         elapsed = time.time() - wall_clock_start
         slo = _SLO_THRESHOLDS.get(state.get("complexity"), 10.0)
         if elapsed > slo * 0.8:
@@ -587,7 +592,9 @@ def _after_router(state: AgentState) -> str:
         f"model={state.get('selected_model', '?')}"
     )
 
-    if complexity == QueryComplexity.SIMPLE:
+    if complexity == QueryComplexity.SIMPLE and not is_strict_artifact(
+        state.get("artifact_spec")
+    ):
         return "simple_respond"
 
     # Check if this needs multi-agent WBS decomposition
@@ -630,7 +637,7 @@ def _after_critic(state: AgentState) -> str:
     """
     # Dynamic SLO degradation: even if critic failed, respond if close to SLO
     wall_clock_start = state.get("wall_clock_start")
-    if wall_clock_start:
+    if wall_clock_start and not is_strict_artifact(state.get("artifact_spec")):
         elapsed = time.time() - wall_clock_start
         slo = _SLO_THRESHOLDS.get(state.get("complexity"), 10.0)
         if elapsed > slo * 0.9:
@@ -640,11 +647,15 @@ def _after_critic(state: AgentState) -> str:
             return "respond"
 
     if not state.get("critic_passed", True):
-        if not state.get("execution_policy"):
-            config = state.get("config")
-            max_iter = config.max_iterations if config else 5
-            if state.get("iteration", 0) < max_iter:
-                return "plan"
+        config = state.get("config")
+        max_iter = get_iteration_budget(
+            state.get("execution_policy"), config.max_iterations if config else 5
+        )
+        artifact_spec = state.get("artifact_spec") or {}
+        max_repairs = int(artifact_spec.get("max_repair_cycles", 2))
+        repair_count = int(state.get("artifact_repair_count", 0))
+        if state.get("iteration", 0) < max_iter and repair_count <= max_repairs:
+            return "plan"
         state["circuit_break_reason"] = "critic_best_available"
         logger.warning("[Graph] Critic failed; returning best available result")
     return "respond"

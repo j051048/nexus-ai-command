@@ -55,12 +55,45 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
 
     在 Agent 执行前注入相关记忆到上下文
     """
-    if state.get("_memory_injected"):
+    memory_injected = bool(state.get("_memory_injected"))
+    skill_injected = bool(state.get("_skill_injected"))
+    if memory_injected and skill_injected:
         return {}
 
     config = state.get("config")
     if not config or not config.org_id:
-        return {"_memory_injected": True}
+        return {"_memory_injected": True, "_skill_injected": True}
+
+    # prepare_initial_state hydrates memory before the graph starts.  Skill
+    # matching is a separate concern and must still run exactly once.
+    if memory_injected and not skill_injected:
+        messages = state.get("messages", [])
+        user_message = ""
+        for msg in reversed(messages):
+            if getattr(msg, "type", None) == "human":
+                user_message = str(msg.content)
+                break
+        updates: dict[str, Any] = {"_skill_injected": True}
+        if not user_message:
+            return updates
+        try:
+            from app.agent.skill_library import skill_library
+            from app.core.database import supabase as db_client
+
+            matched = await skill_library.match_skill(
+                user_message=user_message,
+                user_id=config.user_id,
+                org_id=config.org_id,
+                db=db_client,
+            )
+            if matched:
+                hint = skill_library.skill_to_tool_hints(matched)
+                if hint:
+                    updates["_injected_memories"] = [hint]
+                    updates["_matched_skill"] = matched
+        except Exception as exc:
+            logger.debug("[Middleware] Skill matching skipped: %s", exc)
+        return updates
 
     try:
         from app.services.conversation_memory_service import conversation_memory_service
@@ -80,7 +113,10 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
                 current_query=user_message,
             )
 
-            updates: dict[str, Any] = {"_memory_injected": True}
+            updates: dict[str, Any] = {
+                "_memory_injected": True,
+                "_skill_injected": True,
+            }
 
             if memory_context:
                 logger.debug(
@@ -139,7 +175,7 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"[Middleware] Memory injection failed: {e}")
 
-    return {"_memory_injected": True}
+    return {"_memory_injected": True, "_skill_injected": True}
 
 
 async def token_limit_middleware(state: AgentState) -> dict[str, Any]:
@@ -273,7 +309,17 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
 
             # P0-6: 技能提炼 — 成功的多步工具链自动提炼为可复用技能
             completed = state.get("completed_tool_calls", [])
-            if len(completed) >= 2:
+            allow_skill_learning = True
+            try:
+                from app.agent.artifact_contract import is_strict_artifact
+
+                if is_strict_artifact(state.get("artifact_spec")):
+                    allow_skill_learning = bool(
+                        (state.get("artifact_quality") or {}).get("ready")
+                    )
+            except Exception:
+                allow_skill_learning = False
+            if len(completed) >= 2 and allow_skill_learning:
                 try:
                     from app.agent.skill_library import skill_library
                     from app.core.database import supabase as db_client

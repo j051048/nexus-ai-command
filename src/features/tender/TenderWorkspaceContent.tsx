@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
+import { announceDeliverable } from '@/features/deliverables/deliverableStore';
 import { cn } from '@/lib/utils';
 
 import { TenderReportSections } from './TenderReportSections';
@@ -64,7 +65,7 @@ function statusTone(status: ResponseStatus) {
   return 'text-muted-foreground bg-muted/40 border-border';
 }
 
-function exportMatrixCSV(items: TenderRequirement[], projectName: string) {
+function exportMatrixCSV(items: TenderRequirement[], projectName: string, recordResult = true) {
   const rows = [
     ['类别', '招标要求', '我方响应', '证据引用', '负责人', '状态'],
     ...items.map((item) => [
@@ -77,12 +78,24 @@ function exportMatrixCSV(items: TenderRequirement[], projectName: string) {
     ]),
   ];
   const csv = `\uFEFF${rows.map((row) => row.map((cell) => `"${String(cell || '').replace(/"/g, '""')}"`).join(',')).join('\n')}`;
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `${projectName || '投标项目'}_应答矩阵.csv`;
+  const filename = `${projectName || '投标项目'}_应答矩阵.csv`;
+  anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+  if (recordResult) announceDeliverable({
+    title: `${projectName || '投标项目'}应答矩阵`,
+    filename,
+    format: 'csv',
+    source: 'tender',
+    sourceLabel: '投标作战',
+    sourcePath: `${window.location.pathname}${window.location.search}`,
+    sizeBytes: blob.size,
+    download: () => exportMatrixCSV(items, projectName, false),
+  });
 }
 
 function IntakeStage(props: TenderWorkspaceContentProps) {

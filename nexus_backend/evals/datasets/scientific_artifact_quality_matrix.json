@@ -1,0 +1,25 @@
+{
+  "schema_version": "scientific-artifact-matrix.v1",
+  "expected_case_count": 125,
+  "instrument_lines": [
+    "spectroscopy",
+    "chromatography",
+    "mass_spectrometry",
+    "energy_spectroscopy",
+    "electronic_instruments"
+  ],
+  "industries": [
+    "pharmaceutical",
+    "environmental_monitoring",
+    "new_energy_materials",
+    "semiconductor_electronics",
+    "university_research"
+  ],
+  "artifact_types": [
+    "customer_solution",
+    "tender",
+    "competitor_analysis",
+    "policy_brief",
+    "service_proposal"
+  ]
+}

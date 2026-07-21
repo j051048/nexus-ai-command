@@ -88,6 +88,63 @@ def _summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _summarize_artifact_quality(events: list[dict[str, Any]]) -> dict[str, Any]:
+    by_type: dict[str, dict[str, Any]] = {}
+    failure_codes: dict[str, int] = {}
+    for event in events:
+        artifact_type = str(event.get("artifact_type") or "unknown")
+        bucket = by_type.setdefault(
+            artifact_type,
+            {"count": 0, "ready": 0, "score_total": 0.0},
+        )
+        bucket["count"] += 1
+        bucket["ready"] += int(bool(event.get("ready")))
+        bucket["score_total"] += float(event.get("score") or 0)
+        for finding in event.get("findings") or []:
+            code = str(finding.get("code") or "unknown")
+            failure_codes[code] = failure_codes.get(code, 0) + 1
+
+    type_summary = {
+        key: {
+            "count": value["count"],
+            "ready_rate": round(value["ready"] / value["count"], 4),
+            "avg_score": round(value["score_total"] / value["count"], 2),
+        }
+        for key, value in by_type.items()
+    }
+    total = len(events)
+    return {
+        "available": True,
+        "sample_size": total,
+        "ready_rate": (
+            round(sum(int(bool(item.get("ready"))) for item in events) / total, 4)
+            if total
+            else 0
+        ),
+        "avg_score": (
+            round(sum(float(item.get("score") or 0) for item in events) / total, 2)
+            if total
+            else 0
+        ),
+        "avg_evidence_count": (
+            round(
+                sum(int(item.get("evidence_count") or 0) for item in events) / total, 2
+            )
+            if total
+            else 0
+        ),
+        "avg_repair_count": (
+            round(sum(int(item.get("repair_count") or 0) for item in events) / total, 2)
+            if total
+            else 0
+        ),
+        "by_artifact_type": type_summary,
+        "top_failure_codes": dict(
+            sorted(failure_codes.items(), key=lambda item: item[1], reverse=True)[:10]
+        ),
+    }
+
+
 @router.get("")
 @router.get("/")
 async def list_agent_runs(
@@ -203,6 +260,44 @@ async def get_agent_quality_trends(
                 },
             },
         }
+    )
+
+
+@router.get("/quality/artifacts")
+async def get_artifact_quality_summary(
+    request: Request,
+    _role: str = Depends(require_agent_ops),
+    org_id: str = Depends(get_current_org_id),
+    days: int = Query(30, ge=1, le=90),
+    limit: int = Query(500, ge=20, le=2000),
+):
+    """Expose artifact readiness, evidence coverage, and repair health."""
+    from datetime import UTC, datetime, timedelta
+
+    since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+    try:
+        result = (
+            await _db(request)
+            .table("agent_artifact_quality_events")
+            .select(
+                "artifact_type,score,ready,dimensions,findings,skill_id,skill_version,"
+                "evidence_count,repair_count,created_at"
+            )
+            .eq("organization_id", org_id)
+            .gte("created_at", since)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+    except Exception:
+        return api_success(
+            data={"available": False, "sample_size": 0},
+            message="成果质量数据尚未就绪",
+        )
+    events = result.data or []
+    return api_success(
+        data={"days": days, **_summarize_artifact_quality(events)},
+        meta={"limit": limit},
     )
 
 

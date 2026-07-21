@@ -379,6 +379,18 @@ async def respond_node(state: AgentState) -> dict:
     final_response = _strip_redundant_phrases(final_response)
     final_response = _enhance_formatting(final_response)
 
+    # Never let a best-effort draft look like an approved external artifact.
+    from app.agent.artifact_contract import is_strict_artifact
+
+    artifact_quality = state.get("artifact_quality") or {}
+    if is_strict_artifact(state.get("artifact_spec")) and not artifact_quality.get(
+        "ready", False
+    ):
+        final_response = (
+            "> **待核验草稿**：当前证据或质量门禁尚未通过，请勿直接对外发送。\n\n"
+            + final_response
+        )
+
     return {
         "final_response": final_response or "抱歉，系统处理出现异常，请重试。",
         "current_phase": AgentPhase.DONE,

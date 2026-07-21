@@ -19,6 +19,34 @@ router = APIRouter(prefix="/api/documents", tags=["Documents"])
 require_kb_admin = require_role(["admin", "founder", "boss"])
 
 
+_CATEGORY_FILENAME_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("manual", ("说明书", "操作手册", "用户手册", "manual", "guide", "instruction")),
+    ("competitor", ("竞品", "竞争对手", "竞品对比", "competitor", "comparison")),
+    ("case", ("客户案例", "应用案例", "成功案例", "case study", "application note")),
+    ("tender", ("招标", "投标", "标书", "tender", "bidding", "bid document")),
+    ("proposal", ("解决方案", "技术方案", "配置方案", "proposal", "solution")),
+    ("regulation", ("法规", "标准", "规范", "regulation", "standard", "compliance")),
+    ("training", ("培训", "课件", "training", "course")),
+    (
+        "product",
+        ("产品", "彩页", "规格", "参数", "datasheet", "brochure", "catalog", "spec"),
+    ),
+)
+
+
+def _infer_document_category(filename: str | None) -> str:
+    """Infer a conservative knowledge category from a filename.
+
+    The result remains editable after upload. Unknown files intentionally fall
+    back to ``other`` instead of being treated as verified product evidence.
+    """
+    normalized = (filename or "").strip().lower()
+    for category, hints in _CATEGORY_FILENAME_HINTS:
+        if any(hint in normalized for hint in hints):
+            return category
+    return "other"
+
+
 def _is_postgrest_204(e: Exception) -> bool:
     """Check if exception is a PostgREST 204 No Content (success, no body)."""
     return hasattr(e, "code") and str(getattr(e, "code", "")) == "204"
@@ -145,6 +173,7 @@ async def upload_documents(
         visibility = "organization"
 
     if category not in (
+        "auto",
         "regulation",
         "manual",
         "contract",
@@ -195,6 +224,9 @@ async def upload_documents(
         try:
             content = await file.read()
             filename = file.filename
+            resolved_category = (
+                _infer_document_category(filename) if category == "auto" else category
+            )
 
             if len(content) > 50 * 1024 * 1024:
                 results.append(
@@ -243,7 +275,7 @@ async def upload_documents(
                 visibility=visibility,
                 department=user_department,
                 content_hash=content_hash,
-                category=category,
+                category=resolved_category,
                 organization_id=org_id,
             )
 
@@ -257,7 +289,7 @@ async def upload_documents(
                 base_url=base_url,
                 user_id=user_id,
                 organization_id=org_id,
-                category=category,
+                category=resolved_category,
             )
 
             results.append(
@@ -265,6 +297,7 @@ async def upload_documents(
                     "filename": filename,
                     "status": "pending",
                     "document_id": doc_id,
+                    "category": resolved_category,
                     "visibility": visibility,
                     "message": "Processing started in background",
                 }

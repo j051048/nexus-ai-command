@@ -11,13 +11,35 @@ VMD 投标工具集 (Virtual Marketing Department - Tender/Bid Tools)
 import logging
 from typing import Any
 
+from app.agent.artifact_contract import ArtifactSpec, ArtifactType
+from app.agent.scientific_writing_skills import (
+    build_writing_skill_prompt,
+    enrich_artifact_spec,
+)
+from app.agent.state import AgentConfig
+from app.services.agent_evidence_service import retrieve_agent_evidence
 from app.services.ai_service import AIService
+from app.services.artifact_quality_service import evaluate_text_artifact
 from app.services.vector_service import vector_service
 from app.tools._shared import safe_tool_error
 
 from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
+
+
+def _format_evidence_rows(rows: list[dict[str, Any]]) -> str:
+    parts = []
+    for row in rows:
+        document_id = row.get("document_id")
+        chunk_id = row.get("chunk_id")
+        if not document_id or not chunk_id:
+            continue
+        title = row.get("name") or row.get("title") or row.get("source") or "企业资料"
+        parts.append(
+            f"[EVID:{document_id}:{chunk_id}] {title}\n{str(row.get('excerpt') or '')[:900]}"
+        )
+    return "\n\n---\n\n".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -98,18 +120,33 @@ class GenerateBidDocumentTool(BaseTool):
 
         # Search knowledge base for product specs and past bid documents
         kb_context = ""
+        evidence_packet: dict[str, Any] = {}
+        artifact_spec = enrich_artifact_spec(
+            ArtifactSpec(
+                artifact_type=ArtifactType.TENDER,
+                external_delivery=True,
+                strict_quality=True,
+                requested_formats=["docx", "pdf"],
+            )
+        )
         try:
             org_id = config.get("org_id") if config else None
             search_query = f"{our_products or project_name} 技术参数 投标 方案".strip()
-            kb_result = await vector_service.search(
-                search_query,
-                user_id,
-                limit=5,
-                config=config,
-                org_id=org_id,
+            packet = await retrieve_agent_evidence(
+                query=search_query,
+                config=AgentConfig(
+                    user_id=user_id,
+                    org_id=org_id,
+                    user_role=(config or {}).get("user_role", "employee"),
+                    rag_inject_limit=4,
+                ),
+                artifact_spec=artifact_spec,
             )
-            if kb_result and "No relevant documents" not in kb_result:
-                kb_context = f"\n\n## 知识库参考（产品资料/历史标书）\n{kb_result}"
+            evidence_packet = packet.model_dump(mode="json")
+            if packet.prompt_context:
+                kb_context = (
+                    f"\n\n## 企业证据（产品资料/历史标书）\n{packet.prompt_context}"
+                )
         except Exception as e:
             logger.warning(f"Knowledge base search failed for bid document: {e}")
 
@@ -138,11 +175,26 @@ class GenerateBidDocumentTool(BaseTool):
             "请生成规范的投标文件框架，重点关注技术响应的完整性和合规性。"
             "标注可能的废标风险点，并给出规避建议。中文输出。"
         )
+        system += "\n\n" + build_writing_skill_prompt(artifact_spec)
 
         try:
             result = await AIService.call_llm(prompt, system)
+            quality = evaluate_text_artifact(result, artifact_spec, evidence_packet)
+            readiness = (
+                ""
+                if quality["ready"]
+                else "\n\n> 待核验草稿：证据或质量门禁尚未通过，请勿直接提交。"
+            )
             return self.format_result(
-                data={}, summary=f"**投标文件框架 — {project_name}**\n\n{result}"
+                data={
+                    "artifact_spec": artifact_spec.model_dump(mode="json"),
+                    "quality": quality,
+                    "evidence_contract": {
+                        "coverage": evidence_packet.get("coverage", 0),
+                        "sufficient": evidence_packet.get("sufficient", False),
+                    },
+                },
+                summary=f"**投标文件框架 — {project_name}**\n\n{result}{readiness}",
             )
         except Exception as e:
             logger.error(f"Failed to generate bid document: {e}")
@@ -219,14 +271,15 @@ class GenerateDeviationTableTool(BaseTool):
         if our_product:
             try:
                 org_id = config.get("org_id") if config else None
-                kb_result = await vector_service.search(
-                    f"{our_product} 技术参数 规格 指标",
-                    user_id,
+                rows = await vector_service.search_evidence(
+                    query=f"{our_product} 技术参数 规格 指标",
+                    user_id=user_id,
                     limit=5,
                     config=config,
                     org_id=org_id,
                 )
-                if kb_result and "No relevant documents" not in kb_result:
+                kb_result = _format_evidence_rows(rows)
+                if kb_result:
                     kb_context = f"\n\n## 我方产品资料（知识库）\n{kb_result}"
             except Exception as e:
                 logger.warning(f"Knowledge base search failed for deviation table: {e}")

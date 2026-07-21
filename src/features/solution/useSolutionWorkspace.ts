@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { httpClient } from '@/lib/httpClient';
+import { announceDeliverable } from '@/features/deliverables/deliverableStore';
+import { downloadBlob, titleFromContent } from '@/features/deliverables/exportContent';
 
 import type {
   SolutionBrief,
@@ -414,16 +416,34 @@ export function usePromoteSolutionTemplate(projectId: string | null) {
   });
 }
 
-export async function downloadSolution(projectId: string, format: 'markdown' | 'docx' | 'pdf' | 'xlsx') {
+export async function downloadSolution(
+  projectId: string,
+  format: 'markdown' | 'docx' | 'pdf' | 'xlsx',
+  projectTitle?: string,
+) {
   const response = await httpClient.get(`/api/solution-workspace/projects/${projectId}/export`, {
     params: { format },
     responseType: 'blob',
     silentError: true,
   });
-  const url = URL.createObjectURL(response.data);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `solution-${projectId}.${format === 'markdown' ? 'md' : format}`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  const extension = format === 'markdown' ? 'md' : format;
+  const safeTitle = titleFromContent(projectTitle || `solution-${projectId}`);
+  const filename = `${safeTitle}.${extension}`;
+  const blob = response.data as Blob;
+  downloadBlob(blob, filename);
+  announceDeliverable({
+    title: projectTitle || '客户解决方案',
+    filename,
+    format,
+    source: 'solution',
+    sourceLabel: '方案作战',
+    sourcePath: `/growth/solutions?project=${projectId}`,
+    sizeBytes: blob.size,
+    downloadAction: {
+      type: 'http-blob',
+      url: `/api/solution-workspace/projects/${projectId}/export`,
+      filename,
+      params: { format },
+    },
+  });
 }

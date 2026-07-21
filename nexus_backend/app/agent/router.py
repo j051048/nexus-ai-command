@@ -22,6 +22,7 @@ from langchain_core.messages import HumanMessage
 from app.agent.node_helpers import _get_langfuse_callbacks, _get_trace_context
 from app.agent.state import AgentPhase, AgentState, QueryComplexity, ThinkingStep
 from app.services.ai_execution_policy_service import (
+    AIExecutionMode,
     AIExecutionPolicy,
     assess_task,
     effective_policy_for_task,
@@ -1267,6 +1268,18 @@ async def route_node(state: AgentState) -> dict:
             f"[Router] VMD role detected: agent_code={agent_code} scene={scene_code} multi_agent={needs_multi_agent}"
         )
 
+    from app.agent.artifact_contract import infer_artifact_spec
+    from app.agent.scientific_writing_skills import enrich_artifact_spec
+
+    artifact_spec = enrich_artifact_spec(
+        infer_artifact_spec(last_user_msg, state.get("artifact_spec"))
+    )
+    if artifact_spec.requires_quality_gate and complexity in {
+        QueryComplexity.SIMPLE,
+        QueryComplexity.MODERATE,
+    }:
+        complexity = QueryComplexity.COMPLEX
+
     task_profile = assess_task(
         last_user_msg,
         complexity=complexity,
@@ -1276,6 +1289,19 @@ async def route_node(state: AgentState) -> dict:
         scheduled=scene_code in {"scheduled_task", "proactive"},
         policy=configured_policy,
     )
+    if artifact_spec.requires_quality_gate:
+        task_profile = task_profile.model_copy(
+            update={
+                "needs_verification": True,
+                "execution_depth": "critic",
+                "reason_codes": list(
+                    dict.fromkeys(
+                        [*task_profile.reason_codes, "external_artifact_quality_gate"]
+                    )
+                ),
+                "recommended_mode": AIExecutionMode.STRICT,
+            }
+        )
     execution_policy = effective_policy_for_task(configured_policy, task_profile)
 
     logger.info(
@@ -1303,6 +1329,7 @@ async def route_node(state: AgentState) -> dict:
         "execution_policy": execution_policy.model_dump(mode="json"),
         "task_profile": task_profile.model_dump(mode="json"),
         "execution_depth": task_profile.execution_depth,
+        "artifact_spec": artifact_spec.model_dump(mode="json"),
         "current_phase": AgentPhase.PLANNING,
         "thinking_steps": [thinking_step],
     }

@@ -138,7 +138,7 @@ class SkillLibrary:
             )
 
         # ── 2. 回退：关键词重叠度匹配 ──
-        return await self._match_skill_keyword(user_message, user_id, db)
+        return await self._match_skill_keyword(user_message, user_id, org_id, db)
 
     async def _match_skill_semantic(
         self,
@@ -195,6 +195,7 @@ class SkillLibrary:
         self,
         user_message: str,
         user_id: str,
+        org_id: str,
         db,
     ) -> dict | None:
         """关键词重叠度匹配（原始逻辑，作为回退）。"""
@@ -203,6 +204,7 @@ class SkillLibrary:
                 await db.table("conversation_memories")
                 .select("key, value, metadata, importance")
                 .eq("user_id", user_id)
+                .eq("organization_id", org_id)
                 .eq("category", _SKILL_CATEGORY)
                 .order("importance", desc=True)
                 .limit(20)
@@ -265,6 +267,7 @@ class SkillLibrary:
         self,
         skill_key: str,
         user_id: str,
+        org_id: str | None = None,
         db=None,
     ) -> None:
         """技能被成功使用后，增加 success_count 和 importance。"""
@@ -272,15 +275,16 @@ class SkillLibrary:
             return
 
         try:
-            result = (
-                await db.table("conversation_memories")
+            query = (
+                db.table("conversation_memories")
                 .select("metadata, importance, access_count")
                 .eq("user_id", user_id)
                 .eq("key", skill_key)
                 .eq("category", _SKILL_CATEGORY)
-                .limit(1)
-                .execute()
             )
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            result = await query.limit(1).execute()
 
             if not result.data:
                 return
@@ -294,7 +298,7 @@ class SkillLibrary:
             # importance 随使用次数增长（上限 0.95）
             new_importance = min(0.95, 0.5 + success_count * 0.05)
 
-            await (
+            update_query = (
                 db.table("conversation_memories")
                 .update(
                     {
@@ -307,8 +311,10 @@ class SkillLibrary:
                 .eq("user_id", user_id)
                 .eq("key", skill_key)
                 .eq("category", _SKILL_CATEGORY)
-                .execute()
             )
+            if org_id:
+                update_query = update_query.eq("organization_id", org_id)
+            await update_query.execute()
 
             logger.debug(
                 f"[SkillLibrary] Reinforced: {skill_key} (count={success_count})"
@@ -366,6 +372,7 @@ class SkillLibrary:
             await db.table("conversation_memories")
             .select("id, metadata")
             .eq("user_id", user_id)
+            .eq("organization_id", org_id)
             .eq("key", skill_key)
             .eq("category", _SKILL_CATEGORY)
             .limit(1)
@@ -397,6 +404,7 @@ class SkillLibrary:
                 await db.table("conversation_memories")
                 .select("id", count="exact")
                 .eq("user_id", user_id)
+                .eq("organization_id", org_id)
                 .eq("category", _SKILL_CATEGORY)
                 .execute()
             )
@@ -406,6 +414,7 @@ class SkillLibrary:
                     await db.table("conversation_memories")
                     .select("id")
                     .eq("user_id", user_id)
+                    .eq("organization_id", org_id)
                     .eq("category", _SKILL_CATEGORY)
                     .order("importance", desc=False)
                     .order("last_accessed_at", desc=False)

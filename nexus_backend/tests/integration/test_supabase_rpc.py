@@ -339,7 +339,12 @@ def test_quality_gate_accepts_normal_responses():
 
     svc = SemanticCacheService()
 
-    assert svc._passes_quality_gate("市场分析", "这是一份详细的市场分析报告，包含行业趋势和竞品对比。") is True
+    assert (
+        svc._passes_quality_gate(
+            "市场分析", "这是一份详细的市场分析报告，包含行业趋势和竞品对比。"
+        )
+        is True
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -375,7 +380,10 @@ def test_should_use_cache_bypasses_creative():
 
     assert svc.should_use_cache("写一篇3000字的推广文") is False
     assert svc.should_use_cache("帮我创作一份万字策划案") is False
-    assert svc.should_use_cache("竞品分析") is True
+    assert svc.should_use_cache("竞品分析") is False
+    assert svc.should_use_cache("生成客户解决方案") is False
+    assert svc.should_use_cache("导出 Excel") is False
+    assert svc.should_use_cache("查询今天的客户数量") is True
 
 
 # ──────────────────────────────────────────────────────────────────────────────

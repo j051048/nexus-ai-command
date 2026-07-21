@@ -43,6 +43,7 @@ async def inject_system_prompts(
 
     # Compacted context summary
     _inject_compacted_summary(lc_msgs, state)
+    _inject_artifact_contract(lc_msgs, state)
 
     # ── [F] Slot filling & Context Engine ──
     _inject_slot_context(lc_msgs, state)
@@ -81,10 +82,36 @@ def _compile_global_context(lc_msgs, state, agent_config, complexity):
             ledger=state.get("context_ledger") or {},
         )
         state["context_compile_report"] = report.to_dict()
+        existing_contract = state.get("evidence_contract") or {}
+        packet = state.get("evidence_packet") or {}
+        packet_ids = [
+            f"EVID:{item.get('document_id')}:{item.get('chunk_id')}"
+            for item in packet.get("records", [])
+            if item.get("document_id") and item.get("chunk_id")
+        ]
+        evidence_ids = list(
+            dict.fromkeys(
+                [
+                    *existing_contract.get("evidence_ids", []),
+                    *packet_ids,
+                    *report.evidence_ids,
+                ]
+            )
+        )
         state["evidence_contract"] = {
-            "evidence_ids": report.evidence_ids,
+            **existing_contract,
+            "evidence_ids": evidence_ids,
             "context_fingerprint": report.fingerprint,
-            "requires_citations": bool(report.evidence_ids),
+            "evidence_fingerprint": packet.get("fingerprint", ""),
+            "coverage": packet.get("coverage", existing_contract.get("coverage", 0)),
+            "sufficient": packet.get(
+                "sufficient", existing_contract.get("sufficient", False)
+            ),
+            "missing_topics": packet.get(
+                "missing_topics", existing_contract.get("missing_topics", [])
+            ),
+            "requires_citations": bool(evidence_ids)
+            or bool((state.get("artifact_spec") or {}).get("strict_quality")),
         }
         return compiled
     except Exception as e:
@@ -95,6 +122,37 @@ def _compile_global_context(lc_msgs, state, agent_config, complexity):
 # ---------------------------------------------------------------------------
 # [D] helpers
 # ---------------------------------------------------------------------------
+
+
+def _inject_artifact_contract(lc_msgs, state):
+    spec = state.get("artifact_spec") or {}
+    if not spec:
+        return
+    try:
+        from app.agent.artifact_contract import is_strict_artifact
+        from app.agent.scientific_writing_skills import build_writing_skill_prompt
+
+        if not is_strict_artifact(spec):
+            return
+        skill_prompt = build_writing_skill_prompt(spec)
+        packet = state.get("evidence_packet") or {}
+        sufficiency = (
+            f"Evidence coverage={float(packet.get('coverage') or 0):.0%}; "
+            f"missing topics={packet.get('missing_topics') or []}."
+        )
+        lc_msgs.insert(
+            0,
+            SystemMessage(
+                content=(
+                    skill_prompt
+                    + "\n"
+                    + sufficiency
+                    + " Do not present the artifact as externally ready when the evidence contract is insufficient."
+                )
+            ),
+        )
+    except Exception as exc:
+        logger.warning("[PromptBuilder] artifact contract injection skipped: %s", exc)
 
 
 def _inject_role_and_tools(lc_msgs, agent_config, complexity, intent_summary, state):

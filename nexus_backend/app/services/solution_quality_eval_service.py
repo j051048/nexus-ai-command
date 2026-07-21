@@ -4,14 +4,24 @@ from __future__ import annotations
 
 from typing import Any
 
-EVALUATOR_VERSION = "solution-quality.v1"
+from app.services.artifact_quality_service import evaluate_text_artifact
+
+EVALUATOR_VERSION = "solution-quality.v2"
 
 
 def _percent(numerator: int, denominator: int) -> float:
     return round((numerator / denominator * 100) if denominator else 0, 2)
 
 
-def evaluate_solution(workspace: dict[str, Any]) -> dict[str, Any]:
+def evaluate_solution(
+    workspace: dict[str, Any], *, stage: str = "external"
+) -> dict[str, Any]:
+    """Evaluate traceability, commercial integrity, and writing quality.
+
+    ``draft`` focuses on repairable content quality. ``external`` additionally
+    requires human approvals and completed must-have requirements.
+    """
+
     requirements = workspace.get("requirements") or []
     sections = workspace.get("sections") or []
     packages = workspace.get("packages") or []
@@ -20,7 +30,7 @@ def evaluate_solution(workspace: dict[str, Any]) -> dict[str, Any]:
     evidenced = [item for item in requirements if item.get("evidence_ref")]
     approved = [item for item in sections if item.get("status") == "approved"]
     cited_sections = [item for item in sections if item.get("evidence_refs")]
-    unsupported_markers = ("保证", "绝对", "百分之百", "行业第一", "零风险")
+    unsupported_markers = ("保证", "绝对", "百分之百", "行业第一", "零风险", "100%")
     unsupported_claims = [
         {"section_id": item.get("id"), "marker": marker}
         for item in sections
@@ -56,14 +66,19 @@ def evaluate_solution(workspace: dict[str, Any]) -> dict[str, Any]:
         "compatibility": 0.1,
         "claim_safety": 0.05,
     }
+    if stage == "draft":
+        dimensions["section_approval"] = 100.0
+        weights["section_approval"] = 0.0
+        weights["section_citation"] = 0.2
     score = round(sum(dimensions[key] * weights[key] for key in weights), 2)
     findings: list[dict[str, Any]] = []
-    if dimensions["must_requirement_coverage"] < 100:
+    if stage == "external" and dimensions["must_requirement_coverage"] < 100:
         findings.append(
             {
                 "severity": "high",
                 "code": "must_requirements_open",
                 "message": "仍有必选需求未核验",
+                "repairable": False,
             }
         )
     if dimensions["evidence_coverage"] < 80:
@@ -72,6 +87,7 @@ def evaluate_solution(workspace: dict[str, Any]) -> dict[str, Any]:
                 "severity": "high",
                 "code": "evidence_gap",
                 "message": "需求证据覆盖率低于 80%",
+                "repairable": False,
             }
         )
     if not commercial.get("valid", True):
@@ -80,6 +96,7 @@ def evaluate_solution(workspace: dict[str, Any]) -> dict[str, Any]:
                 "severity": "high",
                 "code": "commercial_invalid",
                 "message": "报价或产品目录校验未通过",
+                "repairable": False,
             }
         )
     if compatibility_errors:
@@ -89,6 +106,7 @@ def evaluate_solution(workspace: dict[str, Any]) -> dict[str, Any]:
                 "code": "compatibility_error",
                 "message": "产品兼容性或目录校验存在错误",
                 "count": compatibility_errors,
+                "repairable": False,
             }
         )
     if unsupported_claims:
@@ -98,13 +116,42 @@ def evaluate_solution(workspace: dict[str, Any]) -> dict[str, Any]:
                 "code": "unsupported_claim",
                 "message": "存在缺少证据的绝对化承诺",
                 "items": unsupported_claims,
+                "repairable": True,
             }
         )
+
+    artifact_quality: dict[str, Any] = {}
+    artifact_spec = workspace.get("artifact_spec") or {}
+    if artifact_spec:
+        section_text = "\n\n".join(
+            f"## {item.get('title') or ''}\n{item.get('content') or ''}"
+            for item in sections
+        )
+        evidence_packet = (workspace.get("extension_data") or {}).get(
+            "evidence_packet", {}
+        )
+        artifact_quality = evaluate_text_artifact(
+            section_text, artifact_spec, evidence_packet
+        )
+        dimensions.update(
+            {
+                f"artifact_{key}": value
+                for key, value in artifact_quality.get("dimensions", {}).items()
+            }
+        )
+        findings.extend(artifact_quality.get("findings", []))
+        score = round(score * 0.6 + artifact_quality.get("score", 0) * 0.4, 2)
+
+    blockers = [item for item in findings if item.get("severity") == "high"]
+    ready = score >= 85 and not blockers
+    repairable_findings = [item for item in findings if item.get("repairable", True)]
     return {
         "evaluator_version": EVALUATOR_VERSION,
+        "stage": stage,
         "score": score,
         "dimensions": dimensions,
         "findings": findings,
-        "ready": score >= 85
-        and not any(item["severity"] == "high" for item in findings),
+        "repairable_findings": repairable_findings,
+        "artifact_quality": artifact_quality,
+        "ready": ready,
     }

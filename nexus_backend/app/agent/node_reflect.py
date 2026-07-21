@@ -856,13 +856,21 @@ async def critic_node(state: AgentState) -> dict:
     """
     config: AgentConfig = state["config"]
     complexity = state.get("complexity", QueryComplexity.MODERATE)
+    from app.agent.artifact_contract import is_strict_artifact
+
+    strict_artifact = is_strict_artifact(state.get("artifact_spec"))
 
     # Skip critic for simple/moderate queries unless high-risk irreversible
     # tools were used. Irreversible operations must always be reviewed.
-    if complexity in (
-        QueryComplexity.SIMPLE,
-        QueryComplexity.MODERATE,
-    ) and not has_irreversible_tool(state):
+    if (
+        complexity
+        in (
+            QueryComplexity.SIMPLE,
+            QueryComplexity.MODERATE,
+        )
+        and not has_irreversible_tool(state)
+        and not strict_artifact
+    ):
         return {
             "critic_passed": True,
             "critic_feedback": "",
@@ -879,11 +887,31 @@ async def critic_node(state: AgentState) -> dict:
                 break
 
     if not final_response:
+        if strict_artifact:
+            return {
+                "critic_passed": False,
+                "critic_feedback": "Strict artifact has no generated content",
+                "reflection_guidance": "Generate the requested artifact before quality review.",
+                "needs_replanning": True,
+                "iteration": state.get("iteration", 0) + 1,
+                "artifact_repair_count": state.get("artifact_repair_count", 0) + 1,
+                "current_phase": AgentPhase.PLANNING,
+            }
         return {
             "critic_passed": True,
             "critic_feedback": "无回复内容，跳过评审",
             "current_phase": AgentPhase.RESPONDING,
         }
+
+    artifact_quality: dict = {}
+    if strict_artifact:
+        from app.services.artifact_quality_service import evaluate_text_artifact
+
+        artifact_quality = evaluate_text_artifact(
+            final_response,
+            state.get("artifact_spec") or {},
+            state.get("evidence_packet") or {},
+        )
 
     # Gather context for critic evaluation
     intent_summary = state.get("intent_summary", "")
@@ -927,6 +955,14 @@ async def critic_node(state: AgentState) -> dict:
     except Exception:
         pass  # 非关键路径
 
+    artifact_review = ""
+    if artifact_quality:
+        artifact_review = (
+            "\n## Deterministic artifact gate\n"
+            + _json.dumps(artifact_quality, ensure_ascii=False)[:2500]
+            + "\nThe response cannot pass while this gate reports ready=false.\n"
+        )
+
     critic_prompt = f"""你是一个严格的质量评审员。请评估以下AI回复的质量。
 
 ## 用户意图
@@ -937,6 +973,8 @@ async def critic_node(state: AgentState) -> dict:
 
 ## AI回复
 {final_response[:2000]}
+
+{artifact_review}
 
 {history_lessons}## 评估标准
 1. completeness (0-1): 回答是否完整覆盖了用户的所有问题点？
@@ -1012,7 +1050,25 @@ async def critic_node(state: AgentState) -> dict:
             result.passed and weighted_score >= 0.7 and result.accuracy >= 0.6
         )
     except Exception as e:
-        # Critic failure should never block the response — silently pass
+        if strict_artifact and not artifact_quality.get("ready", False):
+            repair_count = state.get("artifact_repair_count", 0) + 1
+            guidance = artifact_quality.get("repair_guidance") or (
+                "补齐缺失章节与企业证据；无法检索到证据的事实标记为待核验。"
+            )
+            logger.warning(
+                "[CriticNode] LLM critic failed; deterministic artifact gate blocked: %s",
+                e,
+            )
+            return {
+                "critic_passed": False,
+                "critic_feedback": "Deterministic artifact quality gate failed",
+                "reflection_guidance": guidance,
+                "needs_replanning": True,
+                "iteration": state.get("iteration", 0) + 1,
+                "artifact_quality": artifact_quality,
+                "artifact_repair_count": repair_count,
+                "current_phase": AgentPhase.PLANNING,
+            }
         logger.warning(f"[CriticNode] Evaluation failed, silently passing: {e}")
         return {
             "critic_passed": True,
@@ -1024,7 +1080,17 @@ async def critic_node(state: AgentState) -> dict:
                     content="质量评审异常，自动通过",
                 )
             ],
+            "artifact_quality": artifact_quality,
         }
+
+    if strict_artifact and not artifact_quality.get("ready", False):
+        result.passed = False
+        deterministic_guidance = artifact_quality.get("repair_guidance") or (
+            "补齐必需章节、有效证据引用和人工确认项。"
+        )
+        result.improvement_suggestion = "；".join(
+            filter(None, [result.improvement_suggestion, deterministic_guidance])
+        )
 
     # Persist critic score (non-blocking)
     try:
@@ -1035,6 +1101,26 @@ async def critic_node(state: AgentState) -> dict:
         )
     except Exception as e:
         logger.warning(f"[CriticNode] Failed to persist quality score: {e}")
+
+    if strict_artifact and artifact_quality:
+        try:
+            from app.services.artifact_quality_service import (
+                persist_artifact_quality_event,
+            )
+
+            await persist_artifact_quality_event(
+                quality=artifact_quality,
+                spec=state.get("artifact_spec") or {},
+                org_id=config.org_id,
+                user_id=config.user_id,
+                session_id=config.session_id,
+                repair_count=state.get("artifact_repair_count", 0),
+                evidence_count=len(
+                    (state.get("evidence_packet") or {}).get("records", [])
+                ),
+            )
+        except Exception:
+            logger.debug("[CriticNode] artifact telemetry skipped", exc_info=True)
 
     critic_feedback = f"完整性: {result.completeness:.0%}, 相关性: {result.relevance:.0%}, 准确性: {result.accuracy:.0%}"
     if result.improvement_suggestion:
@@ -1047,6 +1133,7 @@ async def critic_node(state: AgentState) -> dict:
             "critic_feedback": critic_feedback,
             "confidence_score": weighted_score,
             "current_phase": AgentPhase.RESPONDING,
+            "artifact_quality": artifact_quality,
             "thinking_steps": [
                 ThinkingStep(
                     phase=AgentPhase.CRITIQUING.value,
@@ -1070,6 +1157,8 @@ async def critic_node(state: AgentState) -> dict:
         "reflection_guidance": guidance,
         "needs_replanning": True,
         "iteration": iteration + 1,
+        "artifact_quality": artifact_quality,
+        "artifact_repair_count": state.get("artifact_repair_count", 0) + 1,
         "current_phase": AgentPhase.PLANNING,
         "thinking_steps": [
             ThinkingStep(

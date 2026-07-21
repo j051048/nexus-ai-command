@@ -69,6 +69,7 @@ async def prepare_initial_state(
         "cached_response": None,
         "rag_context": "",
         "rag_sources": [],
+        "evidence_packet": {},
     }
 
     # ── 0. Filter out system messages from frontend ──
@@ -90,7 +91,47 @@ async def prepare_initial_state(
 
     # ── 2. RAG Retrieval with Query Transformation ──
     # P1 Fix #22: Add HyDE and Multi-Query for better retrieval
-    if config.enable_rag_inject and last_user_msg:
+    # Prefer a structured evidence packet.  It preserves source identity,
+    # version, coverage, and section purpose all the way to the critic.
+    if config.enable_rag_inject and last_user_msg and not skip_semantic:
+        try:
+            from app.agent.artifact_contract import infer_artifact_spec
+            from app.agent.scientific_writing_skills import enrich_artifact_spec
+            from app.services.agent_evidence_service import retrieve_agent_evidence
+
+            raw_spec = (state or {}).get("artifact_spec") or infer_artifact_spec(
+                last_user_msg
+            )
+            artifact_spec = enrich_artifact_spec(raw_spec)
+            packet = await retrieve_agent_evidence(
+                query=last_user_msg,
+                config=config,
+                artifact_spec=artifact_spec,
+                db=client,
+            )
+            result["evidence_packet"] = packet.model_dump(mode="json")
+            result["rag_context"] = packet.prompt_context
+            result["rag_sources"] = list(
+                dict.fromkeys(record.title for record in packet.records)
+            )
+            logger.info(
+                "[Memory] Structured evidence injected records=%d coverage=%.2f",
+                len(packet.records),
+                packet.coverage,
+            )
+        except Exception as exc:
+            logger.warning(
+                "[Memory] Structured evidence failed; using legacy fallback: %s",
+                exc,
+            )
+
+    # Keep the previous string-based retriever as a safe compatibility fallback.
+    if (
+        config.enable_rag_inject
+        and last_user_msg
+        and not skip_semantic
+        and not result["evidence_packet"]
+    ):
         try:
             from app.agent.node_helpers import QueryComplexity
             from app.services.vector_service import vector_service

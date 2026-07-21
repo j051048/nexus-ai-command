@@ -3,6 +3,8 @@ import { BookOpenCheck, CheckCircle2, FileStack, FolderKanban, Gauge, Loader2, P
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { ContextAIActionMenu } from '@/components/ai/ContextAIActionMenu';
+import { EvidenceDrawer, type EvidenceDrawerItem } from '@/components/ai/EvidenceDrawer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SolutionProjectDialog } from '@/features/solution/SolutionProjectDialog';
@@ -91,6 +93,25 @@ export default function SolutionWorkspacePage() {
   const completedStages = completedSolutionStages(workspace);
   const action = nextAction(workspace.active_stage, readiness);
   const activeStage = SOLUTION_STAGE_DEFINITIONS.find((stage) => stage.id === workspace.active_stage);
+  const evidenceItems = useMemo<EvidenceDrawerItem[]>(() => {
+    const documents = (contextQuery.data?.documents ?? []).map((document) => ({
+      id: `document-${document.id}`,
+      title: document.name,
+      description: document.doc_type ? `企业资料 · ${document.doc_type}` : '企业资料',
+      status: document.review_status === 'verified' ? 'verified' as const : 'pending' as const,
+      source: document.source_version ? `资料版本 ${document.source_version}` : '企业知识库',
+    }));
+    const requirementEvidence = workspace.requirements
+      .filter((requirement) => requirement.evidence_ref || requirement.status === 'open')
+      .map((requirement) => ({
+        id: `requirement-${requirement.id}`,
+        title: requirement.title,
+        description: requirement.source_excerpt || requirement.evidence_ref || '尚未绑定资料依据',
+        status: requirement.status === 'verified' ? 'verified' as const : requirement.evidence_ref ? 'pending' as const : 'gap' as const,
+        source: requirement.source_name || requirement.evidence_ref || undefined,
+      }));
+    return [...requirementEvidence, ...documents].slice(0, 40);
+  }, [contextQuery.data?.documents, workspace.requirements]);
 
   const handleCreate = async (input: Parameters<typeof createProject.mutateAsync>[0]) => {
     const project = await createProject.mutateAsync(input);
@@ -138,7 +159,7 @@ export default function SolutionWorkspacePage() {
   const handleExport = async (format: 'markdown' | 'docx' | 'pdf' | 'xlsx') => {
     if (!selectedProjectId) return;
     try {
-      await downloadSolution(selectedProjectId, format);
+      await downloadSolution(selectedProjectId, format, selectedProject?.title);
       toast.success('交付文件已生成');
     } catch {
       toast.error('仍有未核验项，完成审校后再导出');
@@ -219,7 +240,15 @@ export default function SolutionWorkspacePage() {
       <section className="flex flex-col gap-3 border-l-2 border-primary bg-primary/[0.035] px-4 py-3 md:flex-row md:items-center">
         <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
         <div className="min-w-0 flex-1"><div className="text-sm font-semibold">{action[0]}</div><div className="text-xs text-muted-foreground">{action[1]}</div></div>
-        <div className="flex items-center gap-2"><Badge variant="outline">{readiness.evidenceCount} 条证据</Badge><Badge variant="outline">{readiness.mustOpen} 项待核验</Badge></div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">{readiness.mustOpen} 项待核验</Badge>
+          <EvidenceDrawer items={evidenceItems} title="方案依据与证据缺口" />
+          <ContextAIActionMenu label="AI 辅助" actions={[
+            { label: '补齐客户需求', prompt: `请协助补齐方案“${selectedProject?.title || workspace.brief.title || '当前方案'}”的客户事实。只询问行业、样品、检测目标、预算、地域、交付时间和约束条件中尚未明确的内容。` },
+            { label: '检查资料缺口', prompt: `请检查方案“${selectedProject?.title || workspace.brief.title || '当前方案'}”的企业资料与证据缺口，只列出最影响产品选型和外发承诺的项目。` },
+            { label: '审校当前方案', prompt: `请审校方案“${selectedProject?.title || workspace.brief.title || '当前方案'}”，重点检查参数依据、预算、地域适配、交付承诺和未经核验的表述。` },
+          ]} />
+        </div>
       </section>
 
       <SolutionStageRail activeStage={workspace.active_stage} completedStages={completedStages} onStageChange={(active_stage) => setWorkspace((current) => ({ ...current, active_stage }))} />

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -12,6 +13,9 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from app.agent.artifact_contract import ArtifactAudience, ArtifactSpec, ArtifactType
+from app.agent.scientific_writing_skills import enrich_artifact_spec
+from app.agent.state import AgentConfig
 from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.dependencies import (
     get_current_user_role,
@@ -19,6 +23,8 @@ from app.core.dependencies import (
     require_role,
 )
 from app.core.errors import ErrorCode, api_error, api_success
+from app.services.agent_evidence_service import retrieve_agent_evidence
+from app.services.artifact_feedback_service import build_artifact_feedback_candidate
 from app.services.audit_logger import audit_logger
 from app.services.solution_commercial_service import (
     enrich_workspace_commercials,
@@ -28,6 +34,7 @@ from app.services.solution_generation_policy import (
     compact_generation_context,
     generation_fingerprint,
 )
+from app.services.solution_quality_eval_service import evaluate_solution
 from app.services.solution_scenario_catalog import (
     get_scenario_pack,
     list_scenario_packs,
@@ -46,7 +53,6 @@ from app.services.solution_workspace_service import (
     validate_workspace,
     workspace_markdown,
 )
-from app.services.vector_service import vector_service
 
 router = APIRouter(prefix="/api/solution-workspace", tags=["Solution Workspace"])
 require_solution_catalog_admin = require_role(["admin", "founder", "boss"])
@@ -635,9 +641,33 @@ async def generate_project_solution(
             "title",
         ]
     )
-    evidence_catalog = await vector_service.search_evidence(
-        query=query, user_id=user_id, limit=8, org_id=organization_id
+    artifact_spec = enrich_artifact_spec(
+        ArtifactSpec(
+            artifact_type=ArtifactType.CUSTOMER_SOLUTION,
+            audience=ArtifactAudience.CUSTOMER,
+            requested_formats=["docx", "pdf", "xlsx"],
+            external_delivery=True,
+            strict_quality=True,
+            instrument_line=brief.get("instrument_line_code"),
+            industry=brief.get("industry"),
+            region=brief.get("region"),
+            min_evidence_coverage=0.9,
+        )
     )
+    evidence_packet = await retrieve_agent_evidence(
+        query=query,
+        config=AgentConfig(
+            user_id=user_id,
+            org_id=organization_id,
+            user_role="employee",
+            rag_inject_limit=5,
+        ),
+        artifact_spec=artifact_spec,
+        db=db,
+    )
+    evidence_catalog = [
+        item.model_dump(mode="json") for item in evidence_packet.records
+    ]
     source_document_ids = project.get("source_document_ids") or []
     if source_document_ids:
         source_documents = (
@@ -662,6 +692,7 @@ async def generate_project_solution(
             explicit_evidence.append(
                 {
                     "document_id": str(document.get("id")),
+                    "chunk_id": f"document-{document.get('id')}",
                     "title": document.get("name"),
                     "source": document.get("name"),
                     "doc_type": document.get("doc_type"),
@@ -699,7 +730,14 @@ async def generate_project_solution(
     knowledge_context = json.dumps(evidence_catalog, ensure_ascii=False, default=str)
     workspace_extension = dict(workspace.get("extension_data") or {})
     workspace_extension["evidence_catalog"] = evidence_catalog
-    workspace = {**workspace, "extension_data": workspace_extension}
+    packet_data = evidence_packet.model_dump(mode="json")
+    packet_data["records"] = evidence_catalog
+    workspace_extension["evidence_packet"] = packet_data
+    workspace = {
+        **workspace,
+        "artifact_spec": artifact_spec.model_dump(mode="json"),
+        "extension_data": workspace_extension,
+    }
     template = None
     template_id = (workspace.get("extension_data") or {}).get("template_id")
     if template_id:
@@ -1142,16 +1180,69 @@ async def record_solution_feedback(
     user_id: str = Depends(get_current_user_id),
 ):
     project = await _get_project(db, organization_id, project_id)
-    payload = {
+    workspace = project.get("workspace") or {}
+    revised_workspace = deepcopy(workspace)
+    if body.section_id and body.revised_content:
+        for section in revised_workspace.get("sections") or []:
+            if str(section.get("id")) == body.section_id:
+                section["content"] = body.revised_content
+                break
+    quality_before = evaluate_solution(workspace, stage="external")
+    quality_after = evaluate_solution(revised_workspace, stage="external")
+    evidence_packet = (workspace.get("extension_data") or {}).get("evidence_packet", {})
+    learning = build_artifact_feedback_candidate(
+        change_type=body.change_type,
+        rating=body.rating,
+        original_content=body.original_content,
+        revised_content=body.revised_content,
+        quality_before=quality_before,
+        quality_after=quality_after,
+        evidence_fingerprint=evidence_packet.get("fingerprint"),
+    )
+    base_payload = {
         **body.model_dump(mode="json"),
         "organization_id": organization_id,
         "project_id": str(project_id),
         "version_number": project.get("current_version"),
         "created_by": user_id,
     }
-    result = await db.table("solution_feedback_events").insert(payload).execute()
+    payload = {
+        **base_payload,
+        "quality_snapshot": {
+            "before": quality_before,
+            "after": quality_after,
+        },
+        "evidence_fingerprint": learning["evidence_fingerprint"],
+        "learning_status": learning["learning_status"],
+        "content_similarity": learning["content_similarity"],
+    }
+    try:
+        result = await db.table("solution_feedback_events").insert(payload).execute()
+    except Exception as exc:
+        # Keep feedback available during rolling deployments where application
+        # pods may start before the additive metadata migration is applied.
+        if any(
+            field in str(exc)
+            for field in (
+                "quality_snapshot",
+                "evidence_fingerprint",
+                "learning_status",
+                "content_similarity",
+            )
+        ):
+            result = (
+                await db.table("solution_feedback_events")
+                .insert(base_payload)
+                .execute()
+            )
+        else:
+            raise
     return api_success(
-        data=(result.data or [payload])[0], message="反馈已进入方案学习样本"
+        data={
+            **(result.data or [payload])[0],
+            "learning": learning,
+        },
+        message="反馈已记录，高质量样本将等待专家审核",
     )
 
 

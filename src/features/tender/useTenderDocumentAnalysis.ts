@@ -4,6 +4,8 @@ import type { ChangeEvent } from 'react';
 import { getApiBaseUrl } from '@/lib/apiConfig';
 import { httpClient } from '@/lib/httpClient';
 import { supabase } from '@/integrations/supabase/client';
+import { announceDeliverable } from '@/features/deliverables/deliverableStore';
+import { downloadBlob } from '@/features/deliverables/exportContent';
 import { toast } from 'sonner';
 
 interface HistoryDoc {
@@ -272,33 +274,54 @@ export function useTenderDocumentAnalysis(userId?: string) {
     historyDocs.find((document) => document.id === selectedHistoryId)?.name || file?.name || '标书分析报告',
   [file?.name, historyDocs, selectedHistoryId]);
 
-  const exportPDF = useCallback(async () => {
+  const createReportPDF = useCallback(async () => {
     const element = document.getElementById('analysis-report-content');
-    if (!element || !report) return;
+    if (!element || !report) throw new Error('暂无可交付的审阅报告');
+    const html2canvas = (await import('html2canvas')).default;
+    const { jsPDF } = await import('jspdf');
+    const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const margin = 10;
+    const contentWidth = pdf.internal.pageSize.getWidth() - margin * 2;
+    const contentHeight = (canvas.height * contentWidth) / canvas.width;
+    const pageHeight = pdf.internal.pageSize.getHeight() - margin * 2;
+    const image = canvas.toDataURL('image/png');
+    let offset = 0;
+    pdf.addImage(image, 'PNG', margin, margin, contentWidth, contentHeight);
+    while (contentHeight - offset > pageHeight) {
+      offset += pageHeight;
+      pdf.addPage();
+      pdf.addImage(image, 'PNG', margin, margin - offset, contentWidth, contentHeight);
+    }
+    return {
+      blob: pdf.output('blob'),
+      filename: `${currentDocumentName}_审阅报告.pdf`,
+    };
+  }, [currentDocumentName, report]);
+
+  const exportPDF = useCallback(async () => {
     try {
       toast.info('正在生成 PDF');
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const margin = 10;
-      const contentWidth = pdf.internal.pageSize.getWidth() - margin * 2;
-      const contentHeight = (canvas.height * contentWidth) / canvas.width;
-      const pageHeight = pdf.internal.pageSize.getHeight() - margin * 2;
-      const image = canvas.toDataURL('image/png');
-      let offset = 0;
-      pdf.addImage(image, 'PNG', margin, margin, contentWidth, contentHeight);
-      while (contentHeight - offset > pageHeight) {
-        offset += pageHeight;
-        pdf.addPage();
-        pdf.addImage(image, 'PNG', margin, margin - offset, contentWidth, contentHeight);
-      }
-      pdf.save(`${currentDocumentName}_审阅报告.pdf`);
+      const result = await createReportPDF();
+      downloadBlob(result.blob, result.filename);
+      announceDeliverable({
+        title: `${currentDocumentName}审阅报告`,
+        filename: result.filename,
+        format: 'pdf',
+        source: 'tender',
+        sourceLabel: '投标作战',
+        sourcePath: `${window.location.pathname}${window.location.search}`,
+        sizeBytes: result.blob.size,
+        download: async () => {
+          const next = await createReportPDF();
+          downloadBlob(next.blob, next.filename);
+        },
+      });
       toast.success('审阅报告已下载');
     } catch {
       toast.error('PDF 生成失败');
     }
-  }, [currentDocumentName, report]);
+  }, [createReportPDF, currentDocumentName]);
 
   return {
     file,

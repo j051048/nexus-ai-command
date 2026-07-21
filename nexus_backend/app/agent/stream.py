@@ -494,22 +494,28 @@ async def _run_agent_stream_impl(
     # ── 3. Prepare initial state via Memory Manager ──
     yield _sse_status("正在思考...")
 
+    from app.agent.artifact_contract import infer_artifact_spec
+    from app.agent.scientific_writing_skills import enrich_artifact_spec
+
+    artifact_spec = enrich_artifact_spec(infer_artifact_spec(last_user_content or ""))
+    prep_seed = {
+        "complexity": early_complexity or QueryComplexity.MODERATE,
+        "intent_summary": intent_summary,
+        "artifact_spec": artifact_spec.model_dump(mode="json"),
+    }
     prep_result = await prepare_initial_state(
         messages,
         system_prompt,
         agent_config,
         db_client=db_client,
         skip_semantic=_is_simple,
-        state=(
-            {"complexity": early_complexity, "intent_summary": intent_summary}
-            if early_complexity
-            else None
-        ),
+        state=prep_seed,
     )
     lc_messages = prep_result["messages"]
     cached_response = prep_result["cached_response"]
     rag_context = prep_result["rag_context"]
     rag_sources = prep_result["rag_sources"]
+    evidence_packet = prep_result.get("evidence_packet") or {}
 
     # Fast path: semantic cache hit
     # Skip cache when system_confirmed=True — user confirmed a blocked action
@@ -568,6 +574,21 @@ async def _run_agent_stream_impl(
         "total_output_tokens": 0,
         "rag_context": rag_context,
         "rag_sources": rag_sources,
+        "artifact_spec": artifact_spec.model_dump(mode="json"),
+        "evidence_packet": evidence_packet,
+        "evidence_contract": {
+            "evidence_ids": [
+                f"EVID:{item.get('document_id')}:{item.get('chunk_id')}"
+                for item in evidence_packet.get("records", [])
+                if item.get("document_id") and item.get("chunk_id")
+            ],
+            "coverage": evidence_packet.get("coverage", 0),
+            "sufficient": evidence_packet.get("sufficient", False),
+            "missing_topics": evidence_packet.get("missing_topics", []),
+            "requires_citations": artifact_spec.requires_quality_gate,
+        },
+        "artifact_quality": {},
+        "artifact_repair_count": 0,
         "error_recovery_attempted": False,
         "error_recovery_level": 0,
         # VMD multi-agent orchestration fields
@@ -580,6 +601,7 @@ async def _run_agent_stream_impl(
         "wbs_structure": None,
         # Memory already injected by prepare_initial_state — skip middleware re-fetch
         "_memory_injected": True,
+        "_skill_injected": False,
         # P0: Context compaction
         "context_compacted_summary": "",
         # P1: Task decomposition

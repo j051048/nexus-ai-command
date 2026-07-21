@@ -190,7 +190,7 @@ export const PAGE_SUGGESTIONS: Record<string, Array<{ label: string; prompt: str
   '/tender-analysis': [{ label: '标书审阅清单', prompt: '请给我一份投标文件审阅清单，优先检查否决项、技术偏离和评分风险。' }, { label: '生成应答矩阵', prompt: '请根据招标文件评分标准，生成带证据引用和责任人的应答矩阵草稿。' }],
   '/sales': [{ label: '本周业绩', prompt: '总结本周的销售业绩情况' }, { label: '商机预测', prompt: '预测本月的商机转化情况' }],
   '/dashboard': [{ label: '今日概览', prompt: '帮我总结今天的工作要点' }, { label: '异常预警', prompt: '有哪些需要关注的异常指标？' }],
-  '/knowledge': [{ label: '搜索知识库', prompt: '在知识库中搜索' }, { label: '文档推荐', prompt: '推荐与当前工作相关的文档' }],
+  '/knowledge': [{ label: '检查资料缺口', prompt: '请按产品、手册、案例、竞品、法规和历史方案，检查企业资料库最值得补充的三项。' }, { label: '用资料生成方案', prompt: '请先询问客户行业、预算、地域、样品和检测目标，再基于企业资料生成客户方案。' }],
   '/finance': [{ label: '费用统计', prompt: '统计本月的费用支出情况' }, { label: '报销进度', prompt: '查看我的报销审批进度' }],
   '/hr': [{ label: '考勤统计', prompt: '查看本月考勤统计' }, { label: '请假审批', prompt: '有待审批的请假申请吗？' }],
   '/oa': [{ label: '今日打卡', prompt: '帮我打上班卡' }, { label: '我的审批', prompt: '我有哪些待处理的审批？' }],

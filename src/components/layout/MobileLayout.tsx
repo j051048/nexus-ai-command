@@ -13,6 +13,7 @@ import MobileAISheet from '@/components/mobile/MobileAISheet';
 import MobileAIFAB from '@/components/mobile/MobileAIFAB';
 import { CommandPalette } from '@/components/common/CommandPalette';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
+import { DeliverableCenter } from '@/components/deliverables/DeliverableCenter';
 
 // Sprint 3: 移动端专属首页 + 工作台
 import MobileHomePage from '@/components/mobile/MobileHomePage';
@@ -103,6 +104,7 @@ export function MobileLayout() {
         onBack={goBack}
         onAIPress={handleAIPress}
         onSearch={handleSearch}
+        rightActions={<DeliverableCenter iconOnly />}
       />
 
       {/* 主内容区 */}

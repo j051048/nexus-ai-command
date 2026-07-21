@@ -131,6 +131,24 @@ class SemanticCacheService:
         if _CACHE_BYPASS_RE.search(query):
             logger.info("[Cache] Bypass: creative/long-form query detected")
             return False
+        try:
+            from app.agent.artifact_contract import (
+                ArtifactType,
+                infer_artifact_spec,
+                is_strict_artifact,
+            )
+
+            artifact_spec = infer_artifact_spec(query)
+            if (
+                artifact_spec.artifact_type != ArtifactType.ANSWER
+                or artifact_spec.requested_formats != ["text"]
+                or is_strict_artifact(artifact_spec)
+            ):
+                logger.info("[Cache] Bypass: strict artifact requires fresh evidence")
+                return False
+        except Exception:
+            # Cache classification must not make ordinary chat unavailable.
+            logger.debug("[Cache] Artifact classification unavailable", exc_info=True)
         return True
 
     def _passes_quality_gate(self, query: str, response_text: str) -> bool:

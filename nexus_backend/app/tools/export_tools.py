@@ -5,12 +5,19 @@ Excel/PDF 报表导出工具
 
 import io
 import logging
+import re
 from datetime import datetime
 from typing import Any, Literal
 
 from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_markdown_inline(value: str) -> str:
+    value = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", value)
+    value = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", value)
+    return re.sub(r"[*_`~]", "", value).strip()
 
 
 @tool
@@ -194,4 +201,99 @@ async def export_to_pdf(
 
     except Exception as e:
         logger.error(f"导出PDF失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@tool
+async def export_to_docx(
+    content: str,
+    filename: str = "",
+    title: str = "",
+    format_type: Literal["markdown", "text"] = "markdown",
+) -> dict[str, Any]:
+    """将 Markdown 或纯文本生成可继续编辑的 Word 文档。"""
+    try:
+        import base64
+
+        from docx import Document
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Pt
+
+        document = Document()
+        normal = document.styles["Normal"]
+        normal.font.name = "Microsoft YaHei"
+        normal.font.size = Pt(10.5)
+
+        if title:
+            heading = document.add_heading(_clean_markdown_inline(title), level=0)
+            heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+        lines = content.splitlines()
+        index = 0
+        while index < len(lines):
+            raw_line = lines[index].rstrip()
+            line = raw_line.strip()
+            if not line:
+                index += 1
+                continue
+
+            if (
+                format_type == "markdown"
+                and "|" in line
+                and index + 1 < len(lines)
+                and re.match(r"^\|?\s*:?-{3,}", lines[index + 1].strip())
+            ):
+                headers = [cell.strip() for cell in line.strip("|").split("|")]
+                rows: list[list[str]] = []
+                index += 2
+                while index < len(lines) and "|" in lines[index]:
+                    rows.append(
+                        [
+                            _clean_markdown_inline(cell)
+                            for cell in lines[index].strip().strip("|").split("|")
+                        ]
+                    )
+                    index += 1
+                table = document.add_table(rows=1, cols=len(headers))
+                table.style = "Table Grid"
+                for cell, value in zip(table.rows[0].cells, headers, strict=False):
+                    cell.text = _clean_markdown_inline(value)
+                for row in rows:
+                    cells = table.add_row().cells
+                    for cell_index, value in enumerate(row[: len(cells)]):
+                        cells[cell_index].text = value
+                continue
+
+            heading_match = re.match(r"^(#{1,6})\s+(.+)$", line)
+            if format_type == "markdown" and heading_match:
+                level = min(len(heading_match.group(1)), 4)
+                document.add_heading(
+                    _clean_markdown_inline(heading_match.group(2)), level=level
+                )
+            elif re.match(r"^[-*+]\s+", line):
+                document.add_paragraph(
+                    _clean_markdown_inline(re.sub(r"^[-*+]\s+", "", line)),
+                    style="List Bullet",
+                )
+            elif re.match(r"^\d+[.)]\s+", line):
+                document.add_paragraph(
+                    _clean_markdown_inline(re.sub(r"^\d+[.)]\s+", "", line)),
+                    style="List Number",
+                )
+            else:
+                document.add_paragraph(_clean_markdown_inline(line.lstrip("> ")))
+            index += 1
+
+        output = io.BytesIO()
+        document.save(output)
+        content_base64 = base64.b64encode(output.getvalue()).decode()
+        if not filename:
+            filename = f"document_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        return {
+            "success": True,
+            "filename": f"{filename}.docx",
+            "content_base64": content_base64,
+        }
+    except Exception as e:
+        logger.error("导出Word失败: %s", e)
         return {"success": False, "error": str(e)}

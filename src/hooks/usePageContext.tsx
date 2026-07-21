@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useCallback, useRef, useState } from 'react';
+import { INSTRUMENT_FAMILY_LABELS } from '@/features/activation/activationState';
+import { useActivationState } from '@/hooks/useActivationState';
 
 export interface PageContextData {
   type: string;       // 'customer' | 'approval' | 'project' | 'dashboard' | ...
@@ -24,6 +26,7 @@ const PageContext = createContext<PageContextValue>({
 });
 
 export function PageContextProvider({ children }: { children: React.ReactNode }) {
+  const { state: activationState } = useActivationState();
   const [pageContext, setPageContextState] = useState<PageContextData | null>(null);
   const contextRef = useRef<PageContextData | null>(null);
 
@@ -39,13 +42,21 @@ export function PageContextProvider({ children }: { children: React.ReactNode })
 
   const formatContextPrefix = useCallback(() => {
     const ctx = contextRef.current;
-    if (!ctx) return '';
-    const parts = [`[当前页面: ${ctx.type}`];
-    if (ctx.name) parts.push(` - ${ctx.name}`);
-    if (ctx.id) parts.push(` #${ctx.id.slice(0, 8)}`);
-    parts.push(']');
-    return parts.join('');
-  }, []);
+    const prefixes: string[] = [];
+    const families = activationState.instrumentFamilies.map((item) => INSTRUMENT_FAMILY_LABELS[item]).join('、');
+    if (activationState.companyName || families || activationState.markets) {
+      const enterprise = [activationState.companyName, families, activationState.markets].filter(Boolean).join('；');
+      prefixes.push(`[企业上下文: ${enterprise}]`);
+    }
+    if (ctx) {
+      const parts = [`[当前页面: ${ctx.type}`];
+      if (ctx.name) parts.push(` - ${ctx.name}`);
+      if (ctx.id) parts.push(` #${ctx.id.slice(0, 8)}`);
+      parts.push(']');
+      prefixes.push(parts.join(''));
+    }
+    return prefixes.join(' ');
+  }, [activationState.companyName, activationState.instrumentFamilies, activationState.markets]);
 
   return (
     <PageContext.Provider value={{ pageContext, setPageContext, clearPageContext, formatContextPrefix }}>

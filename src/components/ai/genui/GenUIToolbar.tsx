@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Download, ExternalLink, Maximize2, X } from 'lucide-react';
+import { announceDeliverable } from '@/features/deliverables/deliverableStore';
 import { TABLE_COMPONENTS, CHART_COMPONENTS, CRUD_FALLBACK_ROUTES } from './GenUIConstants';
 
 interface GenUIToolbarProps {
@@ -8,7 +9,7 @@ interface GenUIToolbarProps {
   children: React.ReactNode;
 }
 
-const exportTableCSV = (componentName: string, props: Record<string, unknown>) => {
+const exportTableCSV = (componentName: string, props: Record<string, unknown>, recordResult = true) => {
   let csvContent = '';
 
   if (componentName === 'DataTable') {
@@ -53,12 +54,23 @@ const exportTableCSV = (componentName: string, props: Record<string, unknown>) =
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${title}.csv`;
+  const filename = `${title}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+  if (recordResult) announceDeliverable({
+    title,
+    filename,
+    format: 'csv',
+    source: 'chart',
+    sourceLabel: 'AI 数据结果',
+    sourcePath: `${window.location.pathname}${window.location.search}`,
+    sizeBytes: blob.size,
+    download: () => exportTableCSV(componentName, props, false),
+  });
 }
 
-const exportPNG = async (element: HTMLElement, title: string) => {
+const exportPNG = async (element: HTMLElement, title: string, recordResult = true) => {
   const html2canvas = (await import('html2canvas')).default;
   const canvas = await html2canvas(element, {
     backgroundColor: null,
@@ -69,8 +81,18 @@ const exportPNG = async (element: HTMLElement, title: string) => {
   const url = canvas.toDataURL('image/png');
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${title}.png`;
+  const filename = `${title}.png`;
+  a.download = filename;
   a.click();
+  if (recordResult) announceDeliverable({
+    title,
+    filename,
+    format: 'png',
+    source: 'chart',
+    sourceLabel: 'AI 图表',
+    sourcePath: `${window.location.pathname}${window.location.search}`,
+    download: () => exportPNG(element, title, false),
+  });
 }
 
 export function GenUIToolbar({ componentName, props, children }: GenUIToolbarProps) {

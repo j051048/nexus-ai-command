@@ -18,6 +18,7 @@ import { TrialBanner } from '@/components/billing/TrialBanner';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
+import { DeliverableCenter } from '@/components/deliverables/DeliverableCenter';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Button } from '@/components/ui/button';
@@ -311,6 +312,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 </Button>
               )}
               <AssistantStatusPill isChatOpen={isChatOpen} onOpen={() => setIsChatOpen(true)} />
+              <DeliverableCenter />
               <NotificationCenter />
               <Button
                 variant="ghost"
