@@ -91,7 +91,7 @@ async def test_match_semantic_cache_hit():
     mock_sb._rpc_results["match_semantic_cache"] = [
         {
             "id": 42,
-            "query_text": "竞品分析报告",
+            "query_text": "今天天气怎么样",
             "response_text": "以下是竞品分析结果...",
             "similarity": 0.96,
         }
@@ -115,7 +115,7 @@ async def test_match_semantic_cache_hit():
         svc._redis = None  # No Redis
         svc._embedding_resolved = True
 
-        result = await svc.get_cache("竞品分析报告", "user-123")
+        result = await svc.get_cache("今天天气怎么样", "user-123")
 
     assert result == "以下是竞品分析结果..."
 

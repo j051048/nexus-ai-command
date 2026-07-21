@@ -37,10 +37,21 @@ async def test_vision_api_payload():
     service._generate_embeddings = AsyncMock(return_value=True)
 
     # 2. Execute
-    file_content = await mock_file.read()
-    result = await service.process_file(
-        file_content, mock_file.filename, api_key="sk-test", base_url="http://mock"
-    )
+    mock_res_data = MagicMock()
+    mock_res_data.data = [{"id": "00000000-0000-0000-0000-000000000123"}]
+
+    mock_table = MagicMock()
+    mock_table.update = MagicMock(return_value=mock_table)
+    mock_table.eq = MagicMock(return_value=mock_table)
+    mock_table.execute = AsyncMock(return_value=mock_res_data)
+
+    with patch("app.services.etl.supabase") as mock_supabase:
+        mock_supabase.table.return_value = mock_table
+
+        file_content = await mock_file.read()
+        result = await service.process_file(
+            file_content, mock_file.filename, api_key="sk-test", base_url="http://mock"
+        )
 
     # 3. Verify
     # Verify _call_ai_raw was called (meaning it tried to extract text from image)
