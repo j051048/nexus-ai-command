@@ -437,6 +437,28 @@ CHECKS = [
         ),
     ),
     ProofCheck(
+        "enterprise knowledge retrieval runtime",
+        "nexus_backend/app/services/vector_service.py",
+        (
+            "document_name_relevance",
+            "_search_document_name_chunks",
+            "_hydrate_document_identity",
+            "_prioritize_document_matches",
+            "match_kind",
+        ),
+    ),
+    ProofCheck(
+        "enterprise knowledge retrieval database contract",
+        "supabase/migrations/20260721_003_enterprise_knowledge_retrieval.sql",
+        (
+            "match_documents_keyword",
+            "p_org_id",
+            "document_id uuid",
+            "AS RESTRICTIVE",
+            "check_document_access",
+        ),
+    ),
+    ProofCheck(
         "GraphRAG P0-P2 foundation contract",
         "nexus_backend/tests/production_proof/test_graph_rag_p0_p2_contract.py",
         (

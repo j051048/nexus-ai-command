@@ -3,6 +3,7 @@ import hashlib
 import logging
 import re
 import time
+import unicodedata
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from typing import Any
@@ -52,9 +53,77 @@ def sanitize_search_query(query: str, max_length: int = 500) -> str:
     if not query:
         return ""
     query = query[:max_length]
-    query = re.sub(r'[;\-\-\'"\\]', " ", query)
+    query = query.replace("--", " ")
+    query = re.sub(r'[;\'"\\]', " ", query)
     query = " ".join(query.split())
     return query.strip()
+
+
+_FILE_EXTENSION_RE = re.compile(
+    r"\.(?:docx?|pdf|xlsx?|pptx?|txt|md|csv)$", re.IGNORECASE
+)
+_MODEL_TOKEN_RE = re.compile(
+    r"(?<![a-z0-9])(?=[a-z0-9._/-]*\d|[a-z0-9._/-]*[-_/])"
+    r"[a-z0-9]+(?:[._/-][a-z0-9]+)+(?![a-z0-9])",
+    re.IGNORECASE,
+)
+
+
+def normalize_document_lookup_text(value: str) -> str:
+    """Normalize a filename or query without losing Chinese model names."""
+
+    normalized = unicodedata.normalize("NFKC", value or "").lower().strip()
+    normalized = _FILE_EXTENSION_RE.sub("", normalized)
+    return re.sub(r"[^0-9a-z\u3400-\u9fff]+", "", normalized)
+
+
+def _model_tokens(value: str) -> set[str]:
+    normalized = unicodedata.normalize("NFKC", value or "").lower()
+    return {
+        re.sub(r"[^0-9a-z]", "", match.group(0))
+        for match in _MODEL_TOKEN_RE.finditer(normalized)
+        if len(re.sub(r"[^0-9a-z]", "", match.group(0))) >= 3
+    }
+
+
+def _character_ngrams(value: str, size: int = 2) -> set[str]:
+    if len(value) < size:
+        return {value} if value else set()
+    return {value[index : index + size] for index in range(len(value) - size + 1)}
+
+
+def document_name_relevance(query: str, document_name: str) -> float:
+    """Score explicit/partial filename mentions before semantic retrieval.
+
+    Embedding chunks do not necessarily contain their filename.  This scorer
+    recognizes an exact title, a distinctive model code (for example FD-F),
+    and substantial Chinese title overlap without matching generic requests
+    such as merely "写个方案".
+    """
+
+    query_text = normalize_document_lookup_text(query)
+    name_text = normalize_document_lookup_text(document_name)
+    if not query_text or not name_text:
+        return 0.0
+    if name_text in query_text or query_text == name_text:
+        return 1.0
+
+    name_ngrams = _character_ngrams(name_text)
+    query_ngrams = _character_ngrams(query_text)
+    containment = (
+        len(name_ngrams & query_ngrams) / len(name_ngrams) if name_ngrams else 0.0
+    )
+    score = containment * 0.78
+
+    shared_models = _model_tokens(query) & _model_tokens(document_name)
+    if shared_models:
+        score = max(score, min(0.98, 0.72 + containment * 0.26))
+
+    # A long contiguous product name can still identify a document when no
+    # Latin model code exists.
+    if containment >= 0.46 and len(name_text) >= 8:
+        score = max(score, 0.52 + containment * 0.35)
+    return round(min(score, 1.0), 6)
 
 
 class VectorServiceError(Exception):
@@ -282,6 +351,257 @@ class VectorService:
 
         return documents[:top_n]
 
+    @staticmethod
+    def _document_is_visible(
+        document: dict[str, Any], *, user_id: str, user_department: str | None
+    ) -> bool:
+        if document.get("review_status") in {"rejected", "expired"}:
+            return False
+        if document.get("status") not in {None, "ready", "completed"}:
+            return False
+        visibility = str(document.get("visibility") or "organization")
+        if visibility == "private":
+            return str(document.get("owner_id") or "") == str(user_id)
+        if visibility == "department":
+            return bool(
+                user_department
+                and str(document.get("department") or "") == str(user_department)
+            )
+        return visibility in {"organization", "public", ""}
+
+    async def _load_accessible_documents(
+        self, *, user_id: str, org_id: str, limit: int = 250
+    ) -> list[dict[str, Any]]:
+        """Load a bounded tenant-local filename catalog for lexical routing."""
+
+        if not _valid_uuid(org_id):
+            return []
+        fields = (
+            "id,name,status,organization_id,owner_id,visibility,department,"
+            "review_status,source_version,valid_until,doc_type,quality_score"
+        )
+        try:
+            response = (
+                await supabase.table("documents")
+                .select(fields)
+                .eq("organization_id", org_id)
+                .order("updated_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+        except Exception:
+            # Rolling deployments may not expose every governance column yet.
+            response = (
+                await supabase.table("documents")
+                .select(
+                    "id,name,status,organization_id,owner_id,visibility,"
+                    "review_status,doc_type"
+                )
+                .eq("organization_id", org_id)
+                .limit(limit)
+                .execute()
+            )
+
+        user_department = None
+        try:
+            user_response = (
+                await supabase.table("users")
+                .select("department")
+                .eq("id", user_id)
+                .eq("organization_id", org_id)
+                .maybe_single()
+                .execute()
+            )
+            user_department = (user_response.data or {}).get("department")
+        except Exception:
+            user_department = None
+
+        return [
+            document
+            for document in response.data or []
+            if self._document_is_visible(
+                document, user_id=user_id, user_department=user_department
+            )
+        ]
+
+    @staticmethod
+    def _hydrate_document_identity(
+        rows: list[dict[str, Any]], documents: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Attach canonical document IDs to legacy RPC result shapes."""
+
+        by_name = {
+            normalize_document_lookup_text(str(document.get("name") or "")): document
+            for document in documents
+            if document.get("id") and document.get("name")
+        }
+        hydrated: list[dict[str, Any]] = []
+        for raw in rows:
+            item = dict(raw)
+            metadata = item.get("metadata") or item.get("doc_metadata") or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            source = str(
+                metadata.get("title")
+                or metadata.get("source")
+                or metadata.get("file_name")
+                or ""
+            )
+            document = by_name.get(normalize_document_lookup_text(source))
+            if document:
+                item["document_id"] = str(document["id"])
+                item["doc_type"] = document.get("doc_type") or item.get("doc_type")
+                item["doc_metadata"] = {
+                    **metadata,
+                    **document,
+                    "document_id": str(document["id"]),
+                    "title": document.get("name") or source,
+                    "source": document.get("name") or source,
+                }
+            hydrated.append(item)
+        return hydrated
+
+    async def _search_document_name_chunks(
+        self,
+        *,
+        query: str,
+        user_id: str,
+        org_id: str,
+        documents: list[dict[str, Any]] | None = None,
+        limit: int = 6,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Resolve mentioned filenames/model codes, then load their real chunks."""
+
+        documents = documents or await self._load_accessible_documents(
+            user_id=user_id, org_id=org_id
+        )
+        matches = sorted(
+            (
+                (
+                    document_name_relevance(query, str(document.get("name") or "")),
+                    document,
+                )
+                for document in documents
+            ),
+            key=lambda item: item[0],
+            reverse=True,
+        )
+        matches = [item for item in matches if item[0] >= 0.46][:3]
+        if not matches:
+            return [], documents
+
+        document_ids = [str(document["id"]) for _, document in matches]
+        try:
+            response = (
+                await supabase.table("document_embeddings")
+                .select(
+                    "id,document_id,content,metadata,parent_chunk_id,chunk_type,"
+                    "access_groups,organization_id"
+                )
+                .eq("organization_id", org_id)
+                .in_("document_id", document_ids)
+                .limit(max(12, limit * 4))
+                .execute()
+            )
+        except Exception:
+            response = (
+                await supabase.table("document_embeddings")
+                .select("id,document_id,content,metadata,organization_id")
+                .eq("organization_id", org_id)
+                .in_("document_id", document_ids)
+                .limit(max(12, limit * 4))
+                .execute()
+            )
+
+        rows = response.data or []
+        restricted_groups = {
+            str(group)
+            for row in rows
+            for group in (row.get("access_groups") or [])
+            if group
+        }
+        user_groups: set[str] = set()
+        if restricted_groups:
+            try:
+                memberships = (
+                    await supabase.table("user_group_memberships")
+                    .select("group_name")
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+                user_groups = {
+                    str(row.get("group_name"))
+                    for row in memberships.data or []
+                    if row.get("group_name")
+                }
+            except Exception:
+                user_groups = set()
+
+        document_by_id = {str(document["id"]): document for _, document in matches}
+        score_by_id = {str(document["id"]): score for score, document in matches}
+        ordered = sorted(
+            rows,
+            key=lambda row: (
+                -score_by_id.get(str(row.get("document_id")), 0.0),
+                0 if row.get("chunk_type") == "parent" else 1,
+            ),
+        )
+        results: list[dict[str, Any]] = []
+        for row in ordered:
+            required_groups = {str(group) for group in row.get("access_groups") or []}
+            if required_groups and not (required_groups & user_groups):
+                continue
+            document_id = str(row.get("document_id") or "")
+            document = document_by_id.get(document_id)
+            if not document or not row.get("content"):
+                continue
+            source = str(document.get("name") or "enterprise_knowledge")
+            metadata = row.get("metadata") or {}
+            results.append(
+                {
+                    **row,
+                    "document_id": document_id,
+                    "metadata": {
+                        **(metadata if isinstance(metadata, dict) else {}),
+                        "document_id": document_id,
+                        "title": source,
+                        "source": source,
+                        "source_version": document.get("source_version"),
+                        "valid_until": document.get("valid_until"),
+                        "review_status": document.get("review_status"),
+                    },
+                    "doc_metadata": document,
+                    "doc_type": document.get("doc_type") or "other",
+                    "score": score_by_id.get(document_id, 0.0),
+                    "match_kind": "document_name",
+                }
+            )
+            if len(results) >= limit:
+                break
+        return results, documents
+
+    @staticmethod
+    def _prioritize_document_matches(
+        direct_rows: list[dict[str, Any]],
+        semantic_rows: list[dict[str, Any]],
+        *,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        combined: list[dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()
+        for row in [*direct_rows, *semantic_rows]:
+            key = (
+                str(row.get("document_id") or ""),
+                str(row.get("id") or row.get("chunk_id") or ""),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            combined.append(row)
+            if len(combined) >= limit:
+                break
+        return combined
+
     async def search(
         self,
         query: str,
@@ -351,6 +671,21 @@ class VectorService:
 
         if not api_key:
             logger.warning("VectorService: Missing AI Key.")
+            direct_rows, _ = await self._search_document_name_chunks(
+                query=query,
+                user_id=user_id,
+                org_id=org_id,
+                limit=limit,
+            )
+            if direct_rows:
+                snippets = []
+                for row in direct_rows:
+                    metadata = row.get("doc_metadata") or row.get("metadata") or {}
+                    source = metadata.get("name") or metadata.get("source")
+                    snippets.append(
+                        f"{str(row.get('content') or '').strip()} [来源: {source}]"
+                    )
+                return "为您定位并加载了以下企业资料：\n\n- " + "\n- ".join(snippets)
             if settings.IS_PRODUCTION:
                 return "AI 检索服务暂不可用（API Key 未配置），请联系管理员。"
             return self._search_mock(query)
@@ -411,7 +746,13 @@ class VectorService:
         except Exception as exc:
             logger.debug("Embedding configuration fallback: %s", exc)
         if not api_key:
-            return []
+            direct_rows, _ = await self._search_document_name_chunks(
+                query=query,
+                user_id=user_id,
+                org_id=org_id,
+                limit=limit,
+            )
+            return [self._as_evidence(row) for row in direct_rows]
         if "/v1" not in base_url and "api.openai.com" not in base_url:
             base_url = f"{base_url}/v1"
         client = AsyncOpenAI(
@@ -514,6 +855,16 @@ class VectorService:
         import asyncio
 
         _embedding_model = embedding_model or EMBEDDING_MODEL
+        accessible_documents = await self._load_accessible_documents(
+            user_id=user_id, org_id=org_id
+        )
+        direct_rows, accessible_documents = await self._search_document_name_chunks(
+            query=query,
+            user_id=user_id,
+            org_id=org_id,
+            documents=accessible_documents,
+            limit=limit,
+        )
 
         async def run_vector_search():
             try:
@@ -532,7 +883,9 @@ class VectorService:
                     "p_org_id": org_id,
                 }
                 res = await supabase.rpc("match_documents", params).execute()
-                return res.data or []
+                return self._hydrate_document_identity(
+                    res.data or [], accessible_documents
+                )
             except Exception as e:
                 logger.error(f"Vector RPC failed: {e}")
                 return []
@@ -549,7 +902,9 @@ class VectorService:
                             "p_org_id": org_id,  # P0: Always pass org_id
                         },
                     ).execute()
-                    return res.data or []
+                    return self._hydrate_document_identity(
+                        res.data or [], accessible_documents
+                    )
                 except Exception as rpc_err:
                     logger.debug(
                         f"Keyword search RPC not available, falling back: {rpc_err}"
@@ -560,12 +915,22 @@ class VectorService:
                     "*, documents!inner(*)"
                 )
 
-                # Always filter by user_id for security
-                base_query = base_query.eq("documents.owner_id", user_id)
-
-                # P0: If org_id is provided, add org-level filtering
+                # The service client bypasses RLS, so tenant scope is explicit.
+                # Visibility/department/private access is enforced below using
+                # the same accessible-document catalog as filename retrieval.
                 if org_id:
                     base_query = base_query.eq("documents.organization_id", org_id)
+
+                raw_model_terms = [
+                    match.group(0) for match in _MODEL_TOKEN_RE.finditer(query)
+                ]
+                chinese_terms = re.findall(r"[\u3400-\u9fff]{4,12}", query)
+                fallback_terms = raw_model_terms or chinese_terms
+                if not fallback_terms:
+                    return []
+                base_query = base_query.ilike(
+                    "content", f"%{escape_like_pattern(fallback_terms[0])}%"
+                )
 
                 res = await base_query.limit(limit).execute()
 
@@ -590,7 +955,14 @@ class VectorService:
                             "doc_type": doc_data.get("doc_type"),
                         }
                     )
-                return flattened
+                accessible_ids = {
+                    str(document.get("id")) for document in accessible_documents
+                }
+                return [
+                    item
+                    for item in flattened
+                    if str(item.get("document_id")) in accessible_ids
+                ]
             except Exception as e:
                 logger.warning(f"Keyword search failed completely: {e}")
                 return []
@@ -600,7 +972,7 @@ class VectorService:
         )
 
         # Graceful degradation
-        if not vector_res and keyword_res:
+        if not vector_res and keyword_res and not direct_rows:
             logger.info("Vector search returned empty, using keyword results only")
             top_docs = keyword_res[:limit]
             if not top_docs:
@@ -647,6 +1019,11 @@ class VectorService:
                 top_docs = top_docs_unsorted[:limit]
         else:
             top_docs = top_docs_unsorted[:limit]
+
+        # A filename/model-code match is deterministic evidence. Keep it ahead
+        # of semantic results so a reranker cannot discard an explicitly named
+        # enterprise document.
+        top_docs = self._prioritize_document_matches(direct_rows, top_docs, limit=limit)
 
         if not top_docs:
             if structured:
