@@ -21,6 +21,7 @@ export interface ArtifactGenerateInput {
   requested_formats: ArtifactOutputFormat[];
   customer_context: Record<string, string>;
   selected_document_ids?: string[];
+  target_character_count?: number;
   session_id?: string;
   review_confirmed: boolean;
 }
@@ -45,6 +46,16 @@ export interface ArtifactResult {
     ready: boolean;
     findings: ArtifactQualityFinding[];
     dimensions: Record<string, number>;
+    metrics?: {
+      character_count?: number;
+      target_character_count?: number;
+      minimum_character_count?: number;
+      table_count?: number;
+      minimum_table_count?: number;
+      required_section_count?: number;
+      short_section_count?: number;
+      executive_summary_character_count?: number;
+    };
   };
   version_number: number;
   requested_formats: ArtifactOutputFormat[];
@@ -91,7 +102,7 @@ function unwrap<T>(value: unknown): T {
 
 export async function generateArtifact(input: ArtifactGenerateInput) {
   const response = await httpClient.post('/api/artifacts/generate', input, {
-    timeout: 120000,
+    timeout: 240000,
     silentError: true,
   });
   return unwrap<ArtifactResult>(response);

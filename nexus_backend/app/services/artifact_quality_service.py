@@ -14,11 +14,12 @@ from app.agent.scientific_writing_skills import (
     enrich_artifact_spec,
 )
 from app.services.artifact_content_sanitizer import (
+    contains_internal_markers,
     contains_internal_trace_markers,
     duplicate_paragraph_ratio,
 )
 
-ARTIFACT_EVALUATOR_VERSION = "artifact-quality.v2"
+ARTIFACT_EVALUATOR_VERSION = "artifact-quality.v3"
 _CITATION_RE = re.compile(r"\[EVID:([^:\]\s]+):([^\]\s]+)\]")
 _NUMBER_RE = re.compile(
     r"(?<![\w-])\d+(?:\.\d+)?\s*(?:%|万|万元|元|天|小时|年|个月|台|套|pp[mb]|mg|μg|nm)?",
@@ -27,6 +28,10 @@ _NUMBER_RE = re.compile(
 _ABSOLUTE_CLAIMS = ("保证", "绝对", "百分之百", "行业第一", "零风险", "100%")
 _PROMISE_HINTS = ("保证响应", "永久", "终身免费", "无条件", "当天修复")
 _POLICY_HINTS = ("政策", "法规", "标准", "办法", "条例", "规范")
+_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*:?-{3,}.*\|", re.M)
+_GENERIC_TITLE_RE = re.compile(
+    r"^(?:AI成果|专业报告|客户解决方案|企业资料|load[_ -]?knowledge)$", re.I
+)
 
 
 class QualityFinding(BaseModel):
@@ -42,6 +47,7 @@ class ArtifactQualityResult(BaseModel):
     score: float
     ready: bool
     dimensions: dict[str, float]
+    metrics: dict[str, Any] = Field(default_factory=dict)
     findings: list[QualityFinding]
     repair_guidance: str = ""
     output_hash: str
@@ -71,6 +77,25 @@ def _evidence_ids(evidence_packet: dict[str, Any] | None) -> set[tuple[str, str]
     }
 
 
+def _plain_character_count(text: str) -> int:
+    without_citations = _CITATION_RE.sub("", str(text or ""))
+    return len(re.sub(r"[#|>*_`\s]", "", without_citations))
+
+
+def _first_title(text: str) -> str:
+    match = re.search(r"^#\s+(.+)$", str(text or ""), re.M)
+    return match.group(1).strip() if match else ""
+
+
+def _section_bodies(text: str) -> dict[str, str]:
+    matches = list(re.finditer(r"^##\s+(.+?)\s*$", str(text or ""), re.M))
+    sections: dict[str, str] = {}
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        sections[match.group(1).strip()] = text[match.end() : end].strip()
+    return sections
+
+
 def evaluate_text_artifact(
     text: str,
     spec: ArtifactSpec | dict[str, Any],
@@ -94,6 +119,58 @@ def evaluate_text_artifact(
                 code="required_sections_missing",
                 message="交付物缺少必需章节",
                 details={"sections": missing_sections},
+            )
+        )
+
+    title = _first_title(text)
+    normalized_title = re.sub(r"[^\u4e00-\u9fffA-Za-z0-9_-]", "", title)
+    title_quality = 100.0
+    if (
+        len(title) < 6
+        or contains_internal_markers(title)
+        or _GENERIC_TITLE_RE.match(normalized_title)
+    ):
+        title_quality = 0.0
+        findings.append(
+            QualityFinding(
+                severity="high" if spec.requires_quality_gate else "medium",
+                code="title_missing_or_generic",
+                message="成果缺少面向客户的正式标题，或标题仍是工具名/通用占位名",
+                details={"title": title},
+            )
+        )
+
+    section_bodies = _section_bodies(text)
+    summary_length = _plain_character_count(section_bodies.get("执行摘要", ""))
+    if spec.requires_quality_gate and summary_length < 140:
+        findings.append(
+            QualityFinding(
+                severity="high",
+                code="executive_summary_insufficient",
+                message="执行摘要缺失或未形成可供客户快速决策的完整摘要",
+                details={"character_count": summary_length, "minimum": 140},
+            )
+        )
+    section_minimum = max(
+        120,
+        int(spec.minimum_character_count / max(1, len(required)) * 0.48),
+    )
+    short_sections = [
+        section_title
+        for section_title in required
+        if _plain_character_count(section_bodies.get(section_title, ""))
+        < section_minimum
+    ]
+    if spec.requires_quality_gate and short_sections:
+        findings.append(
+            QualityFinding(
+                severity="high",
+                code="section_depth_insufficient",
+                message="部分必需章节仍是提纲或内容过浅",
+                details={
+                    "sections": short_sections,
+                    "minimum_characters_per_section": section_minimum,
+                },
             )
         )
 
@@ -157,23 +234,50 @@ def evaluate_text_artifact(
             )
         )
 
-    plain_length = len(re.sub(r"[#|>*_`\s]", "", text))
-    if spec.requires_quality_gate and plain_length < 220:
+    plain_length = _plain_character_count(text)
+    if spec.requires_quality_gate and plain_length < spec.minimum_character_count:
         findings.append(
             QualityFinding(
                 severity="high",
                 code="content_too_short",
-                message="正文不足以形成可交付成果",
-                details={"character_count": plain_length, "minimum": 220},
+                message="正文未达到用户要求的最低篇幅",
+                details={
+                    "character_count": plain_length,
+                    "minimum": spec.minimum_character_count,
+                    "target": spec.target_character_count,
+                    "deficit": max(0, spec.minimum_character_count - plain_length),
+                },
             )
         )
-    elif spec.requires_quality_gate and plain_length < 800:
+    elif spec.requires_quality_gate and plain_length < spec.target_character_count:
         findings.append(
             QualityFinding(
                 severity="medium",
                 code="content_depth_low",
-                message="成果深度偏低，建议补充需求、配置、实施和风险说明",
-                details={"character_count": plain_length, "recommended": 800},
+                message="成果已达到最低标准，但尚未达到目标篇幅",
+                details={
+                    "character_count": plain_length,
+                    "target": spec.target_character_count,
+                },
+            )
+        )
+
+    table_count = len(_TABLE_SEPARATOR_RE.findall(text))
+    visual_structure = (
+        100.0
+        if spec.minimum_table_count == 0
+        else min(100.0, table_count / spec.minimum_table_count * 100)
+    )
+    if spec.requires_quality_gate and table_count < spec.minimum_table_count:
+        findings.append(
+            QualityFinding(
+                severity="high",
+                code="structured_components_missing",
+                message="缺少需求、配置、参数、竞品或实施等结构化表格",
+                details={
+                    "table_count": table_count,
+                    "minimum": spec.minimum_table_count,
+                },
             )
         )
 
@@ -240,17 +344,29 @@ def evaluate_text_artifact(
         "policy_currency": round(policy_currency, 2),
         "originality": round(max(0.0, 100.0 - duplicate_ratio * 200), 2),
         "export_hygiene": 0.0 if trace_leakage else 100.0,
-        "content_depth": round(min(100.0, plain_length / 8), 2),
+        "content_depth": round(
+            min(100.0, plain_length / max(1, spec.minimum_character_count) * 100),
+            2,
+        ),
+        "instruction_following": round(
+            min(100.0, plain_length / max(1, spec.target_character_count) * 100),
+            2,
+        ),
+        "visual_structure": round(visual_structure, 2),
+        "title_quality": round(title_quality, 2),
     }
     score = round(
-        dimensions["structure"] * 0.22
-        + dimensions["evidence_coverage"] * 0.24
-        + dimensions["citation_validity"] * 0.19
-        + dimensions["claim_safety"] * 0.1
-        + dimensions["policy_currency"] * 0.07
-        + dimensions["originality"] * 0.07
+        dimensions["structure"] * 0.15
+        + dimensions["evidence_coverage"] * 0.2
+        + dimensions["citation_validity"] * 0.15
+        + dimensions["claim_safety"] * 0.08
+        + dimensions["policy_currency"] * 0.05
+        + dimensions["originality"] * 0.06
         + dimensions["export_hygiene"] * 0.06
-        + dimensions["content_depth"] * 0.05,
+        + dimensions["content_depth"] * 0.12
+        + dimensions["instruction_following"] * 0.08
+        + dimensions["visual_structure"] * 0.03
+        + dimensions["title_quality"] * 0.02,
         2,
     )
     blockers = [item for item in findings if item.severity == "high"]
@@ -260,6 +376,16 @@ def evaluate_text_artifact(
         score=score,
         ready=ready,
         dimensions=dimensions,
+        metrics={
+            "character_count": plain_length,
+            "target_character_count": spec.target_character_count,
+            "minimum_character_count": spec.minimum_character_count,
+            "table_count": table_count,
+            "minimum_table_count": spec.minimum_table_count,
+            "required_section_count": len(required),
+            "short_section_count": len(short_sections),
+            "executive_summary_character_count": summary_length,
+        },
         findings=findings,
         repair_guidance="；".join(repairable[:5]),
         output_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),

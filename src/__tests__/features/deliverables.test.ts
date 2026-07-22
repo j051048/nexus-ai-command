@@ -9,6 +9,7 @@ import {
 } from '@/features/deliverables/deliverableStore';
 import {
   assessDeliverableEligibility,
+  inferTargetCharacterCount,
   inferArtifactType,
 } from '@/features/deliverables/deliverableEligibility';
 import { markdownTableRows, titleFromContent } from '@/features/deliverables/exportContent';
@@ -88,6 +89,21 @@ describe('deliverable delivery layer', () => {
     expect(eligibility.canCreateArtifact).toBe(true);
     expect(eligibility.canQuickExport).toBe(false);
     expect(eligibility.containsInternalOutput).toBe(true);
+  });
+
+  it('forces customer solutions through the reviewed artifact pipeline', () => {
+    const eligibility = assessDeliverableEligibility(
+      '这是已有的客户方案草稿。'.repeat(30),
+      '参考企业资料生成不少于3000字的正式 Word 客户方案',
+    );
+
+    expect(eligibility.canCreateArtifact).toBe(true);
+    expect(eligibility.canQuickExport).toBe(false);
+    expect(inferTargetCharacterCount('生成不少于3000字的方案', 'customer_solution')).toBe(3000);
+  });
+
+  it('never uses retrieval tool labels or apologies as filenames', () => {
+    expect(titleFromContent('[企业资料检索结果]\n# 【loadknowledge】\n非常抱歉，无法完成')).toBe('AI生成成果');
   });
 
   it('infers scientific deliverable types from the user request', () => {

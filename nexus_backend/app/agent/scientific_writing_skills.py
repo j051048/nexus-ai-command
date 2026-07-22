@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.agent.artifact_contract import ArtifactSpec, ArtifactType
+from app.agent.artifact_contract import (
+    ArtifactSpec,
+    ArtifactType,
+    default_content_budget,
+)
 
 
 @dataclass(frozen=True)
@@ -21,7 +25,7 @@ class WritingSkill:
 SCIENTIFIC_WRITING_SKILLS: dict[ArtifactType, WritingSkill] = {
     ArtifactType.CUSTOMER_SOLUTION: WritingSkill(
         skill_id="scientific.customer_solution",
-        version="2.0.0",
+        version="3.0.0",
         artifact_type=ArtifactType.CUSTOMER_SOLUTION,
         required_sections=(
             "项目背景与客户目标",
@@ -54,7 +58,7 @@ SCIENTIFIC_WRITING_SKILLS: dict[ArtifactType, WritingSkill] = {
     ),
     ArtifactType.TENDER: WritingSkill(
         skill_id="scientific.tender_response",
-        version="2.0.0",
+        version="3.0.0",
         artifact_type=ArtifactType.TENDER,
         required_sections=(
             "招标要求摘要",
@@ -84,7 +88,7 @@ SCIENTIFIC_WRITING_SKILLS: dict[ArtifactType, WritingSkill] = {
     ),
     ArtifactType.COMPETITOR_ANALYSIS: WritingSkill(
         skill_id="scientific.competitor_analysis",
-        version="1.1.0",
+        version="2.0.0",
         artifact_type=ArtifactType.COMPETITOR_ANALYSIS,
         required_sections=(
             "分析范围",
@@ -100,7 +104,7 @@ SCIENTIFIC_WRITING_SKILLS: dict[ArtifactType, WritingSkill] = {
     ),
     ArtifactType.POLICY_BRIEF: WritingSkill(
         skill_id="scientific.policy_brief",
-        version="1.1.0",
+        version="2.0.0",
         artifact_type=ArtifactType.POLICY_BRIEF,
         required_sections=(
             "政策背景",
@@ -116,7 +120,7 @@ SCIENTIFIC_WRITING_SKILLS: dict[ArtifactType, WritingSkill] = {
     ),
     ArtifactType.SERVICE_PROPOSAL: WritingSkill(
         skill_id="scientific.service_proposal",
-        version="1.1.0",
+        version="2.0.0",
         artifact_type=ArtifactType.SERVICE_PROPOSAL,
         required_sections=(
             "设备与服务范围",
@@ -141,6 +145,66 @@ SCIENTIFIC_WRITING_SKILLS: dict[ArtifactType, WritingSkill] = {
         ),
         human_gates=("SLA承诺", "费用", "停机窗口", "外发"),
     ),
+    ArtifactType.TECHNICAL_REPORT: WritingSkill(
+        skill_id="scientific.technical_report",
+        version="1.0.0",
+        artifact_type=ArtifactType.TECHNICAL_REPORT,
+        required_sections=(
+            "报告目的与范围",
+            "样品、仪器与方法",
+            "技术依据与数据质量",
+            "结果与分析",
+            "异常、限制与不确定性",
+            "结论与建议",
+            "证据与复核清单",
+        ),
+        retrieval_topics=(
+            "实验目标与样品信息",
+            "仪器型号参数与方法",
+            "原始数据与质量控制",
+            "适用标准规范",
+            "异常记录与复核要求",
+        ),
+        validators=(
+            "evidence_coverage",
+            "parameter_integrity",
+            "method_traceability",
+            "result_uncertainty",
+        ),
+        human_gates=("实验结论", "异常处置", "监管或客户外发"),
+    ),
+}
+
+_AUTHORING_RULES: dict[ArtifactType, tuple[str, ...]] = {
+    ArtifactType.CUSTOMER_SOLUTION: (
+        "需求与验收矩阵必须用表格呈现客户需求、响应方案、证据和验收方式",
+        "推荐配置必须区分核心配置、可选配置与适用边界，不能只罗列型号",
+        "关键参数、竞品横向对比和实施计划优先使用同口径表格",
+        "应用案例只能引用已授权企业案例；没有证据时保留待核验位，不得编造",
+        "结论必须落到客户价值、实施动作和下一步确认事项",
+    ),
+    ArtifactType.TENDER: (
+        "逐条响应矩阵、技术偏离表、资格证据清单和实施验收计划必须表格化",
+        "每个强制条款必须能回溯到招标原文和我方证据",
+        "不得将待核验内容写成无偏离或完全满足",
+    ),
+    ArtifactType.COMPETITOR_ANALYSIS: (
+        "同口径参数矩阵必须区分已核验事实、公开资料与待核验项",
+        "优势必须同时说明适用场景和边界，禁止贬损性或绝对化表达",
+    ),
+    ArtifactType.POLICY_BRIEF: (
+        "关键条款应给出来源、版本、生效日期和业务动作",
+        "政策原文、解释性判断和企业建议必须明确区分",
+    ),
+    ArtifactType.SERVICE_PROPOSAL: (
+        "维护校准计划、响应级别和备件耗材应采用可执行表格",
+        "所有 SLA、费用与停机窗口必须标记确认责任人和确认状态",
+    ),
+    ArtifactType.TECHNICAL_REPORT: (
+        "仪器、方法、样品、结果和异常必须能够回溯到企业记录",
+        "结果表格必须区分实测值、判定依据、结论和复核状态",
+        "不得把推断写成实验事实，限制与不确定性必须单独披露",
+    ),
 }
 
 
@@ -162,12 +226,21 @@ def enrich_artifact_spec(spec: ArtifactSpec | dict) -> ArtifactSpec:
     retrieval_topics = list(
         dict.fromkeys([*spec.retrieval_topics, *skill.retrieval_topics])
     )
+    target, minimum, minimum_tables = default_content_budget(spec.artifact_type)
+    content_contract: dict[str, int] = {}
+    if "target_character_count" not in spec.model_fields_set:
+        content_contract["target_character_count"] = target
+    if "minimum_character_count" not in spec.model_fields_set:
+        content_contract["minimum_character_count"] = minimum
+    if "minimum_table_count" not in spec.model_fields_set:
+        content_contract["minimum_table_count"] = minimum_tables
     return spec.model_copy(
         update={
             "required_sections": required_sections,
             "retrieval_topics": retrieval_topics,
             "skill_id": skill.skill_id,
             "skill_version": skill.version,
+            **content_contract,
         }
     )
 
@@ -181,11 +254,27 @@ def build_writing_skill_prompt(spec: ArtifactSpec | dict) -> str:
         f"{index}. {title}" for index, title in enumerate(skill.required_sections, 1)
     )
     gates = "、".join(skill.human_gates)
+    section_minimum = max(
+        120,
+        int(spec.minimum_character_count / max(1, len(skill.required_sections)) * 0.48),
+    )
+    authoring_rules = "\n".join(
+        f"- {item}" for item in _AUTHORING_RULES.get(spec.artifact_type, ())
+    )
     return (
         f"## Deliverable contract ({skill.skill_id}@{skill.version})\n"
         f"Required sections:\n{sections}\n"
+        f"Target length: {spec.target_character_count} Chinese characters; "
+        f"hard minimum: {spec.minimum_character_count}.\n"
+        f"Each required section should normally contain at least {section_minimum} "
+        "Chinese characters of substantive prose, unless a dense evidence table carries the detail.\n"
+        f"Use at least {spec.minimum_table_count} meaningful Markdown tables; "
+        "tables must compare repeated fields rather than package ordinary prose.\n"
         "Every material fact, parameter, policy, competitor claim, and case must cite "
         "an evidence id in the form [EVID:document_id:chunk_id]. "
         "If evidence is absent, write '待核验' and do not infer a value.\n"
+        "Do not return an outline with empty headings. Every heading must contain analysis, "
+        "evidence, a conclusion, and when relevant a next action.\n"
+        f"{authoring_rules}\n"
         f"Human confirmation is mandatory for: {gates}."
     )

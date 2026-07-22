@@ -36,7 +36,7 @@ class ArtifactAudience(StrEnum):
 class ArtifactSpec(BaseModel):
     """Stable input contract for a generated artifact."""
 
-    schema_version: str = "artifact-spec.v1"
+    schema_version: str = "artifact-spec.v2"
     artifact_type: ArtifactType = ArtifactType.ANSWER
     audience: ArtifactAudience = ArtifactAudience.INTERNAL
     requested_formats: list[str] = Field(default_factory=lambda: ["text"])
@@ -47,6 +47,9 @@ class ArtifactSpec(BaseModel):
     region: str | None = None
     required_sections: list[str] = Field(default_factory=list)
     retrieval_topics: list[str] = Field(default_factory=list)
+    target_character_count: int = Field(default=1800, ge=600, le=12000)
+    minimum_character_count: int = Field(default=1200, ge=400, le=12000)
+    minimum_table_count: int = Field(default=0, ge=0, le=12)
     min_evidence_coverage: float = Field(default=0.9, ge=0.0, le=1.0)
     max_repair_cycles: int = Field(default=2, ge=0, le=3)
     skill_id: str | None = None
@@ -121,6 +124,35 @@ _INSTRUMENT_LINES: dict[str, tuple[str, ...]] = {
     "electronic_instruments": ("电子仪器", "示波器", "频谱分析仪", "电源", "万用表"),
 }
 
+_CONTENT_BUDGETS: dict[ArtifactType, tuple[int, int, int]] = {
+    ArtifactType.ANSWER: (1200, 800, 0),
+    ArtifactType.CUSTOMER_SOLUTION: (3200, 2800, 3),
+    ArtifactType.TENDER: (5000, 4200, 4),
+    ArtifactType.COMPETITOR_ANALYSIS: (2400, 2000, 2),
+    ArtifactType.POLICY_BRIEF: (2200, 1800, 1),
+    ArtifactType.SERVICE_PROPOSAL: (2800, 2400, 2),
+    ArtifactType.TECHNICAL_REPORT: (3000, 2600, 2),
+    ArtifactType.SPREADSHEET: (1000, 700, 1),
+    ArtifactType.PRESENTATION: (1600, 1200, 1),
+}
+
+_CHINESE_THOUSANDS = {
+    "一": 1000,
+    "两": 2000,
+    "二": 2000,
+    "三": 3000,
+    "四": 4000,
+    "五": 5000,
+    "六": 6000,
+    "八": 8000,
+}
+
+
+def default_content_budget(artifact_type: ArtifactType) -> tuple[int, int, int]:
+    """Return the canonical target, hard minimum, and table count for a type."""
+
+    return _CONTENT_BUDGETS[artifact_type]
+
 
 def _detect_artifact_type(text: str) -> ArtifactType:
     lowered = text.lower()
@@ -152,6 +184,42 @@ def _detect_instrument_line(text: str) -> str | None:
     return None
 
 
+def _detect_content_budget(
+    text: str, artifact_type: ArtifactType
+) -> tuple[int, int, int]:
+    target, minimum, table_count = default_content_budget(artifact_type)
+    normalized = str(text or "")
+    qualifier = ""
+    explicit: int | None = None
+    match = re.search(
+        r"(不少于|至少|达到|约|大约)?\s*(\d{3,5})\s*(?:字|汉字|字符)",
+        normalized,
+    )
+    if match:
+        qualifier = match.group(1) or ""
+        explicit = int(match.group(2))
+    if explicit is None:
+        match = re.search(
+            r"(不少于|至少|达到|约|大约)?\s*(\d+(?:\.\d+)?)\s*(?:千|k)\s*字",
+            normalized,
+            re.I,
+        )
+        if match:
+            qualifier = match.group(1) or ""
+            explicit = int(float(match.group(2)) * 1000)
+    if explicit is None:
+        match = re.search(
+            r"(不少于|至少|达到|约|大约)?\s*([一两二三四五六八])千字", normalized
+        )
+        if match:
+            qualifier = match.group(1) or ""
+            explicit = _CHINESE_THOUSANDS[match.group(2)]
+    if explicit is not None:
+        target = max(600, min(12000, explicit))
+        minimum = int(target * 0.9) if qualifier in {"约", "大约"} else target
+    return target, minimum, table_count
+
+
 def infer_artifact_spec(
     text: str,
     overrides: dict[str, Any] | ArtifactSpec | None = None,
@@ -162,6 +230,9 @@ def infer_artifact_spec(
         return overrides
     text = str(text or "")
     artifact_type = _detect_artifact_type(text)
+    target_characters, minimum_characters, minimum_tables = _detect_content_budget(
+        text, artifact_type
+    )
     requested_formats = _detect_formats(text)
     lowered = text.lower()
     external = any(hint in lowered for hint in _EXTERNAL_HINTS)
@@ -191,10 +262,18 @@ def infer_artifact_spec(
         external_delivery=external,
         strict_quality=external or high_stakes_type,
         instrument_line=_detect_instrument_line(text),
+        target_character_count=target_characters,
+        minimum_character_count=minimum_characters,
+        minimum_table_count=minimum_tables,
         min_evidence_coverage=0.95 if external or high_stakes_type else 0.8,
     )
     if overrides:
         update = {key: value for key, value in overrides.items() if value is not None}
+        if (
+            "target_character_count" in update
+            and "minimum_character_count" not in update
+        ):
+            update["minimum_character_count"] = int(update["target_character_count"])
         inferred = inferred.model_copy(update=update)
     return inferred
 

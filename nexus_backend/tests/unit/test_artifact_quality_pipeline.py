@@ -42,10 +42,46 @@ def _grounded_artifact(artifact_type: ArtifactType):
         "missing_topics": [],
         "fingerprint": "evidence-fingerprint",
     }
-    text = "\n\n".join(
-        f"## {title}\n已核验内容。[EVID:doc-1:chunk-1]"
-        for title in spec.required_sections
+    citation = "[EVID:doc-1:chunk-1]"
+    target_per_section = max(
+        260,
+        spec.target_character_count // max(1, len(spec.required_sections)) + 80,
     )
+    parts = [
+        f"# 科学仪器{artifact_type.value}专业交付方案",
+        "## 执行摘要",
+        (
+            "本成果基于企业已授权资料，完整说明客户目标、技术依据、实施路径、"
+            "验收口径和风险边界。未被企业资料覆盖的参数、价格、交期、案例授权"
+            "与服务承诺均须人工复核，确保最终外发版本可执行、可追溯并适合客户决策。"
+            "交付负责人还应确认资料版本、适用条件和下一步动作，并在正式交付前完成"
+            f"技术、商务与合规三方确认，避免未经核验的内容进入客户版本。{citation}"
+        ),
+    ]
+    for index, title in enumerate(spec.required_sections, 1):
+        body = (
+            f"本节围绕“{title}”展开，说明第{index}项客户输入、企业能力、证据状态、"
+            "实施动作、责任边界与验收输出。内容只采用已授权资料中的可核验事实，"
+            "对尚未覆盖的信息明确标记为待确认，不将推断写成参数或商务承诺。"
+            f"项目组应记录资料版本、适用条件、验证方法和下一步动作。{citation}"
+        )
+        while len(body) < target_per_section:
+            body += (
+                f" 对于{title}，还需由对应负责人复核证据与交付边界，"
+                "使客户能够理解推荐依据并据此执行。"
+            )
+        parts.extend([f"## {title}", body])
+    for index in range(spec.minimum_table_count):
+        parts.extend(
+            [
+                f"### 核验矩阵 {index + 1}",
+                "| 核验维度 | 当前结论 | 证据状态 | 下一步动作 |",
+                "| --- | --- | --- | --- |",
+                "| 客户需求 | 已完成场景归纳 | 已核验 | 确认验收口径 |",
+                "| 企业能力 | 具备交付基础 | 已核验 | 完成配置复核 |",
+            ]
+        )
+    text = "\n\n".join(parts)
     return spec, packet, text
 
 

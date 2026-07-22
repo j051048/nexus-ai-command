@@ -88,7 +88,9 @@ def test_professional_renderers_share_clean_canonical_content():
     assert "资料来源" in all_text
     assert "[来源 1]" in all_text
     assert "EVID:" not in all_text
-    assert len(document.tables) >= 2
+    assert all_text.count(artifact["title"]) == 1
+    assert len(document.tables) >= 3
+    assert document.styles["Title"].font.size.pt == 28
     assert pdf.startswith(b"%PDF")
     assert xlsx.startswith(b"PK")
 
@@ -132,6 +134,43 @@ def test_delivery_golden_set_covers_five_instrument_families():
         assert spec.instrument_line == case["instrument_line"]
 
 
+def test_explicit_three_thousand_character_request_becomes_a_hard_contract():
+    spec = infer_artifact_spec("参考企业资料生成不少于3000字的正式 Word 客户方案")
+
+    assert spec.artifact_type == ArtifactType.CUSTOMER_SOLUTION
+    assert spec.target_character_count == 3000
+    assert spec.minimum_character_count == 3000
+    assert spec.minimum_table_count == 3
+
+
+def test_quality_gate_rejects_the_observed_loadknowledge_outline_failure():
+    spec = enrich_artifact_spec(
+        ArtifactSpec(
+            artifact_type=ArtifactType.CUSTOMER_SOLUTION,
+            audience=ArtifactAudience.CUSTOMER,
+            strict_quality=True,
+            external_delivery=True,
+        )
+    )
+    failed_output = (
+        "# 【loadknowledge】\n\n"
+        "[企业资料检索结果]\n\n"
+        "## 项目背景与客户目标\n当前资料不足。\n\n"
+        "## 推荐配置与选型依据\n建议重新上传资料。"
+    )
+
+    quality = evaluate_text_artifact(failed_output, spec, _packet())
+    codes = {item["code"] for item in quality["findings"]}
+
+    assert quality["ready"] is False
+    assert {
+        "title_missing_or_generic",
+        "required_sections_missing",
+        "content_too_short",
+        "structured_components_missing",
+    } <= codes
+
+
 class _FakeQuery:
     def __init__(self, table: str, rows: dict[str, list[dict]]):
         self.table = table
@@ -145,6 +184,12 @@ class _FakeQuery:
         return self
 
     def in_(self, *_args, **_kwargs):
+        return self
+
+    def ilike(self, *_args, **_kwargs):
+        return self
+
+    def limit(self, *_args, **_kwargs):
         return self
 
     def insert(self, value):
@@ -176,8 +221,17 @@ async def test_explicit_enterprise_document_is_split_into_citable_topics(monkeyp
         "app.services.artifact_evidence_compiler.retrieve_agent_evidence",
         empty_retrieval,
     )
+    topic_sections = (
+        "一、客户行业场景与样品\n客户面向食品安全监管场景，检测对象覆盖现场样品与实验室样品。",
+        "二、产品型号参数和检测能力\nFD-F 型号的参数、量程、精度、检出限与检测性能已经核验。",
+        "三、适用标准政策\n方案适用的国家标准、行业标准、政策法规与实施规范已经归档。",
+        "四、竞品参数\n同类竞品型号、公开参数、性能差异与国产替代边界已经整理。",
+        "五、授权客户案例\n已授权客户案例包含项目部署、应用过程、验收结果与用户反馈。",
+        "六、安装培训维保条款\n安装、培训、校准、维保、保修与售后响应条款已经确认。",
+    )
     long_sections = "\n".join(
-        f"章节 {index} " + ("企业核验资料" * 120) for index in range(1, 7)
+        section + (" 本节资料已经企业审核，可用于方案分析与引用。" * 30)
+        for section in topic_sections
     )
     db = _FakeDB(
         {
@@ -202,12 +256,12 @@ async def test_explicit_enterprise_document_is_split_into_citable_topics(monkeyp
     )
 
     packet = await compile_artifact_evidence(
-        query="生成食品安全检测仪升级方案",
+        query="参考 FD-F 完整产品方案.docx 生成食品安全检测仪升级方案",
         spec=spec,
         organization_id="org-1",
         user_id="user-1",
         db=db,
-        selected_document_ids=["11111111-1111-4111-8111-111111111111"],
+        selected_document_ids=[],
     )
 
     assert len(packet.records) >= 6
@@ -253,21 +307,47 @@ async def test_generation_pipeline_persists_version_evidence_and_quality(monkeyp
     async def fake_compile(**_kwargs):
         return packet
 
-    sections = [
-        {
-            "title": title,
-            "content": f"{title}已经依据企业资料完成核验，并明确给出实施边界和后续行动。",
-            "evidence_refs": [records[index % len(records)].citation_id],
-        }
-        for index, title in enumerate(spec.required_sections)
-    ]
+    sections = []
+    for index, title in enumerate(spec.required_sections):
+        body = (
+            f"{title}围绕客户目标、企业能力和实施边界展开。"
+            "本章先归纳企业资料中的已核验事实，再结合客户应用场景分析其适用性，"
+            "明确推荐理由、限制条件、验收口径和责任边界。对于资料未覆盖的参数、"
+            "价格、交期与承诺，统一保留待核验状态，不将推断写成事实。"
+            "实施时应由售前、技术、交付与客户负责人共同确认输入条件，形成可追溯的"
+            "记录，并在进入下一阶段前完成证据复核。最终建议以客户价值为导向，"
+            "优先解决当前业务痛点，同时保留后续扩展空间和明确的下一步行动。"
+            "项目推进过程中还应建立需求确认、配置冻结、到货检查、安装调试、培训考核"
+            "和验收归档的阶段门，每个阶段记录输入、负责人、输出与异常处置方式，"
+            "确保方案不仅能够阅读，也能够直接转化为可执行、可检查、可复盘的工作计划。"
+        )
+        if index < 3:
+            body += (
+                "\n\n| 核验维度 | 当前结论 | 证据状态 | 下一步 |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 客户需求 | 已完成场景归纳 | 已核验 | 确认验收口径 |\n"
+                "| 企业能力 | 具备对应方案基础 | 已核验 | 完成配置复核 |"
+            )
+        sections.append(
+            {
+                "title": title,
+                "content": body,
+                "evidence_refs": [records[index % len(records)].citation_id],
+            }
+        )
 
     async def fake_chat(**_kwargs):
         return SimpleNamespace(
             content=json.dumps(
                 {
                     "title": "食品安全检测仪升级换代整体方案",
-                    "executive_summary": "本方案面向食品安全检测能力升级，所有事实均来自企业资料。",
+                    "executive_summary": (
+                        "本方案面向食品安全检测能力升级与持续运营需求，基于企业已授权的"
+                        "产品、政策、竞品、案例和服务资料，形成从需求确认、配置选型、"
+                        "实施验收到售后保障的完整路径。方案强调事实可追溯、参数可核验、"
+                        "责任边界清晰，并将缺少证据的商务与技术事项保留为人工复核项，"
+                        "便于客户快速判断方案价值并推进下一步技术交流。"
+                    ),
                     "sections": sections,
                     "verification_items": ["最终报价由负责人确认"],
                 },
@@ -302,10 +382,13 @@ async def test_generation_pipeline_persists_version_evidence_and_quality(monkeyp
         source_content="已有聊天草稿",
         artifact_type=ArtifactType.CUSTOMER_SOLUTION,
         audience=ArtifactAudience.CUSTOMER,
+        target_character_count=3000,
         review_confirmed=True,
     )
 
-    assert result["quality"]["ready"] is True
+    assert result["quality"]["ready"] is True, result["quality"]
+    assert result["quality"]["metrics"]["character_count"] >= 3000
+    assert result["quality"]["metrics"]["table_count"] >= 3
     assert result["approval_status"] == "approved"
     assert len(db.rows["artifacts"]) == 1
     assert len(db.rows["artifact_versions"]) == 1

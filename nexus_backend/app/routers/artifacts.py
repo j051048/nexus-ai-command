@@ -36,6 +36,7 @@ class ArtifactGenerateRequest(BaseModel):
     )
     customer_context: dict[str, Any] = Field(default_factory=dict)
     selected_document_ids: list[UUID] = Field(default_factory=list, max_length=20)
+    target_character_count: int | None = Field(default=None, ge=600, le=12000)
     session_id: str | None = Field(default=None, max_length=200)
     review_confirmed: bool = False
 
@@ -135,6 +136,7 @@ async def create_artifact(
         requested_formats=list(body.requested_formats),
         customer_context=body.customer_context,
         selected_document_ids=[str(item) for item in body.selected_document_ids],
+        target_character_count=body.target_character_count,
         session_id=body.session_id,
         review_confirmed=body.review_confirmed,
     )
@@ -198,6 +200,8 @@ async def download_artifact(
         **artifact,
         "content_markdown": version.get("content_markdown") or "",
         "version_number": version.get("version_number") or 1,
+        "quality_snapshot": version.get("quality_snapshot") or {},
+        "artifact_label": (artifact.get("metadata") or {}).get("artifact_label"),
     }
     evidence = version.get("evidence_snapshot") or {}
     organization_result = (

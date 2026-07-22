@@ -23,8 +23,12 @@ function safeFilename(value: string) {
 }
 
 export function titleFromContent(content: string) {
-  const heading = content.match(/^#{1,3}\s+(.+)$/m)?.[1];
-  const firstLine = content.split('\n').map((line) => line.trim()).find(Boolean);
+  const safeLines = content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !/(?:load[_ -]?knowledge|企业资料检索结果|知识检索结果|工具调用结果|TOOL_RESULT|tool_name|tool_args|tool_result|\[EVID:|非常抱歉|无法完成|未在知识库中找到|未检索到)/i.test(line));
+  const heading = safeLines.find((line) => /^#{1,3}\s+/.test(line))?.replace(/^#{1,3}\s+/, '');
+  const firstLine = safeLines.find((line) => !/^```/.test(line));
   return safeFilename((heading || firstLine || 'AI生成成果').replace(/[*_`#>]/g, '')).slice(0, 36);
 }
 
@@ -141,4 +145,3 @@ export async function repeatDownload(action: DeliverableDownloadAction) {
   });
   downloadBlob(response.data as Blob, action.filename);
 }
-

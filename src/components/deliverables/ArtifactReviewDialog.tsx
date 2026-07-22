@@ -43,6 +43,7 @@ import {
   type ArtifactType,
 } from '@/features/deliverables/artifactApi';
 import { announceDeliverable } from '@/features/deliverables/deliverableStore';
+import { inferTargetCharacterCount } from '@/features/deliverables/deliverableEligibility';
 import { titleFromContent } from '@/features/deliverables/exportContent';
 
 
@@ -56,10 +57,17 @@ const ARTIFACT_TYPES: Array<{ value: ArtifactType; label: string }> = [
 ];
 
 const PHASES = [
-  { label: '检索企业资料', icon: Search },
-  { label: '组织专业内容', icon: Sparkles },
+  { label: '拆解企业资料', icon: Search },
+  { label: '分章节撰写', icon: Sparkles },
   { label: '校验事实与引用', icon: ShieldCheck },
-  { label: '生成可下载成果', icon: FileCheck2 },
+  { label: '专业排版交付', icon: FileCheck2 },
+];
+
+const CONTENT_DEPTHS = [
+  { value: 1500, label: '精简 · 约 1500 字' },
+  { value: 2200, label: '标准 · 约 2200 字' },
+  { value: 3000, label: '完整 · 不少于 3000 字' },
+  { value: 5000, label: '深度 · 不少于 5000 字' },
 ];
 
 interface ArtifactReviewDialogProps {
@@ -79,8 +87,12 @@ export function ArtifactReviewDialog({
   defaultType,
   sessionId,
 }: ArtifactReviewDialogProps) {
-  const [title, setTitle] = useState(() => titleFromContent(content));
+  const [title, setTitle] = useState(() => {
+    const candidate = titleFromContent(content);
+    return candidate === 'AI生成成果' ? '' : candidate;
+  });
   const [artifactType, setArtifactType] = useState<ArtifactType>(defaultType);
+  const [targetCharacters, setTargetCharacters] = useState(() => inferTargetCharacterCount(originalRequest, defaultType));
   const [audience, setAudience] = useState<'internal' | 'customer'>('customer');
   const [formats, setFormats] = useState<ArtifactOutputFormat[]>(['docx', 'pdf']);
   const [customer, setCustomer] = useState('');
@@ -153,6 +165,7 @@ export function ArtifactReviewDialog({
           application_scenario: scenario,
         },
         selected_document_ids: selectedDocuments,
+        target_character_count: targetCharacters,
         session_id: sessionId,
         review_confirmed: audience === 'internal' || (factsConfirmed && promisesConfirmed),
       });
@@ -247,6 +260,12 @@ export function ArtifactReviewDialog({
                 <div className="mt-1 text-xs text-muted-foreground">
                   {result.artifact_code} · v{result.version_number} · {result.evidence.count} 条证据
                 </div>
+                {result.quality.metrics && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    正文 {result.quality.metrics.character_count ?? 0} / {result.quality.metrics.target_character_count ?? targetCharacters} 字
+                    {' · '}表格 {result.quality.metrics.table_count ?? 0} / {result.quality.metrics.minimum_table_count ?? 0}
+                  </div>
+                )}
               </div>
               <Badge variant={result.quality.ready ? 'default' : 'secondary'}>
                 质量 {Math.round(result.quality.score)}
@@ -311,7 +330,11 @@ export function ArtifactReviewDialog({
             <div className="grid gap-4 border-b px-6 py-5 md:grid-cols-2">
               <label className="space-y-2 text-xs font-medium">
                 成果类型
-                <Select value={artifactType} onValueChange={(value) => setArtifactType(value as ArtifactType)}>
+                <Select value={artifactType} onValueChange={(value) => {
+                  const nextType = value as ArtifactType;
+                  setArtifactType(nextType);
+                  setTargetCharacters(inferTargetCharacterCount(originalRequest, nextType));
+                }}>
                   <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {ARTIFACT_TYPES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
@@ -329,8 +352,17 @@ export function ArtifactReviewDialog({
                 </Select>
               </label>
               <label className="space-y-2 text-xs font-medium md:col-span-2">
+                内容深度
+                <Select value={String(targetCharacters)} onValueChange={(value) => setTargetCharacters(Number(value))}>
+                  <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CONTENT_DEPTHS.map((item) => <SelectItem key={item.value} value={String(item.value)}>{item.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="space-y-2 text-xs font-medium md:col-span-2">
                 成果名称
-                <Input className="mt-2" value={title} onChange={(event) => setTitle(event.target.value)} />
+                <Input className="mt-2" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="留空则由 AI 根据客户与任务生成正式标题" />
               </label>
             </div>
 
