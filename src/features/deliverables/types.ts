@@ -1,6 +1,6 @@
 export type DeliverableFormat = 'docx' | 'pdf' | 'xlsx' | 'png' | 'csv' | 'markdown';
 
-export type DeliverableSource = 'assistant' | 'solution' | 'tender' | 'chart' | 'report';
+export type DeliverableSource = 'assistant' | 'artifact' | 'solution' | 'tender' | 'chart' | 'report';
 
 export interface DeliverableDownloadAction {
   type: 'http-blob';
@@ -20,6 +20,10 @@ export interface DeliverableRecord {
   createdAt: string;
   sizeBytes?: number;
   downloadAction?: DeliverableDownloadAction;
+  artifactId?: string;
+  versionNumber?: number;
+  qualityScore?: number;
+  approvalStatus?: string;
 }
 
 export interface DeliverableAnnouncement
@@ -28,4 +32,3 @@ export interface DeliverableAnnouncement
   createdAt?: string;
   download?: () => void | Promise<void>;
 }
-

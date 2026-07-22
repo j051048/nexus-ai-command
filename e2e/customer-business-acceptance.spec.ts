@@ -594,4 +594,87 @@ test.describe('Customer business acceptance flows', () => {
     await page.getByRole('tab', { name: '工作台总览' }).click();
     await expect(page.locator('#demo-space').getByRole('heading', { name: '科学仪器 Demo 空间' })).toBeVisible();
   });
+
+  test('10. chat artifact delivery regenerates, reviews, and downloads a durable file', async ({ page }) => {
+    await setupAcceptanceMocks(page, 'boss');
+    let artifactPayload: Record<string, unknown> | null = null;
+    let feedbackPayload: Record<string, unknown> | null = null;
+    await page.route('**/api/chat', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        headers: {
+          'access-control-allow-origin': 'http://localhost:4173',
+          'access-control-allow-credentials': 'true',
+          'content-type': 'text/event-stream',
+        },
+        body:
+          'data: {"choices":[{"delta":{"content":"## 初步方案\\n已根据食品安全检测需求形成升级建议。当前内容只是聊天摘要，正式成果需要重新检索企业产品资料、核验参数、补充实施计划、服务边界和证据来源。建议生成可编辑 Word，并由负责人确认价格、交期和对外承诺。"}}]}\n\n' +
+          'data: [DONE]\n\n',
+      });
+    });
+    await page.route('**/api/artifacts?*', (route) => fulfillJson(route, { success: true, data: { artifacts: [] } }));
+    await page.route('**/api/artifacts/generate', async (route) => {
+      artifactPayload = JSON.parse(route.request().postData() || '{}');
+      await fulfillJson(route, {
+        success: true,
+        data: {
+          id: '11111111-1111-4111-8111-111111111111',
+          artifact_code: 'ART-20260722-E2E',
+          title: '食品安全检测仪升级方案',
+          artifact_type: 'customer_solution',
+          artifact_label: '客户解决方案',
+          status: 'approved',
+          approval_status: 'approved',
+          quality: { score: 93, ready: true, findings: [], dimensions: { structure: 100 } },
+          version_number: 1,
+          requested_formats: ['docx'],
+          verification_items: [],
+          evidence: { count: 6, coverage: 1, sufficient: true, missing_topics: [] },
+          download_urls: {
+            docx: '/api/artifacts/11111111-1111-4111-8111-111111111111/download?format=docx',
+          },
+        },
+      });
+    });
+    await page.route('**/api/artifacts/11111111-1111-4111-8111-111111111111/download**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: {
+          'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'content-disposition': "attachment; filename*=UTF-8''artifact.docx",
+        },
+        body: Buffer.from('PK-e2e-artifact'),
+      });
+    });
+    await page.route('**/api/artifacts/11111111-1111-4111-8111-111111111111/feedback', async (route) => {
+      feedbackPayload = JSON.parse(route.request().postData() || '{}');
+      await fulfillJson(route, {
+        success: true,
+        data: { artifact_id: '11111111-1111-4111-8111-111111111111', recorded: true },
+      });
+    });
+
+    await page.goto('/dashboard');
+    const input = page.getByTestId('chat-input');
+    await expect(input).toBeVisible({ timeout: 15000 });
+    await input.fill('根据企业资料制作食品安全检测仪升级解决方案');
+    await input.press('Enter');
+    await page.getByTestId('message-deliverable-menu').click();
+    await expect(page.getByRole('heading', { name: '制作精品成果' })).toBeVisible();
+    await page.getByText('我理解 AI 只会引用企业资料').click();
+    await page.getByText('价格、交期、性能保证与售后承诺').click();
+
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: '开始制作' }).click();
+    await download;
+
+    await expect.poll(() => artifactPayload).not.toBeNull();
+    expect(artifactPayload?.original_request).toContain('食品安全检测仪升级解决方案');
+    expect(artifactPayload?.source_content).toContain('正式成果需要重新检索企业产品资料');
+    await expect(page.getByText('ART-20260722-E2E')).toBeVisible();
+    await expect(page.getByText('质量 93')).toBeVisible();
+    await page.getByRole('button', { name: '可直接使用' }).click();
+    await expect.poll(() => feedbackPayload).not.toBeNull();
+    expect(feedbackPayload?.outcome).toBe('used');
+  });
 });

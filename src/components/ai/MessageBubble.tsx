@@ -190,6 +190,8 @@ interface MessageBubbleProps {
   branchInfo?: { total: number; current: number } | null;
   isLatest?: boolean;
   isTyping?: boolean;
+  originalRequest?: string;
+  sessionId?: string;
 }
 
 export const MessageBubble = React.memo(function MessageBubble({
@@ -205,6 +207,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   branchInfo,
   isLatest,
   isTyping,
+  originalRequest,
+  sessionId,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
@@ -551,8 +555,12 @@ export const MessageBubble = React.memo(function MessageBubble({
               />
             )}
 
-            {!isTyping && message.content.length >= 120 && (
-              <MessageDeliverableMenu content={message.content} />
+            {!isTyping && (
+              <MessageDeliverableMenu
+                content={message.content}
+                originalRequest={originalRequest}
+                sessionId={sessionId}
+              />
             )}
 
             {/* Branch Navigator */}

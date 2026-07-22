@@ -7,6 +7,10 @@ import {
   readDeliverables,
   removeDeliverable,
 } from '@/features/deliverables/deliverableStore';
+import {
+  assessDeliverableEligibility,
+  inferArtifactType,
+} from '@/features/deliverables/deliverableEligibility';
 import { markdownTableRows, titleFromContent } from '@/features/deliverables/exportContent';
 import type { DeliverableRecord } from '@/features/deliverables/types';
 
@@ -74,5 +78,21 @@ describe('deliverable delivery layer', () => {
   it('creates a stable file title from the first markdown heading', () => {
     expect(titleFromContent('# 制药企业液相色谱解决方案\n正文')).toBe('制药企业液相色谱解决方案');
   });
-});
 
+  it('blocks raw retrieval traces from quick export but allows quality generation', () => {
+    const eligibility = assessDeliverableEligibility(
+      '[企业资料检索结果]\ntool_name: loadknowledge\n' + '产品资料内容'.repeat(30),
+      '根据企业资料生成客户方案',
+    );
+
+    expect(eligibility.canCreateArtifact).toBe(true);
+    expect(eligibility.canQuickExport).toBe(false);
+    expect(eligibility.containsInternalOutput).toBe(true);
+  });
+
+  it('infers scientific deliverable types from the user request', () => {
+    expect(inferArtifactType('生成投标技术响应', '')).toBe('tender');
+    expect(inferArtifactType('对比竞品参数', '')).toBe('competitor_analysis');
+    expect(inferArtifactType('为客户写食品安全升级方案', '')).toBe('customer_solution');
+  });
+});

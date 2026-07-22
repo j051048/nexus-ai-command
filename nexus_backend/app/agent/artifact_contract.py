@@ -60,7 +60,15 @@ class ArtifactSpec(BaseModel):
 _TYPE_RULES: tuple[tuple[ArtifactType, tuple[str, ...]], ...] = (
     (
         ArtifactType.TENDER,
-        ("标书", "投标文件", "招标响应", "技术偏离表", "bid document", "tender"),
+        (
+            "标书",
+            "投标",
+            "投标文件",
+            "招标响应",
+            "技术偏离表",
+            "bid document",
+            "tender",
+        ),
     ),
     (
         ArtifactType.COMPETITOR_ANALYSIS,

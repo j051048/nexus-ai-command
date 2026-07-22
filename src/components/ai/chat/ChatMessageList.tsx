@@ -96,6 +96,12 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   // Link messages into tree structure (backward compat) and get active path
   const linkedMessages = React.useMemo(() => linkMessagesSequentially(messages), [messages]);
   const activeMessages = React.useMemo(() => getActivePath(linkedMessages), [linkedMessages]);
+  const previousUserRequest = useCallback((index: number) => {
+    for (let current = index - 1; current >= 0; current -= 1) {
+      if (activeMessages[current]?.role === 'user') return activeMessages[current].content;
+    }
+    return '';
+  }, [activeMessages]);
 
   // Stable feedback callback — uses ref to avoid messages dependency
   const handleFeedback = useCallback((type: 'positive' | 'negative', messageId: string) => {
@@ -372,6 +378,8 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                     branchInfo={getBranchInfo(linkedMessages, msg.id)}
                     isLatest={isLast}
                     isTyping={isLast && isAiTyping}
+                    originalRequest={previousUserRequest(virtualItem.index)}
+                    sessionId={`chat_${userId}_${msg.parentId || msg.id}`}
                   />
                   {virtualItem.index === 0 && activeMessages.length <= 1 && onSendMessage && (
                     <div className="mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
@@ -419,6 +427,8 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                 branchInfo={getBranchInfo(linkedMessages, msg.id)}
                 isLatest={isLast}
                 isTyping={isLast && isAiTyping}
+                originalRequest={previousUserRequest(index)}
+                sessionId={`chat_${userId}_${msg.parentId || msg.id}`}
               />
               {index === 0 && activeMessages.length <= 1 && onSendMessage && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">

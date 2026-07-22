@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/components/auth/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Sheet,
   SheetContent,
@@ -34,6 +35,7 @@ import {
   writeDeliverables,
 } from '@/features/deliverables/deliverableStore';
 import { repeatDownload } from '@/features/deliverables/exportContent';
+import { listArtifacts } from '@/features/deliverables/artifactApi';
 import type { DeliverableFormat, DeliverableRecord } from '@/features/deliverables/types';
 import { cn } from '@/lib/utils';
 
@@ -61,6 +63,44 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => setRecords(readDeliverables(scope)), [scope]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listArtifacts()
+      .then((artifacts) => {
+        if (cancelled) return;
+        const remote: DeliverableRecord[] = artifacts.flatMap((artifact) => (
+          artifact.requested_formats.map((format) => ({
+            id: `${artifact.id}-${format}`,
+            title: artifact.title,
+            filename: `${artifact.title}.${format}`,
+            format,
+            source: 'artifact' as const,
+            sourceLabel: '精品成果',
+            sourcePath: '/dashboard',
+            createdAt: artifact.updated_at || artifact.created_at,
+            artifactId: artifact.id,
+            versionNumber: artifact.version_number,
+            qualityScore: artifact.quality_score,
+            approvalStatus: artifact.approval_status,
+            downloadAction: {
+              type: 'http-blob' as const,
+              url: `/api/artifacts/${artifact.id}/download`,
+              filename: `${artifact.title}.${format}`,
+              params: { format },
+            },
+          }))
+        ));
+        const merged = [...remote, ...readDeliverables(scope)]
+          .filter((record, index, all) => all.findIndex((item) => item.id === record.id) === index)
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+          .slice(0, 40);
+        writeDeliverables(scope, merged);
+        setRecords(merged);
+      })
+      .catch(() => { /* Backend persistence is additive; local results remain available. */ });
+    return () => { cancelled = true; };
+  }, [scope]);
 
   useEffect(() => {
     const onReady = (event: Event) => {
@@ -165,6 +205,20 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
                         {formatSize(record.sizeBytes) && <span>{formatSize(record.sizeBytes)}</span>}
                         <span>{formatDistanceToNow(new Date(record.createdAt), { addSuffix: true, locale: zhCN })}</span>
                       </div>
+                      {(record.qualityScore != null || record.approvalStatus) && (
+                        <div className="mt-2 flex items-center gap-1.5">
+                          {record.qualityScore != null && (
+                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal">
+                              质量 {Math.round(record.qualityScore)}
+                            </Badge>
+                          )}
+                          {record.approvalStatus && (
+                            <Badge variant={record.approvalStatus === 'approved' ? 'default' : 'outline'} className="h-5 px-1.5 text-[10px] font-normal">
+                              {record.approvalStatus === 'approved' ? '已审核' : '审核草稿'}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <Button
@@ -199,4 +253,3 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
     </Sheet>
   );
 }
-

@@ -13,9 +13,17 @@ from app.agent.artifact_contract import ArtifactSpec, ArtifactType
 from app.agent.scientific_writing_skills import (
     enrich_artifact_spec,
 )
+from app.services.artifact_content_sanitizer import (
+    contains_internal_trace_markers,
+    duplicate_paragraph_ratio,
+)
 
-ARTIFACT_EVALUATOR_VERSION = "artifact-quality.v1"
+ARTIFACT_EVALUATOR_VERSION = "artifact-quality.v2"
 _CITATION_RE = re.compile(r"\[EVID:([^:\]\s]+):([^\]\s]+)\]")
+_NUMBER_RE = re.compile(
+    r"(?<![\w-])\d+(?:\.\d+)?\s*(?:%|万|万元|元|天|小时|年|个月|台|套|pp[mb]|mg|μg|nm)?",
+    re.I,
+)
 _ABSOLUTE_CLAIMS = ("保证", "绝对", "百分之百", "行业第一", "零风险", "100%")
 _PROMISE_HINTS = ("保证响应", "永久", "终身免费", "无条件", "当天修复")
 _POLICY_HINTS = ("政策", "法规", "标准", "办法", "条例", "规范")
@@ -129,6 +137,57 @@ def evaluate_text_artifact(
             )
         )
 
+    duplicate_ratio = duplicate_paragraph_ratio(text)
+    if duplicate_ratio > 0.22:
+        findings.append(
+            QualityFinding(
+                severity="high" if spec.requires_quality_gate else "medium",
+                code="duplicate_content",
+                message="正文存在较多重复段落，需要整合后再交付",
+                details={"duplicate_ratio": duplicate_ratio},
+            )
+        )
+    trace_leakage = contains_internal_trace_markers(text)
+    if trace_leakage:
+        findings.append(
+            QualityFinding(
+                severity="high",
+                code="internal_trace_leakage",
+                message="成果中包含工具日志或内部检索标记",
+            )
+        )
+
+    plain_length = len(re.sub(r"[#|>*_`\s]", "", text))
+    if spec.requires_quality_gate and plain_length < 220:
+        findings.append(
+            QualityFinding(
+                severity="high",
+                code="content_too_short",
+                message="正文不足以形成可交付成果",
+                details={"character_count": plain_length, "minimum": 220},
+            )
+        )
+    elif spec.requires_quality_gate and plain_length < 800:
+        findings.append(
+            QualityFinding(
+                severity="medium",
+                code="content_depth_low",
+                message="成果深度偏低，建议补充需求、配置、实施和风险说明",
+                details={"character_count": plain_length, "recommended": 800},
+            )
+        )
+
+    numeric_claims = _NUMBER_RE.findall(_CITATION_RE.sub("", text))
+    if spec.requires_quality_gate and numeric_claims and not valid_citations:
+        findings.append(
+            QualityFinding(
+                severity="high",
+                code="numeric_claims_unsupported",
+                message="正文包含缺少有效来源的数字、性能或商务事实",
+                details={"examples": numeric_claims[:8]},
+            )
+        )
+
     unsafe_claims = [marker for marker in _ABSOLUTE_CLAIMS if marker in text]
     if unsafe_claims and not valid_citations:
         findings.append(
@@ -179,13 +238,19 @@ def evaluate_text_artifact(
         "citation_validity": round(citation_validity, 2),
         "claim_safety": round(claim_safety, 2),
         "policy_currency": round(policy_currency, 2),
+        "originality": round(max(0.0, 100.0 - duplicate_ratio * 200), 2),
+        "export_hygiene": 0.0 if trace_leakage else 100.0,
+        "content_depth": round(min(100.0, plain_length / 8), 2),
     }
     score = round(
-        dimensions["structure"] * 0.25
-        + dimensions["evidence_coverage"] * 0.3
-        + dimensions["citation_validity"] * 0.25
+        dimensions["structure"] * 0.22
+        + dimensions["evidence_coverage"] * 0.24
+        + dimensions["citation_validity"] * 0.19
         + dimensions["claim_safety"] * 0.1
-        + dimensions["policy_currency"] * 0.1,
+        + dimensions["policy_currency"] * 0.07
+        + dimensions["originality"] * 0.07
+        + dimensions["export_hygiene"] * 0.06
+        + dimensions["content_depth"] * 0.05,
         2,
     )
     blockers = [item for item in findings if item.severity == "high"]
