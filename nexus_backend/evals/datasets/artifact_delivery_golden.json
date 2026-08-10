@@ -1,35 +1,56 @@
 {
-  "schema_version": "artifact-delivery-golden.v1",
+  "schema_version": "artifact-delivery-golden.v2",
+  "minimum_pass_rate": 0.9,
   "cases": [
     {
       "id": "spectroscopy-solution",
       "request": "为客户生成紫外可见光谱仪升级解决方案并导出 Word",
       "artifact_type": "customer_solution",
-      "instrument_line": "spectroscopy"
+      "instrument_line": "spectroscopy",
+      "minimum_character_count": 1800,
+      "expected_sections": ["执行摘要", "客户需求", "技术方案", "配置", "实施", "售后", "证据"],
+      "required_terms": ["波长", "分辨率", "验收"],
+      "forbidden_terms": ["保证100%", "绝对领先", "虚构案例"]
     },
     {
       "id": "chromatography-tender",
       "request": "根据招标文件生成液相色谱投标技术响应 PDF",
       "artifact_type": "tender",
-      "instrument_line": "chromatography"
+      "instrument_line": "chromatography",
+      "minimum_character_count": 2200,
+      "expected_sections": ["投标", "技术响应", "偏离", "实施", "验收", "售后", "证据"],
+      "required_terms": ["压力", "流量", "响应"],
+      "forbidden_terms": ["无任何偏离", "永久质保", "虚构资质"]
     },
     {
       "id": "mass-spec-report",
       "request": "生成 LC-MS 质谱验证技术报告",
       "artifact_type": "technical_report",
-      "instrument_line": "mass_spectrometry"
+      "instrument_line": "mass_spectrometry",
+      "minimum_character_count": 1800,
+      "expected_sections": ["摘要", "方法", "质量范围", "质量精度", "结果", "风险", "证据"],
+      "required_terms": ["m/z", "ppm", "待核验"],
+      "forbidden_terms": ["完全准确", "零误差", "虚构数据"]
     },
     {
       "id": "energy-spectrum-competitor",
       "request": "制作 XRF 能谱仪竞品横向对比分析",
       "artifact_type": "competitor_analysis",
-      "instrument_line": "energy_spectroscopy"
+      "instrument_line": "energy_spectroscopy",
+      "minimum_character_count": 1800,
+      "expected_sections": ["摘要", "对比维度", "能量分辨率", "适用场景", "风险", "建议", "证据"],
+      "required_terms": ["eV", "计数率", "来源"],
+      "forbidden_terms": ["全面碾压", "行业第一", "虚构参数"]
     },
     {
       "id": "electronic-service",
       "request": "为频谱分析仪制定校准与维保服务方案",
       "artifact_type": "service_proposal",
-      "instrument_line": "electronic_instruments"
+      "instrument_line": "electronic_instrumentation",
+      "minimum_character_count": 1600,
+      "expected_sections": ["服务目标", "设备范围", "校准", "实施", "验收", "响应", "证据"],
+      "required_terms": ["带宽", "不确定度", "SCPI"],
+      "forbidden_terms": ["永不故障", "无限次服务", "虚构承诺"]
     }
   ]
 }

@@ -117,6 +117,6 @@ async def export_docx(
                 result.get("error", "导出失败"),
             )
         return api_success(result)
-    except Exception as e:
+    except Exception as e:  # broad-except: intentional
         logger.error("Word 导出失败: %s", e)
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Word 导出失败，请稍后重试")

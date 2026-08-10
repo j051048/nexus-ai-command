@@ -25,7 +25,14 @@ from app.core.dependencies import (
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.agent_evidence_service import retrieve_agent_evidence
 from app.services.artifact_feedback_service import build_artifact_feedback_candidate
+from app.services.artifact_llm_judge import evaluate_delivery_package
+from app.services.artifact_quality_service import persist_artifact_quality_event
+from app.services.artifact_template_service import (
+    get_optimal_template,
+    record_template_usage,
+)
 from app.services.audit_logger import audit_logger
+from app.services.scientific_instrument_ontology import normalize_product_specs
 from app.services.solution_commercial_service import (
     enrich_workspace_commercials,
     solution_value_metrics,
@@ -283,6 +290,11 @@ async def upsert_product_catalog(
     user_id: str = Depends(require_solution_catalog_admin),
 ):
     payload = body.model_dump(mode="json")
+    ontology = normalize_product_specs(body.instrument_line_code, body.key_specs)
+    payload["configuration_schema"] = {
+        **body.configuration_schema,
+        "parameter_ontology": ontology,
+    }
     payload.update(
         {
             "organization_id": organization_id,
@@ -309,6 +321,7 @@ async def upsert_product_catalog(
         details={
             "model_code": body.model_code,
             "validation_status": body.validation_status,
+            "ontology_warning_count": len(ontology["warnings"]),
         },
     )
     await audit_logger.force_flush()
@@ -750,6 +763,14 @@ async def generate_project_solution(
             .execute()
         )
         template = template_result.data
+    if not template:
+        template = await get_optimal_template(
+            db,
+            organization_id=organization_id,
+            artifact_type=ArtifactType.CUSTOMER_SOLUTION.value,
+            instrument_line=brief.get("instrument_line_code"),
+            industry=brief.get("industry"),
+        )
     generated_workspace, generation = await generate_solution(
         brief=brief,
         current_workspace=workspace,
@@ -759,6 +780,46 @@ async def generate_project_solution(
         user_id=user_id,
         organization_id=organization_id,
     )
+    generated_markdown = workspace_markdown(
+        {
+            "title": project.get("title") or "客户解决方案",
+            "workspace": generated_workspace,
+        }
+    )
+    delivery_quality = await evaluate_delivery_package(
+        text=generated_markdown,
+        spec=artifact_spec,
+        evidence_packet=packet_data,
+        original_request=query,
+        customer_context=brief,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    generated_workspace["quality"] = {
+        **dict(generated_workspace.get("quality") or {}),
+        "delivery_platform": delivery_quality,
+    }
+    generation["delivery_quality_score"] = delivery_quality.get("score", 0)
+    generation["ready_for_delivery"] = bool(delivery_quality.get("ready"))
+    generation["template_key"] = (template or {}).get("template_key")
+    await persist_artifact_quality_event(
+        quality=delivery_quality,
+        spec=artifact_spec,
+        org_id=organization_id,
+        user_id=user_id,
+        session_id=str(project_id),
+        repair_count=int(generation.get("repair_count") or 0),
+        evidence_count=len(evidence_catalog),
+        template_key=(template or {}).get("template_key"),
+        judge_snapshot=delivery_quality.get("judge"),
+    )
+    if (template or {}).get("template_key"):
+        await record_template_usage(
+            db,
+            organization_id=organization_id,
+            template_key=str(template["template_key"]),
+            quality=delivery_quality,
+        )
     generation["duration_ms"] = round((time.perf_counter() - generation_started) * 1000)
     generation["cached"] = False
     generation["fingerprint"] = fingerprint
@@ -841,7 +902,7 @@ async def export_solution(
                 ),
                 "company_name": organization.data.get("name"),
             }
-    except Exception:
+    except Exception:  # broad-except: intentional
         brand = {}
     if output_format == "markdown":
         content = workspace_markdown(project).encode("utf-8")
@@ -874,7 +935,7 @@ async def export_solution(
                 "created_by": user_id,
             }
         ).execute()
-    except Exception:
+    except Exception:  # broad-except: intentional
         pass
     await audit_logger.log(
         action="solution.export",
@@ -938,7 +999,7 @@ async def record_outcome(
                     "created_by": user_id,
                 }
             ).execute()
-        except Exception:
+        except Exception:  # broad-except: intentional
             pass
     outcome = {
         **(project.get("outcome") or {}),
@@ -1218,7 +1279,7 @@ async def record_solution_feedback(
     }
     try:
         result = await db.table("solution_feedback_events").insert(payload).execute()
-    except Exception as exc:
+    except Exception as exc:  # broad-except: intentional
         # Keep feedback available during rolling deployments where application
         # pods may start before the additive metadata migration is applied.
         if any(

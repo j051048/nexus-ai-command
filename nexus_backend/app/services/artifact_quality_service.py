@@ -402,6 +402,8 @@ async def persist_artifact_quality_event(
     session_id: str | None,
     repair_count: int = 0,
     evidence_count: int = 0,
+    template_key: str | None = None,
+    judge_snapshot: dict[str, Any] | None = None,
 ) -> None:
     """Best-effort persistence; quality gating never depends on telemetry."""
 
@@ -428,9 +430,11 @@ async def persist_artifact_quality_event(
                 "evidence_count": evidence_count,
                 "repair_count": repair_count,
                 "output_hash": quality.get("output_hash"),
+                "template_key": template_key,
+                "judge_snapshot": judge_snapshot or quality.get("judge") or {},
                 "created_at": datetime.now(UTC).isoformat(),
             }
         ).execute()
-    except Exception:
+    except Exception:  # broad-except: intentional
         # The migration can be rolled out independently of application code.
         return

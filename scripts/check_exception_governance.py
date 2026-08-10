@@ -13,6 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = ROOT / "nexus_backend" / "app"
 BASELINE = ROOT / "docs" / "handbook" / "generated" / "exception_debt.json"
 
+# Handlers annotated with this marker are explicitly registered as intentional
+# fallbacks (e.g. telemetry that must not break the primary flow, or additive
+# columns that may not exist during rolling deployments). They are still
+# counted, and the exempted total is itself gated against growth, so the
+# marker can never become a silent escape hatch.
+EXEMPT_MARKER = "broad-except: intentional"
+
 # These paths handle money, entitlements, or global model-cost policy. Broad
 # catches here can turn integrity failures into plausible-looking success or
 # erase the error category needed by operators.
@@ -39,20 +46,33 @@ def is_broad(handler: ast.ExceptHandler) -> bool:
     return False
 
 
+def is_exempt(path: Path, lineno: int) -> bool:
+    """Return True when the handler line carries the explicit exemption marker."""
+    try:
+        line = path.read_text(encoding="utf-8-sig").splitlines()[lineno - 1]
+    except IndexError:
+        return False
+    return EXEMPT_MARKER in line
+
+
 def scan() -> dict[str, object]:
     by_area: Counter[str] = Counter()
     by_file: Counter[str] = Counter()
+    exempted = 0
     for path in sorted(APP_ROOT.rglob("*.py")):
         relative = path.relative_to(APP_ROOT)
         try:
             tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
         except (SyntaxError, UnicodeDecodeError) as error:
             raise RuntimeError(f"Cannot parse {relative}: {error}") from error
-        count = sum(
-            1
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ExceptHandler) and is_broad(node)
-        )
+        count = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler) or not is_broad(node):
+                continue
+            if is_exempt(path, node.lineno):
+                exempted += 1
+                continue
+            count += 1
         if count:
             by_area[relative.parts[0]] += count
             by_file[relative.as_posix()] += count
@@ -60,6 +80,7 @@ def scan() -> dict[str, object]:
         "total": sum(by_area.values()),
         "by_area": dict(sorted(by_area.items())),
         "top_files": dict(by_file.most_common(30)),
+        "exempted": exempted,
     }
 
 
@@ -106,6 +127,10 @@ def main() -> int:
     failures: list[str] = scan_strict_functions()
     if int(current["total"]) > int(baseline["total"]):
         failures.append(f"total {current['total']} > {baseline['total']}")
+    if int(current["exempted"]) > int(baseline.get("exempted", 0)):
+        failures.append(
+            f"exempted {current['exempted']} > {baseline.get('exempted', 0)}"
+        )
     current_areas = current["by_area"]
     baseline_areas = baseline["by_area"]
     assert isinstance(current_areas, dict) and isinstance(baseline_areas, dict)
@@ -115,7 +140,10 @@ def main() -> int:
     if failures:
         print("EXCEPTION_GOVERNANCE_FAIL " + "; ".join(failures))
         return 1
-    print(f"EXCEPTION_GOVERNANCE_OK broad catches={current['total']}")
+    print(
+        f"EXCEPTION_GOVERNANCE_OK broad catches={current['total']} "
+        f"exempted={current['exempted']}"
+    )
     return 0
 
 

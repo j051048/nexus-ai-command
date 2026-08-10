@@ -294,6 +294,6 @@ async def export_to_docx(
             "filename": f"{filename}.docx",
             "content_base64": content_base64,
         }
-    except Exception as e:
+    except Exception as e:  # broad-except: intentional
         logger.error("导出Word失败: %s", e)
         return {"success": False, "error": str(e)}

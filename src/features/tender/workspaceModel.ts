@@ -123,22 +123,37 @@ export function mergeReportIntoWorkspace(
 
 export function tenderReadiness(workspace: TenderWorkspaceState) {
   const matrix = workspace.response_matrix;
-  const answered = matrix.filter((item) => item.status === 'ready').length;
+  const answered = matrix.filter((item) => item.status === 'ready' && item.response.trim()).length;
   const gaps = matrix.filter((item) => item.status === 'gap' || item.status === 'blocked').length;
+  const evidenceGaps = matrix.filter((item) => ['mandatory', 'technical', 'scoring'].includes(item.category) && !item.evidence_ref.trim()).length;
+  const ownerGaps = matrix.filter((item) => !item.owner.trim()).length;
+  const blockedMandatory = matrix.filter((item) => item.category === 'mandatory' && item.status === 'blocked').length;
   const approvedSections = workspace.draft_sections.filter((item) => item.status === 'approved').length;
   const passedGates = workspace.review_gates.filter((item) => item.status === 'passed').length;
   const totalChecks = Math.max(1, matrix.length + workspace.draft_sections.length + workspace.review_gates.length);
   const completed = answered + approvedSections + passedGates;
+  const reviewReasons = [
+    evidenceGaps ? `${evidenceGaps} 项关键响应缺少证据` : '',
+    ownerGaps ? `${ownerGaps} 项尚未指定责任人` : '',
+    blockedMandatory ? `${blockedMandatory} 个否决项仍被阻塞` : '',
+  ].filter(Boolean);
   return {
     score: Math.round((completed / totalChecks) * 100),
     answered,
     totalRequirements: matrix.length,
     gaps,
+    evidenceGaps,
+    ownerGaps,
+    blockedMandatory,
+    reviewReasons,
     approvedSections,
     passedGates,
     canDeliver:
       matrix.length > 0 &&
       gaps === 0 &&
+      evidenceGaps === 0 &&
+      ownerGaps === 0 &&
+      blockedMandatory === 0 &&
       workspace.review_gates.filter((item) => item.required).every((item) => item.status === 'passed'),
   };
 }

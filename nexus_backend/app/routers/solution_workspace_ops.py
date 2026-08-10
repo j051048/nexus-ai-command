@@ -777,7 +777,7 @@ async def deliver_project(
     }
     try:
         await db.table("solution_delivery_events").insert(reservation_payload).execute()
-    except Exception as exc:
+    except Exception as exc:  # broad-except: intentional
         if not _is_unique_violation(exc):
             raise
         duplicate = (

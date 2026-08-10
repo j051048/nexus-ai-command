@@ -159,7 +159,7 @@ async def retrieve_agent_evidence(
                 limit=6,
             )
             graph_context = graph_packet.prompt_context
-        except Exception:
+        except Exception:  # broad-except: intentional
             graph_context = ""
 
     missing = [topic for topic in topics if topic not in covered_topics]

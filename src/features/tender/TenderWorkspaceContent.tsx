@@ -372,7 +372,12 @@ function DeliveryStage(props: TenderWorkspaceContentProps) {
         </div>
         {!readiness.canDeliver && (
           <div className="mt-6 border-l-2 border-amber-500 bg-amber-50/60 px-4 py-3 text-sm text-amber-900">
-            定稿导出仍需处理 {readiness.gaps} 个高风险或证据缺口，并完成全部必检门禁。
+            <div className="font-medium">定稿前仍需处理</div>
+            <div className="mt-1 text-xs leading-5">
+              {readiness.reviewReasons.length
+                ? readiness.reviewReasons.join('；')
+                : `处理 ${readiness.gaps} 个风险缺口，并完成全部必检门禁。`}
+            </div>
           </div>
         )}
       </section>

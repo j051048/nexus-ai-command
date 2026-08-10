@@ -53,16 +53,9 @@ jobs:
       - name: Run tests with coverage
         run: npm run test -- --coverage
 
-      - name: Check frontend coverage
+      - name: Check frontend coverage trend
         if: always()
-        run: |
-          if [ -f coverage/coverage-summary.json ]; then
-            TOTAL=$(node -e "const c=require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
-            echo "## Frontend Test Coverage: ${TOTAL}%" >> $GITHUB_STEP_SUMMARY
-            if (( $(echo "$TOTAL < 65" | bc -l) )); then
-              echo "::warning::Frontend test coverage is ${TOTAL}%, below 65% threshold."
-            fi
-          fi
+        run: node scripts/check_frontend_coverage_trend.mjs --check
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4

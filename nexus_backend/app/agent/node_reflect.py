@@ -1119,7 +1119,7 @@ async def critic_node(state: AgentState) -> dict:
                     (state.get("evidence_packet") or {}).get("records", [])
                 ),
             )
-        except Exception:
+        except Exception:  # broad-except: intentional
             logger.debug("[CriticNode] artifact telemetry skipped", exc_info=True)
 
     critic_feedback = f"完整性: {result.completeness:.0%}, 相关性: {result.relevance:.0%}, 准确性: {result.accuracy:.0%}"

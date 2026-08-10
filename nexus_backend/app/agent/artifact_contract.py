@@ -121,7 +121,13 @@ _INSTRUMENT_LINES: dict[str, tuple[str, ...]] = {
     "chromatography": ("色谱", "液相", "气相", "离子色谱"),
     "mass_spectrometry": ("质谱", "lc-ms", "gc-ms", "maldi"),
     "energy_spectroscopy": ("能谱", "xps", "eds", "edx", "xrf"),
-    "electronic_instruments": ("电子仪器", "示波器", "频谱分析仪", "电源", "万用表"),
+    "electronic_instrumentation": (
+        "电子仪器",
+        "示波器",
+        "频谱分析仪",
+        "电源",
+        "万用表",
+    ),
 }
 
 _CONTENT_BUDGETS: dict[ArtifactType, tuple[int, int, int]] = {

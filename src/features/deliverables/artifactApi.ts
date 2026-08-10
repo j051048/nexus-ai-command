@@ -22,8 +22,23 @@ export interface ArtifactGenerateInput {
   customer_context: Record<string, string>;
   selected_document_ids?: string[];
   target_character_count?: number;
+  generation_mode?: 'deep';
   session_id?: string;
   review_confirmed: boolean;
+  request_key?: string;
+}
+
+export interface ArtifactGenerationJob {
+  id: string;
+  status: 'queued' | 'running' | 'cancelling' | 'cancelled' | 'completed' | 'failed';
+  stage: string;
+  progress: number;
+  progress_details: Record<string, unknown>;
+  artifact_id?: string;
+  result?: ArtifactResult;
+  error?: { code: string; message: string } | null;
+  attempt: number;
+  max_attempts: number;
 }
 
 export interface ArtifactQualityFinding {
@@ -66,6 +81,15 @@ export interface ArtifactResult {
     sufficient: boolean;
     missing_topics: string[];
   };
+  orchestration?: {
+    mode: 'deep';
+    version: string;
+    stage_count: number;
+    stages: string[];
+    semantic_score: number;
+    semantic_passed: boolean;
+    repair_count: number;
+  };
   download_urls: Partial<Record<ArtifactOutputFormat, string>>;
 }
 
@@ -100,12 +124,60 @@ function unwrap<T>(value: unknown): T {
   return outer as T;
 }
 
-export async function generateArtifact(input: ArtifactGenerateInput) {
-  const response = await httpClient.post('/api/artifacts/generate', input, {
-    timeout: 240000,
+const sleep = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+export async function getArtifactJob(jobId: string) {
+  const response = await httpClient.get(`/api/artifacts/jobs/${jobId}`, {
+    timeout: 30000,
     silentError: true,
   });
-  return unwrap<ArtifactResult>(response);
+  return unwrap<ArtifactGenerationJob>(response);
+}
+
+export async function cancelArtifactJob(jobId: string) {
+  const response = await httpClient.post(`/api/artifacts/jobs/${jobId}/cancel`, undefined, {
+    timeout: 30000,
+    silentError: true,
+  });
+  return unwrap<ArtifactGenerationJob>(response);
+}
+
+export async function generateArtifact(
+  input: ArtifactGenerateInput,
+  onProgress?: (job: ArtifactGenerationJob) => void,
+) {
+  const requestKey = input.request_key
+    || (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `artifact-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const response = await httpClient.post('/api/artifacts/jobs', {
+    ...input,
+    request_key: requestKey,
+  }, {
+    timeout: 30000,
+    silentError: true,
+  });
+  let job = unwrap<ArtifactGenerationJob>(response);
+  onProgress?.(job);
+  const deadline = Date.now() + 15 * 60 * 1000;
+  while (!['completed', 'failed', 'cancelled'].includes(job.status)) {
+    if (Date.now() >= deadline) {
+      throw new Error('成果仍在后台制作，可稍后在成果中心继续查看');
+    }
+    await sleep(1200);
+    job = await getArtifactJob(job.id);
+    onProgress?.(job);
+  }
+  if (job.status === 'failed') {
+    throw new Error(job.error?.message || '成果生成失败，请重试');
+  }
+  if (job.status === 'cancelled') {
+    throw new Error('成果生成已取消');
+  }
+  if (!job.result?.id) {
+    throw new Error('成果任务已结束，但未返回可下载文件');
+  }
+  return job.result;
 }
 
 export async function listArtifacts() {

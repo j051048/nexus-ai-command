@@ -163,6 +163,8 @@ try:
             "certificates",
             "inventory",
             "pending_confirmations",
+            "artifact_generation_jobs",
+            "organization_activation_state",
         }
 
         def __init__(self, inner: "MiniSupabaseClient", org_id: str):

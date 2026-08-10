@@ -289,7 +289,7 @@ async def get_artifact_quality_summary(
             .limit(limit)
             .execute()
         )
-    except Exception:
+    except Exception:  # broad-except: intentional
         return api_success(
             data={"available": False, "sample_size": 0},
             message="成果质量数据尚未就绪",

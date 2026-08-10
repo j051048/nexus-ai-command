@@ -22,6 +22,7 @@ celery_app = Celery(
         "app.tasks.event_sensors",
         "app.tasks.tool_tasks",
         "app.tasks.memory_tasks",
+        "app.tasks.artifact_tasks",
     ],
 )
 
@@ -50,6 +51,7 @@ celery_app.conf.update(
         ),
         Queue("webhooks", Exchange("webhooks"), routing_key="webhooks"),
         Queue("sensors", Exchange("sensors"), routing_key="sensors"),
+        Queue("artifacts", Exchange("artifacts"), routing_key="artifacts"),
     ),
     task_routes={
         "execute_tool_isolated": {
@@ -67,6 +69,10 @@ celery_app.conf.update(
         "app.tasks.webhooks.*": {
             "queue": "webhooks",
             "routing_key": "webhooks",
+        },
+        "app.tasks.artifact_tasks.*": {
+            "queue": "artifacts",
+            "routing_key": "artifacts",
         },
     },
     worker_prefetch_multiplier=1,

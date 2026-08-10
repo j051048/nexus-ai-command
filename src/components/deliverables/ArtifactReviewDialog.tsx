@@ -36,6 +36,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import {
   downloadArtifact,
+  cancelArtifactJob,
   generateArtifact,
   recordArtifactFeedback,
   type ArtifactOutputFormat,
@@ -57,10 +58,12 @@ const ARTIFACT_TYPES: Array<{ value: ArtifactType; label: string }> = [
 ];
 
 const PHASES = [
-  { label: '拆解企业资料', icon: Search },
-  { label: '分章节撰写', icon: Sparkles },
-  { label: '校验事实与引用', icon: ShieldCheck },
-  { label: '专业排版交付', icon: FileCheck2 },
+  { label: '盘点企业资料', icon: Search },
+  { label: '制定客户策略', icon: Sparkles },
+  { label: '协同分章撰写', icon: FileText },
+  { label: '总编统一成稿', icon: FileCheck2 },
+  { label: '独立质量评审', icon: ShieldCheck },
+  { label: '专业排版交付', icon: Download },
 ];
 
 const CONTENT_DEPTHS = [
@@ -69,6 +72,16 @@ const CONTENT_DEPTHS = [
   { value: 3000, label: '完整 · 不少于 3000 字' },
   { value: 5000, label: '深度 · 不少于 5000 字' },
 ];
+
+function phaseForStage(stage: string) {
+  if (['queued', 'starting', 'template_selection', 'evidence_compilation'].includes(stage)) return 0;
+  if (stage === 'delivery_strategy') return 1;
+  if (stage === 'deep_writing') return 2;
+  if (stage === 'editorial_synthesis') return 3;
+  if (['quality_review', 'quality_repair'].includes(stage)) return 4;
+  if (['persistence', 'completed'].includes(stage)) return 5;
+  return 0;
+}
 
 interface ArtifactReviewDialogProps {
   open: boolean;
@@ -103,6 +116,9 @@ export function ArtifactReviewDialog({
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [phase, setPhase] = useState(0);
+  const [jobProgress, setJobProgress] = useState(0);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [result, setResult] = useState<ArtifactResult | null>(null);
   const [downloading, setDownloading] = useState<ArtifactOutputFormat | null>(null);
   const [feedback, setFeedback] = useState<'used' | 'edited' | null>(null);
@@ -150,7 +166,8 @@ export function ArtifactReviewDialog({
     setGenerating(true);
     setResult(null);
     setPhase(0);
-    const timer = window.setInterval(() => setPhase((current) => Math.min(3, current + 1)), 2600);
+    setJobProgress(0);
+    setActiveJobId(null);
     try {
       const artifact = await generateArtifact({
         original_request: originalRequest || `将当前内容整理为${ARTIFACT_TYPES.find((item) => item.value === artifactType)?.label}`,
@@ -166,10 +183,16 @@ export function ArtifactReviewDialog({
         },
         selected_document_ids: selectedDocuments,
         target_character_count: targetCharacters,
+        generation_mode: 'deep',
         session_id: sessionId,
         review_confirmed: audience === 'internal' || (factsConfirmed && promisesConfirmed),
+      }, (job) => {
+        setActiveJobId(job.id);
+        setJobProgress(job.progress);
+        setPhase(phaseForStage(job.stage));
       });
-      setPhase(3);
+      setPhase(PHASES.length - 1);
+      setJobProgress(100);
       setResult(artifact);
       addToDeliverableCenter(artifact);
       if (artifact.quality.ready) {
@@ -183,8 +206,21 @@ export function ArtifactReviewDialog({
       const message = error instanceof Error ? error.message : '精品成果生成失败';
       toast.error(message);
     } finally {
-      window.clearInterval(timer);
       setGenerating(false);
+      setActiveJobId(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!activeJobId || cancelling) return;
+    setCancelling(true);
+    try {
+      await cancelArtifactJob(activeJobId);
+      toast.info('已请求停止制作，当前步骤结束后任务会安全退出');
+    } catch {
+      toast.error('暂时无法取消任务，请稍后重试');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -221,7 +257,7 @@ export function ArtifactReviewDialog({
             制作精品成果
           </DialogTitle>
           <DialogDescription>
-            AI 会重新检索企业资料、核验引用并排版，不会直接复制当前回答。
+            重新编排资料分析、客户策略、分章写作、总编与独立质检，不会直接复制当前回答。
           </DialogDescription>
         </DialogHeader>
 
@@ -232,8 +268,8 @@ export function ArtifactReviewDialog({
                 <span className="font-medium">{PHASES[phase].label}</span>
                 <span className="text-xs text-muted-foreground">{phase + 1} / {PHASES.length}</span>
               </div>
-              <Progress value={(phase + 1) * 25} className="h-1.5" />
-              <div className="mt-8 grid grid-cols-4 gap-3">
+              <Progress value={jobProgress} className="h-1.5" />
+              <div className="mt-8 grid grid-cols-3 gap-4 sm:grid-cols-6">
                 {PHASES.map((item, index) => {
                   const Icon = item.icon;
                   const active = index <= phase;
@@ -248,8 +284,20 @@ export function ArtifactReviewDialog({
                 })}
               </div>
               <p className="mt-8 text-center text-xs text-muted-foreground">
-                复杂方案通常需要 20-60 秒，完成后会自动进入成果中心。
+                深度成果通常需要 1-3 分钟，只有通过结构与语义双重质检后才会标记为精品成果。
               </p>
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={!activeJobId || cancelling}
+                  onClick={() => void handleCancel()}
+                >
+                  {cancelling ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  停止制作
+                </Button>
+              </div>
             </div>
           </div>
         ) : result ? (
@@ -264,6 +312,15 @@ export function ArtifactReviewDialog({
                   <div className="mt-1 text-xs text-muted-foreground">
                     正文 {result.quality.metrics.character_count ?? 0} / {result.quality.metrics.target_character_count ?? targetCharacters} 字
                     {' · '}表格 {result.quality.metrics.table_count ?? 0} / {result.quality.metrics.minimum_table_count ?? 0}
+                  </div>
+                )}
+                {result.orchestration && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    深度编排 {result.orchestration.stage_count} 步
+                    {' · '}语义质检 {Math.round(result.orchestration.semantic_score)}
+                    {result.orchestration.repair_count > 0
+                      ? ` · 自动返工 ${result.orchestration.repair_count} 次`
+                      : ''}
                   </div>
                 )}
               </div>

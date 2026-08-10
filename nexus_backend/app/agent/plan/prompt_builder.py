@@ -151,7 +151,7 @@ def _inject_artifact_contract(lc_msgs, state):
                 )
             ),
         )
-    except Exception as exc:
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
         logger.warning("[PromptBuilder] artifact contract injection skipped: %s", exc)
 
 

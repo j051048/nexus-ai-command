@@ -119,7 +119,7 @@ async def prepare_initial_state(
                 len(packet.records),
                 packet.coverage,
             )
-        except Exception as exc:
+        except Exception as exc:  # broad-except: intentional
             logger.warning(
                 "[Memory] Structured evidence failed; using legacy fallback: %s",
                 exc,

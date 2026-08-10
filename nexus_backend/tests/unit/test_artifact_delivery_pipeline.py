@@ -24,7 +24,10 @@ from app.services.artifact_docx_renderer import (
     render_artifact_xlsx,
 )
 from app.services.artifact_evidence_compiler import compile_artifact_evidence
-from app.services.artifact_generation_service import generate_artifact
+from app.services.artifact_generation_service import (
+    _normalize_semantic_review,
+    generate_artifact,
+)
 from app.services.artifact_quality_service import evaluate_text_artifact
 
 
@@ -169,6 +172,30 @@ def test_quality_gate_rejects_the_observed_loadknowledge_outline_failure():
         "content_too_short",
         "structured_components_missing",
     } <= codes
+
+
+def test_semantic_quality_gate_blocks_generic_customer_delivery():
+    review = _normalize_semantic_review(
+        {
+            "dimensions": {
+                "instruction_following": 92,
+                "customer_specificity": 62,
+                "evidence_synthesis": 70,
+                "decision_usefulness": 84,
+                "writing_quality": 90,
+                "section_coherence": 88,
+                "visual_structure": 90,
+            },
+            "findings": [],
+            "strengths": ["结构完整"],
+        }
+    )
+
+    assert review["passed"] is False
+    assert review["dimensions"]["customer_specificity"] == 62
+    assert any(
+        item["code"] == "semantic_dimensions_below_floor" for item in review["findings"]
+    )
 
 
 class _FakeQuery:
@@ -336,23 +363,47 @@ async def test_generation_pipeline_persists_version_evidence_and_quality(monkeyp
             }
         )
 
-    async def fake_chat(**_kwargs):
-        return SimpleNamespace(
-            content=json.dumps(
-                {
-                    "title": "食品安全检测仪升级换代整体方案",
-                    "executive_summary": (
-                        "本方案面向食品安全检测能力升级与持续运营需求，基于企业已授权的"
-                        "产品、政策、竞品、案例和服务资料，形成从需求确认、配置选型、"
-                        "实施验收到售后保障的完整路径。方案强调事实可追溯、参数可核验、"
-                        "责任边界清晰，并将缺少证据的商务与技术事项保留为人工复核项，"
-                        "便于客户快速判断方案价值并推进下一步技术交流。"
-                    ),
-                    "sections": sections,
-                    "verification_items": ["最终报价由负责人确认"],
+    async def fake_chat(**kwargs):
+        agent_code = kwargs.get("agent_code")
+        if agent_code == "scientific_solution_strategist":
+            payload = {
+                "audience_profile": "食品安全监管机构的技术与采购决策人员",
+                "decision_thesis": "以可核验的升级收益和验收闭环支持客户决策",
+                "instruction_checklist": ["生成不少于三千字的正式客户方案"],
+                "differentiation_axes": ["检测能力", "实施验收", "服务保障"],
+                "narrative_flow": spec.required_sections,
+                "chapter_guidance": [],
+                "prohibited_shortcuts": ["复制原文", "空泛营销话术"],
+            }
+        elif agent_code == "scientific_artifact_quality_judge":
+            payload = {
+                "dimensions": {
+                    "instruction_following": 96,
+                    "customer_specificity": 92,
+                    "evidence_synthesis": 94,
+                    "decision_usefulness": 95,
+                    "writing_quality": 91,
+                    "section_coherence": 93,
+                    "visual_structure": 95,
                 },
-                ensure_ascii=False,
-            ),
+                "findings": [],
+                "strengths": ["客户化分析完整", "证据与行动闭环清晰"],
+            }
+        else:
+            payload = {
+                "title": "食品安全检测仪升级换代整体方案",
+                "executive_summary": (
+                    "本方案面向食品安全检测能力升级与持续运营需求，基于企业已授权的"
+                    "产品、政策、竞品、案例和服务资料，形成从需求确认、配置选型、"
+                    "实施验收到售后保障的完整路径。方案强调事实可追溯、参数可核验、"
+                    "责任边界清晰，并将缺少证据的商务与技术事项保留为人工复核项，"
+                    "便于客户快速判断方案价值并推进下一步技术交流。"
+                ),
+                "sections": sections,
+                "verification_items": ["最终报价由负责人确认"],
+            }
+        return SimpleNamespace(
+            content=json.dumps(payload, ensure_ascii=False),
             finish_reason="stop",
             model_code="deepseek-v4-flash",
             usage={"total_tokens": 1200},
@@ -389,6 +440,9 @@ async def test_generation_pipeline_persists_version_evidence_and_quality(monkeyp
     assert result["quality"]["ready"] is True, result["quality"]
     assert result["quality"]["metrics"]["character_count"] >= 3000
     assert result["quality"]["metrics"]["table_count"] >= 3
+    assert result["quality"]["metrics"]["semantic_score"] >= 90
+    assert result["orchestration"]["mode"] == "deep"
+    assert "semantic_quality_review" in result["orchestration"]["stages"]
     assert result["approval_status"] == "approved"
     assert len(db.rows["artifacts"]) == 1
     assert len(db.rows["artifact_versions"]) == 1

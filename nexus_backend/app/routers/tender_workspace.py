@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
+from app.services.tender_quality_service import evaluate_tender_workspace
 
 router = APIRouter(prefix="/api/tender-workspace", tags=["Tender Workspace"])
 
@@ -210,6 +211,18 @@ async def get_tender_project(
     return api_success(data={**_workspace_from_row(project), "viewer_id": user_id})
 
 
+@router.get("/projects/{project_id}/readiness")
+async def get_tender_readiness(
+    project_id: int,
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+    _user_id: str = Depends(get_current_user_id),
+):
+    project = await _get_project(db, organization_id, project_id)
+    workspace = _workspace_from_row(project)["workspace"]
+    return api_success(data=evaluate_tender_workspace(project, workspace))
+
+
 @router.patch("/projects/{project_id}")
 async def update_tender_project(
     project_id: int,
@@ -263,6 +276,9 @@ async def save_tender_workspace(
     )
     workspace = body.model_dump(mode="json")
     workspace["updated_at"] = datetime.now(UTC).isoformat()
+    extension_data = dict(workspace.get("extension_data") or {})
+    extension_data["quality_snapshot"] = evaluate_tender_workspace(project, workspace)
+    workspace["extension_data"] = extension_data
     metadata = {**metadata, "tender_workspace": workspace}
     evidence_refs = [
         item.get("evidence_ref")

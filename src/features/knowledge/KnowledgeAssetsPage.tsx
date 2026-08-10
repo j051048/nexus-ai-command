@@ -57,6 +57,13 @@ interface KnowledgeDocument {
   quality_score?: number | null;
 }
 
+interface KnowledgeReadiness {
+  score: number;
+  ready: boolean;
+  next_actions: string[];
+  required_categories: Array<{ key: string; label: string; covered: boolean }>;
+}
+
 function normalizeDocument(row: KnowledgeDocument): KnowledgeDocument {
   let extracted = row.extracted_data;
   if (typeof extracted === 'string') {
@@ -90,6 +97,7 @@ export default function KnowledgeAssetsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [readiness, setReadiness] = useState<KnowledgeReadiness | null>(null);
 
   const loadDocuments = async () => {
     setIsLoading(true);
@@ -97,6 +105,16 @@ export default function KnowledgeAssetsPage() {
       const response = await httpClient.get('/api/documents', { silentError: true });
       const rows = response.data?.data?.documents ?? response.data?.documents ?? [];
       setDocuments((Array.isArray(rows) ? rows : []).map(normalizeDocument));
+      try {
+        const readinessResponse = await httpClient.get('/api/knowledge/readiness', {
+          params: { artifact_type: 'customer_solution' },
+          silentError: true,
+        });
+        const outer = readinessResponse.data?.data;
+        setReadiness((outer?.data ?? outer ?? null) as KnowledgeReadiness | null);
+      } catch {
+        setReadiness(null);
+      }
     } catch {
       toast.error('企业资料暂时无法加载，请稍后重试');
     } finally {
@@ -217,6 +235,11 @@ export default function KnowledgeAssetsPage() {
             <span className="text-muted-foreground"><strong className="text-foreground">{indexedCount}</strong> 可检索</span>
             <span className="text-muted-foreground"><strong className="text-foreground">{verifiedCount}</strong> 可信</span>
             {staleCount > 0 && <span className="text-amber-700">{staleCount} 待更新</span>}
+            {readiness && (
+              <span className={readiness.ready ? 'text-emerald-700' : 'text-amber-700'}>
+                方案就绪度 <strong className="tabular-nums">{Math.round(readiness.score)}</strong>
+              </span>
+            )}
           </div>
           <details className="relative">
             <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-muted-foreground hover:text-foreground"><Settings2 className="h-3.5 w-3.5" />上传设置</summary>
@@ -226,6 +249,15 @@ export default function KnowledgeAssetsPage() {
             </div>
           </details>
         </section>
+
+        {readiness && !readiness.ready && readiness.next_actions.length > 0 && (
+          <section className="flex flex-wrap items-center gap-2 border-b py-3 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">下一步</span>
+            {readiness.next_actions.slice(0, 3).map((action) => (
+              <span key={action} className="rounded-sm bg-muted px-2 py-1">{action}</span>
+            ))}
+          </section>
+        )}
 
         <section className="mt-5 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">

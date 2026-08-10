@@ -389,7 +389,7 @@ class VectorService:
                 .limit(limit)
                 .execute()
             )
-        except Exception:
+        except Exception:  # broad-except: intentional
             # Rolling deployments may not expose every governance column yet.
             response = (
                 await supabase.table("documents")
@@ -413,7 +413,7 @@ class VectorService:
                 .execute()
             )
             user_department = (user_response.data or {}).get("department")
-        except Exception:
+        except Exception:  # broad-except: intentional
             user_department = None
 
         return [
@@ -503,7 +503,7 @@ class VectorService:
                 .limit(max(12, limit * 4))
                 .execute()
             )
-        except Exception:
+        except Exception:  # broad-except: intentional
             response = (
                 await supabase.table("document_embeddings")
                 .select("id,document_id,content,metadata,organization_id")
@@ -534,7 +534,7 @@ class VectorService:
                     for row in memberships.data or []
                     if row.get("group_name")
                 }
-            except Exception:
+            except Exception:  # broad-except: intentional
                 user_groups = set()
 
         document_by_id = {str(document["id"]): document for _, document in matches}
@@ -743,7 +743,7 @@ class VectorService:
             api_key = gw_api_key or api_key
             base_url = (gw_base_url or base_url).rstrip("/")
             embedding_model = gw_model or embedding_model
-        except Exception as exc:
+        except Exception as exc:  # broad-except: intentional
             logger.debug("Embedding configuration fallback: %s", exc)
         if not api_key:
             direct_rows, _ = await self._search_document_name_chunks(
@@ -785,7 +785,7 @@ class VectorService:
                         .in_("id", document_ids)
                         .execute()
                     )
-                except Exception:
+                except Exception:  # broad-except: intentional
                     # Older deployments may not expose all ABAC columns yet;
                     # RLS/RPC isolation still applies while schema converges.
                     governance = (
@@ -808,7 +808,7 @@ class VectorService:
                         .execute()
                     )
                     user_department = (user_row.data or {}).get("department")
-                except Exception:
+                except Exception:  # broad-except: intentional
                     user_department = None
                 by_id = {str(item["id"]): item for item in governance.data or []}
                 governed: list[dict[str, Any]] = []
@@ -832,7 +832,7 @@ class VectorService:
                     governed.append({**item, **(record or {})})
                 return governed
             return evidence
-        except Exception as exc:
+        except Exception as exc:  # broad-except: intentional
             logger.error("Structured evidence search failed: %s", exc)
             return []
 

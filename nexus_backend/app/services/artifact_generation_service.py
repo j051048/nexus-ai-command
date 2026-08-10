@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -25,13 +26,29 @@ from app.services.artifact_content_sanitizer import (
     sanitize_artifact_content,
 )
 from app.services.artifact_evidence_compiler import compile_artifact_evidence
+from app.services.artifact_llm_judge import evaluate_delivery_package
 from app.services.artifact_quality_service import (
     evaluate_text_artifact,
     persist_artifact_quality_event,
 )
+from app.services.artifact_template_service import (
+    build_template_system_prompt,
+    get_optimal_template,
+    record_template_usage,
+)
 from app.services.llm_gateway import llm_gateway
 
-ARTIFACT_PIPELINE_VERSION = "artifact-pipeline.v2"
+ARTIFACT_PIPELINE_VERSION = "artifact-pipeline.v3"
+DEEP_ORCHESTRATION_VERSION = "artifact-deep-orchestration.v1"
+SEMANTIC_DIMENSIONS = (
+    "instruction_following",
+    "customer_specificity",
+    "evidence_synthesis",
+    "decision_usefulness",
+    "writing_quality",
+    "section_coherence",
+    "visual_structure",
+)
 ARTIFACT_LABELS = {
     ArtifactType.CUSTOMER_SOLUTION: "客户解决方案",
     ArtifactType.TENDER: "投标成果",
@@ -43,6 +60,38 @@ ARTIFACT_LABELS = {
     ArtifactType.PRESENTATION: "演示成果",
     ArtifactType.ANSWER: "专业报告",
 }
+
+ProgressCallback = Callable[[str, int, dict[str, Any]], Awaitable[None]]
+
+
+class ArtifactGenerationCancelledError(RuntimeError):
+    """Raised by a durable job callback when the user requests cancellation."""
+
+
+async def _emit_progress(
+    callback: ProgressCallback | None,
+    stage: str,
+    progress: int,
+    details: dict[str, Any] | None = None,
+) -> None:
+    if callback:
+        await callback(stage, max(0, min(100, progress)), details or {})
+
+
+def _apply_template_to_spec(
+    spec: ArtifactSpec, template: dict[str, Any] | None
+) -> ArtifactSpec:
+    """Merge a curated skeleton without dropping mandatory skill sections."""
+
+    template_sections = [
+        str(item).strip()
+        for item in (template or {}).get("sections", [])
+        if str(item).strip()
+    ]
+    if not template_sections:
+        return spec
+    merged_sections = list(dict.fromkeys([*template_sections, *spec.required_sections]))
+    return spec.model_copy(update={"required_sections": merged_sections[:18]})
 
 
 def _parse_json_object(content: str) -> dict[str, Any] | None:
@@ -207,6 +256,38 @@ def _merge_usage(responses: list[Any]) -> dict[str, int]:
             if isinstance(value, int):
                 totals[key] = totals.get(key, 0) + value
     return totals
+
+
+def _merge_usage_values(*usages: dict[str, Any] | None) -> dict[str, int]:
+    totals: dict[str, int] = {}
+    for usage in usages:
+        for key, value in (usage or {}).items():
+            if isinstance(value, int):
+                totals[key] = totals.get(key, 0) + value
+    return totals
+
+
+def _record_generation_stage(
+    generation: dict[str, Any], stage: str, response: Any | None = None
+) -> None:
+    stages = list(generation.get("stages") or [])
+    stages.append(stage)
+    generation["stages"] = list(dict.fromkeys(stages))
+    generation["stage_count"] = int(generation.get("stage_count") or 0) + 1
+    if response is None:
+        return
+    generation["usage"] = _merge_usage_values(
+        generation.get("usage"), getattr(response, "usage", None)
+    )
+    model = str(getattr(response, "model_code", "") or "")
+    current_models = [
+        item for item in str(generation.get("model") or "").split(",") if item
+    ]
+    if model and model not in current_models:
+        current_models.append(model)
+    generation["model"] = ",".join(current_models)
+    if getattr(response, "finish_reason", None) == "error":
+        generation["degraded"] = True
 
 
 def _plain_character_count(value: Any) -> int:
@@ -383,6 +464,115 @@ def _fallback_plan(
     }
 
 
+def _fallback_strategy(
+    *,
+    original_request: str,
+    customer_context: dict[str, Any],
+    spec: ArtifactSpec,
+    analysis: dict[str, Any],
+) -> dict[str, Any]:
+    customer = str(customer_context.get("customer_name") or "目标客户").strip()
+    scenario = str(
+        customer_context.get("application_scenario")
+        or customer_context.get("industry")
+        or "客户实际应用场景"
+    ).strip()
+    return {
+        "audience_profile": f"{customer}的技术、业务与采购决策相关人员",
+        "decision_thesis": (
+            f"围绕{scenario}，以可核验证据说明需求、推荐配置、实施路径、"
+            "验收方式和风险边界，使客户能够据此推进下一步决策。"
+        ),
+        "instruction_checklist": [
+            original_request[:500],
+            f"正文不少于 {spec.minimum_character_count} 字",
+            f"至少 {spec.minimum_table_count} 个有业务意义的表格",
+            "每个关键事实均可追溯到企业资料",
+        ],
+        "differentiation_axes": [
+            "客户需求与产品能力匹配度",
+            "可核验的参数与应用证据",
+            "实施、验收和服务闭环",
+        ],
+        "narrative_flow": list(spec.required_sections),
+        "chapter_guidance": analysis.get("section_plan") or [],
+        "prohibited_shortcuts": [
+            "复制聊天回答或资料原文",
+            "用通用营销话术替代客户化分析",
+            "把待核验信息写成确定事实",
+            "重复同一段落凑字数",
+        ],
+    }
+
+
+async def _develop_delivery_strategy(
+    *,
+    original_request: str,
+    customer_context: dict[str, Any],
+    spec: ArtifactSpec,
+    evidence: EvidencePacket,
+    analysis: dict[str, Any],
+    template_prompt: str,
+    organization_id: str,
+    user_id: str,
+) -> tuple[dict[str, Any], Any]:
+    """Turn the evidence inventory into a customer-specific editorial strategy."""
+
+    fallback = _fallback_strategy(
+        original_request=original_request,
+        customer_context=customer_context,
+        spec=spec,
+        analysis=analysis,
+    )
+    response = await llm_gateway.chat(
+        scene_code="artifact_delivery_strategy",
+        agent_code="scientific_solution_strategist",
+        user_id=user_id,
+        org_id=organization_id,
+        system_prompt=f"""你是科学仪器企业的首席售前策略师。你的任务不是写正文，
+而是把客户指令和企业证据转化为一份可执行的交付策略。
+
+必须完成：
+1. 逐条提取用户的显式与隐式要求，形成 instruction_checklist。
+2. 明确客户决策者、核心问题、方案主张、差异化依据和下一步决策动作。
+3. 为每章规定必须回答的问题、应引用的证据和禁止出现的空泛内容。
+4. 发现资料冲突时保留冲突，不得自行挑选更漂亮的参数。
+5. 严格返回 JSON；不得撰写最终方案正文。
+
+{build_writing_skill_prompt(spec)}
+
+{template_prompt}""",
+        messages=[
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "original_request": original_request,
+                        "customer_context": customer_context,
+                        "source_analysis": analysis.get("source_analysis") or [],
+                        "section_plan": analysis.get("section_plan") or [],
+                        "verification_items": analysis.get("verification_items") or [],
+                        "evidence_cards": _evidence_payload(evidence, limit=24),
+                        "output_schema": fallback,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            }
+        ],
+        temperature=0.05,
+        max_tokens=2600,
+    )
+    parsed = (
+        _parse_json_object(response.content)
+        if response.finish_reason != "error"
+        else None
+    )
+    if not parsed or not isinstance(parsed.get("instruction_checklist"), list):
+        return fallback, response
+    return {**fallback, **parsed}, response
+
+
 async def _analyze_evidence(
     *,
     original_request: str,
@@ -390,6 +580,7 @@ async def _analyze_evidence(
     customer_context: dict[str, Any],
     spec: ArtifactSpec,
     evidence: EvidencePacket,
+    template_prompt: str,
     organization_id: str,
     user_id: str,
 ) -> tuple[dict[str, Any], Any]:
@@ -404,6 +595,8 @@ async def _analyze_evidence(
 5. 严格返回 JSON，不要代码围栏。
 
 {build_writing_skill_prompt(spec)}
+
+{template_prompt}
 """
     payload = {
         "original_request": original_request,
@@ -483,6 +676,8 @@ async def _generate_section_batch(
     customer_context: dict[str, Any],
     spec: ArtifactSpec,
     evidence: EvidencePacket,
+    strategy: dict[str, Any],
+    template_prompt: str,
     organization_id: str,
     user_id: str,
     section_target: int,
@@ -504,13 +699,17 @@ async def _generate_section_batch(
 3. use_table=true 时必须在 content 中生成结构完整的 Markdown 表格。
 4. 引用标记只放在 evidence_refs，必要时也可放在相应事实句末；不得输出检索过程或工具名。
 5. 不复制资料原文，必须综合多个片段后重写。
-6. 严格返回 JSON {{"sections": [...]}}，不要代码围栏。
+6. 必须服从 delivery_strategy 的客户主张、差异化逻辑和逐章要求；不得写成通用产品介绍。
+7. 严格返回 JSON {{"sections": [...]}}，不要代码围栏。
 
 {build_writing_skill_prompt(spec)}
+
+{template_prompt}
 """
     payload = {
         "original_request": original_request,
         "customer_context": customer_context,
+        "delivery_strategy": strategy,
         "section_target_characters": section_target,
         "section_plans": plans,
         "evidence_cards": _evidence_payload(evidence, refs, limit=16),
@@ -548,6 +747,342 @@ async def _generate_section_batch(
     return (sections if isinstance(sections, list) else []), response
 
 
+async def _editorial_polish_batch(
+    *,
+    plans: list[dict[str, Any]],
+    sections: list[dict[str, Any]],
+    all_sections: list[dict[str, Any]],
+    original_request: str,
+    customer_context: dict[str, Any],
+    strategy: dict[str, Any],
+    spec: ArtifactSpec,
+    evidence: EvidencePacket,
+    organization_id: str,
+    user_id: str,
+    section_target: int,
+) -> tuple[list[dict[str, Any]], Any]:
+    refs = list(
+        dict.fromkeys(
+            str(ref)
+            for item in [*plans, *sections]
+            for ref in (item.get("evidence_refs") or [])
+            if str(ref).startswith("EVID:")
+        )
+    )
+    response = await llm_gateway.chat(
+        scene_code="artifact_editorial_synthesis",
+        agent_code="scientific_artifact_editorial_director",
+        user_id=user_id,
+        org_id=organization_id,
+        system_prompt=f"""你是科学仪器行业客户方案的终审总编。
+对指定章节做深度编辑，不是简单润色，也不得缩写成提纲。
+
+编辑目标：
+1. 消除章节间重复，把通用描述改成针对本客户、本场景的分析。
+2. 保留并强化“客户问题 -> 企业证据 -> 方案判断 -> 交付动作”的逻辑。
+3. 参数、政策、竞品、案例和承诺必须保留有效 evidence_refs；无证据改为待核验。
+4. 保持章节正文不少于 {max(220, int(section_target * 0.88))} 个汉字，
+   不得删除原有有效表格；use_table=true 的章节必须保留业务表格。
+5. 服从 original_request 与 delivery_strategy，不增加资料中不存在的型号或事实。
+6. 严格返回 JSON {{"sections": [...]}}，title 必须与输入完全一致。
+
+{build_writing_skill_prompt(spec)}""",
+        messages=[
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "original_request": original_request,
+                        "customer_context": customer_context,
+                        "delivery_strategy": strategy,
+                        "section_plans": plans,
+                        "sections_to_edit": sections,
+                        "document_map": [
+                            {
+                                "title": item.get("title"),
+                                "summary": str(item.get("content") or "")[:260],
+                            }
+                            for item in all_sections
+                        ],
+                        "evidence_cards": _evidence_payload(evidence, refs, limit=18),
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            }
+        ],
+        temperature=0.06,
+        max_tokens=min(4600, max(2200, section_target * len(sections) * 2)),
+    )
+    parsed = (
+        _parse_json_object(response.content)
+        if response.finish_reason != "error"
+        else None
+    )
+    polished = parsed.get("sections") if isinstance(parsed, dict) else None
+    return (polished if isinstance(polished, list) else []), response
+
+
+async def _polish_generated_sections(
+    *,
+    plans: list[dict[str, Any]],
+    sections: list[dict[str, Any]],
+    original_request: str,
+    customer_context: dict[str, Any],
+    strategy: dict[str, Any],
+    spec: ArtifactSpec,
+    evidence: EvidencePacket,
+    organization_id: str,
+    user_id: str,
+    section_target: int,
+) -> tuple[list[dict[str, Any]], list[Any], int]:
+    by_title = {
+        str(item.get("title") or "").strip(): item
+        for item in sections
+        if isinstance(item, dict) and item.get("title")
+    }
+    plan_batches = [plans[index : index + 3] for index in range(0, len(plans), 3)]
+    results = await asyncio.gather(
+        *[
+            _editorial_polish_batch(
+                plans=batch,
+                sections=[
+                    by_title.get(str(plan.get("title") or "").strip(), {})
+                    for plan in batch
+                ],
+                all_sections=sections,
+                original_request=original_request,
+                customer_context=customer_context,
+                strategy=strategy,
+                spec=spec,
+                evidence=evidence,
+                organization_id=organization_id,
+                user_id=user_id,
+                section_target=section_target,
+            )
+            for batch in plan_batches
+        ]
+    )
+    accepted = 0
+    responses: list[Any] = []
+    for polished_sections, response in results:
+        responses.append(response)
+        for candidate in polished_sections:
+            if not isinstance(candidate, dict):
+                continue
+            title = str(candidate.get("title") or "").strip()
+            original = by_title.get(title)
+            if not original:
+                continue
+            original_content = str(original.get("content") or "")
+            candidate_content = str(candidate.get("content") or "")
+            minimum_length = max(
+                200,
+                int(_plain_character_count(original_content) * 0.86),
+                int(section_target * 0.82),
+            )
+            if _plain_character_count(candidate_content) < minimum_length:
+                continue
+            if _markdown_table_count(candidate_content) < _markdown_table_count(
+                original_content
+            ):
+                continue
+            by_title[title] = {
+                **original,
+                **candidate,
+                "title": title,
+                "evidence_refs": list(
+                    dict.fromkeys(
+                        [
+                            *list(original.get("evidence_refs") or []),
+                            *list(candidate.get("evidence_refs") or []),
+                        ]
+                    )
+                ),
+            }
+            accepted += 1
+    ordered = [by_title.get(str(plan.get("title") or "").strip(), {}) for plan in plans]
+    return ordered, responses, accepted
+
+
+def _normalize_semantic_review(value: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(value, dict) or not isinstance(value.get("dimensions"), dict):
+        return {
+            "evaluator_version": "artifact-semantic-review.v1",
+            "score": 0.0,
+            "passed": False,
+            "dimensions": {name: 0.0 for name in SEMANTIC_DIMENSIONS},
+            "findings": [
+                {
+                    "severity": "high",
+                    "code": "semantic_review_unavailable",
+                    "message": "语义质量评审未完成，不能标记为精品成果",
+                    "repairable": True,
+                    "repair_instruction": "重新执行总编与语义评审阶段",
+                }
+            ],
+            "strengths": [],
+        }
+    dimensions: dict[str, float] = {}
+    for name in SEMANTIC_DIMENSIONS:
+        raw = value.get("dimensions", {}).get(name)
+        try:
+            dimensions[name] = max(0.0, min(100.0, float(raw)))
+        except (TypeError, ValueError):
+            dimensions[name] = 0.0
+    score = round(sum(dimensions.values()) / len(dimensions), 2)
+    findings: list[dict[str, Any]] = []
+    for item in value.get("findings") or []:
+        if not isinstance(item, dict) or not str(item.get("message") or "").strip():
+            continue
+        severity = str(item.get("severity") or "medium").lower()
+        findings.append(
+            {
+                "severity": (
+                    severity if severity in {"low", "medium", "high"} else "medium"
+                ),
+                "code": str(item.get("code") or "semantic_quality_issue")[:80],
+                "message": str(item.get("message"))[:500],
+                "repairable": bool(item.get("repairable", True)),
+                "repair_instruction": str(item.get("repair_instruction") or "")[:1000],
+                "sections": list(item.get("sections") or [])[:8],
+            }
+        )
+    low_dimensions = [
+        name for name, dimension_score in dimensions.items() if dimension_score < 75
+    ]
+    if low_dimensions and not any(item["severity"] == "high" for item in findings):
+        findings.append(
+            {
+                "severity": "high",
+                "code": "semantic_dimensions_below_floor",
+                "message": "成果在客户化、证据综合或决策价值方面仍未达到精品标准",
+                "repairable": True,
+                "repair_instruction": "针对低分维度重写相关章节，增加客户化判断和可执行结论",
+                "sections": [],
+            }
+        )
+    passed = score >= 85 and not any(item["severity"] == "high" for item in findings)
+    return {
+        "evaluator_version": "artifact-semantic-review.v1",
+        "score": score,
+        "passed": passed,
+        "dimensions": dimensions,
+        "findings": findings,
+        "strengths": [str(item)[:300] for item in (value.get("strengths") or [])[:6]],
+    }
+
+
+async def _review_semantic_quality(
+    *,
+    content: str,
+    original_request: str,
+    customer_context: dict[str, Any],
+    strategy: dict[str, Any],
+    spec: ArtifactSpec,
+    evidence: EvidencePacket,
+    deterministic_quality: dict[str, Any],
+    organization_id: str,
+    user_id: str,
+) -> tuple[dict[str, Any], Any]:
+    response = await llm_gateway.chat(
+        scene_code="artifact_semantic_quality_review",
+        agent_code="scientific_artifact_quality_judge",
+        user_id=user_id,
+        org_id=organization_id,
+        system_prompt="""你是独立的科学仪器方案质量评审委员会，不参与写作。
+请严格判断成果是否真的可交付，而不是因为字数和标题齐全就给高分。
+
+逐项以零到一百分评分：
+- instruction_following：是否完整执行用户指令和篇幅/格式要求
+- customer_specificity：是否针对具体客户、行业、地区和预算，而非通用模板
+- evidence_synthesis：是否真正比较、拆解和综合企业资料，而非堆砌引用
+- decision_usefulness：是否有明确选型结论、理由、边界、验收和下一步动作
+- writing_quality：是否专业、清晰、无重复凑字和机械化措辞
+- section_coherence：章节之间是否形成一条完整叙事链
+- visual_structure：表格和清单是否帮助决策，而非仅用于装饰
+
+任一关键维度低于七十五分，或存在虚构事实、明显重复、答非所问，必须给出 high finding。
+严格返回 JSON：score 可省略；必须包含 dimensions、findings、strengths。
+findings 每项包含 severity、code、message、repair_instruction、sections。""",
+        messages=[
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "original_request": original_request,
+                        "customer_context": customer_context,
+                        "delivery_strategy": strategy,
+                        "artifact_contract": spec.model_dump(mode="json"),
+                        "deterministic_quality": deterministic_quality,
+                        "evidence_index": [
+                            {
+                                "citation_id": item.citation_id,
+                                "title": item.title,
+                                "purposes": item.purposes,
+                                "excerpt": item.excerpt[:500],
+                            }
+                            for item in evidence.records
+                        ],
+                        "artifact_markdown": content,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            }
+        ],
+        temperature=0,
+        max_tokens=2400,
+    )
+    parsed = (
+        _parse_json_object(response.content)
+        if response.finish_reason != "error"
+        else None
+    )
+    return _normalize_semantic_review(parsed), response
+
+
+def _combine_quality_reviews(
+    deterministic: dict[str, Any], semantic: dict[str, Any]
+) -> dict[str, Any]:
+    combined = {**deterministic}
+    dimensions = dict(deterministic.get("dimensions") or {})
+    dimensions.update(
+        {f"semantic_{key}": value for key, value in semantic["dimensions"].items()}
+    )
+    findings = [
+        *list(deterministic.get("findings") or []),
+        *list(semantic.get("findings") or []),
+    ]
+    combined_score = round(
+        float(deterministic.get("score") or 0) * 0.6
+        + float(semantic.get("score") or 0) * 0.4,
+        2,
+    )
+    combined.update(
+        {
+            "score": combined_score,
+            "ready": bool(deterministic.get("ready"))
+            and bool(semantic.get("passed"))
+            and combined_score >= 85,
+            "dimensions": dimensions,
+            "findings": findings,
+            "metrics": {
+                **dict(deterministic.get("metrics") or {}),
+                "semantic_score": semantic.get("score"),
+                "semantic_passed": semantic.get("passed"),
+            },
+            "semantic_review": semantic,
+            "repair_guidance": "；".join(
+                str(item.get("repair_instruction") or item.get("message") or "")
+                for item in findings
+                if item.get("repairable", True)
+            )[:3000],
+        }
+    )
+    return combined
+
+
 async def _generate_draft(
     *,
     original_request: str,
@@ -555,6 +1090,7 @@ async def _generate_draft(
     customer_context: dict[str, Any],
     spec: ArtifactSpec,
     evidence: EvidencePacket,
+    template_prompt: str,
     organization_id: str,
     user_id: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -564,6 +1100,17 @@ async def _generate_draft(
         customer_context=customer_context,
         spec=spec,
         evidence=evidence,
+        template_prompt=template_prompt,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    strategy, strategy_response = await _develop_delivery_strategy(
+        original_request=original_request,
+        customer_context=customer_context,
+        spec=spec,
+        evidence=evidence,
+        analysis=analysis,
+        template_prompt=template_prompt,
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -594,6 +1141,8 @@ async def _generate_draft(
                 customer_context=customer_context,
                 spec=spec,
                 evidence=evidence,
+                strategy=strategy,
+                template_prompt=template_prompt,
                 organization_id=organization_id,
                 user_id=user_id,
                 section_target=section_target,
@@ -602,7 +1151,7 @@ async def _generate_draft(
         ]
     )
     sections: list[dict[str, Any]] = []
-    responses = [analysis_response]
+    responses = [analysis_response, strategy_response]
     for batch_sections, response in results:
         sections.extend(item for item in batch_sections if isinstance(item, dict))
         responses.append(response)
@@ -647,6 +1196,24 @@ async def _generate_draft(
         sections.extend(
             item for title, item in replacements.items() if title not in existing_titles
         )
+
+    polished_sections, editorial_responses, editorial_accept_count = (
+        await _polish_generated_sections(
+            plans=plans,
+            sections=sections,
+            original_request=original_request,
+            customer_context=customer_context,
+            strategy=strategy,
+            spec=spec,
+            evidence=evidence,
+            organization_id=organization_id,
+            user_id=user_id,
+            section_target=section_target,
+        )
+    )
+    responses.extend(editorial_responses)
+    if any(item.get("title") for item in polished_sections):
+        sections = polished_sections
     by_title = {
         str(item.get("title") or "").strip(): item
         for item in sections
@@ -669,6 +1236,7 @@ async def _generate_draft(
         "sections": ordered,
         "verification_items": analysis.get("verification_items") or [],
         "source_analysis": analysis.get("source_analysis") or [],
+        "delivery_strategy": strategy,
     }
     models = list(
         dict.fromkeys(
@@ -688,6 +1256,15 @@ async def _generate_draft(
         "stage_count": len(responses),
         "source_analysis_count": len(parsed["source_analysis"]),
         "section_rewrite_count": len(deficits),
+        "editorial_accept_count": editorial_accept_count,
+        "orchestration_version": DEEP_ORCHESTRATION_VERSION,
+        "stages": [
+            "evidence_analysis",
+            "delivery_strategy",
+            "section_writing",
+            "targeted_section_rewrite",
+            "editorial_synthesis",
+        ],
     }
 
 
@@ -705,10 +1282,12 @@ async def generate_artifact(
     customer_context: dict[str, Any] | None = None,
     selected_document_ids: list[str] | None = None,
     target_character_count: int | None = None,
+    generation_mode: str = "deep",
     session_id: str | None = None,
     review_confirmed: bool = False,
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, Any]:
-    """Generate, repair, score and persist a durable artifact version."""
+    """Run the deep delivery orchestration and persist one durable version."""
 
     overrides: dict[str, Any] = {
         "audience": audience,
@@ -721,8 +1300,33 @@ async def generate_artifact(
     if target_character_count:
         overrides["target_character_count"] = target_character_count
         overrides["minimum_character_count"] = target_character_count
+    normalized_context = dict(customer_context or {})
     spec = enrich_artifact_spec(
         infer_artifact_spec(f"{original_request}\n{source_content[:1000]}", overrides)
+    )
+    spec = spec.model_copy(
+        update={
+            "instrument_line": spec.instrument_line
+            or normalized_context.get("instrument_line")
+            or normalized_context.get("instrument_line_code"),
+            "industry": spec.industry or normalized_context.get("industry"),
+            "region": spec.region or normalized_context.get("region"),
+        }
+    )
+    template = await get_optimal_template(
+        db,
+        organization_id=organization_id,
+        artifact_type=spec.artifact_type.value,
+        instrument_line=spec.instrument_line,
+        industry=spec.industry,
+    )
+    spec = _apply_template_to_spec(spec, template)
+    template_prompt = build_template_system_prompt(template, spec)
+    await _emit_progress(
+        progress_callback,
+        "template_selection",
+        8,
+        {"template_key": (template or {}).get("template_key")},
     )
     safe_source = sanitize_artifact_content(
         source_content, keep_citations=False
@@ -735,20 +1339,37 @@ async def generate_artifact(
         db=db,
         selected_document_ids=selected_document_ids,
     )
+    await _emit_progress(
+        progress_callback,
+        "evidence_compilation",
+        22,
+        {
+            "evidence_count": len(evidence.records),
+            "coverage": evidence.coverage,
+            "missing_topics": evidence.missing_topics,
+        },
+    )
     generated, generation = await _generate_draft(
         original_request=original_request,
         source_content=safe_source,
-        customer_context=customer_context or {},
+        customer_context=normalized_context,
         spec=spec,
         evidence=evidence,
+        template_prompt=template_prompt,
         organization_id=organization_id,
         user_id=user_id,
+    )
+    await _emit_progress(
+        progress_callback,
+        "deep_writing",
+        66,
+        {"stages": generation.get("stages") or []},
     )
     artifact_title = _resolve_artifact_title(
         requested_title=title,
         generated_title=generated.get("title"),
         spec=spec,
-        customer_context=customer_context or {},
+        customer_context=normalized_context,
     )
     content, verification_items = _artifact_markdown(
         title=artifact_title,
@@ -756,7 +1377,38 @@ async def generate_artifact(
         spec=spec,
         fallback_source=safe_source,
     )
-    quality = evaluate_text_artifact(content, spec, evidence.model_dump(mode="json"))
+    deterministic_quality = evaluate_text_artifact(
+        content, spec, evidence.model_dump(mode="json")
+    )
+    semantic_quality, semantic_response = await _review_semantic_quality(
+        content=content,
+        original_request=original_request,
+        customer_context=normalized_context,
+        strategy=generated.get("delivery_strategy") or {},
+        spec=spec,
+        evidence=evidence,
+        deterministic_quality=deterministic_quality,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    _record_generation_stage(generation, "semantic_quality_review", semantic_response)
+    quality = await evaluate_delivery_package(
+        text=content,
+        spec=spec,
+        evidence_packet=evidence.model_dump(mode="json"),
+        original_request=original_request,
+        customer_context=normalized_context,
+        organization_id=organization_id,
+        user_id=user_id,
+        llm_result=semantic_quality,
+    )
+    quality["semantic_review"] = semantic_quality
+    await _emit_progress(
+        progress_callback,
+        "quality_review",
+        78,
+        {"score": quality.get("score"), "ready": quality.get("ready")},
+    )
     repair_count = 0
     while (
         repair_count < spec.max_repair_cycles
@@ -782,7 +1434,10 @@ async def generate_artifact(
                     "content": json.dumps(
                         {
                             "draft": generated,
+                            "delivery_strategy": generated.get("delivery_strategy")
+                            or {},
                             "quality_findings": quality.get("findings") or [],
+                            "semantic_review": quality.get("semantic_review") or {},
                             "target_character_count": spec.target_character_count,
                             "minimum_character_count": spec.minimum_character_count,
                             "minimum_table_count": spec.minimum_table_count,
@@ -803,6 +1458,7 @@ async def generate_artifact(
         )
         if not repaired:
             break
+        _record_generation_stage(generation, f"quality_repair_{repair_count}", response)
         generated = _merge_generated_draft(generated, repaired)
         content, verification_items = _artifact_markdown(
             title=artifact_title,
@@ -810,8 +1466,45 @@ async def generate_artifact(
             spec=spec,
             fallback_source=safe_source,
         )
-        quality = evaluate_text_artifact(
+        deterministic_quality = evaluate_text_artifact(
             content, spec, evidence.model_dump(mode="json")
+        )
+        semantic_quality, semantic_response = await _review_semantic_quality(
+            content=content,
+            original_request=original_request,
+            customer_context=normalized_context,
+            strategy=generated.get("delivery_strategy") or {},
+            spec=spec,
+            evidence=evidence,
+            deterministic_quality=deterministic_quality,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        _record_generation_stage(
+            generation,
+            f"semantic_quality_review_after_repair_{repair_count}",
+            semantic_response,
+        )
+        quality = await evaluate_delivery_package(
+            text=content,
+            spec=spec,
+            evidence_packet=evidence.model_dump(mode="json"),
+            original_request=original_request,
+            customer_context=normalized_context,
+            organization_id=organization_id,
+            user_id=user_id,
+            llm_result=semantic_quality,
+        )
+        quality["semantic_review"] = semantic_quality
+        await _emit_progress(
+            progress_callback,
+            "quality_repair",
+            min(90, 78 + repair_count * 6),
+            {
+                "repair_count": repair_count,
+                "score": quality.get("score"),
+                "ready": quality.get("ready"),
+            },
         )
 
     artifact_id = str(uuid4())
@@ -824,11 +1517,19 @@ async def generate_artifact(
     artifact_code = f"ART-{datetime.now(UTC):%Y%m%d}-{artifact_id[:8].upper()}"
     metadata = {
         "pipeline_version": ARTIFACT_PIPELINE_VERSION,
+        "generation_mode": generation_mode,
+        "orchestration_version": DEEP_ORCHESTRATION_VERSION,
         "artifact_label": ARTIFACT_LABELS[spec.artifact_type],
         "session_id": session_id,
         "requested_formats": spec.requested_formats,
         "customer_context": customer_context or {},
         "selected_document_ids": selected_document_ids or [],
+        "template": {
+            "template_key": (template or {}).get("template_key"),
+            "version": (template or {}).get("version"),
+            "instrument_line": (template or {}).get("instrument_line"),
+            "industry": (template or {}).get("industry"),
+        },
         "content_contract": {
             "target_character_count": spec.target_character_count,
             "minimum_character_count": spec.minimum_character_count,
@@ -840,6 +1541,12 @@ async def generate_artifact(
             "source_was_sanitized": safe_source != source_content.strip(),
         },
     }
+    await _emit_progress(
+        progress_callback,
+        "persistence",
+        94,
+        {"quality_score": quality.get("score"), "ready": quality.get("ready")},
+    )
     await db.table("artifacts").insert(
         {
             "id": artifact_id,
@@ -897,6 +1604,21 @@ async def generate_artifact(
         session_id=session_id,
         repair_count=repair_count,
         evidence_count=len(evidence.records),
+        template_key=(template or {}).get("template_key"),
+        judge_snapshot=quality.get("judge") or semantic_quality,
+    )
+    if template and template.get("template_key"):
+        await record_template_usage(
+            db,
+            organization_id=organization_id,
+            template_key=str(template["template_key"]),
+            quality=quality,
+        )
+    await _emit_progress(
+        progress_callback,
+        "completed",
+        100,
+        {"artifact_id": artifact_id, "quality_score": quality.get("score")},
     )
     return {
         "id": artifact_id,
@@ -915,5 +1637,14 @@ async def generate_artifact(
             "coverage": evidence.coverage,
             "sufficient": evidence.sufficient,
             "missing_topics": evidence.missing_topics,
+        },
+        "orchestration": {
+            "mode": generation_mode,
+            "version": DEEP_ORCHESTRATION_VERSION,
+            "stage_count": generation.get("stage_count", 0),
+            "stages": generation.get("stages") or [],
+            "semantic_score": semantic_quality.get("score", 0),
+            "semantic_passed": semantic_quality.get("passed", False),
+            "repair_count": repair_count,
         },
     }

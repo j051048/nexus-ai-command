@@ -20,11 +20,18 @@ export default defineConfig({
         "src/**/*.spec.{ts,tsx}",
         "src/vite-env.d.ts",
       ],
+      // Regression floor, not a quality target. These values sit slightly
+      // below the real current baseline (2026-08: lines 13.1% / branches
+      // 8.8% / functions 9.1% / statements 12.4%) to absorb CI environment
+      // noise; the stricter trend gate in
+      // scripts/check_frontend_coverage_trend.mjs is the real guard. Raising
+      // thresholds is a deliberate, staged effort tracked in
+      // docs/FRONTEND_TEST_COVERAGE.md.
       thresholds: {
-        lines: 6,
-        branches: 4,
-        functions: 5,
-        statements: 6,
+        lines: 12.0,
+        branches: 7.5,
+        functions: 8.0,
+        statements: 11.0,
       },
     },
   },

@@ -7,7 +7,7 @@ from typing import Any, Literal
 from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,16 @@ from app.services.artifact_docx_renderer import (
     render_artifact_docx,
     render_artifact_pdf,
     render_artifact_xlsx,
+)
+from app.services.artifact_generation_job_service import (
+    attach_task_id,
+    create_job,
+    enqueue_generation_job,
+    load_job,
+    public_job,
+    request_cancel,
+    reset_for_retry,
+    run_generation_job,
 )
 from app.services.artifact_generation_service import generate_artifact
 
@@ -37,8 +47,10 @@ class ArtifactGenerateRequest(BaseModel):
     customer_context: dict[str, Any] = Field(default_factory=dict)
     selected_document_ids: list[UUID] = Field(default_factory=list, max_length=20)
     target_character_count: int | None = Field(default=None, ge=600, le=12000)
+    generation_mode: Literal["deep"] = "deep"
     session_id: str | None = Field(default=None, max_length=200)
     review_confirmed: bool = False
+    request_key: str | None = Field(default=None, max_length=120)
 
 
 class ArtifactReviewRequest(BaseModel):
@@ -51,6 +63,7 @@ class ArtifactFeedbackRequest(BaseModel):
     rating: int = Field(ge=1, le=5)
     comment: str | None = Field(default=None, max_length=2000)
     outcome: Literal["used", "edited", "discarded", "won", "lost"] | None = None
+    revised_content: str | None = Field(default=None, max_length=40000)
 
 
 async def _load_artifact(
@@ -86,6 +99,7 @@ def _public_artifact(
     artifact: dict[str, Any], version: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     metadata = artifact.get("metadata") or {}
+    generation = metadata.get("generation") or {}
     result = {
         "id": artifact.get("id"),
         "artifact_code": artifact.get("artifact_code"),
@@ -102,13 +116,24 @@ def _public_artifact(
         "updated_at": artifact.get("updated_at"),
     }
     if version:
-        result["quality"] = version.get("quality_snapshot") or {}
+        quality = version.get("quality_snapshot") or {}
+        result["quality"] = quality
         evidence = version.get("evidence_snapshot") or {}
         result["evidence"] = {
             "count": len(evidence.get("records") or []),
             "coverage": evidence.get("coverage") or 0,
             "sufficient": bool(evidence.get("sufficient")),
             "missing_topics": evidence.get("missing_topics") or [],
+        }
+        semantic_review = quality.get("semantic_review") or {}
+        result["orchestration"] = {
+            "mode": metadata.get("generation_mode") or "deep",
+            "version": metadata.get("orchestration_version") or "",
+            "stage_count": int(generation.get("stage_count") or 0),
+            "stages": generation.get("stages") or [],
+            "semantic_score": float(semantic_review.get("score") or 0),
+            "semantic_passed": bool(semantic_review.get("passed")),
+            "repair_count": int(generation.get("repair_count") or 0),
         }
     result["download_urls"] = {
         output_format: f"/api/artifacts/{artifact.get('id')}/download?format={output_format}"
@@ -137,6 +162,7 @@ async def create_artifact(
         customer_context=body.customer_context,
         selected_document_ids=[str(item) for item in body.selected_document_ids],
         target_character_count=body.target_character_count,
+        generation_mode=body.generation_mode,
         session_id=body.session_id,
         review_confirmed=body.review_confirmed,
     )
@@ -145,6 +171,80 @@ async def create_artifact(
         for output_format in result["requested_formats"]
     }
     return api_success(data=result, message="精品成果已生成")
+
+
+@router.post("/jobs", status_code=status.HTTP_202_ACCEPTED)
+async def create_artifact_job(
+    body: ArtifactGenerateRequest,
+    background_tasks: BackgroundTasks,
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+    user_id: str = Depends(get_current_user_id),
+):
+    payload = body.model_dump(mode="json")
+    job, created = await create_job(
+        db,
+        organization_id=organization_id,
+        user_id=user_id,
+        payload=payload,
+    )
+    if created:
+        try:
+            task_id = enqueue_generation_job(str(job["id"]))
+            await attach_task_id(db, job_id=str(job["id"]), task_id=task_id)
+            job["celery_task_id"] = task_id
+        except Exception:  # broad-except: intentional
+            # Single-process deployments keep the same durable job contract.
+            background_tasks.add_task(run_generation_job, str(job["id"]))
+    return api_success(
+        data={**public_job(job), "reused": not created},
+        message="成果任务已提交",
+    )
+
+
+@router.get("/jobs/{job_id}")
+async def get_artifact_job(
+    job_id: UUID,
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+):
+    job = await load_job(db, organization_id=organization_id, job_id=str(job_id))
+    if not job:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "成果任务不存在或无权访问")
+    return api_success(data=public_job(job))
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_artifact_job(
+    job_id: UUID,
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+):
+    job = await request_cancel(db, organization_id=organization_id, job_id=str(job_id))
+    if not job:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "成果任务不存在或无权访问")
+    return api_success(data=public_job(job), message="已提交取消请求")
+
+
+@router.post("/jobs/{job_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+async def retry_artifact_job(
+    job_id: UUID,
+    background_tasks: BackgroundTasks,
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+):
+    job = await reset_for_retry(db, organization_id=organization_id, job_id=str(job_id))
+    if not job:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "成果任务不存在或无权访问")
+    if job.get("status") != "queued":
+        raise api_error(ErrorCode.RESOURCE_CONFLICT, "该任务当前不可重试")
+    try:
+        task_id = enqueue_generation_job(str(job_id))
+        await attach_task_id(db, job_id=str(job_id), task_id=task_id)
+        job["celery_task_id"] = task_id
+    except Exception:  # broad-except: intentional
+        background_tasks.add_task(run_generation_job, str(job_id))
+    return api_success(data=public_job(job), message="成果任务已重新提交")
 
 
 @router.get("")
@@ -286,6 +386,16 @@ async def record_artifact_feedback(
     user_id: str = Depends(get_current_user_id),
 ):
     artifact, version = await _load_artifact(db, organization_id, artifact_id)
+    from app.services.artifact_feedback_loop import compute_artifact_diff
+
+    original_content = str(version.get("content_markdown") or "")
+    revised_content = body.revised_content or original_content
+    diff_summary = compute_artifact_diff(original_content, revised_content)
+    promote_eligible = bool(
+        body.outcome in {"used", "edited"}
+        and body.rating >= 4
+        and revised_content.strip()
+    )
     await db.table("artifact_feedback_events").insert(
         {
             "organization_id": organization_id,
@@ -299,6 +409,8 @@ async def record_artifact_feedback(
             "evidence_fingerprint": (version.get("evidence_snapshot") or {}).get(
                 "fingerprint"
             ),
+            "diff_summary": diff_summary,
+            "learning_status": "review_candidate" if promote_eligible else "recorded",
             "created_at": datetime.now(UTC).isoformat(),
         }
     ).execute()

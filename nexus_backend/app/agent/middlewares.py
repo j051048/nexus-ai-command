@@ -91,7 +91,7 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
                 if hint:
                     updates["_injected_memories"] = [hint]
                     updates["_matched_skill"] = matched
-        except Exception as exc:
+        except Exception as exc:  # broad-except: intentional
             logger.debug("[Middleware] Skill matching skipped: %s", exc)
         return updates
 
@@ -317,7 +317,7 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                     allow_skill_learning = bool(
                         (state.get("artifact_quality") or {}).get("ready")
                     )
-            except Exception:
+            except (AttributeError, KeyError, TypeError, ValueError):
                 allow_skill_learning = False
             if len(completed) >= 2 and allow_skill_learning:
                 try:

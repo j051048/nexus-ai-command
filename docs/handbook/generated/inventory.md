@@ -6,21 +6,21 @@
 
 | 范围 | 文件数 | 代码行数 |
 |---|---:|---:|
-| 前端 `src` | 520 | 98764 |
-| 后端 `nexus_backend/app` | 562 | 157712 |
-| 前端单元/集成测试 | 51 | 6580 |
-| 后端测试 | 190 | 31516 |
-| Playwright E2E | 15 | 2876 |
+| 前端 `src` | 560 | 104311 |
+| 后端 `nexus_backend/app` | 593 | 169142 |
+| 前端单元/集成测试 | 57 | 7018 |
+| 后端测试 | 209 | 34015 |
+| Playwright E2E | 17 | 3221 |
 
 ## 运行时资产
 
 | 资产 | 数量/值 | 权威来源 |
 |---|---:|---|
-| 前端页面文件 | 74 | `src/pages` |
-| FastAPI 路由模块 | 105 | `nexus_backend/app/routers` |
-| 后端服务模块 | 184 | `nexus_backend/app/services` |
+| 前端页面文件 | 75 | `src/pages` |
+| FastAPI 路由模块 | 110 | `nexus_backend/app/routers` |
+| 后端服务模块 | 208 | `nexus_backend/app/services` |
 | Agent 工具模块 | 67 | `nexus_backend/app/tools` |
-| 正向 SQL 迁移 | 125 | `supabase/migrations/*.sql` |
+| 正向 SQL 迁移 | 132 | `supabase/migrations/*.sql` |
 | 回滚 SQL | 11 | `supabase/migrations/rollback` |
 | 强制生产聊天模型 | `deepseek-v4-flash` | `nexus_backend/app/core/config.py` |
 
@@ -34,7 +34,7 @@
 | `src/lib/i18n.ts` | 1274 |
 | `src/pages/OACenter.tsx` | 1255 |
 | `src/lib/animations.ts` | 1185 |
-| `src/pages/crm/CustomerDetailSheet.tsx` | 1086 |
+| `src/pages/crm/CustomerDetailSheet.tsx` | 1101 |
 | `src/pages/LLMModelManagement.tsx` | 1051 |
 | `src/pages/OrgChartPage.tsx` | 991 |
 | `src/pages/BattlecardLibrary.tsx` | 933 |

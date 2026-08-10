@@ -1,0 +1,8 @@
+{
+  "lines": 13.11,
+  "statements": 12.38,
+  "functions": 9.06,
+  "branches": 8.75,
+  "updated_at": "2026-08-06T08:36:38.867Z",
+  "note": "Regression floor tracked by scripts/check_frontend_coverage_trend.mjs"
+}

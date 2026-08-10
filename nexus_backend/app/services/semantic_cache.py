@@ -146,7 +146,7 @@ class SemanticCacheService:
             ):
                 logger.info("[Cache] Bypass: strict artifact requires fresh evidence")
                 return False
-        except Exception:
+        except (AttributeError, KeyError, TypeError, ValueError):
             # Cache classification must not make ordinary chat unavailable.
             logger.debug("[Cache] Artifact classification unavailable", exc_info=True)
         return True

@@ -188,6 +188,9 @@ def normalize_instrument_line(value: str | None) -> str | None:
         "能谱": "energy_spectroscopy",
         "电子仪器": "electronic_instrumentation",
         "电子与高科技科学仪器": "electronic_instrumentation",
+        "electronics": "electronic_instrumentation",
+        "electronic_instruments": "electronic_instrumentation",
+        "electronic-instrumentation": "electronic_instrumentation",
     }
     code = aliases.get(value.strip(), normalized)
     return code if code in _LINE_BY_CODE else None
