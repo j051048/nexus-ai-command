@@ -84,6 +84,7 @@ export const SoulDocumentPage = lazyWithRetry(() => import("@/pages/SoulDocument
 export const AgentRunsPage = lazyWithRetry(() => import("@/pages/AgentRunsPage"));
 export const ToolGovernancePage = lazyWithRetry(() => import("@/pages/ToolGovernancePage"));
 export const SLODashboard = lazyWithRetry(() => import("@/pages/SLODashboard"));
+export const ArtifactQualityOperationsPage = lazyWithRetry(() => import("@/pages/ArtifactQualityOperationsPage"));
 export const DeploymentReadinessPage = lazyWithRetry(() => import("@/pages/DeploymentReadinessPage"));
 export const PermissionMatrixPage = lazyWithRetry(() => import("@/pages/PermissionMatrixPage"));
 

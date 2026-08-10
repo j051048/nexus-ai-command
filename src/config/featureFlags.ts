@@ -53,7 +53,6 @@ export const MODULE_TIERS: Record<ModuleTier, ModuleFlag[]> = {
     "sales",
     "tender",
     "vmd",
-    "workflow_designer",
   ],
   specialized: [
     "custom_dashboard",
@@ -62,6 +61,7 @@ export const MODULE_TIERS: Record<ModuleTier, ModuleFlag[]> = {
     "report_builder",
     "soul_document",
     "training",
+    "workflow_designer",
     "work_orders",
   ],
   integration: [
@@ -101,18 +101,15 @@ export const MODULE_FOCUS_POLICY = {
 
 export const SMALL_COMPANY_LAUNCH_MODULES: ModuleFlag[] = [
   "approval",
+  "battlecards",
   "crm",
   "documents",
-  "finance",
-  "hr",
   "knowledge",
-  "oa",
-  "plugins",
   "projects",
   "reports",
+  "sales",
   "tender",
   "vmd",
-  "workflow_designer",
 ];
 
 export const EXTENDED_LAUNCH_MODULES: ModuleFlag[] = [

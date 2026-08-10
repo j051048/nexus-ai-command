@@ -407,6 +407,11 @@ jobs:
       - name: AI execution quality and cost gate
         working-directory: ${{ github.workspace }}
         run: python scripts/ai_execution_policy_gate.py
+      - name: Artifact output evaluator contract
+        working-directory: ${{ github.workspace }}
+        run: |
+          python scripts/build_artifact_eval_contract_outputs.py --output dist/artifact-eval-contract.json
+          python scripts/run_artifact_output_eval.py dist/artifact-eval-contract.json
 
   # ═══════════════════════════════════════════════════════════════
   # 6. 安全测试（Prompt 注入 + XSS/CSRF + 权限矩阵）

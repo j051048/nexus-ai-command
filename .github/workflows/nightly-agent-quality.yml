@@ -28,6 +28,13 @@ jobs:
           AGENT_REPLAY_BASE_URL: ${{ secrets.AGENT_REPLAY_BASE_URL }}
           AGENT_REPLAY_TOKEN: ${{ secrets.AGENT_REPLAY_TOKEN }}
 
+      - name: Run live customer delivery acceptance
+        run: python scripts/run_customer_golden_acceptance.py --require-live
+        env:
+          GOLDEN_ACCEPTANCE_BASE_URL: ${{ secrets.GOLDEN_ACCEPTANCE_BASE_URL }}
+          GOLDEN_ACCEPTANCE_TOKEN: ${{ secrets.GOLDEN_ACCEPTANCE_TOKEN }}
+          GOLDEN_ACCEPTANCE_ORG_ID: ${{ secrets.GOLDEN_ACCEPTANCE_ORG_ID }}
+
       - name: Static release gates
         run: |
           python scripts/customer_acceptance_gate.py

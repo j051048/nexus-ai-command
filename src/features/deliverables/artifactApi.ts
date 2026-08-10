@@ -39,6 +39,8 @@ export interface ArtifactGenerationJob {
   error?: { code: string; message: string } | null;
   attempt: number;
   max_attempts: number;
+  heartbeat_at?: string | null;
+  recovery_count?: number;
 }
 
 export interface ArtifactQualityFinding {

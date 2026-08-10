@@ -23,6 +23,7 @@ celery_app = Celery(
         "app.tasks.tool_tasks",
         "app.tasks.memory_tasks",
         "app.tasks.artifact_tasks",
+        "app.tasks.knowledge_tasks",
     ],
 )
 
@@ -52,6 +53,7 @@ celery_app.conf.update(
         Queue("webhooks", Exchange("webhooks"), routing_key="webhooks"),
         Queue("sensors", Exchange("sensors"), routing_key="sensors"),
         Queue("artifacts", Exchange("artifacts"), routing_key="artifacts"),
+        Queue("knowledge", Exchange("knowledge"), routing_key="knowledge"),
     ),
     task_routes={
         "execute_tool_isolated": {
@@ -73,6 +75,10 @@ celery_app.conf.update(
         "app.tasks.artifact_tasks.*": {
             "queue": "artifacts",
             "routing_key": "artifacts",
+        },
+        "app.tasks.knowledge_tasks.*": {
+            "queue": "knowledge",
+            "routing_key": "knowledge",
         },
     },
     worker_prefetch_multiplier=1,
@@ -169,6 +175,14 @@ celery_app.conf.beat_schedule = {
     "subscription-access-change-poller": {
         "task": "app.tasks.scheduler.apply_due_subscription_access_changes",
         "schedule": 60.0,
+    },
+    "artifact-job-lease-recovery": {
+        "task": "app.tasks.artifact_tasks.recover_stale_artifact_jobs",
+        "schedule": 120.0,
+    },
+    "knowledge-ingestion-recovery": {
+        "task": "app.tasks.knowledge_tasks.recover_stale_knowledge_documents",
+        "schedule": 300.0,
     },
     "im-platform-sync": {
         "task": "app.tasks.scheduler.sync_im_platforms",

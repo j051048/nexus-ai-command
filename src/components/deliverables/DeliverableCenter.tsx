@@ -9,7 +9,10 @@ import {
   Loader2,
   PackageCheck,
   Sheet as SheetIcon,
+  ThumbsUp,
   Trash2,
+  Trophy,
+  XCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -35,7 +38,7 @@ import {
   writeDeliverables,
 } from '@/features/deliverables/deliverableStore';
 import { repeatDownload } from '@/features/deliverables/exportContent';
-import { listArtifacts } from '@/features/deliverables/artifactApi';
+import { listArtifacts, recordArtifactFeedback } from '@/features/deliverables/artifactApi';
 import type { DeliverableFormat, DeliverableRecord } from '@/features/deliverables/types';
 import { cn } from '@/lib/utils';
 
@@ -61,6 +64,8 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
   const scope = profile?.organization_id || user?.id || 'personal';
   const [records, setRecords] = useState<DeliverableRecord[]>(() => readDeliverables(scope));
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [feedbackId, setFeedbackId] = useState<string | null>(null);
+  const [recordedOutcomes, setRecordedOutcomes] = useState<Record<string, string>>({});
 
   useEffect(() => setRecords(readDeliverables(scope)), [scope]);
 
@@ -131,6 +136,27 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
       toast.error('成果下载失败，请打开来源后重新生成');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const submitOutcome = async (
+    record: DeliverableRecord,
+    outcome: 'used' | 'discarded' | 'won',
+  ) => {
+    if (!record.artifactId) return;
+    setFeedbackId(record.id);
+    try {
+      await recordArtifactFeedback(
+        record.artifactId,
+        outcome === 'discarded' ? 2 : 5,
+        outcome,
+      );
+      setRecordedOutcomes((current) => ({ ...current, [record.id]: outcome }));
+      toast.success(outcome === 'won' ? '已记录赢单结果' : outcome === 'used' ? '已记录成果被采用' : '已记录未采用');
+    } catch {
+      toast.error('结果记录失败，请稍后重试');
+    } finally {
+      setFeedbackId(null);
     }
   };
 
@@ -216,6 +242,45 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
                             <Badge variant={record.approvalStatus === 'approved' ? 'default' : 'outline'} className="h-5 px-1.5 text-[10px] font-normal">
                               {record.approvalStatus === 'approved' ? '已审核' : '审核草稿'}
                             </Badge>
+                          )}
+                        </div>
+                      )}
+                      {record.artifactId && (
+                        <div className="mt-2 flex items-center gap-1 text-[11px]">
+                          {recordedOutcomes[record.id] ? (
+                            <span className="text-muted-foreground">
+                              已回流：{recordedOutcomes[record.id] === 'won' ? '赢单' : recordedOutcomes[record.id] === 'used' ? '采用' : '未采用'}
+                            </span>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 gap-1 px-1.5 text-[11px]"
+                                disabled={feedbackId === record.id}
+                                onClick={() => void submitOutcome(record, 'used')}
+                              >
+                                <ThumbsUp className="h-3 w-3" />采用
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 gap-1 px-1.5 text-[11px]"
+                                disabled={feedbackId === record.id}
+                                onClick={() => void submitOutcome(record, 'won')}
+                              >
+                                <Trophy className="h-3 w-3" />赢单
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 gap-1 px-1.5 text-[11px] text-muted-foreground"
+                                disabled={feedbackId === record.id}
+                                onClick={() => void submitOutcome(record, 'discarded')}
+                              >
+                                <XCircle className="h-3 w-3" />未采用
+                              </Button>
+                            </>
                           )}
                         </div>
                       )}

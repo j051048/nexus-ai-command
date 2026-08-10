@@ -9,6 +9,10 @@ from app.agent.artifact_contract import (
     ArtifactType,
     default_content_budget,
 )
+from app.services.scientific_instrument_domain_packs import (
+    build_domain_pack_prompt,
+    get_domain_pack,
+)
 
 
 @dataclass(frozen=True)
@@ -226,6 +230,18 @@ def enrich_artifact_spec(spec: ArtifactSpec | dict) -> ArtifactSpec:
     retrieval_topics = list(
         dict.fromkeys([*spec.retrieval_topics, *skill.retrieval_topics])
     )
+    domain_pack = get_domain_pack(spec.instrument_line)
+    if domain_pack:
+        retrieval_topics = list(
+            dict.fromkeys(
+                [
+                    *retrieval_topics,
+                    *domain_pack["decision_dimensions"],
+                    *domain_pack["acceptance_checks"],
+                    *domain_pack["standards_focus"],
+                ]
+            )
+        )
     target, minimum, minimum_tables = default_content_budget(spec.artifact_type)
     content_contract: dict[str, int] = {}
     if "target_character_count" not in spec.model_fields_set:
@@ -277,4 +293,5 @@ def build_writing_skill_prompt(spec: ArtifactSpec | dict) -> str:
         "evidence, a conclusion, and when relevant a next action.\n"
         f"{authoring_rules}\n"
         f"Human confirmation is mandatory for: {gates}."
+        f"{build_domain_pack_prompt(spec.instrument_line)}"
     )

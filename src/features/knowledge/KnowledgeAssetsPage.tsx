@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
+  AlertCircle,
   BookOpenCheck,
   CheckCircle2,
   FileText,
@@ -10,6 +11,7 @@ import {
   Loader2,
   PanelsTopLeft,
   Search,
+  RotateCcw,
   Settings2,
   ShieldCheck,
   Sparkles,
@@ -55,6 +57,13 @@ interface KnowledgeDocument {
   source_version?: string | null;
   valid_until?: string | null;
   quality_score?: number | null;
+  progress?: number;
+  stage?: string;
+  error_log?: string | null;
+  ingestion_attempt?: number;
+  ingestion_updated_at?: string | null;
+  ingestion_error_code?: string | null;
+  source_storage_path?: string | null;
 }
 
 interface KnowledgeReadiness {
@@ -86,6 +95,21 @@ function visibilityLabel(value?: Visibility) {
   return '全企业';
 }
 
+const INGESTION_STAGE_LABELS: Record<string, string> = {
+  uploading: '保存原文件',
+  queued: '等待整理',
+  parsing: '解析内容',
+  analyzing: '提取事实',
+  embedding: '建立索引',
+  completed: '可供 AI 引用',
+  failed: '整理失败',
+};
+
+function ingestionStageLabel(document: KnowledgeDocument) {
+  if (['ready', 'completed'].includes(document.status || '')) return '可供 AI 引用';
+  return INGESTION_STAGE_LABELS[document.stage || ''] || '等待整理';
+}
+
 export default function KnowledgeAssetsPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { state: activationState, update: updateActivation } = useActivationState();
@@ -99,8 +123,8 @@ export default function KnowledgeAssetsPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [readiness, setReadiness] = useState<KnowledgeReadiness | null>(null);
 
-  const loadDocuments = async () => {
-    setIsLoading(true);
+  const loadDocuments = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const response = await httpClient.get('/api/documents', { silentError: true });
       const rows = response.data?.data?.documents ?? response.data?.documents ?? [];
@@ -116,15 +140,25 @@ export default function KnowledgeAssetsPage() {
         setReadiness(null);
       }
     } catch {
-      toast.error('企业资料暂时无法加载，请稍后重试');
+      if (!silent) toast.error('企业资料暂时无法加载，请稍后重试');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadDocuments();
-  }, []);
+  }, [loadDocuments]);
+
+  const hasActiveIngestion = documents.some((document) =>
+    ['pending', 'processing'].includes(document.status || ''),
+  );
+
+  useEffect(() => {
+    if (!hasActiveIngestion) return undefined;
+    const timer = window.setInterval(() => void loadDocuments(true), 2500);
+    return () => window.clearInterval(timer);
+  }, [hasActiveIngestion, loadDocuments]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -161,6 +195,22 @@ export default function KnowledgeAssetsPage() {
       toast.success(reviewStatus === 'verified' ? '资料已设为可信证据' : '资料已停止用于正式证据');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '资料状态更新失败');
+    }
+  };
+
+  const retryIngestion = async (document: KnowledgeDocument) => {
+    try {
+      await httpClient.post(`/api/documents/${document.id}/retry`, undefined, {
+        silentError: true,
+      });
+      setDocuments((current) => current.map((item) => (
+        item.id === document.id
+          ? { ...item, status: 'pending', stage: 'queued', progress: 0, error_log: null }
+          : item
+      )));
+      toast.success('资料已重新提交整理');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '资料重试失败');
     }
   };
 
@@ -288,13 +338,17 @@ export default function KnowledgeAssetsPage() {
             const type = document.doc_type || document.category || 'other';
             const extracted = typeof document.extracted_data === 'object' ? document.extracted_data : {};
             const isReady = ['ready', 'completed'].includes(document.status || '');
+            const isFailed = ['error', 'failed'].includes(document.status || '');
+            const progress = Math.max(0, Math.min(100, Number(document.progress || 0)));
             return (
               <article key={document.id} className="grid gap-3 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                 <div className="flex min-w-0 gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-card"><FileText className="h-4 w-4 text-muted-foreground" /></div>
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-sm font-medium">{document.name}</h2><Badge variant="outline">{categoryLabel(type)}</Badge>{isReady ? <span className="flex items-center gap-1 text-xs text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />可检索</span> : <span className="text-xs text-amber-700">整理中</span>}{document.review_status === 'verified' && <Badge>可信</Badge>}</div>
+                    <div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-sm font-medium">{document.name}</h2><Badge variant="outline">{categoryLabel(type)}</Badge>{isReady ? <span className="flex items-center gap-1 text-xs text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />可检索</span> : isFailed ? <span className="flex items-center gap-1 text-xs text-destructive"><AlertCircle className="h-3.5 w-3.5" />整理失败</span> : <span className="text-xs text-amber-700">{ingestionStageLabel(document)} {progress}%</span>}{document.review_status === 'verified' && <Badge>可信</Badge>}</div>
                     <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{extracted?.summary || '等待 AI 提取摘要与可引用证据'}</p>
+                    {!isReady && !isFailed && <div className="mt-2 h-1 max-w-md overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${Math.max(4, progress)}%` }} /></div>}
+                    {isFailed && <p className="mt-1 text-xs text-muted-foreground">原文件已保留，可直接重新整理，无需再次上传。</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -302,6 +356,7 @@ export default function KnowledgeAssetsPage() {
                   {document.created_at && <time>{new Date(document.created_at).toLocaleDateString('zh-CN')}</time>}
                   {document.review_status !== 'verified' && isReady && <Button variant="ghost" size="sm" onClick={() => reviewDocument(document, 'verified')}>设为可信</Button>}
                   {document.review_status === 'verified' && <Button variant="ghost" size="sm" onClick={() => reviewDocument(document, 'expired')}>停用</Button>}
+                  {isFailed && <Button variant="outline" size="sm" onClick={() => retryIngestion(document)}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />重试</Button>}
                 </div>
               </article>
             );

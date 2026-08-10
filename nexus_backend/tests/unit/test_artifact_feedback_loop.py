@@ -47,7 +47,7 @@ class _FakeDb:
         return _FakeResult(self.records)
 
     def insert(self, payload):
-        self.records = [payload]
+        self.records.append(payload)
         return self
 
 
@@ -154,3 +154,4 @@ async def test_record_customer_outcome_persists_won():
     )
     assert result["ok"] is True
     assert db.records[0]["outcome"] == "won"
+    assert db.records[1]["event_type"] == "won"

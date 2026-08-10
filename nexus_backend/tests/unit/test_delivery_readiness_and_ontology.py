@@ -1,6 +1,14 @@
+import json
+from pathlib import Path
+
 from app.services.artifact_generation_job_service import build_request_key, public_job
 from app.services.artifact_output_eval_service import evaluate_artifact_output
 from app.services.knowledge_readiness_service import build_knowledge_readiness
+from app.services.scientific_instrument_domain_packs import (
+    DOMAIN_PACK_VERSION,
+    build_domain_pack_prompt,
+    get_domain_pack,
+)
 from app.services.scientific_instrument_ontology import normalize_product_specs
 from app.services.tender_quality_service import evaluate_tender_workspace
 
@@ -31,6 +39,48 @@ def test_parameter_ontology_keeps_source_and_flags_missing_unit():
     )
     assert result["normalized_specs"]["mass_accuracy"]["observed_unit"] == "ppm"
     assert any("质量范围缺少单位" in item for item in result["warnings"])
+
+
+def test_all_commercial_instrument_lines_have_delivery_packs():
+    lines = (
+        "spectroscopy",
+        "chromatography",
+        "mass_spectrometry",
+        "energy_spectroscopy",
+        "electronic_instrumentation",
+    )
+    for line in lines:
+        pack = get_domain_pack(line)
+        assert pack is not None
+        assert pack["version"] == DOMAIN_PACK_VERSION
+        assert len(pack["decision_dimensions"]) >= 4
+        assert len(pack["acceptance_checks"]) >= 2
+        assert build_domain_pack_prompt(line).startswith("\n## Instrument domain pack")
+
+
+def test_electronic_instrument_pack_requires_interface_acceptance_evidence():
+    prompt = build_domain_pack_prompt("electronics")
+    assert "SCPI" in prompt
+    assert "远程命令" in prompt
+
+
+def test_live_delivery_acceptance_covers_all_commercial_instrument_lines():
+    backend_root = Path(__file__).resolve().parents[2]
+    manifest = json.loads(
+        (backend_root / "evals/datasets/customer_delivery_acceptance.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    lines = {case["instrument_line"] for case in manifest["cases"]}
+    assert lines == {
+        "spectroscopy",
+        "chromatography",
+        "mass_spectrometry",
+        "energy_spectroscopy",
+        "electronic_instrumentation",
+    }
+    fixture_root = backend_root / "evals/fixtures/customer_acceptance"
+    assert all((fixture_root / case["fixture"]).is_file() for case in manifest["cases"])
 
 
 def test_tender_quality_fails_closed_on_blocked_mandatory_item():

@@ -6,6 +6,7 @@ import { ModuleGate } from "./ModuleGate";
 import {
   AgentDebugPanel,
   AgentRunsPage,
+  ArtifactQualityOperationsPage,
   AISettingsPanel,
   AiRoiDashboard,
   AnimationShowcase,
@@ -113,6 +114,7 @@ export function adminRoutes(AdminRoute: AdminRouteComponent) {
       <Route path="llm/models" element={<AdminRoute><ModuleRouteBoundary moduleName="LLM Models"><LLMModelManagement /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="llm/costs" element={<AdminRoute><ModuleRouteBoundary moduleName="LLM Costs"><LLMCostDashboard /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="agent-runs" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Agent Runs"><AgentRunsPage /></ModuleRouteBoundary></AdminRoute>} />
+      <Route path="artifact-quality" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Artifact Quality"><ArtifactQualityOperationsPage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="slo" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="SLO Dashboard"><SLODashboard /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="deployment-readiness" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Deployment Readiness"><DeploymentReadinessPage /></ModuleRouteBoundary></AdminRoute>} />
       <Route path="permissions-matrix" element={<AdminRoute allowedRoles={adminRoles}><ModuleRouteBoundary moduleName="Permission Matrix"><PermissionMatrixPage /></ModuleRouteBoundary></AdminRoute>} />

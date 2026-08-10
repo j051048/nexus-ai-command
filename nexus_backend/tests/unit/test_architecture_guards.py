@@ -216,9 +216,12 @@ def test_first_launch_saas_guards_are_enforced():
     env_example = read(".env.production.example")
 
     small_profile = flags.split("SMALL_COMPANY_LAUNCH_MODULES", 1)[1].split("];", 1)[0]
-    assert '"workflow_designer"' in small_profile
-    assert '"oa"' in small_profile
+    assert '"workflow_designer"' not in small_profile
+    assert '"oa"' not in small_profile
     assert '"crm"' in small_profile
+    assert '"knowledge"' in small_profile
+    assert '"tender"' in small_profile
+    assert '"vmd"' in small_profile
     assert '"dev_tools"' not in small_profile
     assert "EXTENDED_LAUNCH_MODULES" in flags
     assert "VITE_LAUNCH_PROFILE" in flags
@@ -233,8 +236,7 @@ def test_first_launch_saas_guards_are_enforced():
     assert "small-company launch profile" in readiness
     assert "developer tools disabled" in readiness
     assert "VITE_LAUNCH_PROFILE=small_company" in env_example
-    assert "workflow_designer" in env_example
-    assert "oa" in env_example
+    assert "\nVITE_ENABLED_MODULES=\n" in env_example
     assert "VITE_DISABLED_MODULES=dev_tools" in env_example
 
 
@@ -797,6 +799,7 @@ def test_unified_action_inbox_is_wired():
 
 def test_navigation_is_consolidated_into_five_product_spaces():
     sidebar = read("src/components/layout/Sidebar.tsx")
+    navigation = read("src/config/navigation.tsx")
     command_bar = read("src/components/layout/GlobalCommandBar.tsx") + read(
         "src/components/layout/globalCommandCatalog.ts"
     )
@@ -811,8 +814,9 @@ def test_navigation_is_consolidated_into_five_product_spaces():
         ("投标作战", "growth/tenders"),
         ("企业资料", "knowledge"),
     ]:
-        assert f'label: "{label}", href: "{href}", group: "primary"' in sidebar
-    assert "SPACE_MATCH_PREFIXES" in sidebar
+        assert f"label: '{label}', href: '{href}', group: 'primary'" in navigation
+    assert "SPACE_MATCH_PREFIXES" in navigation
+    assert "@/config/navigation" in sidebar
     assert "WorkspaceHubPage" in lazy_imports
     assert "DataHubPage" in lazy_imports
     assert "AICenterPage" in lazy_imports
@@ -939,7 +943,7 @@ def test_p0_to_p6_ai_operating_system_is_productized():
     route_groups = read("nexus_backend/app/startup/route_groups.py")
     core_routes = read("src/routes/coreRoutes.tsx")
     lazy_imports = read("src/routes/lazyImports.ts")
-    sidebar = read("src/components/layout/Sidebar.tsx")
+    navigation = read("src/config/navigation.tsx")
     command_bar = read("src/components/layout/GlobalCommandBar.tsx") + read(
         "src/components/layout/globalCommandCatalog.ts"
     )
@@ -981,9 +985,8 @@ def test_p0_to_p6_ai_operating_system_is_productized():
 
     assert "AIOperatingSystemPage" in lazy_imports
     assert 'path="ai-operating-system"' in core_routes
-    assert (
-        'label: "助手工作台", href: "ai-operating-system", group: "智能助手"' in sidebar
-    )
+    assert "href: 'ai-operating-system'" in navigation
+    assert "group: '智能助手'" in navigation
     assert "助手工作台" in command_bar
     assert "/ai-operating-system" in acceptance
 
@@ -1037,7 +1040,7 @@ def test_agent_evolution_engine_is_wired_end_to_end():
     )
     core_routes = read("src/routes/coreRoutes.tsx")
     lazy_imports = read("src/routes/lazyImports.ts")
-    sidebar = read("src/components/layout/Sidebar.tsx")
+    navigation = read("src/config/navigation.tsx")
     command_bar = read("src/components/layout/GlobalCommandBar.tsx") + read(
         "src/components/layout/globalCommandCatalog.ts"
     )
@@ -1145,5 +1148,5 @@ def test_agent_evolution_engine_is_wired_end_to_end():
     assert "客户可见信任摘要" in page
     assert "AgentImprovementCenterPage" in lazy_imports
     assert 'path="agent-improvement-center"' in core_routes
-    assert "Agent 进化中心" in sidebar
+    assert "href: 'agent-improvement-center'" in navigation
     assert "/agent-improvement-center" in command_bar

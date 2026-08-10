@@ -248,7 +248,14 @@ class ETLService:
         try:
             await (
                 supabase.table("documents")
-                .update({"progress": progress, "stage": stage, "status": status})
+                .update(
+                    {
+                        "progress": progress,
+                        "stage": stage,
+                        "status": status,
+                        "ingestion_updated_at": datetime.now(UTC).isoformat(),
+                    }
+                )
                 .eq("id", doc_id)
                 .execute()
             )
@@ -263,7 +270,13 @@ class ETLService:
             await (
                 supabase.table("documents")
                 .update(
-                    {"status": "error", "stage": "failed", "error_log": reason[:500]}
+                    {
+                        "status": "error",
+                        "stage": "failed",
+                        "error_log": reason[:500],
+                        "ingestion_error_code": "INGESTION_FAILED",
+                        "ingestion_updated_at": datetime.now(UTC).isoformat(),
+                    }
                 )
                 .eq("id", doc_id)
                 .execute()
@@ -389,6 +402,10 @@ class ETLService:
                                     "stage": "completed",
                                     "status": "ready",
                                     "indexed_at": datetime.now(UTC).isoformat(),
+                                    "ingestion_updated_at": datetime.now(
+                                        UTC
+                                    ).isoformat(),
+                                    "ingestion_error_code": None,
                                 }
                             )
                             .eq("id", doc_id)

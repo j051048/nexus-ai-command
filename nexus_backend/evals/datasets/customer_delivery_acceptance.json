@@ -1,0 +1,61 @@
+{
+  "schema_version": "customer-delivery-acceptance.v1",
+  "minimum_pass_rate": 1.0,
+  "cases": [
+    {
+      "id": "spectroscopy-customer-solution",
+      "fixture": "spectroscopy_product.md",
+      "category": "product",
+      "artifact_type": "customer_solution",
+      "title": "紫外可见光谱仪客户升级方案",
+      "request": "基于已上传产品资料，生成一份面向制药质控实验室的紫外可见光谱仪升级方案，包含需求验收矩阵、配置、实施、培训、售后与证据。",
+      "instrument_line": "spectroscopy",
+      "formats": ["docx", "pdf"],
+      "minimum_download_bytes": 1000
+    },
+    {
+      "id": "chromatography-method-migration",
+      "fixture": "chromatography_product.md",
+      "category": "product",
+      "artifact_type": "customer_solution",
+      "title": "高效液相色谱方法迁移与验收方案",
+      "request": "基于已上传资料，生成面向制药实验室的液相色谱方法迁移、配置、系统适用性、审计追踪和验收方案，参数必须有证据或标记待核验。",
+      "instrument_line": "chromatography",
+      "formats": ["docx", "pdf"],
+      "minimum_download_bytes": 1000
+    },
+    {
+      "id": "mass-spectrometry-quantitation",
+      "fixture": "mass_spectrometry_product.md",
+      "category": "product",
+      "artifact_type": "customer_solution",
+      "title": "三重四极杆质谱定量应用方案",
+      "request": "基于已上传资料，生成面向食品安全实验室的三重四极杆质谱定量应用方案，覆盖真实基质、方法验证、配置、实施、培训和验收。",
+      "instrument_line": "mass_spectrometry",
+      "formats": ["docx", "pdf"],
+      "minimum_download_bytes": 1000
+    },
+    {
+      "id": "energy-spectroscopy-acceptance",
+      "fixture": "energy_spectroscopy_product.md",
+      "category": "product",
+      "artifact_type": "service_proposal",
+      "title": "能谱系统升级与验收服务方案",
+      "request": "基于已上传资料，生成能谱系统升级、主机兼容、标定、轻元素分析、数据接口和验收服务方案，不得脱离测试条件承诺性能。",
+      "instrument_line": "energy_spectroscopy",
+      "formats": ["docx", "pdf"],
+      "minimum_download_bytes": 1000
+    },
+    {
+      "id": "electronic-service-proposal",
+      "fixture": "electronic_instrument_product.md",
+      "category": "product",
+      "artifact_type": "service_proposal",
+      "title": "频谱分析仪校准与自动化服务方案",
+      "request": "基于已上传资料，生成频谱分析仪校准、SCPI 自动化与验收服务方案，所有参数必须有证据或标记待核验。",
+      "instrument_line": "electronic_instrumentation",
+      "formats": ["docx", "pdf"],
+      "minimum_download_bytes": 1000
+    }
+  ]
+}

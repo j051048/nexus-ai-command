@@ -6,12 +6,18 @@ from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from app.core.auth import get_current_user_id
+from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.dependencies import get_request_db, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import BatchDeleteRequest, StandardResponse
 from app.services.audit_logger import audit_logger
 from app.services.etl_service import etl_service
+from app.services.knowledge_ingestion_service import (
+    enqueue_knowledge_ingestion,
+    knowledge_ingestion_health,
+    persist_source_file,
+    process_stored_document,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +64,54 @@ def _is_jwt_expired(e: Exception) -> bool:
     return "JWT expired" in msg or "PGRST303" in msg
 
 
+async def _schedule_ingestion(
+    *,
+    background_tasks: BackgroundTasks,
+    db,
+    organization_id: str | None,
+    document_id: str,
+    content: bytes,
+    filename: str,
+    content_type: str | None,
+    user_id: str,
+    category: str | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> bool:
+    """Prefer durable storage + Celery, retaining single-process fallback."""
+    storage_path = None
+    if organization_id:
+        storage_path = await persist_source_file(
+            db,
+            organization_id=organization_id,
+            document_id=document_id,
+            filename=filename,
+            content=content,
+            content_type=content_type,
+        )
+    if storage_path and organization_id:
+        try:
+            enqueue_knowledge_ingestion(document_id, organization_id)
+        except Exception:  # broad-except: local deployment fallback
+            background_tasks.add_task(
+                process_stored_document, document_id, organization_id
+            )
+        return True
+
+    background_tasks.add_task(
+        etl_service.process_file,
+        content=content,
+        filename=filename,
+        doc_id=document_id,
+        api_key=api_key,
+        base_url=base_url,
+        user_id=user_id,
+        organization_id=organization_id,
+        category=category,
+    )
+    return False
+
+
 @router.get("", response_model=StandardResponse)
 async def list_documents(
     req: Request,
@@ -77,6 +131,94 @@ async def list_documents(
     except Exception as e:
         logger.error(f"Failed to list documents: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取文档列表失败")
+
+
+@router.get("/ingestion/health", response_model=StandardResponse)
+async def get_ingestion_health(
+    req: Request,
+    organization_id: str = Depends(get_current_org_id),
+):
+    result = await knowledge_ingestion_health(
+        get_request_db(req), organization_id=organization_id
+    )
+    return api_success(data=result)
+
+
+@router.get("/{document_id}/ingestion", response_model=StandardResponse)
+async def get_document_ingestion(
+    document_id: str,
+    req: Request,
+    organization_id: str = Depends(get_current_org_id),
+):
+    result = (
+        await get_request_db(req)
+        .table("documents")
+        .select(
+            "id,status,stage,progress,error_log,ingestion_attempt,"
+            "ingestion_updated_at,ingestion_error_code,source_storage_path"
+        )
+        .eq("organization_id", organization_id)
+        .eq("id", document_id)
+        .maybe_single()
+        .execute()
+    )
+    if not result.data:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "资料不存在或无权访问")
+    row = dict(result.data)
+    row["retryable"] = bool(row.pop("source_storage_path", None)) and row.get(
+        "status"
+    ) in {"error", "failed"}
+    return api_success(data=row)
+
+
+@router.post("/{document_id}/retry", response_model=StandardResponse)
+async def retry_document_ingestion(
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    req: Request,
+    organization_id: str = Depends(get_current_org_id),
+):
+    db = get_request_db(req)
+    result = (
+        await db.table("documents")
+        .select("id,status,source_storage_path")
+        .eq("organization_id", organization_id)
+        .eq("id", document_id)
+        .maybe_single()
+        .execute()
+    )
+    row = dict(result.data or {})
+    if not row:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "资料不存在或无权访问")
+    if not row.get("source_storage_path"):
+        raise api_error(ErrorCode.RESOURCE_CONFLICT, "原文件未持久化，请重新上传该资料")
+    if row.get("status") in {"pending", "processing"}:
+        raise api_error(ErrorCode.RESOURCE_CONFLICT, "资料正在整理，无需重复提交")
+    await (
+        db.table("documents")
+        .update(
+            {
+                "status": "pending",
+                "stage": "queued",
+                "progress": 0,
+                "error_log": None,
+                "ingestion_error_code": None,
+                "ingestion_updated_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        .eq("organization_id", organization_id)
+        .eq("id", document_id)
+        .execute()
+    )
+    try:
+        task_id = enqueue_knowledge_ingestion(document_id, organization_id)
+    except Exception:  # broad-except: local deployment fallback
+        task_id = None
+        background_tasks.add_task(process_stored_document, document_id, organization_id)
+    return api_success(
+        data={"document_id": document_id, "status": "pending", "task_id": task_id},
+        message="资料已重新提交整理",
+    )
 
 
 @router.post("/batch-delete", response_model=StandardResponse)
@@ -157,6 +299,7 @@ async def upload_documents(
     visibility: str = Form(default="organization"),
     category: str = Form(default="other"),
     user_id: str = Depends(get_current_user_id),
+    organization_id: str = Depends(get_current_org_id),
 ):
     """
     Upload files to the Knowledge Base (ETL Pipeline).
@@ -166,7 +309,7 @@ async def upload_documents(
     base_url = None
     user_department = None
     client = get_request_db(req)
-    org_id = getattr(req.state, "org_id", None)
+    org_id = organization_id
 
     # 1. Validate visibility and category parameters
     if visibility not in ("private", "department", "organization"):
@@ -279,17 +422,19 @@ async def upload_documents(
                 organization_id=org_id,
             )
 
-            # Step 2: Trigger Background Processing
-            background_tasks.add_task(
-                etl_service.process_file,
+            # Step 2: Persist original bytes and trigger recoverable processing.
+            durable = await _schedule_ingestion(
+                background_tasks=background_tasks,
+                db=client,
+                organization_id=org_id,
+                document_id=doc_id,
                 content=content,
                 filename=filename,
-                doc_id=doc_id,
+                content_type=file.content_type,
+                user_id=user_id,
+                category=resolved_category,
                 api_key=api_key,
                 base_url=base_url,
-                user_id=user_id,
-                organization_id=org_id,
-                category=resolved_category,
             )
 
             results.append(
@@ -299,6 +444,7 @@ async def upload_documents(
                     "document_id": doc_id,
                     "category": resolved_category,
                     "visibility": visibility,
+                    "durable_ingestion": durable,
                     "message": "Processing started in background",
                 }
             )
@@ -326,6 +472,7 @@ async def batch_upload_documents(
     files: list[UploadFile] = File(...),
     visibility: str = Form(default="organization"),
     user_id: str = Depends(get_current_user_id),
+    organization_id: str = Depends(get_current_org_id),
 ):
     """Upload multiple documents at once (max 10 files)"""
     if len(files) > 10:
@@ -335,7 +482,7 @@ async def batch_upload_documents(
     base_url = None
     user_department = None
     client = get_request_db(req)
-    org_id = getattr(req.state, "org_id", None)
+    org_id = organization_id
 
     if user_id:
         try:
@@ -423,16 +570,18 @@ async def batch_upload_documents(
                 organization_id=org_id,
             )
 
-            # Queue background processing
-            background_tasks.add_task(
-                etl_service.process_file,
+            # Queue restart-safe processing when storage is available.
+            durable = await _schedule_ingestion(
+                background_tasks=background_tasks,
+                db=client,
+                organization_id=org_id,
+                document_id=doc_id,
                 content=content,
                 filename=file.filename,
-                doc_id=doc_id,
+                content_type=file.content_type,
+                user_id=user_id,
                 api_key=api_key,
                 base_url=base_url,
-                user_id=user_id,
-                organization_id=org_id,
             )
 
             results.append(
@@ -441,6 +590,7 @@ async def batch_upload_documents(
                     "status": "uploaded",
                     "document_id": doc_id,
                     "size": len(content),
+                    "durable_ingestion": durable,
                 }
             )
         except Exception as e:
@@ -470,6 +620,7 @@ async def update_document(
     req: Request,
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
+    organization_id: str = Depends(get_current_org_id),
 ):
     """Update an existing document (creates new version, replaces old embeddings)"""
     client = get_request_db(req)
@@ -508,7 +659,7 @@ async def update_document(
                 "file_size": len(content),
                 "version": version,
                 "status": "processing",
-                "updated_at": "now()",
+                "updated_at": datetime.now(UTC).isoformat(),
             }
         )
         .eq("id", document_id)
@@ -532,17 +683,20 @@ async def update_document(
     except Exception as e:
         logger.warning(f"Failed to fetch user settings: {e}")
 
-    # 6. Queue reprocessing
-    org_id = getattr(req.state, "org_id", None)
-    background_tasks.add_task(
-        etl_service.process_file,
+    # 6. Queue recoverable reprocessing
+    org_id = organization_id
+    durable = await _schedule_ingestion(
+        background_tasks=background_tasks,
+        db=client,
+        organization_id=org_id,
+        document_id=document_id,
         content=content,
         filename=file.filename,
-        doc_id=document_id,
+        content_type=file.content_type,
+        user_id=user_id,
+        category=str(doc_res.data.get("doc_type") or "other"),
         api_key=api_key,
         base_url=base_url,
-        user_id=user_id,
-        organization_id=org_id,
     )
 
     return api_success(
@@ -550,6 +704,7 @@ async def update_document(
             "document_id": document_id,
             "version": version,
             "status": "processing",
+            "durable_ingestion": durable,
             "message": f"文档已更新至第 {version} 版，正在重新处理...",
         },
         message="文档更新中",

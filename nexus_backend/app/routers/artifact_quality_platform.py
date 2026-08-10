@@ -12,6 +12,7 @@ from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.artifact_feedback_loop import (
+    build_artifact_value_report,
     record_customer_outcome,
     record_learning_candidate,
     summarize_failure_modes,
@@ -97,6 +98,18 @@ async def get_failure_modes(
     org_id: str = Depends(get_current_org_id),
 ):
     result = await summarize_failure_modes(
+        request_db, organization_id=org_id, days=days
+    )
+    return api_success(result)
+
+
+@router.get("/value-report")
+async def get_value_report(
+    days: int = Query(default=30, ge=1, le=365),
+    request_db: Any = Depends(get_request_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    result = await build_artifact_value_report(
         request_db, organization_id=org_id, days=days
     )
     return api_success(result)

@@ -39,6 +39,16 @@ PARAMETERS: dict[str, dict[str, dict[str, Any]]] = {
             "unit": "mg/L",
             "aliases": ["检出限", "检测限", "lod", "detection limit"],
         },
+        "wavelength_accuracy": {
+            "label": "波长准确度",
+            "unit": "nm",
+            "aliases": ["波长准确度", "wavelength accuracy"],
+        },
+        "baseline_stability": {
+            "label": "基线稳定性",
+            "unit": "Abs/h",
+            "aliases": ["基线稳定性", "baseline stability", "基线漂移"],
+        },
     },
     "chromatography": {
         "pressure_limit": {
@@ -55,6 +65,16 @@ PARAMETERS: dict[str, dict[str, dict[str, Any]]] = {
             "label": "保留时间重复性",
             "unit": "%",
             "aliases": ["保留时间重复性", "保留时间rsd", "retention time rsd"],
+        },
+        "gradient_accuracy": {
+            "label": "梯度准确度",
+            "unit": "%",
+            "aliases": ["梯度准确度", "gradient accuracy"],
+        },
+        "carryover": {
+            "label": "交叉污染",
+            "unit": "%",
+            "aliases": ["交叉污染", "残留", "carryover"],
         },
     },
     "mass_spectrometry": {
@@ -78,6 +98,16 @@ PARAMETERS: dict[str, dict[str, dict[str, Any]]] = {
             "unit": "",
             "aliases": ["灵敏度", "sensitivity"],
         },
+        "scan_speed": {
+            "label": "扫描速度",
+            "unit": "spectra/s",
+            "aliases": ["扫描速度", "scan speed"],
+        },
+        "linear_dynamic_range": {
+            "label": "线性动态范围",
+            "unit": "orders",
+            "aliases": ["线性动态范围", "linear dynamic range"],
+        },
     },
     "energy_spectroscopy": {
         "energy_resolution": {
@@ -94,6 +124,11 @@ PARAMETERS: dict[str, dict[str, dict[str, Any]]] = {
             "label": "探测面积",
             "unit": "mm2",
             "aliases": ["探测面积", "探测器面积", "detector area"],
+        },
+        "light_element_range": {
+            "label": "轻元素检测范围",
+            "unit": "atomic number",
+            "aliases": ["轻元素范围", "轻元素检测", "light element range"],
         },
     },
     "electronic_instrumentation": {
@@ -112,6 +147,16 @@ PARAMETERS: dict[str, dict[str, dict[str, Any]]] = {
             "label": "测量精度",
             "unit": "%",
             "aliases": ["测量精度", "精度", "measurement accuracy"],
+        },
+        "noise_floor": {
+            "label": "底噪",
+            "unit": "dBm",
+            "aliases": ["底噪", "噪声底", "noise floor"],
+        },
+        "timebase_accuracy": {
+            "label": "时基准确度",
+            "unit": "ppm",
+            "aliases": ["时基准确度", "timebase accuracy"],
         },
     },
 }

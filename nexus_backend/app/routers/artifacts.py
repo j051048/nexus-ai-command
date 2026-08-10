@@ -20,7 +20,9 @@ from app.services.artifact_docx_renderer import (
     render_artifact_pdf,
     render_artifact_xlsx,
 )
+from app.services.artifact_feedback_loop import record_delivery_event
 from app.services.artifact_generation_job_service import (
+    artifact_job_health,
     attach_task_id,
     create_job,
     enqueue_generation_job,
@@ -170,6 +172,14 @@ async def create_artifact(
         output_format: f"/api/artifacts/{result['id']}/download?format={output_format}"
         for output_format in result["requested_formats"]
     }
+    await record_delivery_event(
+        db,
+        organization_id=organization_id,
+        artifact_id=str(result["id"]),
+        user_id=user_id,
+        event_type="generated",
+        metadata={"source": "synchronous-api"},
+    )
     return api_success(data=result, message="精品成果已生成")
 
 
@@ -199,6 +209,16 @@ async def create_artifact_job(
     return api_success(
         data={**public_job(job), "reused": not created},
         message="成果任务已提交",
+    )
+
+
+@router.get("/jobs/health")
+async def get_artifact_jobs_health(
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+):
+    return api_success(
+        data=await artifact_job_health(db, organization_id=organization_id)
     )
 
 
@@ -294,6 +314,7 @@ async def download_artifact(
     format: Literal["docx", "pdf", "xlsx"] = Query(default="docx"),
     db=Depends(get_request_db),
     organization_id: str = Depends(get_current_org_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     artifact, version = await _load_artifact(db, organization_id, artifact_id)
     artifact_payload = {
@@ -329,6 +350,16 @@ async def download_artifact(
         "X-Artifact-Quality": str(artifact.get("quality_score") or 0),
         "X-Artifact-Approval": str(artifact.get("approval_status") or "pending"),
     }
+    await record_delivery_event(
+        db,
+        organization_id=organization_id,
+        artifact_id=str(artifact_id),
+        artifact_version_id=str(version.get("id") or "") or None,
+        user_id=user_id,
+        event_type="downloaded",
+        output_format=format,
+        metadata={"quality_score": artifact.get("quality_score") or 0},
+    )
     return Response(content=content, media_type=media_type, headers=headers)
 
 
@@ -372,6 +403,15 @@ async def review_artifact(
     artifact.update(
         {"approval_status": body.decision, "status": next_status, "updated_at": now}
     )
+    await record_delivery_event(
+        db,
+        organization_id=organization_id,
+        artifact_id=str(artifact_id),
+        artifact_version_id=str(version.get("id") or "") or None,
+        user_id=user_id,
+        event_type="reviewed",
+        metadata={"decision": body.decision},
+    )
     return api_success(
         data=_public_artifact(artifact, version), message="审核状态已更新"
     )
@@ -414,6 +454,16 @@ async def record_artifact_feedback(
             "created_at": datetime.now(UTC).isoformat(),
         }
     ).execute()
+    if body.outcome:
+        await record_delivery_event(
+            db,
+            organization_id=organization_id,
+            artifact_id=str(artifact_id),
+            artifact_version_id=str(version.get("id") or "") or None,
+            user_id=user_id,
+            event_type=body.outcome,
+            metadata={"rating": body.rating, "source": "artifact-feedback"},
+        )
     return api_success(
         data={
             "artifact_id": str(artifact_id),

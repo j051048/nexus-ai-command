@@ -55,7 +55,6 @@ const MANAGED_DEBT = new Map(
     "src/components/orgchart/OrgFlowCanvas.tsx": 557,
     "src/pages/InboxPage.tsx": 556,
     "src/components/workflow/WorkflowCanvas.tsx": 556,
-    "src/components/layout/Sidebar.tsx": 550,
     "src/pages/AIOperatingSystemPage.tsx": 546,
     "src/pages/AgentImprovementCenterPage.tsx": 533,
     "src/components/onboarding/OnboardingWizard.tsx": 527,

@@ -164,6 +164,7 @@ try:
             "inventory",
             "pending_confirmations",
             "artifact_generation_jobs",
+            "artifact_delivery_events",
             "organization_activation_state",
         }
 

@@ -190,7 +190,107 @@ async def record_customer_outcome(
     }
     try:
         result = await db.table("artifact_feedback_events").insert(payload).execute()
+        await record_delivery_event(
+            db,
+            organization_id=organization_id,
+            artifact_id=artifact_id,
+            artifact_version_id=artifact_version_id,
+            user_id=user_id,
+            event_type=outcome,
+            metadata={"rating": rating, "source": "quality-platform"},
+        )
         return {"ok": True, "data": result.data}
     except Exception as exc:  # broad-except: intentional
         logger.warning("[FeedbackLoop] customer outcome not persisted: %s", exc)
         return {"ok": False, "error": str(exc)}
+
+
+async def record_delivery_event(
+    db: Any,
+    *,
+    organization_id: str,
+    artifact_id: str,
+    event_type: str,
+    artifact_version_id: str | None = None,
+    user_id: str | None = None,
+    output_format: str | None = None,
+    estimated_value: float | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> bool:
+    """Best-effort outcome telemetry; delivery must not fail when telemetry does."""
+    try:
+        await db.table("artifact_delivery_events").insert(
+            {
+                "organization_id": organization_id,
+                "artifact_id": artifact_id,
+                "artifact_version_id": artifact_version_id,
+                "user_id": user_id,
+                "event_type": event_type,
+                "output_format": output_format,
+                "estimated_value": estimated_value,
+                "metadata": metadata or {},
+            }
+        ).execute()
+        return True
+    except Exception as exc:  # broad-except: telemetry is non-blocking
+        logger.info("[FeedbackLoop] delivery event skipped: %s", exc)
+        return False
+
+
+async def build_artifact_value_report(
+    db: Any, *, organization_id: str, days: int = 30
+) -> dict[str, Any]:
+    """Connect generated files to downloads, adoption and commercial outcomes."""
+    from datetime import datetime, timedelta
+
+    since = (datetime.now(UTC) - timedelta(days=max(1, days))).isoformat()
+    try:
+        result = (
+            await db.table("artifact_delivery_events")
+            .select("artifact_id,event_type,estimated_value,created_at")
+            .eq("organization_id", organization_id)
+            .gte("created_at", since)
+            .limit(2000)
+            .execute()
+        )
+        rows = result.data or []
+    except Exception as exc:  # broad-except: migration may not be deployed yet
+        logger.warning("[FeedbackLoop] value report unavailable: %s", exc)
+        return {
+            "available": False,
+            "window_days": days,
+            "events": 0,
+            "by_event": {},
+        }
+
+    by_event: dict[str, int] = {}
+    artifact_ids: set[str] = set()
+    downloaded_ids: set[str] = set()
+    adopted_ids: set[str] = set()
+    won_ids: set[str] = set()
+    estimated_value = 0.0
+    for row in rows:
+        event_type = str(row.get("event_type") or "unknown")
+        artifact_id = str(row.get("artifact_id") or "")
+        by_event[event_type] = by_event.get(event_type, 0) + 1
+        if artifact_id:
+            artifact_ids.add(artifact_id)
+        if event_type == "downloaded":
+            downloaded_ids.add(artifact_id)
+        if event_type in {"used", "edited", "won"}:
+            adopted_ids.add(artifact_id)
+        if event_type == "won":
+            won_ids.add(artifact_id)
+        estimated_value += float(row.get("estimated_value") or 0)
+    generated = max(by_event.get("generated", 0), len(artifact_ids))
+    return {
+        "available": bool(rows),
+        "window_days": days,
+        "events": len(rows),
+        "unique_artifacts": len(artifact_ids),
+        "by_event": by_event,
+        "download_rate": round(len(downloaded_ids) / generated, 4) if generated else 0,
+        "adoption_rate": round(len(adopted_ids) / generated, 4) if generated else 0,
+        "won_count": len(won_ids),
+        "estimated_value": round(estimated_value, 2),
+    }
