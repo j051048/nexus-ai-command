@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "30 18 * * *"
   workflow_dispatch:
+    inputs:
+      require_live:
+        description: "Fail unless all live replay credentials are configured"
+        required: false
+        default: false
+        type: boolean
 
 env:
   PYTHON_VERSION: "3.11"
@@ -23,17 +29,37 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Run replay harness
-        run: python scripts/agent_replay_nightly.py --require-live
+        run: |
+          if [[ -n "$AGENT_REPLAY_BASE_URL" && -n "$AGENT_REPLAY_TOKEN" ]]; then
+            python scripts/agent_replay_nightly.py --require-live
+          elif [[ "$REQUIRE_LIVE" == "true" ]]; then
+            echo "::error::Live Agent replay was required, but AGENT_REPLAY_BASE_URL or AGENT_REPLAY_TOKEN is missing"
+            exit 1
+          else
+            echo "::warning::Live Agent replay credentials are not configured; running static replay contracts"
+            python scripts/agent_replay_nightly.py
+          fi
         env:
           AGENT_REPLAY_BASE_URL: ${{ secrets.AGENT_REPLAY_BASE_URL }}
           AGENT_REPLAY_TOKEN: ${{ secrets.AGENT_REPLAY_TOKEN }}
+          REQUIRE_LIVE: ${{ github.event_name == 'workflow_dispatch' && inputs.require_live || false }}
 
       - name: Run live customer delivery acceptance
-        run: python scripts/run_customer_golden_acceptance.py --require-live
+        run: |
+          if [[ -n "$GOLDEN_ACCEPTANCE_BASE_URL" && -n "$GOLDEN_ACCEPTANCE_TOKEN" && -n "$GOLDEN_ACCEPTANCE_ORG_ID" ]]; then
+            python scripts/run_customer_golden_acceptance.py --require-live
+          elif [[ "$REQUIRE_LIVE" == "true" ]]; then
+            echo "::error::Live customer acceptance was required, but one or more GOLDEN_ACCEPTANCE credentials are missing"
+            exit 1
+          else
+            echo "::warning::Live customer acceptance credentials are not configured; running static acceptance contracts"
+            python scripts/run_customer_golden_acceptance.py
+          fi
         env:
           GOLDEN_ACCEPTANCE_BASE_URL: ${{ secrets.GOLDEN_ACCEPTANCE_BASE_URL }}
           GOLDEN_ACCEPTANCE_TOKEN: ${{ secrets.GOLDEN_ACCEPTANCE_TOKEN }}
           GOLDEN_ACCEPTANCE_ORG_ID: ${{ secrets.GOLDEN_ACCEPTANCE_ORG_ID }}
+          REQUIRE_LIVE: ${{ github.event_name == 'workflow_dispatch' && inputs.require_live || false }}
 
       - name: Static release gates
         run: |

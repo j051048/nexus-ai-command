@@ -238,15 +238,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Run vitest (unit + hooks + components + security + utils + contexts)
-        run: |
-          npx vitest run --coverage --reporter=verbose \
-            src/__tests__/lib \
-            src/__tests__/hooks \
-            src/__tests__/components \
-            src/__tests__/security \
-            src/__tests__/utils \
-            src/__tests__/contexts
+      - name: Run full Vitest suite with coverage
+        run: npx vitest run --coverage --reporter=verbose
+
+      - name: Enforce frontend coverage trend
+        run: node scripts/check_frontend_coverage_trend.mjs --check
 
       - name: Extract coverage
         id: cov

@@ -141,11 +141,11 @@ class FullGraphReplayService:
 
     @classmethod
     def _json_safe_value(cls, value: Any) -> Any:
-        if isinstance(value, (str, int, float, bool, type(None))):
+        if isinstance(value, str | int | float | bool | None):
             return value
         if isinstance(value, dict):
             return {str(key): cls._json_safe_value(item) for key, item in value.items()}
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             return [cls._json_safe_value(item) for item in value]
         if is_dataclass(value):
             return cls._json_safe_value(asdict(value))

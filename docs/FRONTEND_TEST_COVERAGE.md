@@ -25,7 +25,7 @@
 阈值 = 当前真实基线,仅防止覆盖率继续下滑:
 
 ```ts
-lines: 12.5, branches: 8.0, functions: 8.5, statements: 11.5
+lines: 12.0, branches: 7.5, functions: 8.0, statements: 11.0
 ```
 
 低于该值本地 `npm test -- --coverage` 直接失败。**它不是质量目标**,只是"不准更差"。

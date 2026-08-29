@@ -132,10 +132,12 @@ test.describe('product quality golden paths', () => {
     await setupProductQualityMocks(page, 'boss');
     await loginViaForm(page, 'boss');
 
-    for (const path of ['/dashboard', '/crm', '/approval', '/contracts']) {
+    for (const path of ['/inbox', '/crm', '/approval', '/contracts']) {
       await page.goto(path);
       await expectHealthyPage(page);
-      await expect(page.getByTestId('ai-insight-panel').first()).toBeVisible({ timeout: 15000 });
+      await expect(page.locator('[data-testid^="ai-insight-panel-"]').first()).toBeVisible({
+        timeout: 15000,
+      });
     }
   });
 

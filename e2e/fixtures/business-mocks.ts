@@ -51,7 +51,10 @@ export function createFakeJwt(role = 'boss') {
 }
 
 function getSupabaseAuthStorageKeys(): string[] {
-  const keys = new Set<string>(['sb-hztpazmuejgbtixihcgj-auth-token']);
+  const keys = new Set<string>([
+    'sb-hztpazmuejgbtixihcgj-auth-token',
+    'sb-placeholder-auth-token',
+  ]);
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   if (url) {
     try {
@@ -737,6 +740,6 @@ export async function loginViaForm(page: Page, role = 'boss') {
   // 等待离开登录页
   await expect(page).not.toHaveURL(/.*\/login/, { timeout: 10000 });
   await expect(sidebar).toBeVisible({ timeout: 10000 });
-  await expect(sidebar.getByText(role, { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(sidebar).toHaveAttribute('data-app-role', role, { timeout: 10000 });
   await dismissProductTourIfVisible(page);
 }

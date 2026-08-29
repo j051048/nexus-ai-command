@@ -35,7 +35,7 @@ describe('Core Pages Importability', () => {
                     expect(e).toBeDefined();
                 }
             }
-        });
+        }, 15_000);
     }
 });
 

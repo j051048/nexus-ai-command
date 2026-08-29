@@ -8,6 +8,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +72,10 @@ class TokenCounter:
     """
 
     def __init__(self):
-        self._encoders: dict[str, any] = {}
+        self._encoders: dict[str, Any | None] = {}
 
     def _get_encoder(self, model: str):
-        """Get or create encoder for model"""
+        """Get an encoder without making token counting depend on the network."""
         if not TIKTOKEN_AVAILABLE:
             return None
 
@@ -82,8 +83,34 @@ class TokenCounter:
             try:
                 self._encoders[model] = tiktoken.encoding_for_model(model)
             except KeyError:
-                # Fallback to cl100k_base for unknown models
-                self._encoders[model] = tiktoken.get_encoding("cl100k_base")
+                try:
+                    self._encoders[model] = tiktoken.get_encoding("cl100k_base")
+                except (
+                    ConnectionError,
+                    OSError,
+                    RuntimeError,
+                    TimeoutError,
+                    ValueError,
+                ) as exc:
+                    logger.warning(
+                        "Tokenizer data unavailable for model %s; using deterministic estimate: %s",
+                        model,
+                        exc,
+                    )
+                    self._encoders[model] = None
+            except (
+                ConnectionError,
+                OSError,
+                RuntimeError,
+                TimeoutError,
+                ValueError,
+            ) as exc:
+                logger.warning(
+                    "Tokenizer data unavailable for model %s; using deterministic estimate: %s",
+                    model,
+                    exc,
+                )
+                self._encoders[model] = None
 
         return self._encoders[model]
 
@@ -100,7 +127,7 @@ class TokenCounter:
         # This is a rough estimate
         chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
         other_chars = len(text) - chinese_chars
-        return int(chinese_chars / 1.5 + other_chars / 4)
+        return max(1, int(chinese_chars / 1.5 + other_chars / 4))
 
     def count_messages_tokens(
         self, messages: list[dict], model: str = "deepseek-v4-flash"

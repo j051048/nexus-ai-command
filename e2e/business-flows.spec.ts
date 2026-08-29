@@ -16,11 +16,11 @@ test.describe('Document Management Flow', () => {
     await loginViaForm(page);
   });
 
-  test('should display documents page for authenticated users', async ({ page }) => {
+  test('should display enterprise knowledge assets for authenticated users', async ({ page }) => {
     await page.goto('/knowledge');
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('heading', { name: '知识图谱' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'AI 的企业事实库' })).toBeVisible();
   });
 });
 
@@ -58,10 +58,11 @@ test.describe('Approval & Workflow Flow', () => {
     await expect(page.getByRole('heading', { name: '审批中心' })).toBeVisible({ timeout: 10000 });
   });
 
-  test('should list workflows from mock api', async ({ page }) => {
+  test('should keep the low-frequency workflow designer out of the focused launch profile', async ({ page }) => {
     await page.goto('/workflows');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: '流程设计器' })).toBeVisible({ timeout: 10000 });
+    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '今天最值得推进的业务' })).toBeVisible({ timeout: 10000 });
   });
 });
 

@@ -2,6 +2,7 @@
 
 from app.core.model_pricing import DEFAULT_PRICE, MODEL_PRICES
 from app.services.token_service import (
+    TokenCounter,
     TokenUsage,
     UsageLimits,
     UsageTracker,
@@ -11,7 +12,25 @@ from app.services.token_service import (
 
 # ─── TokenCounter Tests ─────────────────────────────────────────────────────
 
+
 class TestTokenCounter:
+    def test_network_failure_uses_cached_deterministic_fallback(self, monkeypatch):
+        counter = TokenCounter()
+
+        def unavailable(_model):
+            raise RuntimeError("network access disabled")
+
+        monkeypatch.setattr(
+            "app.services.token_service.tiktoken.encoding_for_model", unavailable
+        )
+
+        first = counter.count_tokens("离线环境也必须稳定计数", "gpt-4o")
+        second = counter.count_tokens("离线环境也必须稳定计数", "gpt-4o")
+
+        assert first == second
+        assert first > 0
+        assert counter._encoders["gpt-4o"] is None
+
     def test_count_tokens_basic(self):
         count = token_counter.count_tokens("Hello world", "gpt-4o")
         assert isinstance(count, int)
@@ -49,7 +68,10 @@ class TestTokenCounter:
                 "role": "user",
                 "content": [
                     {"type": "text", "text": "Describe this image"},
-                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,abc"},
+                    },
                 ],
             }
         ]
@@ -86,6 +108,7 @@ class TestTokenCounter:
 
 # ─── ModelPricing Tests ──────────────────────────────────────────────────────
 
+
 class TestModelPricing:
     def test_has_enough_models(self):
         assert len(MODEL_PRICES) > 5
@@ -105,10 +128,13 @@ class TestModelPricing:
         for model, (input_p, output_p) in MODEL_PRICES.items():
             if model.startswith(embedding_prefixes):
                 continue
-            assert output_p >= input_p, f"{model}: output ({output_p}) < input ({input_p})"
+            assert (
+                output_p >= input_p
+            ), f"{model}: output ({output_p}) < input ({input_p})"
 
 
 # ─── UsageTracker Tests ──────────────────────────────────────────────────────
+
 
 class TestUsageTracker:
     def test_check_limits_within_bounds(self):
@@ -121,7 +147,9 @@ class TestUsageTracker:
         tracker = UsageTracker()
         is_valid, error = tracker.check_limits("test-user-big", 200_000)
         assert is_valid is False
-        assert "per-request" in error.lower() or "request" in error.lower() or error != ""
+        assert (
+            "per-request" in error.lower() or "request" in error.lower() or error != ""
+        )
 
     def test_record_usage(self):
         tracker = UsageTracker()
@@ -166,7 +194,13 @@ class TestUsageTracker:
         """Summary should contain all expected fields."""
         tracker = UsageTracker()
         summary = tracker.get_usage_summary("structure-test-user")
-        expected_keys = {"tokens_used", "cost_usd", "requests", "tokens_limit", "cost_limit_usd"}
+        expected_keys = {
+            "tokens_used",
+            "cost_usd",
+            "requests",
+            "tokens_limit",
+            "cost_limit_usd",
+        }
         assert expected_keys.issubset(set(summary.keys()))
 
     def test_multiple_records_accumulate(self):
@@ -209,10 +243,13 @@ class TestUsageTracker:
 
 # ─── validate_request_tokens Tests ───────────────────────────────────────────
 
+
 class TestValidateRequestTokens:
     def test_valid_request(self):
         messages = [{"role": "user", "content": "Hello"}]
-        is_valid, count, error = validate_request_tokens(messages, "gpt-4o", "test-user-valid")
+        is_valid, count, error = validate_request_tokens(
+            messages, "gpt-4o", "test-user-valid"
+        )
         assert is_valid is True
         assert count > 0
         assert error == ""
@@ -220,7 +257,9 @@ class TestValidateRequestTokens:
     def test_empty_messages(self):
         """Empty message list should still be valid (just overhead tokens)."""
         messages: list[dict] = []
-        is_valid, count, error = validate_request_tokens(messages, "gpt-4o", "test-user-empty")
+        is_valid, count, error = validate_request_tokens(
+            messages, "gpt-4o", "test-user-empty"
+        )
         assert is_valid is True
         assert count >= 0
 
@@ -228,8 +267,12 @@ class TestValidateRequestTokens:
         """A huge message should exceed per-request limit (100K tokens)."""
         # 'x' repeats are compressed by tiktoken, so use varied content
         # Each word is roughly 1 token, so 150K words ≈ 150K tokens
-        messages = [{"role": "user", "content": " ".join(f"word{i}" for i in range(150_000))}]
-        is_valid, count, error = validate_request_tokens(messages, "gpt-4o", "test-user-long")
+        messages = [
+            {"role": "user", "content": " ".join(f"word{i}" for i in range(150_000))}
+        ]
+        is_valid, count, error = validate_request_tokens(
+            messages, "gpt-4o", "test-user-long"
+        )
         assert is_valid is False
         assert count > 100_000
 
@@ -237,12 +280,15 @@ class TestValidateRequestTokens:
         """Should work with different model names."""
         messages = [{"role": "user", "content": "Test"}]
         for model in ["gpt-4o", "gpt-4o-mini", "gemini-pro", "claude-3-sonnet"]:
-            is_valid, count, error = validate_request_tokens(messages, model, f"test-{model}")
+            is_valid, count, error = validate_request_tokens(
+                messages, model, f"test-{model}"
+            )
             assert is_valid is True
             assert count > 0
 
 
 # ─── UsageLimits Tests ───────────────────────────────────────────────────────
+
 
 class TestUsageLimits:
     def test_default_limits(self):

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import FastAPI
 
+from app.core.route_introspection import iter_effective_routes
 from app.routers import knowledge
 from app.startup.route_groups import register_document_routes
 
@@ -68,7 +69,11 @@ async def test_patterns_return_empty_graph_without_error(monkeypatch):
 def test_knowledge_router_is_registered_with_document_routes():
     app = FastAPI()
     register_document_routes(app)
-    paths = {route.path for route in app.routes}
+    paths = {
+        route.path
+        for route in iter_effective_routes(app.routes)
+        if hasattr(route, "path")
+    }
 
     assert "/api/knowledge/search" in paths
     assert "/api/knowledge/entity/{entity_id}/relations" in paths

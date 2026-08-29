@@ -405,13 +405,15 @@ def get_enhanced_openapi_description() -> str:
 
 def get_endpoint_stats(app) -> dict[str, Any]:
     """获取 API 端点统计信息"""
+    from app.core.route_introspection import iter_effective_routes
+
     stats = {
         "total_routes": 0,
         "methods": {},
         "tags": {},
     }
 
-    for route in app.routes:
+    for route in iter_effective_routes(app.routes):
         if hasattr(route, "methods"):
             stats["total_routes"] += 1
             for method in route.methods:

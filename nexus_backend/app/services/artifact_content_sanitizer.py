@@ -54,7 +54,7 @@ def _normalized_paragraph(value: str) -> str:
 
 
 def _evidence_lookup(
-    evidence_packet: dict[str, Any] | None
+    evidence_packet: dict[str, Any] | None,
 ) -> dict[tuple[str, str], dict[str, Any]]:
     records = (evidence_packet or {}).get("records") or []
     return {

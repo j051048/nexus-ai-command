@@ -551,12 +551,17 @@ test.describe('Customer business acceptance flows', () => {
   });
 
   test('9. golden path covers action inbox, CRM AI follow-up, industry assets, and analytics', async ({ page }) => {
+    test.slow();
     await setupAcceptanceMocks(page, 'boss');
 
-    await page.goto('/dashboard');
+    await page.goto('/inbox');
     await expectHealthyPage(page);
     await expect(page.getByText('今日重点')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: '查看依据' })).toBeVisible({ timeout: 10000 });
+    const moreInsightActions = page.getByRole('button', { name: '更多建议操作' });
+    await expect(moreInsightActions).toBeVisible({ timeout: 10000 });
+    await moreInsightActions.click();
+    await expect(page.getByRole('menuitem', { name: '查看依据' })).toBeVisible();
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: '跳过引导' }).click({ timeout: 5000 }).catch(() => undefined);
     await page.locator('[data-testid^="inbox-action-menu-"]').first().click();
     await page.locator('[data-testid^="inbox-action-accept-"]').first().click();
@@ -572,7 +577,7 @@ test.describe('Customer business acceptance flows', () => {
     await page.goto('/industry-knowledge');
     await expectHealthyPage(page);
     await expect(page.getByText('科学仪器行业知识资产')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Thermo Fisher LC/MS 竞品对比框架')).toBeVisible();
+    await expect(page.locator('main').last()).toContainText('Thermo Fisher LC/MS 竞品对比框架');
 
     await page.goto('/action-analytics');
     await expectHealthyPage(page);
@@ -582,7 +587,7 @@ test.describe('Customer business acceptance flows', () => {
 
     await page.goto('/ai-operating-system');
     await expectHealthyPage(page);
-    await expect(page.getByRole('heading', { name: 'AI 作战室' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'AI 运营工作台' })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('heading', { name: 'AI 价值与信任仪表盘' })).toBeVisible();
     await page.getByRole('tab', { name: '运行监控' }).click();
     await expect(page.getByText('真实运营数据')).toBeVisible();
@@ -613,25 +618,32 @@ test.describe('Customer business acceptance flows', () => {
       });
     });
     await page.route('**/api/artifacts?*', (route) => fulfillJson(route, { success: true, data: { artifacts: [] } }));
-    await page.route('**/api/artifacts/generate', async (route) => {
+    await page.route('**/api/artifacts/jobs', async (route) => {
       artifactPayload = JSON.parse(route.request().postData() || '{}');
       await fulfillJson(route, {
         success: true,
         data: {
-          id: '11111111-1111-4111-8111-111111111111',
-          artifact_code: 'ART-20260722-E2E',
-          title: '食品安全检测仪升级方案',
-          artifact_type: 'customer_solution',
-          artifact_label: '客户解决方案',
-          status: 'approved',
-          approval_status: 'approved',
-          quality: { score: 93, ready: true, findings: [], dimensions: { structure: 100 } },
-          version_number: 1,
-          requested_formats: ['docx'],
-          verification_items: [],
-          evidence: { count: 6, coverage: 1, sufficient: true, missing_topics: [] },
-          download_urls: {
-            docx: '/api/artifacts/11111111-1111-4111-8111-111111111111/download?format=docx',
+          id: 'job-11111111',
+          status: 'completed',
+          stage: 'completed',
+          progress: 100,
+          progress_details: {},
+          result: {
+            id: '11111111-1111-4111-8111-111111111111',
+            artifact_code: 'ART-20260722-E2E',
+            title: '食品安全检测仪升级方案',
+            artifact_type: 'customer_solution',
+            artifact_label: '客户解决方案',
+            status: 'approved',
+            approval_status: 'approved',
+            quality: { score: 93, ready: true, findings: [], dimensions: { structure: 100 } },
+            version_number: 1,
+            requested_formats: ['docx'],
+            verification_items: [],
+            evidence: { count: 6, coverage: 1, sufficient: true, missing_topics: [] },
+            download_urls: {
+              docx: '/api/artifacts/11111111-1111-4111-8111-111111111111/download?format=docx',
+            },
           },
         },
       });

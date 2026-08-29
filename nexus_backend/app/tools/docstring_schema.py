@@ -168,7 +168,9 @@ def generate_tool_schemas_from_router(
 
     schemas: list[dict[str, Any]] = []
 
-    for route in router.routes:
+    from app.core.route_introspection import iter_effective_routes
+
+    for route in iter_effective_routes(router.routes):
         if not hasattr(route, "endpoint"):
             continue
         func = route.endpoint
