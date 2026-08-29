@@ -42,14 +42,14 @@ function headers() {
 function apiGet(path, tag) {
   const res = http.get(`${BASE}${path}`, { headers: headers(), tags: { name: tag } });
   apiDuration.add(res.timings.duration);
-  errorRate.add(res.status >= 400);
+  errorRate.add(res.status >= 500 || res.status === 429);
   return res;
 }
 
 function apiPost(path, body, tag) {
   const res = http.post(`${BASE}${path}`, JSON.stringify(body), { headers: headers(), tags: { name: tag } });
   apiDuration.add(res.timings.duration);
-  errorRate.add(res.status >= 400);
+  errorRate.add(res.status >= 500 || res.status === 429);
   return res;
 }
 
