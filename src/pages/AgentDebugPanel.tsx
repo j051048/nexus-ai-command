@@ -248,12 +248,12 @@ function StatCard({
   color: string;
 }) {
   return (
-    <Card>
+    <Card variant="interactive">
       <CardContent className="flex items-center gap-4 p-5">
-        <div className={`p-3 rounded-lg ${color}`}>{icon}</div>
+        <div className={`p-3 rounded-lg border border-border/60 ${color}`}>{icon}</div>
         <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold">{value}</p>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="font-mono text-2xl font-bold tracking-tight tabular-nums">{value}</p>
         </div>
       </CardContent>
     </Card>

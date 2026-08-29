@@ -225,13 +225,13 @@ export default function AIOperatingSystemPage() {
             const Icon = metric.icon;
             return (
               <div key={metric.label} className={cn('flex items-center gap-3 py-3 sm:px-4 lg:py-1', index > 0 && 'lg:border-l')}>
-                <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-muted/30 text-primary">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md border border-border/80 bg-muted/40 text-primary shrink-0 shadow-sm">
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs text-muted-foreground">{metric.label}</div>
+                  <div className="text-xs font-medium text-muted-foreground">{metric.label}</div>
                   <div className="mt-0.5 flex items-baseline gap-2">
-                    <span className="text-xl font-semibold">{metric.value}</span>
+                    <span className="font-mono text-xl font-semibold tracking-tight tabular-nums">{metric.value}</span>
                     <span className="truncate text-xs text-muted-foreground">{metric.meta}</span>
                   </div>
                 </div>
