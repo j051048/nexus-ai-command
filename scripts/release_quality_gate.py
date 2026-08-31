@@ -1263,7 +1263,7 @@ CHECKS = [
         "e2e/customer-business-acceptance.spec.ts",
         (
             "/ai-operating-system",
-            "AI 作战室",
+            "AI 运营工作台",
             "AI 价值与信任仪表盘",
             "Agent 仿真沙盒",
             "生成 Agent 定义",

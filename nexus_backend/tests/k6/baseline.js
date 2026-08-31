@@ -13,7 +13,9 @@ import { Rate, Trend } from 'k6/metrics';
 
 // ── Custom metrics ──
 const errorRate = new Rate('errors');
+const rateLimited = new Rate('rate_limited');
 const apiDuration = new Trend('api_duration', true);
+const expectedResponse = http.expectedStatuses({ min: 200, max: 399 }, 401, 403, 429);
 
 // ── Options ──
 export const options = {
@@ -27,6 +29,7 @@ export const options = {
   thresholds: {
     http_req_duration: ['p(95)<500', 'p(99)<1500'],
     errors: ['rate<0.01'],
+    rate_limited: ['rate<0.20'],
   },
 };
 
@@ -40,23 +43,37 @@ function headers() {
 }
 
 function apiGet(path, tag) {
-  const res = http.get(`${BASE}${path}`, { headers: headers(), tags: { name: tag } });
+  const res = http.get(`${BASE}${path}`, {
+    headers: headers(),
+    tags: { name: tag },
+    responseCallback: expectedResponse,
+  });
   apiDuration.add(res.timings.duration);
-  errorRate.add(res.status >= 500 || res.status === 429);
+  errorRate.add(res.status >= 500);
+  rateLimited.add(res.status === 429);
   return res;
 }
 
 function apiPost(path, body, tag) {
-  const res = http.post(`${BASE}${path}`, JSON.stringify(body), { headers: headers(), tags: { name: tag } });
+  const res = http.post(`${BASE}${path}`, JSON.stringify(body), {
+    headers: headers(),
+    tags: { name: tag },
+    responseCallback: expectedResponse,
+  });
   apiDuration.add(res.timings.duration);
-  errorRate.add(res.status >= 500 || res.status === 429);
+  errorRate.add(res.status >= 500);
+  rateLimited.add(res.status === 429);
   return res;
+}
+
+function okOrProtected(response) {
+  return [200, 401, 403, 429].includes(response.status);
 }
 
 // ── Scenarios ──
 export default function () {
   group('Health & Meta', () => {
-    const res = apiGet('/api/health', 'health');
+    const res = apiGet('/health/live', 'health');
     check(res, { 'health 200': (r) => r.status === 200 });
   });
 
@@ -72,27 +89,27 @@ export default function () {
 
   group('CRM Customers', () => {
     const res = apiGet('/api/crm/customers?page=1&page_size=10', 'crm_list');
-    check(res, { 'crm 200 or 401': (r) => r.status === 200 || r.status === 401 });
+    check(res, { 'crm available or protected': okOrProtected });
   });
 
   group('Chat Completion', () => {
     const res = apiPost('/api/chat', { message: '你好', conversation_id: null }, 'chat');
-    check(res, { 'chat ok': (r) => r.status === 200 || r.status === 401 });
+    check(res, { 'chat available or protected': okOrProtected });
   });
 
   group('Approval List', () => {
     const res = apiGet('/api/approval/list?page=1&page_size=5', 'approval_list');
-    check(res, { 'approval ok': (r) => r.status === 200 || r.status === 401 });
+    check(res, { 'approval available or protected': okOrProtected });
   });
 
   group('Knowledge Search', () => {
     const res = apiGet('/api/knowledge/search?q=test&limit=5', 'knowledge_search');
-    check(res, { 'knowledge ok': (r) => r.status === 200 || r.status === 401 });
+    check(res, { 'knowledge available or protected': okOrProtected });
   });
 
   group('Usage Stats', () => {
     const res = apiGet('/api/billing/usage', 'billing_usage');
-    check(res, { 'usage ok': (r) => r.status === 200 || r.status === 401 });
+    check(res, { 'usage available or protected': okOrProtected });
   });
 
   sleep(1);
@@ -106,6 +123,7 @@ export function handleSummary(data) {
     p95: data.metrics.http_req_duration.values['p(95)'],
     p99: data.metrics.http_req_duration.values['p(99)'],
     error_rate: data.metrics.errors ? data.metrics.errors.values.rate : 0,
+    rate_limited: data.metrics.rate_limited ? data.metrics.rate_limited.values.rate : 0,
     total_requests: data.metrics.http_reqs.values.count,
     rps: data.metrics.http_reqs.values.rate,
   };

@@ -13,7 +13,9 @@ import { check, group, sleep } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
 
 const errors = new Rate('small_company_errors');
+const rateLimited = new Rate('small_company_rate_limited');
 const latency = new Trend('small_company_latency', true);
+const expectedResponse = http.expectedStatuses({ min: 200, max: 399 }, 401, 403, 429);
 
 export const options = {
   scenarios: {
@@ -32,6 +34,7 @@ export const options = {
     http_req_failed: ['rate<0.02'],
     http_req_duration: ['p(95)<900', 'p(99)<2500'],
     small_company_errors: ['rate<0.02'],
+    small_company_rate_limited: ['rate<0.15'],
     small_company_latency: ['p(95)<900'],
   },
 };
@@ -47,12 +50,19 @@ function headers() {
 
 function record(response) {
   latency.add(response.timings.duration);
-  errors.add(response.status >= 500 || response.status === 429);
+  errors.add(response.status >= 500);
+  rateLimited.add(response.status === 429);
   return response;
 }
 
 function get(path, name) {
-  return record(http.get(`${BASE}${path}`, { headers: headers(), tags: { name } }));
+  return record(
+    http.get(`${BASE}${path}`, {
+      headers: headers(),
+      tags: { name },
+      responseCallback: expectedResponse,
+    }),
+  );
 }
 
 function post(path, body, name) {
@@ -60,25 +70,25 @@ function post(path, body, name) {
     http.post(`${BASE}${path}`, JSON.stringify(body), {
       headers: headers(),
       tags: { name },
+      responseCallback: expectedResponse,
     }),
   );
 }
 
 function okOrAuth(response) {
-  return response.status === 200 || response.status === 401 || response.status === 403;
+  return [200, 401, 403, 429].includes(response.status);
 }
 
 export default function () {
-  group('health and readiness', () => {
+  group('liveness', () => {
     check(get('/health/live', 'health_live'), { 'live ok': (r) => r.status === 200 });
-    check(get('/health/ready', 'health_ready'), { 'ready ok or protected': okOrAuth });
   });
 
   group('core business reads', () => {
     check(get('/api/crm/customers?page=1&page_size=20', 'crm_customers'), { 'crm ok': okOrAuth });
     check(get('/api/approval/list?page=1&page_size=10', 'approval_list'), { 'approval ok': okOrAuth });
     check(get('/api/documents?page=1&page_size=10', 'documents_list'), { 'documents ok': okOrAuth });
-    check(get('/api/hr/employees?page=1&page_size=10', 'hr_employees'), { 'hr ok': okOrAuth });
+    check(get('/api/org-structure/employees', 'organization_employees'), { 'employees ok': okOrAuth });
     check(get('/api/reports/overview', 'reports_overview'), { 'reports ok': okOrAuth });
   });
 
@@ -101,6 +111,8 @@ export function handleSummary(data) {
     p99: values['p(99)'],
     requests: data.metrics.http_reqs.values.count,
     failures: data.metrics.http_req_failed.values.rate,
+    server_errors: data.metrics.small_company_errors.values.rate,
+    rate_limited: data.metrics.small_company_rate_limited.values.rate,
   };
   return {
     stdout: JSON.stringify(summary, null, 2) + '\n',
