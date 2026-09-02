@@ -175,6 +175,24 @@ test.describe('core page visual regression snapshots', () => {
     });
   });
 
+  test('dark operations workspace stays legible', async ({ page }) => {
+    await prepareVisualPage(page);
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'nexus-theme-settings',
+        JSON.stringify({ mode: 'dark', preset: 'default-dark' })
+      );
+    });
+    await page.goto('/ai-operating-system');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).not.toContainText('Application error');
+    await expect(page).toHaveScreenshot('ai-operating-system-dark.png', {
+      fullPage: true,
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.015,
+    });
+  });
+
   test('mobile inbox stays visually stable', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await prepareVisualPage(page);

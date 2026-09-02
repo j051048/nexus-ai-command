@@ -106,6 +106,9 @@ export interface ArtifactSummary {
   requested_formats: ArtifactOutputFormat[];
   created_at: string;
   updated_at: string;
+  evidence_count?: number;
+  evidence_coverage?: number;
+  character_count?: number;
 }
 
 export interface ArtifactSourceDocument {

@@ -9,9 +9,9 @@ export const tokens = {
     glow: 'var(--shadow-card)',
   },
   transition: {
-    fast: '150ms cubic-bezier(0.4, 0, 0.2, 1)',
-    base: '200ms cubic-bezier(0.4, 0, 0.2, 1)',
-    slow: '300ms cubic-bezier(0.4, 0, 0.2, 1)',
+    fast: '120ms cubic-bezier(0.2, 0, 0, 1)',
+    base: '180ms cubic-bezier(0.2, 0, 0, 1)',
+    slow: '240ms cubic-bezier(0.2, 0, 0, 1)',
   },
   zIndex: {
     dropdown: 1000,

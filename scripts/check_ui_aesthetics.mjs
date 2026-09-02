@@ -27,6 +27,24 @@ const coreFiles = [
   'src/components/agent-ops/AgentOpsReleases.tsx',
   'src/components/agent-ops/AgentOpsRuntime.tsx',
   'src/components/common/OperationalMetricStrip.tsx',
+  'src/components/common/PrecisionPageHeader.tsx',
+  'src/components/common/WelcomeTour.tsx',
+  'src/components/common/WorkState.tsx',
+  'src/components/deliverables/DeliverableCenter.tsx',
+  'src/components/ui/badge.tsx',
+  'src/components/ui/button.tsx',
+  'src/components/ui/card.tsx',
+  'src/components/ui/chart.tsx',
+  'src/components/workflow/WorkflowCanvas.tsx',
+  'src/components/workflow/WorkflowProperties.tsx',
+  'src/components/workflow/WorkflowSidebar.tsx',
+  'src/components/workflow/nodes/WorkflowNodeShell.tsx',
+  'src/features/knowledge/KnowledgeAssetsPage.tsx',
+  'src/features/solution/SolutionStagePanels.tsx',
+  'src/pages/AgentDebugPanel.tsx',
+  'src/pages/AgentRunsPage.tsx',
+  'src/pages/SolutionWorkspacePage.tsx',
+  'src/pages/WorkflowDesigner.tsx',
   'src/components/mobile/MobileWorkbenchPage.tsx',
 ];
 
@@ -38,6 +56,8 @@ const forbidden = [
   ['decorative infinite animation', /animate-(?:blob|bounce|ping|glow)/],
   ['oversized radius', /rounded-(?:2xl|3xl)/],
   ['magic icon language', /(?:Sparkles|WandSparkles)/],
+  ['generic all-property transition', /transition-all/],
+  ['compressed letter spacing', /tracking-(?:tight|tighter)/],
 ];
 
 const failures = [];

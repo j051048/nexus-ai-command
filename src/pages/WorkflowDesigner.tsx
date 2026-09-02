@@ -196,10 +196,10 @@ export function WorkflowDesigner() {
 
   return (
     <ReactFlowProvider>
-      <div className="flex flex-col h-[calc(100dvh-120px)]">
+      <div className="flex h-[calc(100dvh-120px)] flex-col border-y bg-background">
         {/* 顶部工具栏 */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
-          <div className="flex items-center gap-3">
+        <div className="flex min-h-14 items-center justify-between gap-4 border-b bg-card/70 px-3 py-2">
+          <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
@@ -234,7 +234,7 @@ export function WorkflowDesigner() {
                 className="flex items-center gap-2 cursor-pointer group"
                 onClick={() => setIsEditingName(true)}
               >
-                <h2 className="text-lg font-semibold">{workflowName}</h2>
+                <h1 className="truncate text-base font-semibold">{workflowName}</h1>
                 <Pencil className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             )}
@@ -244,10 +244,10 @@ export function WorkflowDesigner() {
             </Badge>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2">
             {/* 适用类型 */}
             <Select value={approvalType} onValueChange={setApprovalType}>
-              <SelectTrigger className="h-8 w-32 text-sm">
+              <SelectTrigger className="h-8 w-32 text-sm" aria-label="流程类型">
                 <SelectValue placeholder="审批类型" />
               </SelectTrigger>
               <SelectContent>
@@ -264,7 +264,7 @@ export function WorkflowDesigner() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="流程描述 (可选)"
-              className="h-8 w-48 text-sm"
+              className="hidden h-8 w-48 text-sm lg:block"
             />
 
             {/* 保存 */}

@@ -1,6 +1,7 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { type NodeProps } from '@xyflow/react';
 import { Bell } from 'lucide-react';
+import { WorkflowNodeShell } from './WorkflowNodeShell';
 
 export interface NotifyNodeData {
   label: string;
@@ -25,42 +26,12 @@ function NotifyNodeComponent({ data, selected }: NodeProps) {
     : '未配置';
 
   return (
-    <div
-      className={`
-        px-4 py-3 rounded-lg border-2 bg-background shadow-sm min-w-[160px]
-        ${selected ? 'border-gray-500 ring-2 ring-gray-500/20' : 'border-gray-400'}
-        transition-all
-      `}
-    >
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!w-3 !h-3 !bg-gray-500 !border-2 !border-background"
-      />
-
-      <div className="flex items-center gap-2 mb-1">
-        <div className="p-1.5 rounded-md bg-gray-500/10">
-          <Bell className="w-4 h-4 text-gray-500" />
-        </div>
-        <span className="text-xs font-medium text-gray-600">通知节点</span>
-      </div>
-
-      <div className="text-sm font-semibold">{nodeData.label || '发送通知'}</div>
-      <div className="text-xs text-muted-foreground mt-0.5">
-        渠道: {channelText}
-      </div>
+    <WorkflowNodeShell selected={selected} icon={Bell} typeLabel="消息通知" title={nodeData.label || '发送通知'} tone="neutral">
+      <div className="flex items-center justify-between gap-3 text-[11px]"><span className="text-muted-foreground">渠道</span><span className="font-medium">{channelText}</span></div>
       {nodeData.template && (
-        <div className="text-xs text-muted-foreground">
-          模板: {nodeData.template}
-        </div>
+        <div className="mt-1 truncate text-[11px] text-muted-foreground">模板：{nodeData.template}</div>
       )}
-
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-3 !h-3 !bg-gray-500 !border-2 !border-background"
-      />
-    </div>
+    </WorkflowNodeShell>
   );
 }
 

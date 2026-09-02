@@ -6,6 +6,7 @@ export interface OperationalMetric {
   value: ReactNode;
   detail?: ReactNode;
   tone?: 'default' | 'danger' | 'warning' | 'success';
+  icon?: ReactNode;
 }
 
 interface OperationalMetricStripProps {
@@ -17,8 +18,8 @@ interface OperationalMetricStripProps {
 const VALUE_TONES: Record<NonNullable<OperationalMetric['tone']>, string> = {
   default: 'text-foreground',
   danger: 'text-destructive',
-  warning: 'text-amber-700 dark:text-amber-300',
-  success: 'text-emerald-700 dark:text-emerald-300',
+  warning: 'text-warning',
+  success: 'text-success',
 };
 
 /**
@@ -30,12 +31,20 @@ export function OperationalMetricStrip({
   ariaLabel = '运营指标',
   className,
 }: OperationalMetricStripProps) {
+  const gridClass = metrics.length <= 2
+    ? 'grid-cols-2'
+    : metrics.length === 3
+      ? 'grid-cols-3'
+      : metrics.length === 4
+        ? 'grid-cols-2 md:grid-cols-4'
+        : 'grid-cols-2 md:grid-cols-5';
+
   return (
     <dl
       aria-label={ariaLabel}
       className={cn(
         'grid overflow-hidden border-y bg-card/45',
-        metrics.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-5',
+        gridClass,
         className,
       )}
     >
@@ -44,7 +53,10 @@ export function OperationalMetricStrip({
           key={metric.label}
           className="min-w-0 border-b px-3 py-2.5 last:border-b-0 odd:border-r md:border-b-0 md:border-r md:last:border-r-0"
         >
-          <dt className="truncate text-[11px] font-medium text-muted-foreground">{metric.label}</dt>
+          <dt className="flex min-w-0 items-center gap-1.5 truncate text-[11px] font-medium text-muted-foreground">
+            {metric.icon && <span className="shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5">{metric.icon}</span>}
+            <span className="truncate">{metric.label}</span>
+          </dt>
           <dd
             className={cn(
               'mt-0.5 truncate text-lg font-semibold tabular-nums',
@@ -61,4 +73,3 @@ export function OperationalMetricStrip({
     </dl>
   );
 }
-

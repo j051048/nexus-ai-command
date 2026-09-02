@@ -489,13 +489,9 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
       <div ref={reactFlowWrapper} className="flex-1 h-full relative">
         {isEmptyCanvas && (
           <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-            <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl px-8 py-6 text-center bg-background/60 backdrop-blur-sm">
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                从左侧拖入节点，连线构建审批流程
-              </p>
-              <p className="text-xs text-muted-foreground/70">
-                将发起人节点连接到审批节点，最后连接到结束节点
-              </p>
+            <div className="rounded-md border border-dashed bg-card px-7 py-5 text-center shadow-[var(--shadow-card)]">
+              <p className="text-sm font-medium">拖入第一个执行节点</p>
+              <p className="mt-1 text-xs text-muted-foreground">连接发起人、执行节点和结束节点即可完成流程</p>
             </div>
           </div>
         )}
@@ -518,22 +514,23 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
           maxZoom={isLargeCanvas ? 1.25 : 2}
           nodesDraggable={!isLargeCanvas}
           deleteKeyCode={['Backspace', 'Delete']}
-          className="bg-muted/30"
+          className="bg-[hsl(var(--workspace))]"
           defaultEdgeOptions={{
             markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-            style: { strokeWidth: 2 },
+            style: { strokeWidth: 1.5, stroke: 'hsl(var(--muted-foreground))' },
           }}
         >
-          <Controls className="!bg-background !border !shadow-sm" />
+          <Controls className="!overflow-hidden !rounded-md !border !bg-background !shadow-[var(--shadow-card)] [&_button]:!border-border [&_button]:!bg-background [&_button]:!text-foreground [&_button:hover]:!bg-muted" />
           {!isLargeCanvas && (
             <MiniMap
-              className="!bg-background !border !shadow-sm"
-              nodeStrokeWidth={3}
+              className="!rounded-md !border !bg-background !shadow-[var(--shadow-card)]"
+              nodeStrokeWidth={2}
+              maskColor="hsl(var(--background) / 0.65)"
               zoomable
               pannable
             />
           )}
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+          <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="hsl(var(--border-strong))" />
         </ReactFlow>
       </div>
     );

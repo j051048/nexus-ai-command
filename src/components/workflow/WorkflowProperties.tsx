@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -36,14 +35,14 @@ export function WorkflowProperties({ selectedNode, onNodeUpdate }: WorkflowPrope
 
   if (!selectedNode) {
     return (
-      <Card className="w-64 flex-shrink-0 h-full">
-        <CardContent className="flex flex-col items-center justify-center h-full text-center p-6">
-          <Settings2 className="w-10 h-10 text-muted-foreground/40 mb-3" />
+      <aside className="flex h-full w-72 flex-shrink-0 flex-col items-center justify-center border-l bg-card/55 p-6 text-center">
+          <span className="flex h-9 w-9 items-center justify-center rounded-md border bg-background text-muted-foreground">
+            <Settings2 className="h-4 w-4" />
+          </span>
           <p className="text-sm text-muted-foreground">
             选择一个节点以编辑其属性
           </p>
-        </CardContent>
-      </Card>
+      </aside>
     );
   }
 
@@ -51,48 +50,41 @@ export function WorkflowProperties({ selectedNode, onNodeUpdate }: WorkflowPrope
   const nodeType = selectedNode.type;
 
   return (
-    <Card className="w-64 flex-shrink-0 h-full overflow-auto">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium">节点属性</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-0">
+    <aside className="h-full w-72 flex-shrink-0 overflow-auto border-l bg-card/55">
+      <header className="border-b px-4 py-3">
+        <h2 className="text-sm font-semibold">节点属性</h2>
+        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{String(nodeData.label || selectedNode.type || '当前节点')}</p>
+      </header>
+      <div className="space-y-4 p-4">
         {/* 发起人节点 — 只读说明 */}
         {nodeType === 'initiator' && (
-          <div className="flex flex-col items-center text-center py-4 space-y-3">
-            <div className="p-3 rounded-full bg-green-500/10">
-              <UserCircle2 className="w-8 h-8 text-green-600" />
+          <div className="space-y-3 py-2">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-md border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                <UserCircle2 className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-medium">发起人节点</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">提交申请后开始流转</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium">发起人节点</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                流程的起始点。员工提交审批申请后，流程从此节点开始流转。
-              </p>
-            </div>
-            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 w-full text-left space-y-1">
-              <p>· 此节点不可删除</p>
-              <p>· 从底部连接点拖出连线到下一个节点</p>
-              <p>· 支持通过 AI 助手语音发起审批</p>
-            </div>
+            <p className="border-l-2 border-border pl-3 text-xs leading-5 text-muted-foreground">固定起点，不可删除；从底部端口连接下一个节点。</p>
           </div>
         )}
 
         {/* 结束节点 — 只读说明 */}
         {nodeType === 'end' && (
-          <div className="flex flex-col items-center text-center py-4 space-y-3">
-            <div className="p-3 rounded-full bg-red-500/10">
-              <CircleCheckBig className="w-8 h-8 text-red-500" />
+          <div className="space-y-3 py-2">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-md border bg-muted/60 text-muted-foreground">
+                <CircleCheckBig className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-medium">结束节点</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">完成流程并通知发起人</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium">结束节点</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                流程的终止点。审批流转到此节点后，整个流程完成。
-              </p>
-            </div>
-            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 w-full text-left space-y-1">
-              <p>· 此节点不可删除</p>
-              <p>· 将最后一个审批/通知节点连线到此处</p>
-              <p>· 流程结束后会自动通知发起人</p>
-            </div>
+            <p className="border-l-2 border-border pl-3 text-xs leading-5 text-muted-foreground">固定终点，不可删除；将最后一个执行节点连接到这里。</p>
           </div>
         )}
 
@@ -376,7 +368,7 @@ export function WorkflowProperties({ selectedNode, onNodeUpdate }: WorkflowPrope
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </aside>
   );
 }

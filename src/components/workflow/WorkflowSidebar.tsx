@@ -1,14 +1,22 @@
-import { DragEvent } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserCheck, GitBranch, Users, Zap, Bell, Mail, Timer, GitMerge, Info } from 'lucide-react';
+import type { DragEvent, ReactNode } from 'react';
+import { UserCheck, GitBranch, Users, Zap, Bell, Mail, Timer, GitMerge, GripVertical } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface NodeTypeConfig {
   type: string;
   label: string;
   description: string;
-  icon: React.ReactNode;
-  color: string;
+  icon: ReactNode;
+  tone: 'primary' | 'success' | 'warning' | 'info' | 'neutral';
 }
+
+const TONE_STYLES: Record<NodeTypeConfig['tone'], string> = {
+  primary: 'border-primary/20 bg-primary/[0.08] text-primary',
+  success: 'border-success/20 bg-success/[0.08] text-success',
+  warning: 'border-warning/20 bg-warning/[0.08] text-warning',
+  info: 'border-primary/15 bg-primary/[0.06] text-primary',
+  neutral: 'border-border bg-muted/60 text-muted-foreground',
+};
 
 const BASIC_NODES: NodeTypeConfig[] = [
   {
@@ -16,28 +24,28 @@ const BASIC_NODES: NodeTypeConfig[] = [
     label: '审批人',
     description: '指定角色审批',
     icon: <UserCheck className="w-5 h-5" />,
-    color: 'text-blue-500 bg-blue-500/10 border-blue-200',
+    tone: 'primary',
   },
   {
     type: 'condition',
     label: '条件分支',
     description: '按金额/类型分流',
     icon: <GitBranch className="w-5 h-5" />,
-    color: 'text-yellow-600 bg-yellow-500/10 border-yellow-200',
+    tone: 'warning',
   },
   {
     type: 'auto_approve',
     label: '自动审批',
     description: '小额自动通过',
     icon: <Zap className="w-5 h-5" />,
-    color: 'text-green-500 bg-green-500/10 border-green-200',
+    tone: 'success',
   },
   {
     type: 'notify',
     label: '通知',
     description: '发送通知消息',
     icon: <Bell className="w-5 h-5" />,
-    color: 'text-gray-500 bg-gray-500/10 border-gray-200',
+    tone: 'neutral',
   },
 ];
 
@@ -47,28 +55,28 @@ const ADVANCED_NODES: NodeTypeConfig[] = [
     label: '并行审批',
     description: '多人同时审批',
     icon: <Users className="w-5 h-5" />,
-    color: 'text-purple-500 bg-purple-500/10 border-purple-200',
+    tone: 'info',
   },
   {
     type: 'cc_notify',
     label: '抄送',
     description: '抄送通知相关人员',
     icon: <Mail className="w-5 h-5" />,
-    color: 'text-teal-500 bg-teal-500/10 border-teal-200',
+    tone: 'neutral',
   },
   {
     type: 'timer',
     label: '定时等待',
     description: '延迟后继续流转',
     icon: <Timer className="w-5 h-5" />,
-    color: 'text-orange-500 bg-orange-500/10 border-orange-200',
+    tone: 'warning',
   },
   {
     type: 'sub_workflow',
     label: '子流程',
     description: '引用其他审批流程',
     icon: <GitMerge className="w-5 h-5" />,
-    color: 'text-indigo-500 bg-indigo-500/10 border-indigo-200',
+    tone: 'info',
   },
 ];
 
@@ -77,21 +85,18 @@ function NodeCard({ nodeType, onDragStart }: { nodeType: NodeTypeConfig; onDragS
     <div
       draggable
       onDragStart={(e) => onDragStart(e, nodeType.type)}
-      className={`
-        flex items-center gap-3 p-2.5 rounded-lg border cursor-grab
-        hover:shadow-md transition-all active:cursor-grabbing
-        ${nodeType.color}
-      `}
+      className="group flex cursor-grab items-center gap-2.5 rounded-md border border-transparent px-2 py-2 transition-[background-color,border-color] duration-150 hover:border-border hover:bg-background active:cursor-grabbing"
     >
-      <div className="flex-shrink-0">
+      <div className={cn('flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border [&_svg]:h-4 [&_svg]:w-4', TONE_STYLES[nodeType.tone])}>
         {nodeType.icon}
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-sm font-medium">{nodeType.label}</div>
-        <div className="text-xs text-muted-foreground truncate">
+        <div className="truncate text-[11px] text-muted-foreground">
           {nodeType.description}
         </div>
       </div>
+      <GripVertical className="h-4 w-4 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100" />
     </div>
   );
 }
@@ -103,28 +108,18 @@ export function WorkflowSidebar() {
   };
 
   return (
-    <Card className="w-56 flex-shrink-0 h-full overflow-auto">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">节点面板</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-0">
-        {/* 快速上手提示 */}
-        <div className="flex gap-2 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
-          <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
-            <p className="font-medium mb-0.5">快速上手</p>
-            <p>1. 拖拽节点到画布</p>
-            <p>2. 从节点圆点拖出连线</p>
-            <p>3. 点击节点编辑属性</p>
-          </div>
-        </div>
-
+    <aside className="h-full w-60 flex-shrink-0 overflow-auto border-r bg-card/55" aria-label="流程节点">
+      <div className="border-b px-4 py-3">
+        <h2 className="text-sm font-semibold">添加节点</h2>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">拖入画布后连接端口</p>
+      </div>
+      <div className="space-y-5 p-3">
         {/* 基础节点 */}
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2 px-0.5">
+          <p className="mb-1.5 px-2 text-[11px] font-medium text-muted-foreground">
             常用节点
           </p>
-          <div className="space-y-1.5">
+          <div className="space-y-0.5">
             {BASIC_NODES.map((nodeType) => (
               <NodeCard key={nodeType.type} nodeType={nodeType} onDragStart={onDragStart} />
             ))}
@@ -133,16 +128,16 @@ export function WorkflowSidebar() {
 
         {/* 高级节点 */}
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2 px-0.5">
+          <p className="mb-1.5 px-2 text-[11px] font-medium text-muted-foreground">
             高级节点
           </p>
-          <div className="space-y-1.5">
+          <div className="space-y-0.5">
             {ADVANCED_NODES.map((nodeType) => (
               <NodeCard key={nodeType.type} nodeType={nodeType} onDragStart={onDragStart} />
             ))}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </aside>
   );
 }

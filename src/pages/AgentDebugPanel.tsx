@@ -7,9 +7,10 @@ import { getApiBaseUrl } from "@/lib/apiConfig";
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { OperationalMetricStrip } from '@/components/common/OperationalMetricStrip';
+import { PrecisionPageHeader } from '@/components/common/PrecisionPageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -44,7 +45,6 @@ import {
   ThumbsUp,
   ThumbsDown,
   TrendingUp,
-  SmilePlus,
 } from 'lucide-react';
 import {
   LineChart,
@@ -195,70 +195,44 @@ async function apiPost<T>(endpoint: string, body: Record<string, unknown>): Prom
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
   running: {
     label: '运行中',
-    color: 'text-blue-600',
-    bg: 'bg-blue-500/10',
+    color: 'text-primary',
+    bg: 'bg-primary/[0.08]',
     icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
   },
   completed: {
     label: '已完成',
-    color: 'text-green-600',
-    bg: 'bg-green-500/10',
+    color: 'text-success',
+    bg: 'bg-success/[0.08]',
     icon: <CheckCircle2 className="w-3.5 h-3.5" />,
   },
   failed: {
     label: '失败',
-    color: 'text-red-600',
-    bg: 'bg-red-500/10',
+    color: 'text-destructive',
+    bg: 'bg-destructive/[0.08]',
     icon: <XCircle className="w-3.5 h-3.5" />,
   },
   timeout: {
     label: '超时',
-    color: 'text-yellow-600',
-    bg: 'bg-yellow-500/10',
+    color: 'text-warning',
+    bg: 'bg-warning/[0.08]',
     icon: <AlertTriangle className="w-3.5 h-3.5" />,
   },
   cancelled: {
     label: '取消',
-    color: 'text-gray-500',
-    bg: 'bg-gray-500/10',
+    color: 'text-muted-foreground',
+    bg: 'bg-muted',
     icon: <XCircle className="w-3.5 h-3.5" />,
   },
 };
 
 const NODE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  router: { label: 'Router', color: 'bg-blue-500' },
-  plan: { label: 'Plan', color: 'bg-purple-500' },
-  execute: { label: 'Execute', color: 'bg-amber-500' },
-  reflect: { label: 'Reflect', color: 'bg-cyan-500' },
-  respond: { label: 'Respond', color: 'bg-green-500' },
-  error: { label: 'Error', color: 'bg-red-500' },
+  router: { label: 'Router', color: 'border-primary/20 bg-primary/[0.08] text-primary' },
+  plan: { label: 'Plan', color: 'border-border bg-muted text-foreground' },
+  execute: { label: 'Execute', color: 'border-warning/20 bg-warning/[0.08] text-warning' },
+  reflect: { label: 'Reflect', color: 'border-primary/15 bg-primary/[0.06] text-primary' },
+  respond: { label: 'Respond', color: 'border-success/20 bg-success/[0.08] text-success' },
+  error: { label: 'Error', color: 'border-destructive/20 bg-destructive/[0.08] text-destructive' },
 };
-
-// ─── Stat Card ──────────────────────────────────────────
-
-function StatCard({
-  title,
-  value,
-  icon,
-  color,
-}: {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  color: string;
-}) {
-  return (
-    <Card variant="interactive">
-      <CardContent className="flex items-center gap-4 p-5">
-        <div className={`p-3 rounded-lg border border-border/60 ${color}`}>{icon}</div>
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="font-mono text-2xl font-bold tracking-tight tabular-nums">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 // ─── Step Timeline ──────────────────────────────────────
 
@@ -270,14 +244,14 @@ function StepTimeline({ steps }: { steps: TraceStep[] }) {
   return (
     <div className="space-y-0 pl-2 py-2">
       {steps.map((step, idx) => {
-        const nodeConfig = NODE_TYPE_LABELS[step.node_type] || { label: step.node_type, color: 'bg-gray-500' };
+        const nodeConfig = NODE_TYPE_LABELS[step.node_type] || { label: step.node_type, color: 'border-border bg-muted text-muted-foreground' };
         const isLast = idx === steps.length - 1;
         return (
           <div key={step.step_id} className="relative pl-8 pb-4 group">
             {/* Timeline dot */}
             <div
               className={cn(
-                'absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center ring-2 ring-background text-white text-[10px] font-bold',
+                'absolute left-0 top-1 flex h-6 w-6 items-center justify-center rounded-md border text-[10px] font-semibold',
                 nodeConfig.color
               )}
             >
@@ -294,12 +268,12 @@ function StepTimeline({ steps }: { steps: TraceStep[] }) {
                   {nodeConfig.label}
                 </Badge>
                 {step.status === 'completed' && (
-                  <Badge variant="secondary" className="text-xs text-green-600 bg-green-500/10">
+                  <Badge variant="secondary" className="bg-success/[0.08] text-xs text-success">
                     完成
                   </Badge>
                 )}
                 {step.status === 'failed' && (
-                  <Badge variant="secondary" className="text-xs text-red-600 bg-red-500/10">
+                  <Badge variant="secondary" className="bg-destructive/[0.08] text-xs text-destructive">
                     失败
                   </Badge>
                 )}
@@ -331,7 +305,7 @@ function StepTimeline({ steps }: { steps: TraceStep[] }) {
 
               {/* Error message */}
               {step.error && (
-                <div className="text-xs text-red-600 bg-red-500/10 rounded p-2 font-mono">
+                <div className="rounded-md border border-destructive/20 bg-destructive/[0.06] p-2 font-mono text-xs text-destructive">
                   {step.error}
                 </div>
               )}
@@ -353,12 +327,12 @@ function FlowVisualization({ steps }: { steps: TraceStep[] }) {
   return (
     <div className="flex items-center gap-1 flex-wrap py-2">
       {nodeTypes.map((nt, idx) => {
-        const config = NODE_TYPE_LABELS[nt] || { label: nt, color: 'bg-gray-500' };
+        const config = NODE_TYPE_LABELS[nt] || { label: nt, color: 'border-border bg-muted text-muted-foreground' };
         return (
           <React.Fragment key={idx}>
             <span
               className={cn(
-                'px-2 py-0.5 rounded text-[10px] font-bold text-white',
+                'rounded-md border px-2 py-0.5 text-[10px] font-medium',
                 config.color
               )}
             >
@@ -469,19 +443,18 @@ function AgentDebugPanel() {
   };
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Bug className="w-7 h-7 text-primary" />
-            Agent 调试面板
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            检视Agent执行轨迹，排查问题，优化性能
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="mx-auto max-w-[1480px] space-y-5 pb-20">
+      <PrecisionPageHeader
+        eyebrow="Agent Ops"
+        title="Agent 调试面板"
+        description="检视执行轨迹、质量趋势与失败节点；完整输入输出仅对管理员开放。"
+        icon={Bug}
+        status={{
+          label: (stats?.by_status.failed ?? 0) > 0 ? '发现异常' : '链路稳定',
+          detail: `${stats?.by_status.running ?? 0} 个运行中`,
+          tone: (stats?.by_status.failed ?? 0) > 0 ? 'warning' : 'success',
+        }}
+        actions={<>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="全部状态" />
@@ -498,77 +471,27 @@ function AgentDebugPanel() {
             <RefreshCw className={cn("w-4 h-4 mr-1", loading && "animate-spin")} />
             刷新
           </Button>
-        </div>
-      </div>
+        </>}
+      />
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="pt-6">
-                <Skeleton className="h-16 w-full" />
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <>
-            <StatCard
-              title="总执行数"
-              value={stats?.total_traces ?? 0}
-              icon={<Activity className="w-5 h-5 text-blue-600" />}
-              color="bg-blue-500/10"
-            />
-            <StatCard
-              title="成功率"
-              value={stats?.success_rate != null ? `${(stats.success_rate * 100).toFixed(1)}%` : '-'}
-              icon={<CheckCircle2 className="w-5 h-5 text-green-600" />}
-              color="bg-green-500/10"
-            />
-            <StatCard
-              title="平均耗时"
-              value={formatDuration(stats?.avg_duration_ms ?? null)}
-              icon={<Clock className="w-5 h-5 text-amber-600" />}
-              color="bg-amber-500/10"
-            />
-            <StatCard
-              title="总Token消耗"
-              value={stats?.total_tokens?.toLocaleString() ?? '0'}
-              icon={<Coins className="w-5 h-5 text-purple-600" />}
-              color="bg-purple-500/10"
-            />
-          </>
-        )}
-      </div>
+      <OperationalMetricStrip
+        ariaLabel="Agent 调试指标"
+        metrics={[
+          { label: '总执行数', value: loading ? '—' : stats?.total_traces ?? 0, detail: '当前筛选范围', icon: <Activity /> },
+          { label: '成功率', value: loading ? '—' : stats?.success_rate != null ? `${(stats.success_rate * 100).toFixed(1)}%` : '-', detail: '完成运行占比', tone: (stats?.success_rate ?? 1) < 0.9 ? 'warning' : 'success', icon: <CheckCircle2 /> },
+          { label: '平均耗时', value: loading ? '—' : formatDuration(stats?.avg_duration_ms ?? null), detail: '端到端执行', icon: <Clock /> },
+          { label: 'Token 消耗', value: loading ? '—' : stats?.total_tokens?.toLocaleString() ?? '0', detail: `$${(stats?.total_cost_usd ?? 0).toFixed(4)}`, icon: <Coins /> },
+        ]}
+      />
 
       {/* Quality Summary Cards */}
       {qualitySummary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard
-            title={`成功率 (${qualitySummary.days}天)`}
-            value={`${qualitySummary.success_rate}%`}
-            icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
-            color="bg-emerald-500/10"
-          />
-          <StatCard
-            title="满意度"
-            value={`${qualitySummary.satisfaction_rate}%`}
-            icon={<SmilePlus className="w-5 h-5 text-pink-600" />}
-            color="bg-pink-500/10"
-          />
-          <StatCard
-            title="正面反馈"
-            value={qualitySummary.positive_feedback}
-            icon={<ThumbsUp className="w-5 h-5 text-green-600" />}
-            color="bg-green-500/10"
-          />
-          <StatCard
-            title="负面反馈"
-            value={qualitySummary.negative_feedback}
-            icon={<ThumbsDown className="w-5 h-5 text-red-600" />}
-            color="bg-red-500/10"
-          />
-        </div>
+        <section className="flex flex-wrap items-center gap-x-7 gap-y-2 border-b pb-3 text-xs text-muted-foreground" aria-label="Agent 质量摘要">
+          <span>{qualitySummary.days} 天成功率 <strong className="ml-1 text-foreground tabular-nums">{qualitySummary.success_rate}%</strong></span>
+          <span>满意度 <strong className="ml-1 text-foreground tabular-nums">{qualitySummary.satisfaction_rate}%</strong></span>
+          <span className="flex items-center gap-1"><ThumbsUp className="h-3.5 w-3.5" />正面 <strong className="text-foreground tabular-nums">{qualitySummary.positive_feedback}</strong></span>
+          <span className="flex items-center gap-1"><ThumbsDown className="h-3.5 w-3.5" />负面 <strong className="text-foreground tabular-nums">{qualitySummary.negative_feedback}</strong></span>
+        </section>
       )}
 
       {/* Quality Trend Chart */}
@@ -577,7 +500,7 @@ function AgentDebugPanel() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-primary" />
-              质量趋势 (最近30天)
+              质量趋势（最近 30 天）
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -600,7 +523,7 @@ function AgentDebugPanel() {
                   }))}
                   margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <CartesianGrid strokeDasharray="2 4" className="stroke-border/70" vertical={false} />
                   <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="left" className="text-xs" tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="right" orientation="right" domain={[0, 100]} className="text-xs" tick={{ fontSize: 11 }} />
@@ -617,7 +540,7 @@ function AgentDebugPanel() {
                     yAxisId="left"
                     type="monotone"
                     dataKey="total_traces"
-                    stroke="#3b82f6"
+                    stroke="hsl(var(--primary))"
                     strokeWidth={2}
                     dot={false}
                     name="执行数"
@@ -626,7 +549,7 @@ function AgentDebugPanel() {
                     yAxisId="right"
                     type="monotone"
                     dataKey="success_rate"
-                    stroke="#22c55e"
+                    stroke="hsl(var(--success))"
                     strokeWidth={2}
                     dot={false}
                     name="成功率%"
@@ -635,7 +558,7 @@ function AgentDebugPanel() {
                     yAxisId="right"
                     type="monotone"
                     dataKey="satisfaction"
-                    stroke="#ec4899"
+                    stroke="hsl(var(--warning))"
                     strokeWidth={2}
                     strokeDasharray="5 5"
                     dot={false}
@@ -787,7 +710,7 @@ function AgentDebugPanel() {
                                     {traceDetail.final_response && (
                                       <div>
                                         <p className="text-xs font-medium text-muted-foreground mb-1">最终响应</p>
-                                        <div className="text-sm bg-muted/50 rounded p-3 max-h-32 overflow-auto">
+                                        <div className="max-h-32 overflow-auto rounded-md border bg-muted/40 p-3 text-sm">
                                           {traceDetail.final_response}
                                         </div>
                                       </div>

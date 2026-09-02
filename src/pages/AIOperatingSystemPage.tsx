@@ -231,7 +231,7 @@ export default function AIOperatingSystemPage() {
                 <div className="min-w-0">
                   <div className="text-xs font-medium text-muted-foreground">{metric.label}</div>
                   <div className="mt-0.5 flex items-baseline gap-2">
-                    <span className="font-mono text-xl font-semibold tracking-tight tabular-nums">{metric.value}</span>
+                    <span className="font-mono text-xl font-semibold tabular-nums">{metric.value}</span>
                     <span className="truncate text-xs text-muted-foreground">{metric.meta}</span>
                   </div>
                 </div>

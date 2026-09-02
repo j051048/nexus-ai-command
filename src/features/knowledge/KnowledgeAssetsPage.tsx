@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight,
   AlertCircle,
   BookOpenCheck,
   CheckCircle2,
@@ -14,12 +13,16 @@ import {
   RotateCcw,
   Settings2,
   ShieldCheck,
-  Sparkles,
+  FileSearch,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { KnowledgeSubnav } from '@/components/knowledge/KnowledgeSubnav';
+import { LoadingState } from '@/components/common/LoadingState';
+import { OperationalMetricStrip } from '@/components/common/OperationalMetricStrip';
+import { PrecisionPageHeader } from '@/components/common/PrecisionPageHeader';
+import { WorkEmptyState, WorkErrorState } from '@/components/common/WorkState';
 import { dispatchAIChatMessage } from '@/components/layout/GlobalCommandBar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -122,6 +125,7 @@ export default function KnowledgeAssetsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [readiness, setReadiness] = useState<KnowledgeReadiness | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const loadDocuments = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -129,6 +133,7 @@ export default function KnowledgeAssetsPage() {
       const response = await httpClient.get('/api/documents', { silentError: true });
       const rows = response.data?.data?.documents ?? response.data?.documents ?? [];
       setDocuments((Array.isArray(rows) ? rows : []).map(normalizeDocument));
+      if (!silent) setLoadError(false);
       try {
         const readinessResponse = await httpClient.get('/api/knowledge/readiness', {
           params: { artifact_type: 'customer_solution' },
@@ -140,7 +145,10 @@ export default function KnowledgeAssetsPage() {
         setReadiness(null);
       }
     } catch {
-      if (!silent) toast.error('企业资料暂时无法加载，请稍后重试');
+      if (!silent) {
+        setLoadError(true);
+        toast.error('企业资料暂时无法加载，请稍后重试');
+      }
     } finally {
       if (!silent) setIsLoading(false);
     }
@@ -261,39 +269,44 @@ export default function KnowledgeAssetsPage() {
         void uploadFiles(Array.from(event.dataTransfer.files));
       }}
     >
-      <header className="border-b bg-card px-6 py-5">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-primary"><Library className="h-4 w-4" />企业资料</div>
-            <h1 className="mt-2 text-2xl font-semibold">AI 的企业事实库</h1>
-            <p className="mt-1 text-sm text-muted-foreground">上传一次，方案、投标和客户助手都能引用。</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline"><Link to="/growth/solutions"><PanelsTopLeft className="mr-2 h-4 w-4" />生成客户方案</Link></Button>
-            <input ref={inputRef} type="file" multiple className="hidden" accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.csv" onChange={(event) => event.target.files && void uploadFiles(Array.from(event.target.files))} />
-            <Button onClick={() => inputRef.current?.click()} disabled={isUploading}>{isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}上传资料</Button>
-          </div>
+      <div className="border-b bg-card px-6 py-5">
+        <div className="mx-auto max-w-7xl">
+          <PrecisionPageHeader
+            className="border-b-0 pb-0"
+            eyebrow="企业资料"
+            title="AI 的企业事实库"
+            description="上传一次，方案、投标和客户助手都能引用；正式外发内容优先采用已核验资料。"
+            icon={Library}
+            status={{
+              label: indexedCount > 0 ? '检索可用' : '等待资料',
+              detail: indexedCount > 0 ? `${indexedCount} 份已建立索引` : '上传资料后自动整理',
+              tone: indexedCount > 0 ? 'success' : 'neutral',
+            }}
+            actions={<>
+              <Button asChild variant="outline"><Link to="/growth/solutions"><PanelsTopLeft className="mr-2 h-4 w-4" />生成客户方案</Link></Button>
+              <input ref={inputRef} type="file" multiple className="hidden" accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.csv" onChange={(event) => event.target.files && void uploadFiles(Array.from(event.target.files))} />
+              <Button onClick={() => inputRef.current?.click()} disabled={isUploading}>{isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}上传资料</Button>
+            </>}
+          />
         </div>
-      </header>
+      </div>
 
       <KnowledgeSubnav />
 
       <div className="mx-auto max-w-7xl px-6 py-5">
-        <section className="flex flex-wrap items-center justify-between gap-3 border-y py-3 text-sm">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <span><strong className="tabular-nums">{documents.length}</strong> 份资料</span>
-            <span className="text-muted-foreground"><strong className="text-foreground">{indexedCount}</strong> 可检索</span>
-            <span className="text-muted-foreground"><strong className="text-foreground">{verifiedCount}</strong> 可信</span>
-            {staleCount > 0 && <span className="text-amber-700">{staleCount} 待更新</span>}
-            {readiness && (
-              <span className={readiness.ready ? 'text-emerald-700' : 'text-amber-700'}>
-                方案就绪度 <strong className="tabular-nums">{Math.round(readiness.score)}</strong>
-              </span>
-            )}
-          </div>
-          <details className="relative">
-            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-muted-foreground hover:text-foreground"><Settings2 className="h-3.5 w-3.5" />上传设置</summary>
-            <div className="absolute right-0 top-7 z-20 grid w-64 gap-3 rounded-md border bg-popover p-4 shadow-lg">
+        <section className="relative">
+          <OperationalMetricStrip
+            ariaLabel="企业资料状态"
+            metrics={[
+              { label: '全部资料', value: documents.length, detail: '企业事实资产', icon: <FileText /> },
+              { label: '可供检索', value: indexedCount, detail: '已完成内容索引', tone: indexedCount > 0 ? 'success' : 'default', icon: <Search /> },
+              { label: '可信证据', value: verifiedCount, detail: staleCount > 0 ? `${staleCount} 份待更新` : '人工确认后可外发', tone: staleCount > 0 ? 'warning' : 'default', icon: <ShieldCheck /> },
+              { label: '方案就绪度', value: readiness ? `${Math.round(readiness.score)}%` : '—', detail: readiness?.ready ? '可开始正式生成' : '继续补齐关键资料', tone: readiness?.ready ? 'success' : 'warning', icon: <CheckCircle2 /> },
+            ]}
+          />
+          <details className="relative mt-2 flex justify-end">
+            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"><Settings2 className="h-3.5 w-3.5" />上传设置</summary>
+            <div className="absolute right-0 top-8 z-20 grid w-64 gap-3 rounded-md border bg-popover p-4 shadow-lg">
               <label className="text-xs text-muted-foreground">资料类型<select value={uploadCategory} onChange={(event) => setUploadCategory(event.target.value as UploadCategory)} className="mt-1.5 h-9 w-full rounded-md border bg-background px-2 text-sm text-foreground"><option value="auto">AI 自动分类</option>{KNOWLEDGE_CATEGORIES.filter((item) => item.value !== 'all').map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
               <label className="text-xs text-muted-foreground">可见范围<select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)} className="mt-1.5 h-9 w-full rounded-md border bg-background px-2 text-sm text-foreground"><option value="organization">全企业</option><option value="department">本部门</option><option value="private">仅自己</option></select></label>
             </div>
@@ -315,26 +328,30 @@ export default function KnowledgeAssetsPage() {
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索型号、行业、竞品或方案" className="h-9 w-full rounded-md border bg-card pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <select aria-label="筛选资料类型" value={filter} onChange={(event) => setFilter(event.target.value as KnowledgeCategory)} className="h-9 rounded-md border bg-background px-3 text-sm text-foreground">{KNOWLEDGE_CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-          <Button variant="ghost" size="sm" onClick={() => openAssistant('请检查当前企业资料库的缺口。按产品资料、仪器手册、应用案例、竞品、法规和历史方案六类，只告诉我最值得补充的三项。')}><Sparkles className="mr-2 h-4 w-4" />让 AI 检查缺口</Button>
+          <Button variant="ghost" size="sm" onClick={() => openAssistant('请检查当前企业资料库的缺口。按产品资料、仪器手册、应用案例、竞品、法规和历史方案六类，只告诉我最值得补充的三项。')}><FileSearch className="mr-2 h-4 w-4" />让 AI 检查缺口</Button>
         </section>
 
         <section className="divide-y">
-          {isLoading && <div className="flex items-center justify-center py-20 text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />正在加载企业资料</div>}
-          {!isLoading && filtered.length === 0 && (
-            <div className="py-16 text-center">
-              <BookOpenCheck className="mx-auto h-8 w-8 text-muted-foreground/40" />
-              <h2 className="mt-3 font-medium">{documents.length ? '没有匹配的资料' : '从第一批企业资料开始'}</h2>
-              {!documents.length && (
-                <div className="mx-auto mt-7 grid max-w-3xl grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex flex-col items-center gap-2"><FolderUp className="h-5 w-5" />上传</span><ArrowRight className="h-4 w-4" />
-                  <span className="flex flex-col items-center gap-2"><Sparkles className="h-5 w-5" />AI 整理</span><ArrowRight className="h-4 w-4" />
-                  <span className="flex flex-col items-center gap-2"><ShieldCheck className="h-5 w-5" />业务引用</span>
-                </div>
-              )}
-              {!documents.length && <Button className="mt-7" onClick={() => inputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />选择资料</Button>}
-            </div>
+          {isLoading && <LoadingState rows={5} message="正在加载企业资料" className="py-2" />}
+          {!isLoading && loadError && (
+            <WorkErrorState
+              title="企业资料暂时无法加载"
+              description="资料没有丢失。请检查网络或服务状态后重新加载。"
+              onAction={() => void loadDocuments()}
+            />
           )}
-          {filtered.map((document) => {
+          {!isLoading && !loadError && filtered.length === 0 && (
+            <WorkEmptyState
+              icon={<BookOpenCheck className="h-5 w-5" />}
+              title={documents.length ? '没有匹配的资料' : '从第一批企业资料开始'}
+              description={documents.length
+                ? '调整关键词或资料类型，AI 仍会保留现有索引。'
+                : '上传公司介绍、产品彩页、仪器手册和应用案例，AI 会自动完成分类、索引与证据整理。'}
+              actionLabel={documents.length ? undefined : '选择资料'}
+              onAction={documents.length ? undefined : () => inputRef.current?.click()}
+            />
+          )}
+          {!loadError && filtered.map((document) => {
             const type = document.doc_type || document.category || 'other';
             const extracted = typeof document.extracted_data === 'object' ? document.extracted_data : {};
             const isReady = ['ready', 'completed'].includes(document.status || '');

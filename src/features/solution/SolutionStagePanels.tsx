@@ -1,9 +1,10 @@
-import { AlertTriangle, FileDown, FileSearch, Gavel, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileDown, FileSearch, FileText, Gavel, PackageCheck, Plus, ShieldCheck, Table2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { SCIENTIFIC_INSTRUMENT_LINES } from '@/config/growthOperatingModel';
 
@@ -155,7 +156,7 @@ export function ConfigurationPanel({ workspace, onChange, products = [], project
       <div className="mb-4"><h2 className="font-semibold">三档配置建议</h2><p className="text-sm text-muted-foreground">同一需求给出基础、推荐、进阶三种取舍，价格与参数仍需人工核对。</p></div>
       {canManageCatalog && <ProductCatalogManager products={products} />}
       <SolutionCPQWorkbench projectId={projectId} workspace={workspace} onChange={onChange} />
-      {workspace.packages.length ? <div className="grid border-y py-4 lg:grid-cols-3">{workspace.packages.slice(0, 3).map((item, index) => <PackageColumn key={item.id} item={item} onChange={(next) => onChange({ ...workspace, packages: workspace.packages.map((current, itemIndex) => itemIndex === index ? next : current) })} />)}</div> : <div className="border-y py-16 text-center text-sm text-muted-foreground"><Sparkles className="mx-auto mb-3 h-6 w-6" />生成方案后，这里会出现基础、推荐和进阶三档配置。</div>}
+      {workspace.packages.length ? <div className="grid border-y py-4 lg:grid-cols-3">{workspace.packages.slice(0, 3).map((item, index) => <PackageColumn key={item.id} item={item} onChange={(next) => onChange({ ...workspace, packages: workspace.packages.map((current, itemIndex) => itemIndex === index ? next : current) })} />)}</div> : <div className="border-y py-16 text-center text-sm text-muted-foreground"><PackageCheck className="mx-auto mb-3 h-6 w-6" />生成方案后，这里会出现基础、推荐和进阶三档配置。</div>}
     </section>
   );
 }
@@ -188,10 +189,64 @@ interface DeliveryPanelProps extends BasePanelProps {
 
 export function DeliveryPanel({ workspace, projectId, canDeliver = false, versions = [], onExport, onOutcome, onPromoteTemplate, onCreateTender, onFeedback }: DeliveryPanelProps) {
   const readiness = solutionReadiness(workspace);
+  const formats = [
+    { id: 'docx' as const, label: '客户方案', detail: '可继续编辑', icon: FileText },
+    { id: 'pdf' as const, label: '定稿预览', detail: '固定版式', icon: FileDown },
+    { id: 'xlsx' as const, label: '内审清单', detail: '需求与配置', icon: Table2 },
+    { id: 'markdown' as const, label: '纯文本', detail: '便于复用', icon: FileText },
+  ];
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <section><h2 className="font-semibold">导出交付物</h2><p className="mt-1 text-sm text-muted-foreground">DOCX/PDF 面向客户，XLSX 用于需求与配置内审；导出不会再次调用 AI。</p><div className="mt-5 flex flex-wrap gap-2">{(['docx', 'pdf', 'xlsx', 'markdown'] as const).map((format) => <Button key={format} variant={format === 'docx' ? 'default' : 'outline'} disabled={!projectId || !readiness.canExport} onClick={() => onExport(format)}><FileDown className="mr-2 h-4 w-4" />{format.toUpperCase()}</Button>)}</div><Button className="mt-3" variant="outline" disabled={!projectId} onClick={onCreateTender}><Gavel className="mr-2 h-4 w-4" />转为投标项目</Button>{!readiness.canExport && <p className="mt-3 text-xs text-amber-700">请先核验必选需求、补齐证据、批准全部章节并完成人工门禁。</p>}</section>
-      <section className="border-l pl-6"><h2 className="font-semibold">结果回流</h2><p className="mt-1 text-sm text-muted-foreground">记录采用、修改、赢单和丢单，持续校准行业模板。</p><div className="mt-5 flex flex-wrap gap-2"><Button variant="outline" onClick={() => onFeedback('accepted')}>采用本版</Button><Button variant="outline" onClick={() => onFeedback('edited')}>人工改写</Button><Button variant="outline" onClick={() => onOutcome({ outcome_type: 'won' })}>赢单</Button><Button variant="outline" onClick={() => onOutcome({ outcome_type: 'lost' })}>丢单</Button><Button variant="outline" onClick={() => onOutcome({ outcome_type: 'time_saved', amount: 8, note: '方案生成与整理预计节省工时' })}>节省 8 小时</Button></div><Button className="mt-4" variant="secondary" onClick={onPromoteTemplate}>沉淀为企业模板</Button></section>
+      <section className="border-y bg-muted/20 px-4 py-4 lg:col-span-2">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <span className={readiness.canExport ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground'}>
+            {readiness.canExport ? <PackageCheck className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold">{readiness.canExport ? '成果已具备交付条件' : '成果仍在审校中'}</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">准备度 {readiness.score}% · 证据 {readiness.evidenceCount} 条 · 已批准章节 {readiness.approvedSections}</p>
+              </div>
+              <span className="text-sm font-semibold tabular-nums">{readiness.score}%</span>
+            </div>
+            <Progress value={readiness.score} className="mt-3 h-1.5" />
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-semibold">下载交付成果</h2>
+        <p className="mt-1 text-sm text-muted-foreground">文件会进入右上角成果中心，后续可再次下载。</p>
+        <div className="mt-5 divide-y border-y">
+          {formats.map((format) => {
+            const Icon = format.icon;
+            return (
+              <div key={format.id} className="flex items-center gap-3 py-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground"><Icon className="h-4 w-4" /></span>
+                <div className="min-w-0 flex-1"><div className="text-sm font-medium">{format.label}</div><div className="text-xs text-muted-foreground">{format.id.toUpperCase()} · {format.detail}</div></div>
+                <Button size="sm" variant={format.id === 'docx' ? 'default' : 'outline'} disabled={!projectId || !readiness.canExport} onClick={() => onExport(format.id)}><FileDown className="h-4 w-4" />下载</Button>
+              </div>
+            );
+          })}
+        </div>
+        {!readiness.canExport && <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-amber-700 dark:text-amber-300"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />请先核验必选需求、补齐证据、批准章节并完成人工门禁。</p>}
+        <Button className="mt-4" variant="outline" disabled={!projectId} onClick={onCreateTender}><Gavel className="mr-2 h-4 w-4" />转为投标项目</Button>
+      </section>
+
+      <section className="border-l pl-6">
+        <h2 className="font-semibold">记录业务结果</h2>
+        <p className="mt-1 text-sm text-muted-foreground">只记录真实采用结果，用于校准企业模板与后续生成。</p>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Button variant="outline" onClick={() => onFeedback('accepted')}><CheckCircle2 className="h-4 w-4" />采用本版</Button>
+          <Button variant="outline" onClick={() => onFeedback('edited')}>人工改写</Button>
+          <Button variant="outline" onClick={() => onOutcome({ outcome_type: 'won' })}>赢单</Button>
+          <Button variant="outline" onClick={() => onOutcome({ outcome_type: 'lost' })}>丢单</Button>
+        </div>
+        <Button className="mt-3 w-full" variant="outline" onClick={() => onOutcome({ outcome_type: 'time_saved', amount: 8, note: '方案生成与整理预计节省工时' })}>记录节省 8 小时</Button>
+        <Button className="mt-4 w-full" variant="secondary" onClick={onPromoteTemplate}>沉淀为企业模板</Button>
+        {!canDeliver && <p className="mt-3 text-xs text-muted-foreground">当前账号可审阅成果，但最终外发仍需具备交付权限的成员确认。</p>}
+      </section>
       <div className="lg:col-span-2"><TenderReadinessPanel projectId={projectId} /></div>
       <SolutionConnectorDelivery projectId={projectId} canDeliver={canDeliver} />
       <section className="border-t pt-5 lg:col-span-2"><h2 className="font-semibold">版本记录</h2><p className="mt-1 text-sm text-muted-foreground">每次 AI 生成都会保留独立版本，方便审计模型、时间与降级状态。</p><SolutionVersionCompare projectId={projectId} workspace={workspace} versions={versions} /><div className="mt-4 divide-y border-y">{versions.map((version) => <div key={version.id} className="flex flex-wrap items-center gap-3 py-3 text-sm"><span className="font-medium">v{version.version_number}</span><span className="min-w-0 flex-1 truncate">{version.title}</span><Badge variant="outline">{version.generation_metadata?.degraded ? '兜底草稿' : version.generation_metadata?.model || '模型未记录'}</Badge>{version.created_at && <time className="text-xs text-muted-foreground">{new Date(version.created_at).toLocaleString('zh-CN')}</time>}</div>)}{!versions.length && <div className="py-8 text-center text-sm text-muted-foreground">生成第一版方案后，版本记录会出现在这里。</div>}</div></section>

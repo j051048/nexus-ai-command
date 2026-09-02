@@ -39,9 +39,11 @@ interface BrandConfig {
   feature_cards?: { icon?: string; title?: string; desc?: string }[];
 }
 
+const AUTH_INPUT_CLASS = 'h-11 rounded-md border-border/80 bg-background/75 transition-[background-color,border-color,box-shadow] duration-150 hover:border-foreground/20 focus:bg-background';
+const AUTH_PRIMARY_BUTTON_CLASS = 'h-11 w-full rounded-md font-medium shadow-[0_1px_2px_hsl(var(--primary)/0.24)]';
+
 export function LoginPage() {
   const [brand, setBrand] = useState<BrandConfig>({});
-  // Load org brand config (public, no auth required)
   useEffect(() => {
     httpClient.get<{ status: number; data?: BrandConfig }>('/api/organization/brand')
       .then((res) => {
@@ -49,15 +51,12 @@ export function LoginPage() {
       })
       .catch(() => { /* brand is optional */ });
   }, []);
-  // Derived brand values with defaults
   const brandName = brand.company_name || 'Project Nexus';
   const brandInitial = brandName.charAt(0).toUpperCase();
   const brandTitle = brand.login_title || '科学仪器企业的 AI 增长作战室';
   const brandSubtitle = brand.login_subtitle || '从商机到方案交付，持续推进每一步';
   const brandTagline = brand.tagline || '面向光谱、色谱、质谱、能谱与电子仪器团队，把客户信号、企业知识、方案标书和业务行动汇入同一条可信工作流。';
-  const loginStyle = brand.primary_color
-    ? ({ '--login-accent': brand.primary_color } as React.CSSProperties)
-    : undefined;
+  const loginStyle = brand.primary_color ? ({ '--login-accent': brand.primary_color } as React.CSSProperties) : undefined;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -199,7 +198,7 @@ export function LoginPage() {
               </p>
               <Button
                 variant="outline"
-                className="w-full mt-4 h-11 rounded-xl"
+                className="mt-4 h-11 w-full rounded-md"
                 onClick={() => {
                   setShowForgotPassword(false);
                   setResetEmailSent(false);
@@ -220,12 +219,12 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className={AUTH_INPUT_CLASS}
                 />
               </div>
               <Button
                 type="submit"
-                className="w-full h-11 rounded-xl shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all"
+                className={AUTH_PRIMARY_BUTTON_CLASS}
                 disabled={loading}
               >
                 {loading ? (
@@ -238,7 +237,7 @@ export function LoginPage() {
               <Button
                 type="button"
                 variant="ghost"
-                className="w-full rounded-xl"
+                className="w-full rounded-md"
                 onClick={() => setShowForgotPassword(false)}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -276,7 +275,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className={AUTH_INPUT_CLASS}
                   data-testid="login-email-input"
                 />
               </div>
@@ -286,7 +285,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowForgotPassword(true)}
-                    className="text-xs text-primary font-medium hover:underline transition-all"
+                    className="text-xs font-medium text-primary hover:underline"
                   >
                     忘记密码？
                   </button>
@@ -298,13 +297,13 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className={AUTH_INPUT_CLASS}
                   data-testid="login-password-input"
                 />
               </div>
               <Button
                 type="submit"
-                className="w-full h-11 rounded-xl font-medium shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-[0.98] mt-2"
+                className={`${AUTH_PRIMARY_BUTTON_CLASS} mt-2`}
                 disabled={loading}
                 data-testid="login-submit-btn"
               >
@@ -313,7 +312,7 @@ export function LoginPage() {
                 ) : (
                   <LogIn className="w-4 h-4 mr-2" />
                 )}
-                登 录 系 统
+                登录系统
               </Button>
             </form>
           </TabsContent>
@@ -329,7 +328,7 @@ export function LoginPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className={AUTH_INPUT_CLASS}
                   data-testid="register-name-input"
                 />
               </div>
@@ -342,7 +341,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className={AUTH_INPUT_CLASS}
                   data-testid="register-email-input"
                 />
               </div>
@@ -356,7 +355,7 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10 hover:bg-background/70 hover:border-primary/50 focus:bg-background/80 transition-all duration-300"
+                  className={AUTH_INPUT_CLASS}
                   data-testid="register-password-input"
                 />
               </div>
@@ -370,9 +369,9 @@ export function LoginPage() {
                     onClick={() => setSelectedRole('employee')}
                     aria-pressed={selectedRole === 'employee'}
                     className={cn(
-                      "flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all relative overflow-hidden",
+                      "relative flex flex-col items-center gap-3 overflow-hidden rounded-md border p-4 transition-[border-color,background-color] duration-150",
                       selectedRole === 'employee'
-                        ? "border-primary bg-primary/5 shadow-sm shadow-primary/10"
+                        ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/40 hover:bg-muted/50"
                     )}
                     data-testid="role-employee-btn"
@@ -398,9 +397,9 @@ export function LoginPage() {
                     onClick={() => setSelectedRole('boss')}
                     aria-pressed={selectedRole === 'boss'}
                     className={cn(
-                      "flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all relative overflow-hidden",
+                      "relative flex flex-col items-center gap-3 overflow-hidden rounded-md border p-4 transition-[border-color,background-color] duration-150",
                       selectedRole === 'boss'
-                        ? "border-primary bg-primary/5 shadow-sm shadow-primary/10"
+                        ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/40 hover:bg-muted/50"
                     )}
                     data-testid="role-boss-btn"
@@ -452,7 +451,7 @@ export function LoginPage() {
                       setInviteError('');
                     }}
                     required
-                    className={cn("h-11 font-mono tracking-wider text-center uppercase rounded-xl bg-background/50", inviteError && "border-destructive")}
+                    className={cn("h-11 rounded-md bg-background/70 text-center font-mono uppercase", inviteError && "border-destructive")}
                     data-testid="register-invite-input"
                   />
                   {inviteError && (
@@ -466,7 +465,7 @@ export function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full h-11 rounded-xl font-medium shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-[0.98] mt-4"
+                className={`${AUTH_PRIMARY_BUTTON_CLASS} mt-4`}
                 disabled={loading}
                 data-testid="register-submit-btn"
               >
@@ -475,7 +474,7 @@ export function LoginPage() {
                 ) : (
                   <UserPlus className="w-4 h-4 mr-2" />
                 )}
-                立 即 注 册
+                立即注册
               </Button>
             </form>
           </TabsContent>

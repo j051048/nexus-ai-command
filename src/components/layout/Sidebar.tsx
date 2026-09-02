@@ -135,7 +135,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
           </button>
         )}
         
-        <ul className={cn("space-y-0.5 mt-1 transition-all", !isOpen && !isCollapsed && "hidden")}>
+        <ul className={cn("mt-1 space-y-0.5", !isOpen && !isCollapsed && "hidden")}>
           {items.map((item) => {
             let badge = item.badge;
             if ((item.href === 'dashboard' || item.href === 'inbox') && inboxBadgeCount > 0) badge = String(inboxBadgeCount);

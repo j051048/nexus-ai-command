@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -16,6 +15,8 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { OperationalMetricStrip } from '@/components/common/OperationalMetricStrip';
+import { PrecisionPageHeader } from '@/components/common/PrecisionPageHeader';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -154,26 +155,10 @@ function formatDuration(ms?: number | null) {
 }
 
 function statusClass(status: string) {
-  if (status === 'completed') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-  if (status === 'running') return 'border-blue-200 bg-blue-50 text-blue-700';
-  if (status === 'failed' || status === 'error') return 'border-red-200 bg-red-50 text-red-700';
+  if (status === 'completed') return 'border-success/20 bg-success/[0.08] text-success';
+  if (status === 'running') return 'border-primary/20 bg-primary/[0.08] text-primary';
+  if (status === 'failed' || status === 'error') return 'border-destructive/20 bg-destructive/[0.08] text-destructive';
   return 'border-muted bg-muted text-muted-foreground';
-}
-
-function StatCard({ title, value, icon }: { title: string; value: string | number; icon: ReactNode }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="truncate text-2xl font-semibold">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
 function TraceTopology({ events, toolCalls }: { events: AgentEvent[]; toolCalls: ToolCall[] }) {
@@ -322,27 +307,32 @@ export default function AgentRunsPage() {
   const canReplay = selectedRun && ['failed', 'error', 'cancelled'].includes(selectedRun.status);
 
   return (
-    <div className="space-y-5 p-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Agent Run 管理台</h1>
-          <p className="text-sm text-muted-foreground">按租户查看 LangGraph 运行、工具调用、事件流、成本告警和失败重放。</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={fetchRuns} disabled={loading}>
+    <div className="mx-auto max-w-[1480px] space-y-5 p-6">
+      <PrecisionPageHeader
+        eyebrow="Agent Ops"
+        title="Agent Run 管理台"
+        description="按租户查看运行、工具调用、事件流、成本告警和失败重放。"
+        icon={Activity}
+        status={{
+          label: (statusCounts.failed ?? 0) + (statusCounts.error ?? 0) > 0 ? '需要关注' : '运行稳定',
+          detail: `${statusCounts.running ?? 0} 个运行中`,
+          tone: (statusCounts.failed ?? 0) + (statusCounts.error ?? 0) > 0 ? 'warning' : 'success',
+        }}
+        actions={<Button variant="outline" size="sm" onClick={fetchRuns} disabled={loading}>
           <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
           刷新
-        </Button>
-      </div>
+        </Button>}
+      />
 
       {!!costAlerts?.alerts.length && (
         <Card className="border-amber-200 bg-amber-50/60">
           <CardContent className="space-y-2 p-4">
             {costAlerts.alerts.slice(0, 3).map((alert) => (
               <div key={`${alert.type}-${alert.message}`} className="flex items-start gap-2 text-sm">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                 <div>
-                  <p className="font-medium text-amber-900">{alert.message}</p>
-                  <p className="text-amber-800/80">{alert.action}</p>
+                  <p className="font-medium text-foreground">{alert.message}</p>
+                  <p className="text-muted-foreground">{alert.action}</p>
                 </div>
               </div>
             ))}
@@ -350,39 +340,36 @@ export default function AgentRunsPage() {
         </Card>
       )}
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <StatCard title="最近运行" value={summary?.total_runs ?? 0} icon={<Activity className="h-5 w-5" />} />
-        <StatCard title="运行中" value={statusCounts.running ?? 0} icon={<Clock className="h-5 w-5" />} />
-        <StatCard title="失败" value={(statusCounts.failed ?? 0) + (statusCounts.error ?? 0)} icon={<AlertTriangle className="h-5 w-5" />} />
-        <StatCard title="成本 USD" value={`$${(summary?.total_cost_usd ?? 0).toFixed(4)}`} icon={<DollarSign className="h-5 w-5" />} />
-      </div>
+      <OperationalMetricStrip
+        ariaLabel="Agent 运行摘要"
+        metrics={[
+          { label: '最近运行', value: summary?.total_runs ?? 0, detail: `${summary?.total_tokens?.toLocaleString() ?? 0} Tokens`, icon: <Activity /> },
+          { label: '运行中', value: statusCounts.running ?? 0, detail: '实时执行任务', tone: statusCounts.running ? 'success' : 'default', icon: <Clock /> },
+          { label: '失败', value: (statusCounts.failed ?? 0) + (statusCounts.error ?? 0), detail: '可生成重放计划', tone: (statusCounts.failed ?? 0) + (statusCounts.error ?? 0) > 0 ? 'danger' : 'default', icon: <AlertTriangle /> },
+          { label: '成本 USD', value: `$${(summary?.total_cost_usd ?? 0).toFixed(4)}`, detail: `平均 ${formatDuration(summary?.avg_duration_ms)}`, icon: <DollarSign /> },
+        ]}
+      />
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">质量趋势</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+      <div className="grid border-y bg-card/35 lg:grid-cols-3">
+        <section className="border-b p-4 lg:border-b-0 lg:border-r">
+          <h2 className="text-sm font-semibold">质量趋势</h2>
+          <div className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">30 天运行</span><span>{qualityTrends?.run_count ?? '-'}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">失败率</span><span>{qualityTrends ? `${(qualityTrends.failure_rate * 100).toFixed(1)}%` : '-'}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">待标注 Eval</span><span>{qualityTrends?.eval_cases.pending_label ?? evalCases.length}</span></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Prompt Lint</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">错误</span><span className={promptLint?.error_count ? 'text-red-600' : 'text-emerald-600'}>{promptLint?.error_count ?? '-'}</span></div>
+          </div>
+        </section>
+        <section className="border-b p-4 lg:border-b-0 lg:border-r">
+          <h2 className="text-sm font-semibold">Prompt Lint</h2>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">错误</span><span className={promptLint?.error_count ? 'text-destructive' : 'text-success'}>{promptLint?.error_count ?? '-'}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">警告</span><span>{promptLint?.warning_count ?? '-'}</span></div>
             <p className="line-clamp-2 text-xs text-muted-foreground">{promptLint?.issues?.[0]?.message || '暂无阻断级问题'}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Eval 标注队列</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          </div>
+        </section>
+        <section className="p-4">
+          <h2 className="text-sm font-semibold">Eval 标注队列</h2>
+          <div className="mt-3 space-y-2 text-sm">
             {evalCases.slice(0, 3).map((item) => (
               <div key={item.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1">
                 <span className="truncate">{String(item.input_json?.query || item.dimension)}</span>
@@ -393,8 +380,8 @@ export default function AgentRunsPage() {
               </div>
             ))}
             {!evalCases.length && <p className="text-muted-foreground">暂无待标注样本</p>}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
 
       <Card>

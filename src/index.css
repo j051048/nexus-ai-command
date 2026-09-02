@@ -45,6 +45,8 @@ html, body {
     --panel-strong: 0 0% 100%;
     --workspace: 214 24% 96%;
     --surface-subtle: 214 24% 97.5%;
+    --surface-raised: 0 0% 100%;
+    --surface-overlay: 216 28% 99%;
     --data-accent: 174 46% 31%;
 
     --popover: 0 0% 100%;
@@ -79,6 +81,8 @@ html, body {
 
     /* UI Elements */
     --border: 216 18% 84%;
+    --border-subtle: 216 18% 89%;
+    --border-strong: 216 16% 72%;
     --input: 216 18% 82%;
     --ring: 216 78% 42%;
 
@@ -124,6 +128,10 @@ html, body {
     --shadow-card: 0 1px 2px hsl(220 28% 12% / 0.045), 0 8px 24px hsl(220 28% 12% / 0.05);
     --shadow-elevated: 0 2px 4px hsl(220 28% 12% / 0.07), 0 20px 48px hsl(220 28% 12% / 0.12);
     --shadow-panel: 8px 0 32px hsl(220 28% 12% / 0.065);
+    --motion-fast: 120ms;
+    --motion-base: 180ms;
+    --motion-slow: 240ms;
+    --motion-ease: cubic-bezier(0.2, 0, 0, 1);
   }
 
   .dark {
@@ -138,6 +146,8 @@ html, body {
     --panel-strong: 222 16% 12%;
     --workspace: 222 18% 9%;
     --surface-subtle: 222 16% 13%;
+    --surface-raised: 222 15% 14%;
+    --surface-overlay: 222 14% 16%;
     --data-accent: 174 46% 48%;
 
     --popover: 0 0% 10%;
@@ -172,6 +182,8 @@ html, body {
 
     /* UI Elements */
     --border: 0 0% 18%;
+    --border-subtle: 0 0% 15%;
+    --border-strong: 0 0% 29%;
     --input: 0 0% 15%;
     --ring: 211 100% 50%;
 
@@ -218,6 +230,21 @@ html, body {
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "cv01", "cv11", "ss03";
+    font-variant-numeric: proportional-nums;
+    letter-spacing: 0;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  button,
+  input,
+  textarea,
+  select {
+    letter-spacing: 0;
   }
 
   /* Custom scrollbar */
@@ -565,6 +592,22 @@ html, body {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+}
+
+/* Preserve a usable business canvas on common 1280px and 1366px office screens.
+   The assistant behaves as a dismissible drawer there and returns to split view
+   on wider workstations. */
+@media (max-width: 1439px) {
+  .assistant-workspace-panel {
+    position: absolute;
+    inset: 0 auto 0 0;
+    max-width: 100%;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .assistant-workspace-resizer {
+    display: none;
   }
 }
 
@@ -1024,5 +1067,21 @@ html, body {
 
   .command-capsule {
     border-radius: var(--radius);
+  }
+
+  .surface-raised {
+    background: hsl(var(--surface-raised));
+    border-color: hsl(var(--border-subtle));
+  }
+
+  .surface-overlay {
+    background: hsl(var(--surface-overlay));
+    border-color: hsl(var(--border));
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .data-value {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
   }
 }

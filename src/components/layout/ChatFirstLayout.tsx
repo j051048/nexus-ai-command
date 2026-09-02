@@ -43,6 +43,11 @@ const BUSINESS_FOCUS_ROUTES = new Set([
   '/tender-analysis',
 ]);
 
+function prefersBusinessCanvas() {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(min-width: 768px) and (max-width: 1439px)').matches;
+}
+
 function readStoredChatWidth() {
   if (typeof window === 'undefined') return DEFAULT_CHAT_WIDTH;
   const raw = window.localStorage.getItem(CHAT_WIDTH_KEY);
@@ -102,6 +107,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
   const [isCanvasOpen, setIsCanvasOpen] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [chatWidth, setChatWidth] = useState(readStoredChatWidth);
+  const [isCompactDesktop, setIsCompactDesktop] = useState(prefersBusinessCanvas);
   const chatPanelRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const { isPendingBoss } = useAuth();
@@ -187,14 +193,22 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
   }, [chatWidth]);
 
   useEffect(() => {
+    const query = window.matchMedia('(min-width: 768px) and (max-width: 1439px)');
+    const sync = () => setIsCompactDesktop(query.matches);
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
     if (isPageRoute) setIsCanvasOpen(true);
   }, [location.pathname, isPageRoute]);
 
   useEffect(() => {
-    const focusBusiness = BUSINESS_FOCUS_ROUTES.has(location.pathname);
+    const focusBusiness = isCompactDesktop || BUSINESS_FOCUS_ROUTES.has(location.pathname);
     setIsCanvasOpen(true);
     setIsChatOpen(!focusBusiness);
-  }, [location.pathname]);
+  }, [isCompactDesktop, location.pathname]);
 
   useEffect(() => {
     const handler = () => setIsChatOpen(true);
@@ -219,7 +233,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
         <div
           ref={chatPanelRef}
           className={cn(
-            'relative z-10 flex h-full shrink-0 flex-col border-r border-border/90 bg-[hsl(var(--panel))] shadow-[var(--shadow-panel)] transition-[width,opacity] duration-200 before:absolute before:inset-x-0 before:top-0 before:z-30 before:h-0.5 before:bg-primary/70',
+            'assistant-workspace-panel relative z-10 flex h-full shrink-0 flex-col border-r border-border/90 bg-[hsl(var(--panel))] shadow-[var(--shadow-panel)] transition-[width,opacity] duration-200 before:absolute before:inset-x-0 before:top-0 before:z-30 before:h-0.5 before:bg-primary/70',
             !isChatOpen && 'w-0 overflow-hidden opacity-0',
           )}
           style={
@@ -247,7 +261,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             onPointerDown={startResize}
             onKeyDown={resizeByKeyboard}
             onDoubleClick={() => setChatWidth(DEFAULT_CHAT_WIDTH)}
-            className="group relative z-30 -ml-px hidden w-2 shrink-0 cursor-col-resize items-center justify-center outline-none focus-visible:bg-primary/10 md:flex"
+            className="assistant-workspace-resizer group relative z-30 -ml-px hidden w-2 shrink-0 cursor-col-resize items-center justify-center outline-none focus-visible:bg-primary/10 md:flex"
           >
             <GripVertical className="h-4 w-4 text-transparent transition-colors group-hover:text-muted-foreground group-focus-visible:text-primary" />
           </div>

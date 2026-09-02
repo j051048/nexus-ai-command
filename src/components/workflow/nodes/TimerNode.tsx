@@ -1,6 +1,7 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { type NodeProps } from '@xyflow/react';
 import { Timer } from 'lucide-react';
+import { WorkflowNodeShell } from './WorkflowNodeShell';
 
 export interface TimerNodeData {
   label: string;
@@ -13,40 +14,12 @@ function TimerNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as unknown as TimerNodeData;
 
   return (
-    <div
-      className={`
-        px-4 py-3 rounded-lg border-2 bg-background shadow-sm min-w-[160px]
-        ${selected ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-orange-400'}
-        transition-all
-      `}
-    >
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!w-3 !h-3 !bg-orange-500 !border-2 !border-background"
-      />
-
-      <div className="flex items-center gap-2 mb-1">
-        <div className="p-1.5 rounded-md bg-orange-500/10">
-          <Timer className="w-4 h-4 text-orange-500" />
-        </div>
-        <span className="text-xs font-medium text-orange-600">等待节点</span>
-      </div>
-
-      <div className="text-sm font-semibold">{nodeData.label || '定时等待'}</div>
-      <div className="text-xs text-muted-foreground mt-0.5">
-        等待: {nodeData.wait_hours || 0} 小时
-      </div>
+    <WorkflowNodeShell selected={selected} icon={Timer} typeLabel="定时等待" title={nodeData.label || '定时等待'} tone="warning">
+      <div className="flex items-center justify-between text-[11px]"><span className="text-muted-foreground">等待时间</span><span className="font-medium tabular-nums">{nodeData.wait_hours || 0} 小时</span></div>
       {nodeData.auto_advance && (
-        <div className="text-xs text-orange-500 mt-0.5">超时自动推进</div>
+        <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">超时后自动推进</div>
       )}
-
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-3 !h-3 !bg-orange-500 !border-2 !border-background"
-      />
-    </div>
+    </WorkflowNodeShell>
   );
 }
 

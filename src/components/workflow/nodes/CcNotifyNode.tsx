@@ -1,6 +1,7 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { type NodeProps } from '@xyflow/react';
 import { Mail } from 'lucide-react';
+import { WorkflowNodeShell } from './WorkflowNodeShell';
 
 export interface CcNotifyNodeData {
   label: string;
@@ -20,42 +21,12 @@ function CcNotifyNodeComponent({ data, selected }: NodeProps) {
     : '未配置';
 
   return (
-    <div
-      className={`
-        px-4 py-3 rounded-lg border-2 bg-background shadow-sm min-w-[160px]
-        ${selected ? 'border-teal-500 ring-2 ring-teal-500/20' : 'border-teal-400'}
-        transition-all
-      `}
-    >
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!w-3 !h-3 !bg-teal-500 !border-2 !border-background"
-      />
-
-      <div className="flex items-center gap-2 mb-1">
-        <div className="p-1.5 rounded-md bg-teal-500/10">
-          <Mail className="w-4 h-4 text-teal-500" />
-        </div>
-        <span className="text-xs font-medium text-teal-600">抄送节点</span>
-      </div>
-
-      <div className="text-sm font-semibold">{nodeData.label || '抄送通知'}</div>
-      <div className="text-xs text-muted-foreground mt-0.5">
-        抄送: {recipientText}
-      </div>
+    <WorkflowNodeShell selected={selected} icon={Mail} typeLabel="抄送通知" title={nodeData.label || '抄送通知'} tone="neutral">
+      <div className="flex items-center justify-between gap-3 text-[11px]"><span className="text-muted-foreground">接收人</span><span className="max-w-28 truncate font-medium">{recipientText}</span></div>
       {nodeData.message && (
-        <div className="text-xs text-muted-foreground mt-0.5 truncate max-w-[140px]">
-          消息: {nodeData.message}
-        </div>
+        <div className="mt-1 truncate text-[11px] text-muted-foreground" title={nodeData.message}>{nodeData.message}</div>
       )}
-
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-3 !h-3 !bg-teal-500 !border-2 !border-background"
-      />
-    </div>
+    </WorkflowNodeShell>
   );
 }
 

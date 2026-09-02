@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpenCheck, CheckCircle2, FileStack, FolderKanban, Gauge, Loader2, Plus, Save, Sparkles } from 'lucide-react';
+import { BookOpenCheck, Bot, CheckCircle2, FileStack, FolderKanban, Gauge, Loader2, Plus, Save } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { ContextAIActionMenu } from '@/components/ai/ContextAIActionMenu';
 import { EvidenceDrawer, type EvidenceDrawerItem } from '@/components/ai/EvidenceDrawer';
+import { OperationalMetricStrip } from '@/components/common/OperationalMetricStrip';
+import { PrecisionPageHeader } from '@/components/common/PrecisionPageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SolutionProjectDialog } from '@/features/solution/SolutionProjectDialog';
@@ -199,33 +201,38 @@ export default function SolutionWorkspacePage() {
   const busy = saveWorkspace.isPending || generateSolution.isPending;
   return (
     <div className="mx-auto max-w-[1360px] space-y-5 pb-20" data-testid="solution-workspace">
-      <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-primary"><FileStack className="h-4 w-4" />科学仪器方案作战</div>
-          <h1 className="text-2xl font-semibold">客户解决方案工作台</h1>
-          <p className="mt-1 text-sm text-muted-foreground">把客户需求、产品资料和历史经验组合成可核验、可编辑、可复用的方案。</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <PrecisionPageHeader
+        eyebrow="科学仪器方案作战"
+        title="客户解决方案工作台"
+        description="把客户需求、产品资料和历史经验组合成可核验、可编辑、可复用的方案。"
+        icon={FileStack}
+        status={selectedProjectId ? {
+          label: readiness.canExport ? '可交付' : '制作中',
+          detail: `${readiness.score}% 就绪`,
+          tone: readiness.canExport ? 'success' : readiness.mustOpen > 0 ? 'warning' : 'info',
+        } : { label: '待建项目', tone: 'neutral' }}
+        actions={<>
           <select aria-label="选择方案项目" value={selectedProjectId || ''} onChange={(event) => setSearchParams(event.target.value ? { project: event.target.value } : {})} className="h-9 min-w-64 rounded-md border bg-background px-3 text-sm">
             {!projectsQuery.data?.length && <option value="">暂无方案项目</option>}
             {projectsQuery.data?.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
           </select>
           <Button variant="outline" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />新建方案</Button>
           <Button variant="outline" disabled={!selectedProjectId || busy} onClick={handleSave}>{saveWorkspace.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}保存</Button>
-          <Button disabled={!selectedProjectId || busy} onClick={handleGenerate}>{generateSolution.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}{selectedProject?.current_version ? '生成新版' : '生成初稿'}</Button>
-        </div>
-      </header>
+          <Button disabled={!selectedProjectId || busy} onClick={handleGenerate}>{generateSolution.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}{selectedProject?.current_version ? '生成新版' : '生成初稿'}</Button>
+        </>}
+      />
 
       {projectsQuery.isError && <div className="border-l-2 border-amber-500 bg-amber-50/60 px-4 py-3 text-sm text-amber-900">方案服务暂不可用。请确认最新数据库迁移已执行，再重试。</div>}
 
-      <section className="grid grid-cols-2 border-y lg:grid-cols-4">
-        {[
-          { label: '当前项目', value: selectedProject?.title || '待创建', icon: FolderKanban },
-          { label: '当前阶段', value: activeStage?.label || '客户简报', icon: BookOpenCheck },
-          { label: '方案版本', value: `v${selectedProject?.current_version || 0}`, icon: FileStack },
-          { label: '方案准备度', value: `${readiness.score}%`, icon: Gauge },
-        ].map((metric) => <div key={metric.label} className="border-b p-4 odd:border-r [&:nth-child(n+3)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0"><div className="flex items-center gap-2 text-xs text-muted-foreground"><metric.icon className="h-3.5 w-3.5" />{metric.label}</div><div className="mt-2 truncate text-sm font-semibold tabular-nums">{metric.value}</div></div>)}
-      </section>
+      <OperationalMetricStrip
+        ariaLabel="客户方案状态"
+        metrics={[
+          { label: '当前项目', value: selectedProject?.title || '待创建', detail: selectedProjectId ? '已保存到企业空间' : '先建立客户任务', icon: <FolderKanban /> },
+          { label: '当前阶段', value: activeStage?.label || '客户简报', detail: action[0], icon: <BookOpenCheck /> },
+          { label: '方案版本', value: `v${selectedProject?.current_version || 0}`, detail: versionsQuery.data?.length ? `${versionsQuery.data.length} 个历史版本` : '生成后自动留档', icon: <FileStack /> },
+          { label: '方案准备度', value: `${readiness.score}%`, detail: readiness.canExport ? '已通过外发门禁' : `${readiness.mustOpen} 项待核验`, tone: readiness.canExport ? 'success' : 'warning', icon: <Gauge /> },
+        ]}
+      />
 
       {analyticsQuery.data && (
         <section className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b pb-3 text-xs text-muted-foreground" aria-label="方案价值指标">

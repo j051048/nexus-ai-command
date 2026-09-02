@@ -58,6 +58,10 @@ function formatSize(size?: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function formatCoverage(value: number) {
+  return Math.round(value <= 1 ? value * 100 : value);
+}
+
 export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
@@ -66,6 +70,7 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
   const [recordedOutcomes, setRecordedOutcomes] = useState<Record<string, string>>({});
+  const [formatFilter, setFormatFilter] = useState<'all' | DeliverableFormat>('all');
 
   useEffect(() => setRecords(readDeliverables(scope)), [scope]);
 
@@ -88,6 +93,9 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
             versionNumber: artifact.version_number,
             qualityScore: artifact.quality_score,
             approvalStatus: artifact.approval_status,
+            evidenceCount: artifact.evidence_count,
+            evidenceCoverage: artifact.evidence_coverage,
+            characterCount: artifact.character_count,
             downloadAction: {
               type: 'http-blob' as const,
               url: `/api/artifacts/${artifact.id}/download`,
@@ -120,6 +128,10 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
   const recentCount = useMemo(() => records.filter((record) => (
     Date.now() - new Date(record.createdAt).getTime() < 24 * 60 * 60 * 1000
   )).length, [records]);
+  const visibleRecords = useMemo(
+    () => formatFilter === 'all' ? records : records.filter((record) => record.format === formatFilter),
+    [formatFilter, records],
+  );
 
   const openOrDownload = async (record: DeliverableRecord) => {
     const runtimeDownload = getRuntimeDownload(record.id);
@@ -184,11 +196,25 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
           <SheetTitle className="flex items-center gap-2 text-base">
             <PackageCheck className="h-4 w-4 text-primary" />成果中心
           </SheetTitle>
-          <SheetDescription>方案、报告、表格与图片统一从这里交付。</SheetDescription>
+          <SheetDescription>查看质量、证据与版本，并下载最终交付文件。</SheetDescription>
         </SheetHeader>
 
-        <div className="flex items-center justify-between border-b px-5 py-3 text-xs text-muted-foreground">
-          <span>最近成果 {records.length} 项</span>
+        <div className="flex items-center justify-between gap-3 border-b px-5 py-3 text-xs text-muted-foreground">
+          <div className="min-w-0">
+            <span>全部 {records.length} 项</span>
+            {recentCount > 0 && <span className="ml-2 text-emerald-700 dark:text-emerald-300">24 小时内新增 {recentCount}</span>}
+          </div>
+          <select
+            aria-label="筛选成果格式"
+            value={formatFilter}
+            onChange={(event) => setFormatFilter(event.target.value as 'all' | DeliverableFormat)}
+            className="h-7 rounded-md border bg-background px-2 text-xs text-foreground"
+          >
+            <option value="all">全部格式</option>
+            {(['docx', 'pdf', 'xlsx', 'png', 'csv', 'markdown'] as const).map((format) => (
+              <option key={format} value={format}>{format.toUpperCase()}</option>
+            ))}
+          </select>
           {records.length > 0 && (
             <Button
               variant="ghost"
@@ -213,9 +239,15 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
                 让 AI 生成方案、报告或表格，完成后即可直接下载。
               </p>
             </div>
+          ) : visibleRecords.length === 0 ? (
+            <div className="flex min-h-64 flex-col items-center justify-center px-8 text-center">
+              <FileText className="h-7 w-7 text-muted-foreground/50" />
+              <h3 className="mt-3 text-sm font-semibold">没有这种格式的成果</h3>
+              <Button className="mt-3" size="sm" variant="outline" onClick={() => setFormatFilter('all')}>查看全部</Button>
+            </div>
           ) : (
             <div className="divide-y">
-              {records.map((record) => {
+              {visibleRecords.map((record) => {
                 const Icon = FORMAT_ICON[record.format];
                 const canDownload = Boolean(getRuntimeDownload(record.id) || record.downloadAction);
                 return (
@@ -228,6 +260,7 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
                       <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
                         <span>{record.format.toUpperCase()}</span>
                         <span>{record.sourceLabel}</span>
+                        {record.versionNumber != null && <span>v{record.versionNumber}</span>}
                         {formatSize(record.sizeBytes) && <span>{formatSize(record.sizeBytes)}</span>}
                         <span>{formatDistanceToNow(new Date(record.createdAt), { addSuffix: true, locale: zhCN })}</span>
                       </div>
@@ -239,9 +272,18 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
                             </Badge>
                           )}
                           {record.approvalStatus && (
-                            <Badge variant={record.approvalStatus === 'approved' ? 'default' : 'outline'} className="h-5 px-1.5 text-[10px] font-normal">
+                            <Badge indicator variant={record.approvalStatus === 'approved' ? 'success' : 'outline'} className="h-5 px-1.5 text-[10px] font-normal">
                               {record.approvalStatus === 'approved' ? '已审核' : '审核草稿'}
                             </Badge>
+                          )}
+                          {record.evidenceCount != null && (
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                              证据 {record.evidenceCount}
+                              {record.evidenceCoverage != null ? ` · ${formatCoverage(record.evidenceCoverage)}%` : ''}
+                            </Badge>
+                          )}
+                          {record.characterCount != null && (
+                            <span className="text-[10px] text-muted-foreground">{record.characterCount.toLocaleString()} 字</span>
                           )}
                         </div>
                       )}
@@ -301,7 +343,17 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100"
+                        className="h-8 w-8 text-muted-foreground"
+                        onClick={() => navigate(record.sourcePath)}
+                        aria-label={`打开 ${record.title} 的来源工作台`}
+                        title="打开来源"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground opacity-60 hover:opacity-100"
                         onClick={() => setRecords(removeDeliverable(scope, record.id))}
                         aria-label={`移除 ${record.title}`}
                       >

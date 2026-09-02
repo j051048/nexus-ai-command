@@ -24,6 +24,9 @@ export interface DeliverableRecord {
   versionNumber?: number;
   qualityScore?: number;
   approvalStatus?: string;
+  evidenceCount?: number;
+  evidenceCoverage?: number;
+  characterCount?: number;
 }
 
 export interface DeliverableAnnouncement

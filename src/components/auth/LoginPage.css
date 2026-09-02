@@ -137,7 +137,7 @@
   font-family: Bahnschrift, "Segoe UI", sans-serif;
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.15em;
+  letter-spacing: 0;
 }
 
 .login-system-status {
@@ -172,7 +172,7 @@
   font-family: Bahnschrift, "Segoe UI", sans-serif;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
 }
 
 .login-hero-copy h1 {
@@ -291,7 +291,7 @@
   color: #45d4a6;
   font-family: Bahnschrift, "Segoe UI", sans-serif;
   font-size: 9px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
 }
 
 .login-preview-body {
@@ -412,7 +412,7 @@
   font-family: Bahnschrift, "Segoe UI", sans-serif;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
 }
 
 .login-form-heading h2 {

@@ -148,6 +148,9 @@ export function ArtifactReviewDialog({
         approvalStatus: artifact.approval_status,
         artifactId: artifact.id,
         versionNumber: artifact.version_number,
+        evidenceCount: artifact.evidence.count,
+        evidenceCoverage: artifact.evidence.coverage,
+        characterCount: artifact.quality.metrics?.character_count,
         downloadAction: {
           type: 'http-blob',
           url: `/api/artifacts/${artifact.id}/download`,

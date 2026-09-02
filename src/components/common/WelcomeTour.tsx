@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
+  Activity,
+  Atom,
   Building2,
   Check,
   CheckCircle2,
   FileSearch,
+  FileStack,
   FileText,
   FolderUp,
   Loader2,
   Radar,
-  Sparkles,
+  ScanLine,
   Upload,
+  Waves,
+  Cpu,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -35,12 +41,12 @@ const STEPS = [
   { id: 'first_value', label: '首份成果' },
 ] as const;
 
-const INSTRUMENT_FAMILIES: Array<{ id: InstrumentFamily; label: string }> = [
-  { id: 'spectroscopy', label: '光谱' },
-  { id: 'chromatography', label: '色谱' },
-  { id: 'mass_spectrometry', label: '质谱' },
-  { id: 'energy_spectroscopy', label: '能谱' },
-  { id: 'electronics', label: '电子仪器' },
+const INSTRUMENT_FAMILIES: Array<{ id: InstrumentFamily; label: string; icon: LucideIcon }> = [
+  { id: 'spectroscopy', label: '光谱', icon: Waves },
+  { id: 'chromatography', label: '色谱', icon: Activity },
+  { id: 'mass_spectrometry', label: '质谱', icon: Atom },
+  { id: 'energy_spectroscopy', label: '能谱', icon: ScanLine },
+  { id: 'electronics', label: '电子仪器', icon: Cpu },
 ];
 
 const OUTCOMES = [
@@ -48,7 +54,7 @@ const OUTCOMES = [
     id: 'solution' as const,
     title: '生成第一份客户方案',
     description: '把产品资料变成可核验的客户方案',
-    icon: Sparkles,
+    icon: FileStack,
     route: '/growth/solutions',
   },
   {
@@ -321,10 +327,12 @@ export function WelcomeTour() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     {INSTRUMENT_FAMILIES.map((family) => {
                       const selected = state.instrumentFamilies.includes(family.id);
+                      const FamilyIcon = family.icon;
                       return (
                         <button key={family.id} type="button" onClick={() => update({ instrumentFamilies: selected ? state.instrumentFamilies.filter((item) => item !== family.id) : [...state.instrumentFamilies, family.id] })} className={cn('flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition-colors', selected ? 'border-primary bg-primary/5 text-primary' : 'text-muted-foreground hover:text-foreground')}>
-                          <span className={cn('flex h-4 w-4 items-center justify-center rounded border', selected && 'border-primary bg-primary text-primary-foreground')}>{selected && <Check className="h-3 w-3" />}</span>
+                          <FamilyIcon className="h-3.5 w-3.5" />
                           {family.label}
+                          <span className={cn('flex h-4 w-4 items-center justify-center rounded border', selected && 'border-primary bg-primary text-primary-foreground')}>{selected && <Check className="h-3 w-3" />}</span>
                         </button>
                       );
                     })}

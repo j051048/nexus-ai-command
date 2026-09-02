@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 import { AIInsightPanel } from '@/components/ai/AIInsightPanel';
 import { ContextAIActionMenu } from '@/components/ai/ContextAIActionMenu';
 import { EvidenceDrawer, type EvidenceDrawerItem } from '@/components/ai/EvidenceDrawer';
+import { OperationalMetricStrip } from '@/components/common/OperationalMetricStrip';
+import { PrecisionPageHeader } from '@/components/common/PrecisionPageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/contexts/UserContext';
@@ -162,16 +164,17 @@ export function TenderAnalysisPage() {
 
   return (
     <div className="mx-auto max-w-[1320px] space-y-5 pb-20" data-testid="tender-workspace">
-      <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-primary">
-            <ShieldCheck className="h-4 w-4" />
-            科学仪器投标作战
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">投标作战台</h1>
-          <p className="mt-1 text-sm text-muted-foreground">从招标审阅、应答矩阵到标书草拟和定稿交付，全程保留原文证据与人工确认。</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <PrecisionPageHeader
+        eyebrow="科学仪器投标作战"
+        title="投标作战台"
+        description="从招标审阅、应答矩阵到标书草拟和定稿交付，全程保留原文证据与人工确认。"
+        icon={ShieldCheck}
+        status={selectedProjectId ? {
+          label: readiness.canDeliver ? '可定稿' : '准备中',
+          detail: `${readiness.gaps} 项缺口`,
+          tone: readiness.canDeliver ? 'success' : readiness.gaps > 0 ? 'warning' : 'info',
+        } : { label: '待建项目', tone: 'neutral' }}
+        actions={<>
           <select
             aria-label="选择投标项目"
             value={selectedProjectId || ''}
@@ -186,8 +189,8 @@ export function TenderAnalysisPage() {
             {saveWorkspace.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             保存进度
           </Button>
-        </div>
-      </header>
+        </>}
+      />
 
       {projectsQuery.isError && (
         <div className="border-l-2 border-amber-500 bg-amber-50/60 px-4 py-3 text-sm text-amber-900">
@@ -195,19 +198,15 @@ export function TenderAnalysisPage() {
         </div>
       )}
 
-      <section className="grid grid-cols-2 border bg-background lg:grid-cols-4">
-        {[
-          { label: '当前项目', value: selectedProject ? selectedName : '待创建', icon: FolderKanban },
-          { label: '截止节点', value: deadlineLabel(selectedProject), icon: CalendarClock },
-          { label: '预计金额', value: selectedProject?.estimated_value ? `¥${Number(selectedProject.estimated_value).toLocaleString('zh-CN')}` : '待确认', icon: CircleDollarSign },
-          { label: '投标准备度', value: `${readiness.score}%`, icon: CheckCircle2 },
-        ].map((metric) => (
-          <div key={metric.label} className="border-b p-4 odd:border-r [&:nth-child(n+3)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground"><metric.icon className="h-3.5 w-3.5" />{metric.label}</div>
-            <div className="mt-2 truncate text-sm font-semibold tabular-nums">{metric.value}</div>
-          </div>
-        ))}
-      </section>
+      <OperationalMetricStrip
+        ariaLabel="投标项目状态"
+        metrics={[
+          { label: '当前项目', value: selectedProject ? selectedName : '待创建', detail: workspace.source_document_name || '尚未绑定招标文件', icon: <FolderKanban /> },
+          { label: '截止节点', value: deadlineLabel(selectedProject), detail: '以招标文件为准', tone: deadlineLabel(selectedProject).includes('截止') && !deadlineLabel(selectedProject).includes('待确认') ? 'warning' : 'default', icon: <CalendarClock /> },
+          { label: '预计金额', value: selectedProject?.estimated_value ? `¥${Number(selectedProject.estimated_value).toLocaleString('zh-CN')}` : '待确认', detail: '商务口径需人工核对', icon: <CircleDollarSign /> },
+          { label: '投标准备度', value: `${readiness.score}%`, detail: readiness.canDeliver ? '门禁已通过' : `${readiness.answered}/${readiness.totalRequirements} 条已应答`, tone: readiness.canDeliver ? 'success' : 'warning', icon: <CheckCircle2 /> },
+        ]}
+      />
 
       <AIInsightPanel
         surfaceId="tender-next-action"
