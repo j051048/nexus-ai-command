@@ -1,5 +1,7 @@
 # Nexus AI Command P4 规划报告：吸纳 Hermes Agent 的核心优势
 
+> **历史规划**：本文用于追溯当时的架构思路，不代表当前实现范围或承诺。Agent 现状请参阅 `handbook/05-agent-lifecycle.md` 和相应可执行测试。
+
 ## 一、 核心架构：从“指令执行”到“闭环学习”
 
 * **动态技能注入 (DSI)**: 模仿 Hermes 的 `growing` 特性，系统应能自动记录高频使用的复杂 Tool Chain 组合。

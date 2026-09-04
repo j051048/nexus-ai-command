@@ -7,6 +7,7 @@
 - `app/services` 领域边界尚未完全物理拆分；采用 registry + 触碰即迁移策略。
 - 全量真实黄金路径依赖 staging Supabase、Redis 和 LLM，普通 PR 主要运行离线契约。
 - 测试覆盖率仍是阶段基线，不应把整体百分比当作关键路径质量的替代品。
+- `knowledge_graph_triples` 同时存在细粒度 owner/role 策略和后续同组织 `FOR ALL` 策略；宽松策略按 OR 组合，生产前需用新迁移收敛为明确的按操作授权并补越权回归测试。
 
 ## 偿还原则
 

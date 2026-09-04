@@ -6,7 +6,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -19,29 +18,70 @@ class LaunchModule:
 
 
 SMALL_COMPANY_MODULES = [
+    LaunchModule(
+        "approval", "/approval", "workflow", ("nexus_backend/app/routers/approval.py",)
+    ),
+    LaunchModule(
+        "battlecards",
+        "/battlecards",
+        "sales",
+        ("nexus_backend/app/routers/competitors.py",),
+    ),
     LaunchModule("crm", "/crm", "sales", ("nexus_backend/app/routers/crm.py",)),
-    LaunchModule("approval", "/approval", "workflow", ("nexus_backend/app/routers/approval.py",)),
-    LaunchModule("documents", "/documents", "knowledge", ("nexus_backend/app/routers/documents.py",)),
-    LaunchModule("knowledge", "/knowledge", "knowledge", ("nexus_backend/app/routers/memories.py",)),
-    LaunchModule("finance", "/finance", "finance", ("nexus_backend/app/routers/finance.py",)),
-    LaunchModule("hr", "/hr", "people", ("nexus_backend/app/routers/hr.py",)),
-    LaunchModule("oa", "/oa", "workflow", ("nexus_backend/app/routers/oa.py",)),
-    LaunchModule("projects", "/projects", "delivery", ("nexus_backend/app/routers/projects.py",)),
-    LaunchModule("reports", "/reports", "analytics", ("nexus_backend/app/routers/reports.py",)),
-    LaunchModule("vmd", "/vmd", "marketing", ("nexus_backend/app/routers/vmd_dashboard.py",)),
-    LaunchModule("plugins", "/plugins", "platform", ("nexus_backend/app/routers/plugins.py",)),
-    LaunchModule("workflow_designer", "/workflows", "workflow", ("nexus_backend/app/routers/workflows.py",)),
+    LaunchModule(
+        "documents",
+        "/documents",
+        "knowledge",
+        ("nexus_backend/app/routers/documents.py",),
+    ),
+    LaunchModule(
+        "knowledge",
+        "/knowledge",
+        "knowledge",
+        (
+            "nexus_backend/app/routers/knowledge.py",
+            "nexus_backend/app/routers/knowledge_readiness.py",
+        ),
+    ),
+    LaunchModule(
+        "projects", "/projects", "delivery", ("nexus_backend/app/routers/projects.py",)
+    ),
+    LaunchModule(
+        "reports", "/reports", "analytics", ("nexus_backend/app/routers/reports.py",)
+    ),
+    LaunchModule("sales", "/sales", "sales", ("nexus_backend/app/routers/sales.py",)),
+    LaunchModule(
+        "tender",
+        "/tender-analysis",
+        "sales",
+        ("nexus_backend/app/routers/tender_workspace.py",),
+    ),
+    LaunchModule(
+        "vmd", "/vmd", "marketing", ("nexus_backend/app/routers/vmd_dashboard.py",)
+    ),
 ]
 
 SAFETY_FILES = {
-    "Tool RBAC": ("nexus_backend/app/core/tool_rbac.py", ("Deny-by-default guard", "ROLE_DENY_LIST")),
-    "Idempotency": ("nexus_backend/app/core/idempotency_middleware.py", ("X-Idempotency-Key", "IDEMPOTENCY_MEMORY_FALLBACK_MAX")),
-    "Audit Logger": ("nexus_backend/app/services/audit_logger.py", ("AuditLogger", "_sanitize")),
+    "Tool RBAC": (
+        "nexus_backend/app/core/tool_rbac.py",
+        ("Deny-by-default guard", "ROLE_DENY_LIST"),
+    ),
+    "Idempotency": (
+        "nexus_backend/app/core/idempotency_middleware.py",
+        ("X-Idempotency-Key", "IDEMPOTENCY_MEMORY_FALLBACK_MAX"),
+    ),
+    "Audit Logger": (
+        "nexus_backend/app/services/audit_logger.py",
+        ("AuditLogger", "_sanitize"),
+    ),
     "Irreversible HITL": (
         "nexus_backend/app/agent/safety_guards.py",
         ("is_irreversible", "check_approval_needed", "ApprovalScope.ONCE"),
     ),
-    "API Key Hard Fail": ("nexus_backend/app/core/api_key_middleware.py", ("never silently downgraded", "Invalid API key")),
+    "API Key Hard Fail": (
+        "nexus_backend/app/core/api_key_middleware.py",
+        ("never silently downgraded", "Invalid API key"),
+    ),
 }
 
 
@@ -57,7 +97,10 @@ def main() -> int:
     failures: list[str] = []
     feature_flags = read("src/config/featureFlags.ts")
     readiness = read("src/config/customerLaunchModules.ts")
-    smoke = read("e2e/top10-critical-flows.spec.ts")
+    smoke = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in sorted((ROOT / "e2e").rglob("*.spec.ts"))
+    )
     business_acceptance = read("e2e/customer-business-acceptance.spec.ts")
     env_example = read(".env.production.example")
 
@@ -65,16 +108,24 @@ def main() -> int:
     if "SMALL_COMPANY_LAUNCH_MODULES" not in feature_flags:
         failures.append("featureFlags.ts must define SMALL_COMPANY_LAUNCH_MODULES")
     if "VITE_LAUNCH_PROFILE=small_company" not in env_example:
-        failures.append(".env.production.example must default to VITE_LAUNCH_PROFILE=small_company")
+        failures.append(
+            ".env.production.example must default to VITE_LAUNCH_PROFILE=small_company"
+        )
 
     for module in SMALL_COMPANY_MODULES:
         module_ok = True
-        for token in [f'"{module.flag}"', f'smokePath: "{module.route}"', f'owner: "{module.owner}"']:
+        for token in [
+            f'"{module.flag}"',
+            f'smokePath: "{module.route}"',
+            f'owner: "{module.owner}"',
+        ]:
             if token not in readiness and token not in feature_flags:
                 failures.append(f"{module.flag}: missing {token}")
                 module_ok = False
         if module.route not in smoke:
-            failures.append(f"{module.flag}: route {module.route} missing from critical smoke suite")
+            failures.append(
+                f"{module.flag}: route {module.route} missing from critical smoke suite"
+            )
             module_ok = False
         for backend_file in module.backend_files:
             if not exists(backend_file):
@@ -101,13 +152,18 @@ def main() -> int:
         "approval can be submitted",
         "document upload appears",
         "project can be created",
-        "HR employee and OA announcement",
         "AI chat sends a message",
         "employee role is blocked",
+        "golden path covers action inbox",
+        "chat artifact delivery regenerates",
     ]
-    missing_business = [token for token in business_tokens if token not in business_acceptance]
+    missing_business = [
+        token for token in business_tokens if token not in business_acceptance
+    ]
     if missing_business:
-        failures.append(f"business acceptance suite missing: {', '.join(missing_business)}")
+        failures.append(
+            f"business acceptance suite missing: {', '.join(missing_business)}"
+        )
         print("FAIL business acceptance E2E")
     else:
         print("OK business acceptance E2E")

@@ -1,6 +1,6 @@
 # Database Migration Rollback Scripts
 
-本目录包含最近 10 个关键迁移的回滚(down)脚本。
+本目录包含部分关键迁移的回滚脚本，不代表所有正向迁移都有自动 down 路径。生产回滚必须先确认依赖、数据兼容性和恢复点。
 
 ## 使用方式
 
@@ -31,12 +31,16 @@ psql $DATABASE_URL -f rollback/20260411_004_lead_scoring.down.sql
 | `20260411_003_tenant_stripe_fields` | **CRITICAL** | 移除 Stripe 集成列 |
 | `20260411_004_lead_scoring` | MEDIUM | 移除 AI 评分列 |
 | `20260411_005_hr_write_rls` | MEDIUM | 仅移除 RLS 策略，保留表和数据 |
+| `20260718_membership_atomic_access` | **HIGH** | 删除会员资格原子调整 RPC；不回滚已写入的会员数据 |
 
 ## 回滚顺序
 
 如需回滚多个连续迁移，**必须按逆序执行**：
 
 ```
+20260718_membership_atomic_access
+
+# 仅回滚 20260408-20260411 这一组连续迁移时：
 20260411_005 → 20260411_004 → 20260411_003 → 20260411_002 → 20260411_001
 → 20260410_report_engine → 20260410_fix_kg → 20260410_brand
 → 20260409 → 20260408
@@ -48,3 +52,4 @@ psql $DATABASE_URL -f rollback/20260411_004_lead_scoring.down.sql
 2. 回滚脚本包裹在 `BEGIN/COMMIT` 事务中，失败时自动回滚
 3. `20260410_fix_kg_schema_and_rbac` 与 `20260408` 有列定义重叠，其回滚脚本只处理策略和索引
 4. **生产环境执行前务必先在 staging 验证**
+5. 缺少回滚脚本的迁移必须使用前滚修复或经演练的数据恢复方案，禁止临场拼接破坏性 SQL

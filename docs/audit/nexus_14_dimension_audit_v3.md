@@ -1,5 +1,7 @@
 # 🔬 Nexus AI Command — 14维度极致深度审查报告（v3）
 
+> **历史快照**：本文记录 2026-03-03 的审查结论、规模和评分，不代表当前实现或发布承诺。当前事实请从 `../README.md` 和 `../handbook/00-start-here.md` 进入核验。
+
 > **审查日期**：2026-03-03  
 > **审查范围**：前端（Vite + React + Tailwind + shadcn/ui）、后端（FastAPI + LangGraph）、Supabase、K8s 配置  
 > **代码量**：前端 ~294 文件 / 后端 ~419 文件 / 测试 ~35 后端 + 14 前端 + 4 E2E  

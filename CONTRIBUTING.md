@@ -20,7 +20,7 @@
 npx tsc --noEmit
 npm run lint
 npm test
-node scripts/check_source_size.mjs
+npm run quality:frontend
 python scripts/check_handover_readiness.py
 python scripts/check_exception_governance.py
 
@@ -43,3 +43,4 @@ pytest <受影响测试> -q
 - 已执行的测试及未执行原因。
 - Schema/API/权限/成本是否变化。
 - UI 改动需附桌面和移动端截图；Agent 改动需附 eval 或契约结果。
+- 产品入口、环境变量、Schema、Agent 行为或发布门禁变化时，必须同步更新 `docs/README.md` 所列权威文档；不要修改自动生成的 `docs/handbook/generated/inventory.md`。

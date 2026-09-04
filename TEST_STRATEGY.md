@@ -1,217 +1,97 @@
-# Nexus AI Command — 全覆盖测试策略
+# Nexus AI Command 测试策略
 
-## 框架选择
+本策略区分“当前阻断门槛”“质量趋势”和“长期目标”。不得把规划中的覆盖率或静态契约描述成已经在线跑通的事实。
 
-| 层级 | 框架 | 理由 |
-|------|------|------|
-| 前端单元/集成 | Vitest + @testing-library/react | 项目已有，与 Vite 原生集成 |
-| 前端 E2E | Playwright (Chromium) | 项目已有，支持 SSE/WebSocket 拦截 |
-| 后端单元/集成 | pytest + pytest-asyncio | 项目已有，原生 async 支持 |
-| 后端 E2E | httpx AsyncClient + pytest | 项目已有，零启动开销 |
-| 性能/负载 | k6 (脚本) + pytest-benchmark | 轻量级，CI 友好 |
-| 安全 | 自定义 pytest fixtures + OWASP 检查 | 针对 prompt injection/XSS/IDOR |
+## 测试分层
 
-## 当前门禁与目标的区别
+| 层级 | 目的 | 主要位置 | 外部网络 |
+|---|---|---|---|
+| 前端单元/组件 | 纯规则、Hook、组件状态与错误恢复 | `src/__tests__` | 禁止 |
+| 浏览器 E2E | 登录、业务工作区、响应式、无障碍和视觉回归 | `e2e` | 默认使用路由模拟；在线用例显式启用 |
+| 后端单元 | Agent、工具、服务、权限和边界条件 | `nexus_backend/tests/unit` | 禁止 |
+| 后端集成 | 跨服务、数据库契约、RLS 和任务协作 | `nexus_backend/tests/integration` | 仅测试环境 |
+| Agent/Eval | 路由、计划、证据、反思预算和质量回归 | `nexus_backend/tests/agent`、`evals` | 录制或显式在线 |
+| 安全/性能/E2E | 租户隔离、提示注入、容量和完整业务流 | 对应测试目录、`tests/k6` | 显式配置 |
+| 生产证明 | Schema 重放、黄金路径、在线客户验收和恢复 | `scripts/*gate.py`、`tests/production_proof` | 静态默认，在线显式启用 |
 
-下表中的高覆盖率是演进目标，不是当前仓库已经达到的事实。当前 `test-full.yml` 的阻断基线为前端 7%、后端 30%；主 CI 对前端 65% 只告警、后端低于 30% 阻断。不得在销售、发布或交接材料中把目标描述为实测结果。
+实时测试文件数以 `docs/handbook/generated/inventory.md` 为准，不在本文件维护会过期的数量清单。
 
-提升顺序采用风险分层，而不是一次性修改全仓阈值：
+## 当前前端覆盖事实
 
-1. 租户隔离、会员/审批事务、Agent 工具权限和迁移重放保持场景 100% 通过。
-2. 受改动的核心模块要求新增/修改代码覆盖，并锁定不可回退的模块基线。
-3. 后端整体门禁按 30% -> 45% -> 60% 阶梯提升；每次提升前先消除不稳定外部依赖。
-4. 前端优先覆盖 hooks、关键对话框、错误恢复和黄金路径，再提高整体百分比。
+2026-09-04 本地执行 `npm run test -- --coverage`：61 个测试文件、358 个测试全部通过；行 13.69%、语句 13.04%、函数 9.73%、分支 9.74%。这是一次开发机快照，不是 SLA。
 
-## 覆盖率目标
+当前有两道回归防线：
 
-| 模块 | 行覆盖率 | 分支覆盖率 | 质量门禁 |
-|------|----------|-----------|---------|
-| Agent 核心 (router/plan/execute/reflect) | ≥85% | ≥75% | 必须 |
-| 工具层 (131 tools) | ≥80% | ≥70% | 必须 |
-| 前端 hooks (45 hooks) | ≥80% | ≥70% | 必须 |
-| React Flow 设计器 | ≥75% | ≥65% | 必须 |
-| RLS/权限 | 100% 场景覆盖 | N/A | 必须 |
-| E2E 业务闭环 | 8 条核心流程 | N/A | 必须 |
-| 整体 | ≥70% | ≥60% | CI 门禁 |
+- `vitest.config.ts` 的硬下限：lines 12.0、branches 7.5、functions 8.0、statements 11.0。
+- `scripts/check_frontend_coverage_trend.mjs` 将本次结果与 `docs/test-coverage/frontend-baseline.json` 比较，任何指标下降超过 0.75 个百分点即失败。
 
-## 风险优先级矩阵
+详细路线见 `docs/FRONTEND_TEST_COVERAGE.md`。后端主 CI 的整体覆盖阻断线为 30%，下一阶段目标为 45%；风险场景的要求高于整体行覆盖率。
 
-| P0 (阻断上线) | P1 (高风险) | P2 (中风险) |
-|--------------|-----------|-----------|
-| AI 意图路由误分类 | React Flow 保存丢数据 | GenUI 组件渲染异常 |
-| 多租户数据泄露 | SSE 流中断无恢复 | 离线队列重放失败 |
-| HITL 确认绕过 | 工具调用权限越权 | 主题切换闪烁 |
-| 审批流程状态机错误 | 长时记忆漂移/幻觉 | 移动端布局溢出 |
-| Prompt injection | WBS 分解死循环 | 图表数据精度 |
-| RLS 策略失效 | 并发审批冲突 | 国际化缺失 |
+## 风险优先级
 
-## 测试文件清单 (按生成顺序)
+P0 必须按场景完整通过：
 
-### 1. 单元测试 - 前端
-- `src/__tests__/hooks/useApprovals.test.ts`
-- `src/__tests__/hooks/useCRM.test.ts`
-- `src/__tests__/hooks/useSalesLeads.test.ts`
-- `src/__tests__/hooks/useWebSocketPush.test.ts`
-- `src/__tests__/hooks/useVMD.test.ts`
-- `src/__tests__/lib/apiConfig.test.ts`
-- `src/__tests__/lib/schemas.test.ts`
-- `src/__tests__/components/GenUIContainer.test.tsx`
-- `src/__tests__/components/ThinkingChain.test.tsx`
-- `src/__tests__/components/CommandPalette.test.tsx`
+- 跨租户读取/写入与 Service Role 边界。
+- 会员权益、审批、付款、批量外发和权限变更的事务、幂等、审计及 HITL。
+- 企业资料上传、租户绑定、入库、检索和来源引用。
+- 方案/标书成果的证据约束、质量门、持久化任务及安全下载。
+- Agent 工具 RBAC、提示注入、循环预算、失败归因和不可逆动作。
+- 空库迁移重放、Schema 收敛、RLS 覆盖和策略字段一致性。
 
-### 2. 单元测试 - 后端
-- `nexus_backend/tests/unit/test_router_classify.py`
-- `nexus_backend/tests/unit/test_state.py`
-- `nexus_backend/tests/unit/test_node_helpers.py`
-- `nexus_backend/tests/unit/test_loop_detector.py`
-- `nexus_backend/tests/unit/test_safety_guards.py`
-- `nexus_backend/tests/unit/test_tool_base.py`
-- `nexus_backend/tests/unit/test_prompt_firewall.py`
-- `nexus_backend/tests/unit/test_sanitize.py`
-- `nexus_backend/tests/unit/test_architecture_guards.py`
+P1 优先保护：SSE 断线恢复、长任务取消/重试、弱网与离线队列、外部集成超时、模型 fallback、成本熔断、移动端关键路径和视觉回归。
 
-### 3. 集成测试
-- `nexus_backend/tests/integration/test_graph_flow.py`
-- `nexus_backend/tests/integration/test_tool_execution.py`
-- `nexus_backend/tests/integration/test_memory_pipeline.py`
-- `src/__tests__/integration/aiStream-httpClient.test.ts`
+## CI 门禁
 
-### 4. React Flow 设计器专项
-- `src/__tests__/features/WorkflowCanvas.test.tsx`
-- `src/__tests__/features/WorkflowNodes.test.tsx`
-- `src/__tests__/features/WorkflowProperties.test.tsx`
+`.github/workflows/ci.yml` 是 push/PR 主门禁；`.github/workflows/test-full.yml` 是定时和手动全量回归。全量流水线阻断以下失败：
 
-### 5. AI Agent 中控测试矩阵
-- `nexus_backend/tests/agent/test_intent_matrix.py`
-- `nexus_backend/tests/agent/test_plan_execute_reflect.py`
-- `nexus_backend/tests/agent/test_wbs_orchestrator.py`
-- `nexus_backend/tests/agent/test_tool_priority.py`
-- `nexus_backend/tests/agent/test_memory_drift.py`
+- 前后端静态检查与构建。
+- 依赖/秘密扫描、OpenAPI 和 Docker 构建烟测。
+- 前端、后端单元、工作流、集成、Agent、安全、性能和 E2E。
+- Playwright 全量、视觉回归与无障碍 smoke。
+- 覆盖率基线、交接就绪、迁移治理和生产证明。
 
-### 6. 多租户 & 权限
-- `nexus_backend/tests/security/test_tenant_isolation.py`
-- `nexus_backend/tests/security/test_role_permission_matrix.py`
-- `src/__tests__/security/permission-boundary.test.ts`
+“静态契约存在”不等于外部系统真实成功。需要 Supabase、LLM 或线上租户的任务如果没有凭据，应清楚标记为 skipped，并在 staging 补跑后保存证据。
 
-### 7. E2E 业务闭环
-- `e2e/flows/contract-approval-payment.spec.ts`
-- `e2e/flows/task-assign-execute-review.spec.ts`
-- `e2e/flows/sales-lead-to-deal.spec.ts`
-- `e2e/flows/employee-onboarding.spec.ts`
-- `nexus_backend/tests/e2e/test_approval_e2e.py`
-- `nexus_backend/tests/e2e/test_crm_e2e.py`
-- `nexus_backend/tests/e2e/test_workflow_e2e.py`
-- `nexus_backend/tests/e2e/test_ai_chat_e2e.py`
-
-### 8. 性能/安全/PWA/边缘
-- `nexus_backend/tests/performance/test_load.py`
-- `nexus_backend/tests/security/test_prompt_injection.py`
-- `nexus_backend/tests/security/test_xss_csrf.py`
-- `src/__tests__/pwa/offline-queue.test.ts`
-- `src/__tests__/edge/error-boundary-cascade.test.tsx`
-
-### 9. CI/CD 集成
-- `.github/workflows/test-full.yml`
-
----
-
-## 已生成文件清单 (实际产出 — 重构后)
-
-### 前端测试 (Vitest)
-| 文件 | 类别 | 测试数 |
-|------|------|--------|
-| `src/__tests__/hooks/useApprovals.test.ts` | 单元 | 6 |
-| `src/__tests__/hooks/useWebSocketPush.test.ts` | 单元 | 3 |
-| `src/__tests__/hooks/useAIStream.test.ts` | 单元 | - |
-| `src/__tests__/lib/schemas.test.ts` | 单元 | 14 |
-| `src/__tests__/lib/apiConfig.test.ts` | 单元 | 6 |
-| `src/__tests__/lib/httpClient.test.ts` | 单元 | - |
-| `src/__tests__/lib/httpClient-edge.test.ts` | 边缘 | 15 |
-| `src/__tests__/components/ThinkingChain.test.tsx` | 单元 | 7 |
-| `src/__tests__/components/CommandPalette.test.tsx` | 单元 | 1 |
-| `src/__tests__/components/ErrorBoundary.test.tsx` | 边缘 | 13 |
-| `src/__tests__/components/GenUIComponents.test.tsx` | 单元 | - |
-| `src/__tests__/features/WorkflowCanvas.test.tsx` | 设计器 | 6 |
-| `src/__tests__/features/WorkflowDesigner.test.tsx` | 设计器 | - |
-| `src/__tests__/features/WorkflowNodes.test.tsx` | 设计器 | - |
-| `src/__tests__/security/permission-boundary.test.ts` | 安全 | 4 |
-
-### 后端测试 (pytest)
-| 文件 | 类别 | 测试数 |
-|------|------|--------|
-| `tests/unit/test_router_classify.py` | 单元 | 50+ |
-| `tests/unit/test_state.py` | 单元 | 10+ |
-| `tests/unit/test_loop_detector.py` | 单元 | 10+ |
-| `tests/unit/test_safety_guards.py` | 单元 | 8 |
-| `tests/unit/test_tool_coverage.py` | 单元 | - |
-| `tests/unit/test_tool_resilience.py` | 单元 | - |
-| `tests/unit/test_tool_full_sweep.py` | 单元 | - |
-| `tests/integration/test_graph_flow.py` | 集成 | 5 |
-| `tests/integration/test_tool_execution.py` | 集成 | 4 |
-| `tests/agent/test_intent_matrix.py` | Agent矩阵 | 50+ |
-| `tests/agent/test_plan_execute_reflect.py` | Agent链路 | 6 |
-| `tests/agent/test_agent_core.py` | Agent | - |
-| `tests/agent/test_agent_modules.py` | Agent | - |
-| `tests/agent/test_agent_nodes.py` | Agent | - |
-| `tests/agent/test_agent_evals.py` | Agent | - |
-| `tests/agent/test_agent_graph.py` | Agent | - |
-| `tests/agent/test_agent_flow.py` | Agent | - |
-| `tests/security/test_tenant_role_matrix.py` | 权限 | 10+ |
-| `tests/security/test_prompt_injection.py` | 安全 | 35+ |
-| `tests/security/test_xss_csrf.py` | 安全 | 25+ |
-| `tests/security/test_hitl_security.py` | 安全 | - |
-| `tests/security/test_security_middleware.py` | 安全 | - |
-| `tests/security/test_security_multi_tenant.py` | 安全 | - |
-| `tests/performance/test_load.py` | 性能 | 15+ |
-| `tests/performance/test_performance_audit.py` | 性能 | - |
-| `tests/e2e/test_business_e2e.py` | E2E | 8 |
-
-### E2E (Playwright)
-| 文件 | 类别 | 测试数 |
-|------|------|--------|
-| `e2e/flows/business-flows.spec.ts` | 业务闭环 | 9 |
-
-### CI/CD
-| 文件 | 说明 |
-|------|------|
-| `.github/workflows/test-full.yml` | 9 大类全量回归 + 质量门禁 |
-| `.github/workflows/ci.yml` | 已有：push/PR 触发的主 CI |
-| `.github/workflows/test.yml` | 已有：手动触发的集成测试 |
-
----
-
-## 质量门禁标准
-
-| 门禁 | 阈值 | 阻断级别 |
-|------|------|---------|
-| 前端覆盖率 | ≥ 60% lines | Warning |
-| 后端覆盖率 | ≥ 50% lines | Blocking |
-| 安全测试 | 0 failure | Blocking |
-| Agent 矩阵 | 0 failure | Blocking |
-| E2E 关键路径 | 100% pass | Blocking |
-| 性能 SLO | 全部 pass | Warning |
-
-## 运行命令速查
+## 常用命令
 
 ```bash
-# 前端全量
-npx vitest run --coverage
+# 前端
+npm run lint
+npx tsc --noEmit
+npm run test -- --coverage
+node scripts/check_frontend_coverage_trend.mjs --check
+npm run quality:frontend
+npx playwright test --project=chromium
 
-# 后端全量
-cd nexus_backend && pytest tests/ -v --cov=app
+# 仓库级治理
+python scripts/check_handover_readiness.py
+python scripts/customer_acceptance_gate.py
+python scripts/release_quality_gate.py
+python scripts/production_proof_gate.py
 
-# 仅安全测试
-cd nexus_backend && pytest tests/security/ -v
-
-# 仅 Agent 矩阵
-cd nexus_backend && pytest tests/agent/ -v
-
-# 仅性能测试
-cd nexus_backend && pytest tests/performance/ -v
-
-# Playwright E2E
-npx playwright test
-
-# CI 全量回归 (GitHub Actions)
-gh workflow run "Full Test Suite"
+# 后端
+cd nexus_backend
+ruff check app/
+black --check app/
+pytest tests/unit -q
+pytest tests/integration -q
+pytest tests/agent tests/security -q
+pytest tests/production_proof -q
 ```
+
+在线客户黄金验收需要专用测试租户和三项环境变量：
+
+```bash
+GOLDEN_ACCEPTANCE_BASE_URL=... \
+GOLDEN_ACCEPTANCE_TOKEN=... \
+GOLDEN_ACCEPTANCE_ORG_ID=... \
+python scripts/run_customer_golden_acceptance.py --require-live
+```
+
+## 提测规则
+
+- 修复缺陷必须先补可复现测试，再修实现。
+- 新功能至少覆盖成功、校验失败、权限/租户失败和依赖失败；有副作用的功能还要覆盖幂等、取消或补偿。
+- 不用更新覆盖率基线掩盖具体回退，不批量添加 coverage ignore。
+- Agent 变更必须附数据集版本、前后指标和成本变化；成果生成变更必须附证据忠实度与可下载文件验证。
+- UI 变更必须验证桌面、移动、暗色、空态、错误态和长文本，必要时更新视觉基线。

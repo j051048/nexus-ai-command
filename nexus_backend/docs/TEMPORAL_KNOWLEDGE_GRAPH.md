@@ -33,8 +33,10 @@ results = await query_entity_at_time(
 
 ### RLS 策略
 三元组表受 Row Level Security (RLS) 保护：
-- `employee` 角色：可查看、插入其所在组织的三元组。
-- `manager` 角色：除了基础权限外，可执行更新操作（用于手动修正或处理冲突）。
+- 所有读写必须匹配数据库会话解析出的 `organization_id`，防止跨组织访问。
+- 表中仍保留 owner、visibility 和角色细粒度策略，但后续租户策略补全迁移还增加了同组织 `FOR ALL` 策略；当前不能宣称数据库已强制“仅本人或经理可修改”。
+- API 与 Agent 工具必须继续执行角色授权，生产前应按 `docs/handbook/09-known-debt.md` 收敛重叠策略。
+- 后端 Service Role 只能在已验证的组织上下文中使用，不能把客户端传入的组织标识直接视为可信。
 
 ## 示例场景
 1. **职位变动**：
@@ -49,4 +51,6 @@ results = await query_entity_at_time(
 如果发现查询结果为空，请检查：
 - `valid_from` 是否晚于您的查询时间。
 - 实体名是否使用了别名（系统支持自动别名解析，详见 `entity_resolution.py`）。
-- API 认证：QueryTransformer 现具备全局配置兜底，确信 `.env` 中的 `AI_BASE_URL` 和 `OPENAI_API_KEY` 正确。
+- `20260409_kg_temporal_validity.sql` 及后续 RLS 修复迁移是否已执行。
+- 请求是否携带正确的认证和组织上下文，且记录可见性允许当前用户读取。
+- 需要自动抽取新三元组时，再检查 `.env` 中的 `AI_BASE_URL`、`OPENAI_API_KEY` 和强制模型是否可用。

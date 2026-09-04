@@ -2,6 +2,14 @@
 
 Nexus 的方案、标书和通用成果文件共用同一套交付内核。平台负责模板选择、证据约束、格式检查、安全扫描、语义评审、失败修复和质量留痕，避免各入口各自维护一套生成逻辑。
 
+## 用户交付入口
+
+- 方案工作区：`/growth/solutions`，按需求、证据、配置、撰写、复核和交付推进。
+- 投标工作区：`/growth/tenders`，旧 `/tender-analysis` 入口保持兼容。
+- 对话成果：消息下方“制作精品成果”会创建深度生成任务，不直接导出聊天气泡。
+- 全局成果中心：桌面和移动布局均可查看状态、质量、证据、版本并再次下载。
+- 管理端：`/artifact-quality` 查看一次通过率、证据覆盖、失败模式和任务健康。
+
 ## 已接入能力
 
 ### 统一质量门
@@ -32,6 +40,8 @@ LLM 评审不可用时会降级为确定性结论，不会隐藏失败原因。�
 
 任务状态：`queued -> running -> completed | failed | cancelled`。
 
+Worker 使用租约和心跳领取任务；中断任务可恢复、取消或重试。前端轮询只负责展示状态，不承担任务执行。
+
 ### 模板和反馈闭环
 
 - `artifact_template_service.py`：按成果类型、仪器谱系和行业选择版本化模板，并根据通过率与质量分做 A/B 排序；
@@ -46,8 +56,9 @@ LLM 评审不可用时会降级为确定性结论，不会隐藏失败原因。�
 1. `supabase/migrations/20260806_artifact_quality_platform.sql`
 2. `supabase/migrations/20260810_001_artifact_generation_jobs.sql`
 3. `supabase/migrations/20260810_002_knowledge_activation.sql`
+4. `supabase/migrations/20260810_003_operational_closure.sql`
 
-三条迁移均包含租户字段、索引和 RLS 策略。部署前必须通过 schema convergence 与 RLS coverage 检查。
+这些迁移包含租户字段、索引、RLS、任务租约、入库恢复和交付事件。部署前必须通过 schema convergence 与 RLS coverage 检查。
 
 ## 运营原则
 
@@ -57,9 +68,27 @@ LLM 评审不可用时会降级为确定性结论，不会隐藏失败原因。�
 - 只有经人工审核的高质量样本才能进入模板或 few-shot 候选池；
 - 质量、延迟和成本按组织、成果类型和模板版本留痕。
 
+## 验证
+
+```bash
+# 静态契约与离线评测
+python scripts/production_proof_gate.py
+python scripts/build_artifact_eval_contract_outputs.py
+python scripts/run_artifact_output_eval.py
+
+# 浏览器交付链路
+npx playwright test e2e/customer-business-acceptance.spec.ts --project=chromium
+npx playwright test e2e/solution-workspace.spec.ts e2e/tender-workspace.spec.ts --project=chromium
+
+# 已部署环境的上传、入库、深度生成与文件下载
+python scripts/run_customer_golden_acceptance.py --require-live
+```
+
+最后一条必须配置 `GOLDEN_ACCEPTANCE_BASE_URL`、`GOLDEN_ACCEPTANCE_TOKEN` 和 `GOLDEN_ACCEPTANCE_ORG_ID`。无凭据的静态 skip 不代表真实交付已通过。
+
 ## 后续迭代
 
 1. 将已审核成果沉淀为可治理的 few-shot 样本，而不是自动学习全部人工修改；
-2. 在管理端补充质量 SLO、失败模式和模板效果面板；
+2. 扩充质量 SLO、失败模式和模板效果的真实客户基线；
 3. 用真实模型输出运行 `scripts/run_artifact_output_eval.py`，形成版本化回归基线；
 4. 将客户赢单、投标通过和方案采用结果纳入模板晋升门槛。

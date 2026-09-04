@@ -1,250 +1,71 @@
-# DESIGN.md — Nexus AI Command Center
+# Nexus AI Command 设计实现指南
 
-> 本文件遵循 [awesome-design-md](https://github.com/VoltAgent/awesome-design-md) 格式，供 AI Agent 和开发者参考，确保 UI 修改保持一致性。
+> 产品级设计原则以 `docs/UI_DESIGN_CONSTITUTION.md` 为准。本文件把原则映射到当前代码和组件约束，供开发者与 AI 编码工具执行。
 
----
+## 设计定位
 
-## 1. Visual Theme
+Nexus 是科学仪器企业的精密业务工作台，应当安静、可靠、清晰，像专业实验室软件，而不是营销网站、游戏 HUD 或 AI 能力演示页。
 
-**双主题策略**：亮色（Clean Professional SaaS）+ 暗色（Cyberpunk Muted）
+- 先呈现业务结果和下一步动作，再呈现解释与高级功能。
+- AI 通过证据、质量、状态和控制感被用户感知，不使用紫色魔法符号或持续动画炫技。
+- 页面区域优先使用留白、分隔线和排版建立层级；卡片仅用于独立对象、工具和浮层，禁止卡片套卡片。
+- 普通用户不看内部思维链；决策依据按需展开，完整 trace 只进入管理员页面。
 
-- **亮色模式**：白色为主、蓝色强调、微妙阴影、干净边框。面向日常办公使用。
-- **暗色模式**：近黑底色、科技蓝强调、克制的 glow 效果。面向深度专注场景。
-- **Sidebar**：始终使用暗色调（独立于主题切换），参考 Linear/Notion 的暗色导航栏模式。
+## 权威实现
 
-**设计哲学**：减法优先。避免装饰性特效堆叠，让内容和数据本身说话。
+| 主题 | 文件 |
+|---|---|
+| 颜色、表面、阴影、动效变量 | `src/index.css` |
+| 字体、字号、间距、圆角 | `tailwind.config.ts` |
+| 基础组件 | `src/components/ui` |
+| 页面状态与空状态 | `src/components/common` |
+| 助手与业务画布布局 | `src/components/layout/ChatFirstLayout.tsx`、`MobileLayout.tsx` |
+| 自动审美门禁 | `scripts/check_ui_aesthetics.mjs` |
+| 视觉回归 | `e2e/visual-regression.spec.ts` |
 
----
+不要在本文件复制具体 HSL 值。需要颜色时使用 `background`、`foreground`、`card`、`muted`、`primary`、`success`、`warning`、`destructive` 等语义 token。
 
-## 2. Color Palette
+## 视觉规则
 
-### 基础色
+1. 业务页圆角为 4-8px；默认 `--radius` 为 8px。不要恢复 14px 以上的大圆角体系。
+2. 页面分区默认无阴影；菜单使用轻阴影，Dialog、Drawer 等浮层使用 elevated 阴影。
+3. 已认证业务页面禁止渐变、霓虹 glow、装饰光球和毛玻璃堆叠。
+4. 侧栏与应用使用同一中性色表面，不强制暗色；暗色模式同样保持中性，不使用赛博霓虹。
+5. 页面标题 20-24px，面板标题 14-16px，字间距始终为 0；标识符和测量值使用等宽字体或 `tabular-nums`。
+6. 同一视觉组只保留一个主按钮；次要动作使用 outline、ghost 或菜单。
+7. Badge 只表达状态、标签和筛选，不用作普通按钮或装饰。
+8. 反复操作的数据优先使用表格、行动列表、阶段轨道和紧凑指标条。
 
-| Token | 亮色 (HSL) | 暗色 (HSL) | 用途 |
-|-------|-----------|-----------|------|
-| `--background` | `210 20% 98%` | `0 0% 7%` | 页面底色 |
-| `--foreground` | `222 47% 11%` | `0 0% 95%` | 主文字 |
-| `--card` | `0 0% 100%` | `0 0% 10%` | 卡片底色 |
-| `--card-elevated` | `210 20% 96%` | `0 0% 12%` | 浮起卡片 |
+## 交互规则
 
-### 语义色
+- 控件过渡 120-180ms，浮层 180-240ms；只在状态变化、加载、进度、Dialog 和 Drawer 中使用动效。
+- Hover 只改变颜色或边框，不位移、旋转、缩放或漂浮。
+- 加载状态可循环，其他装饰性无限动画禁止使用；所有动效支持 `prefers-reduced-motion`。
+- 触摸目标不小于 44px；桌面紧凑控件也必须保持清晰的焦点态和键盘可达性。
+- 失败状态应说明影响、恢复动作和可重试入口，避免在每个页面重复弹出无上下文的全局错误。
 
-| Token | 亮色 | 暗色 | 用途 |
-|-------|------|------|------|
-| `--primary` | `217 91% 50%` | `211 100% 50%` | 主操作、链接、焦点 |
-| `--success` | `142 69% 45%` | `142 69% 50%` | 成功状态 |
-| `--warning` | `36 100% 50%` | `36 100% 52%` | 警告状态 |
-| `--destructive` | `0 84% 55%` | `0 84% 60%` | 危险操作 |
+## 布局规则
 
-### 边框与输入
+- 桌面端优先呈现业务画布，助手使用可调整侧栏或抽屉；方案、投标、企业资料等高价值路径允许助手与画布并行。
+- 移动端使用单任务全屏和底部/抽屉式助手，不压缩成三列小屏。
+- 固定格式控件使用稳定尺寸、网格轨道或 `aspect-ratio`，避免数字、标签和加载状态造成布局跳动。
+- 1280、1440、1920 和移动宽度均需走查；文字不得遮挡、截断关键动作或溢出容器。
 
-| Token | 亮色 | 暗色 |
-|-------|------|------|
-| `--border` | `214 20% 88%` | `0 0% 18%` |
-| `--input` | `214 20% 92%` | `0 0% 15%` |
-| `--muted-foreground` | `215 16% 40%` | `0 0% 55%` |
+## AI 与成果界面
 
-### 游戏化色
+- 默认展示“已收到、正在检索、正在生成、正在质检、可下载”等业务状态，不展示节点级推理过程。
+- AI 结论旁按需提供来源、置信度、待核验项和人工确认入口。
+- 对外成果必须明确区分“审核草稿”和“可交付”；深度成果提供 Word/PDF/Excel 与持久化下载入口，图片用于对话内容快速导出。
+- 高风险外发、审批、付款、会员和权限动作必须有明确预览与确认，不能只依赖聊天文本。
 
-| Token | 值 | 用途 |
-|-------|---|------|
-| `--gold` | `45 100% 50%` | 排名第一 |
-| `--silver` | `0 0% 65%` | 排名第二 |
-| `--bronze` | `30 60% 45%` | 排名第三 |
-| `--xp-bar` | `280 100% 55%` | 经验值进度条 |
+## 提交前验证
 
-### 使用规范
-
-```css
-/* ✅ 正确：使用 CSS 变量 */
-color: hsl(var(--primary));
-background: hsl(var(--card));
-
-/* ❌ 错误：硬编码 hex 值 */
-background: #0d0f14;
-color: #141b2e;
+```bash
+npm run check:ui
+npm run check:text
+npm run check:size
+npm run build
+npx playwright test e2e/visual-regression.spec.ts --project=chromium
 ```
 
----
-
-## 3. Typography
-
-**字体**：`Inter`（正文）+ `JetBrains Mono`（代码/数字）
-
-### 字号阶梯（Tailwind Token）
-
-| Token | 大小 | 行高 | 字重 | 用途 |
-|-------|------|------|------|------|
-| `text-display-lg` | 3rem (48px) | 1.2 | 700 | 英雄区标题 |
-| `text-display` | 2.25rem (36px) | 1.25 | 700 | 页面标题 |
-| `text-heading-lg` | 1.875rem (30px) | 1.3 | 600 | 区块标题 |
-| `text-heading` | 1.5rem (24px) | 1.4 | 600 | 卡片标题 |
-| `text-heading-sm` | 1.25rem (20px) | 1.4 | 600 | 子标题 |
-| `text-body-lg` | 1.125rem (18px) | 1.6 | 400 | 强调正文 |
-| `text-body` | 1rem (16px) | 1.5 | 400 | 默认正文 |
-| `text-body-sm` | 0.875rem (14px) | 1.5 | 400 | 次要文字 |
-| `text-caption` | 0.75rem (12px) | 1.4 | 400 | 标签、辅助文字 |
-| `text-micro` | 0.625rem (10px) | 1.4 | 400 | 徽章、极小标注 |
-
-### 迁移指南
-
-项目中有约 245 处 `text-[10px]` 硬编码，应逐步迁移为 `text-micro`。
-
-```tsx
-// ✅ 正确
-<span className="text-micro font-black uppercase">SECTION</span>
-
-// ❌ 避免
-<span className="text-[10px] font-black uppercase">SECTION</span>
-```
-
----
-
-## 4. Component Styling
-
-### 卡片变体
-
-| 类名 | 效果 | 使用场景 |
-|------|------|---------|
-| `card-glass` | `bg-card/0.8` + `backdrop-blur(12px)` + 半透明边框 | 浮层卡片、对话框 |
-| `glass-card` | `backdrop-blur-xl` + `bg-white/80 dark:bg-gray-900/80` | 内容卡片 |
-| `glass-sidebar` | `backdrop-blur-2xl` + `bg-white/60 dark:bg-gray-950/60` | 侧边栏面板 |
-| `glass-header` | `backdrop-blur-xl` + `bg-white/70 dark:bg-gray-900/70` | 顶栏 |
-
-### 按钮
-
-- **主要操作**：`bg-primary text-primary-foreground shadow-md shadow-primary/20`
-- **悬停**：`hover:shadow-lg hover:shadow-primary/30`
-- **按压**：`active:scale-[0.98]`
-- **触摸目标**：最小 `min-h-touch min-w-touch`（44px × 44px）
-
-### 输入框
-
-```tsx
-className="h-11 rounded-xl bg-background/60 border-white/20 dark:border-white/10
-           hover:bg-background/70 hover:border-primary/50
-           focus:bg-background/80 transition-all duration-300"
-```
-
-注意：不要在输入框上叠加 `backdrop-blur`，它们已在有 blur 的卡片容器内。
-
----
-
-## 5. Layout Principles
-
-### 间距系统（8px 网格）
-
-| Tailwind Token | CSS 变量 | 值 | 用途 |
-|----------------|---------|------|------|
-| `p-tight` / `gap-tight` | `--spacing-sm` | 0.5rem (8px) | 紧凑间距 |
-| `p-element` / `gap-element` | `--spacing-md` | 1rem (16px) | 元素间距 |
-| `p-component` / `gap-component` | `--spacing-xl` | 2rem (32px) | 组件间距 |
-| `p-section` / `gap-section` | — | 4rem (64px) | 区块间距 |
-
-### ChatFirst 三列布局
-
-```
-┌──────────┬────────────────┬──────────────────────┐
-│ Sidebar  │   Chat Panel   │    Canvas/Content     │
-│  w-64    │  45% → 38% lg  │   55% → 62% lg       │
-│  固定     │  → 35% xl      │   → 65% xl           │
-│          │               │  max-w 1600/1800px xl  │
-└──────────┴────────────────┴──────────────────────┘
-```
-
-### 容器最大宽度
-
-- `container`: `max-w-[1400px]`（Tailwind 默认）
-- Canvas 内容：`max-w-[1600px] xl:max-w-[1800px]`
-
----
-
-## 6. Depth & Elevation
-
-### 阴影层级
-
-| Token | 亮色 | 暗色 | 用途 |
-|-------|------|------|------|
-| `--shadow-card` | 微妙双层阴影 | `0 4px 20px / 0.3` | 默认卡片 |
-| `--shadow-elevated` | `0 4px 24px / 0.1` | `0 8px 32px / 0.4` | 浮层、模态 |
-| `--shadow-glow-primary` | `0 4px 20px / 0.15` | `0 0 20px / 0.15` | 主色发光（克制） |
-
-### Blur 层级
-
-| 级别 | 值 | 使用场景 |
-|------|---|---------|
-| `backdrop-blur-sm` | 4px | 次要浮层 |
-| `backdrop-blur-md` | 12px | 头部栏 |
-| `backdrop-blur-xl` | 24px | 主要卡片、模态 |
-| `backdrop-blur-2xl` | 40px | Sidebar |
-
-**禁止** 使用 `backdrop-blur-3xl`（64px），性能开销过大。
-**禁止** 在已有 blur 容器内的子元素上再叠加 blur。
-
-### Z-index 分层
-
-| 层级 | 值 | 用途 |
-|------|---|------|
-| 基础内容 | `z-0` ~ `z-10` | 页面内容 |
-| Sidebar | `z-40` | 侧边导航 |
-| 模态/覆盖层 | `z-50` | Dialog、Chat Panel 浮层 |
-
-### 圆角
-
-基础圆角 `--radius: 0.875rem`（14px），组件通常使用 `rounded-xl` ~ `rounded-2xl`。
-
----
-
-## 7. Do's and Don'ts
-
-### ✅ Do
-
-- 使用 CSS 变量和 Tailwind token，不硬编码颜色/间距
-- 新增小号文字时使用 `text-micro`（不是 `text-[10px]`）
-- Glow 效果只用于 1-2 个焦点元素（CTA 按钮、在线状态指示器）
-- 动画使用 `prefers-reduced-motion` 降级
-- 触摸目标 ≥ 44px
-
-### ❌ Don't
-
-- 不要在一个页面堆叠 3 种以上视觉特效（blob + particles + mesh + glow = 过度）
-- 不要使用 `backdrop-blur-3xl`
-- 不要在 blur 容器内嵌套 blur
-- 不要使用无限循环动画（`infinite`）除非有明确的用户感知价值（如加载指示器）
-- 不要在 className 中硬编码 hex 值（如 `bg-[#0d0f14]`）
-- 不要引用不存在的 CSS 类（如 `glass-premium` 当前无定义）
-
----
-
-## 8. Responsive Behavior
-
-### 断点策略
-
-| 断点 | 宽度 | 布局行为 |
-|------|------|---------|
-| 默认（mobile） | < 768px | Sidebar 隐藏（抽屉化），Chat 全屏 |
-| `md` | ≥ 768px | Sidebar 可见，Chat + Canvas 二列 |
-| `lg` | ≥ 1024px | Chat 38%，Canvas 62% |
-| `xl` | ≥ 1280px | Chat 35%，Canvas 65%，内容区更宽 |
-
-### 移动端适配
-
-- Sidebar：`hidden md:flex`，移动端通过汉堡菜单触发
-- Chat Panel：移动端全屏覆盖 `fixed inset-0 z-50`
-- 所有可交互元素保持 44px 最小触摸目标
-
----
-
-## 9. Agent Prompt Guide
-
-当 AI Agent 修改此项目的 UI 时，请遵循以下规则：
-
-1. **颜色**：只使用 `hsl(var(--xxx))` 格式。查阅 `src/index.css` 中的 `:root` 和 `.dark` 块获取可用变量。
-2. **字号**：使用 `text-display` ~ `text-micro` token。禁止裸写 `text-[Npx]`。
-3. **间距**：优先使用 `p-element`、`gap-component` 等语义化 token。
-4. **Glassmorphism**：使用已定义的 `card-glass`、`glass-card` 等类，不要自行组合 blur + opacity。
-5. **动画**：新增动画必须支持 `prefers-reduced-motion`。避免 `infinite` 关键帧。
-6. **暗色模式**：所有新增样式必须同时考虑亮色和暗色。使用 `dark:` 前缀或 CSS 变量。
-7. **Sidebar**：Sidebar 始终暗色，使用 `bg-sidebar`、`border-sidebar-border` 等 token。
-8. **响应式**：新增布局必须考虑 `md:`、`lg:`、`xl:` 三个断点。
-9. **性能**：每个页面最多 2 个 `backdrop-blur` 元素。禁止嵌套 blur。
+UI 变更还需人工走查亮色/暗色、桌面/移动、键盘焦点、空状态、错误状态和长中文内容。

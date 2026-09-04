@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; user-facing explainability amended on 2026-09-04.
 
 ## Context
 
@@ -12,7 +12,7 @@ The platform needs an AI agent system that can:
 - Call external tools (CRM queries, document search, approval workflows)
 - Support streaming responses for real-time user feedback
 - Handle tool failures gracefully with retry and circuit breaker patterns
-- Provide thinking chain visualization to users
+- Provide useful progress and decision evidence to users
 
 Options considered:
 
@@ -54,3 +54,7 @@ The chat service (`chat_service.py`) handles the direct OpenAI streaming path fo
 
 - Tool definitions are shared between both paths via `app/tools/`
 - Token counting and cost tracking apply uniformly to both paths
+
+## Current Implementation Note
+
+LangGraph remains the complex-task execution layer, but raw chain-of-thought is not a product surface. Business users see the current stage, evidence references, confidence, result and available controls. Detailed traces are restricted to Agent Ops and authorized debugging workflows. The current node layout is maintained under `nexus_backend/app/agent/node_*.py`, `plan/` and `graph.py`; see `docs/handbook/05-agent-lifecycle.md` for the operational flow.

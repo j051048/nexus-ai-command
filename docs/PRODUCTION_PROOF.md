@@ -1,145 +1,69 @@
-# Production Proof Plan
+# 生产证明体系
 
-This plan converts the audit findings into executable proof layers. Static
-architecture guards remain useful, but they are no longer treated as proof that
-business flows actually run.
+`scripts/production_proof_gate.py` 是仓库级静态证明入口。它验证关键实现、数据集、Schema、质量门和 CI 接线仍然存在，但不会伪装成真实数据库、LLM、外部系统或浏览器已经在线跑通。
 
-## Proof Layers
+## 证明域
 
-1. Golden business flows
-   - Manifest: `nexus_backend/tests/production_proof/fixtures/golden_business_flows.json`
-   - Offline check: `pytest nexus_backend/tests/production_proof/test_golden_business_flows.py`
-   - Real mode: `RUN_REAL_GOLDEN_FLOWS=1`
+当前证明覆盖以下不变量，具体检查项以脚本中的 `CHECKS` 为准，不在文档重复维护会过期的数量：
 
-2. Agent graph E2E
-   - Contract: `test_agent_graph_e2e_contract.py`
-   - Real mode: `RUN_REAL_AGENT_GRAPH_E2E=1`
-   - Required proof: user message -> `graph.ainvoke()` -> tool calls -> persisted output.
+- 黄金业务流、可执行回放与隔离 staging 流程。
+- Agent graph、路由评测、循环预算、上下文编译、SSE 恢复与失败归因。
+- Tool Catalog、RBAC、HITL、事务/幂等、补偿和成本硬门。
+- Schema 迁移重放、checksum 治理、字段收敛、RLS 和跨租户隔离。
+- 科学仪器产品域、VMD/增长工作台、客户方案与投标运营闭环。
+- 企业知识入库、文档身份召回、混合检索、Graph RAG 与证据契约。
+- 精品成果深度生成、质量矩阵、模板/反馈、持久化任务、下载和质量可观测。
+- 前端静态质量、覆盖率趋势、视觉/无障碍回归、Docker 构建和供应链安全。
+- 工程交接、恢复、SLO、客户成功和发布证据。
 
-3. Tenant isolation / RLS
-   - Contract: `test_tenant_rls_isolation_contract.py`
-   - Real mode: `RUN_REAL_RLS_PROOF=1`
-   - Required proof: Org A cannot read or mutate Org B data.
+## 静态与在线证明
 
-4. Intent classifier baseline
-   - Dataset: `fixtures/intent_baseline.json`
-   - CI threshold: 90% minimum deterministic baseline.
-   - Next step: replace deterministic helper with real router once stable.
+| 模式 | 能证明 | 不能证明 |
+|---|---|---|
+| 静态 gate | 文件、token、数据集规模、路由/策略接线和离线契约 | 生产凭据、真实 RLS、Provider、队列或下载可用 |
+| 录制/回放 | Prompt、工具选择和已知失败不回归 | 当前 Provider 行为和线上数据质量 |
+| staging 在线 | 迁移、真实 Agent、RLS、入库、成果生成和下载 | 生产容量与长期稳定性 |
+| 生产观察 | SLO、错误预算、成本、采用率和恢复能力 | 尚未发生的极端故障 |
 
-5. Tool error matrix
-   - Contract: `test_tool_error_matrix_contract.py`
-   - Required cases per core tool: success, invalid params, permission denied, timeout.
-
-6. Migration replay
-   - Contract: `test_migration_replay_contract.py`
-   - Staging verifier: `scripts/verify_staging_migrations.py --require-db`
-   - Conflict scanner: `scripts/scan_migration_schema_conflicts.py`
-   - RLS policy column scanner: `scripts/scan_rls_policy_columns.py`
-   - Scratch replay command: `scripts/verify_migration_replay.py --require-db`
-   - Required proof: empty DB can apply all migrations.
-   - Required guard: duplicate `CREATE TABLE IF NOT EXISTS` definitions must
-     be schema-compatible; otherwise add a reconcile migration instead.
-   - Required guard: tenant policies that use `current_tenant_id_text()` must
-     reference columns that exist in the target table.
-
-7. SSE disconnect and resume
-   - Contract: `test_sse_reconnect_contract.py`
-   - Required proof: disconnect detection, idempotent resume, no duplicate message,
-     final state reconciled.
-
-8. API client unification
-   - Contract: `test_api_client_and_transaction_contract.py`
-   - Required proof: secondary clients delegate to `httpClient`.
-
-9. Transaction / RPC boundary
-   - Contract: `test_api_client_and_transaction_contract.py`
-   - Required proof: complex business operations use transactional RPC or a documented
-     atomic boundary.
-
-10. Load and capacity
-   - Contract: `test_load_and_capacity_contract.py`
-   - Profiles: `nexus_backend/tests/k6/baseline.js`, `small_company.js`
-   - Required proof: `/api/chat` and core AI endpoints have capacity baseline.
-
-11. LLM VCR replay
-   - Cassette: `fixtures/llm_replay_cassette.json`
-   - Required proof: prompt/model changes can be replayed without live LLM access.
-
-12. CI production proof wiring
-   - Gate: `scripts/production_proof_gate.py`
-   - CI: `.github/workflows/ci.yml`
-   - Required proof: this suite runs on every backend CI pass.
-
-13. Last-mile hardening
-   - Local launcher: `scripts/dev_python.ps1`
-   - Pytest launcher: `scripts/dev_pytest.ps1`
-   - Combined runner: `scripts/run_last_mile_checks.ps1`
-   - Required proof: local and CI checks share the same Python path and encoding setup.
-
-14. Memory-safe frontend build
-   - Build wrapper: `scripts/build_frontend.mjs`
-   - CI env: `NODE_OPTIONS=--max-old-space-size=4096`
-   - Required proof: frontend builds use a consistent memory profile and avoid compressed-size reporting overhead.
-
-15. Agent eval dataset and failure attribution
-   - Dataset: `fixtures/agent_eval_cases_200.json`
-   - Generator: `scripts/generate_agent_eval_dataset.mjs`
-   - Attribution engine: `app/agent/tool_failure_attribution.py`
-   - Required proof: at least 200 eval cases, balanced by scenario, and failed tool guidance includes category, owner, retryability, and confidence.
-
-16. AI behavior weekly report and module convergence
-   - API: `/api/dashboard/ai-weekly-report`
-   - Hook: `src/hooks/useAIWeeklyReport.ts`
-   - Policy: `MODULE_FOCUS_POLICY`
-   - Required proof: boss users can see a business-readable AI audit summary, and low-depth modules remain integration-first.
-
-17. Aeon-inspired Agent Ops runtime
-   - Runtime: `app/services/agent_ops_runtime_service.py`
-   - API: `/api/ai-operating-system/aeon-inspired-ops`
-   - UI: `AgentImprovementCenterPage`
-   - Persistence: `20260526_agent_ops_runtime.sql`
-   - Required proof: heartbeat, skill health, reactive triggers, governed self-repair, skill chains, universal var, operating memory, fleet, persona/soul, and MCP/A2A capability exposure all remain present.
-
-18. Closed-loop Agent Ops heartbeat
-   - API: `POST /api/ai-operating-system/aeon-inspired-ops/run-heartbeat`
-   - Persistence: heartbeat snapshots, skill health, reactive triggers, repair proposals, chain templates, persona profiles, and external capabilities.
-   - Required proof: the endpoint persists operating facts only; self-repair remains proposal-only and human-approved.
-
-19. Router eval and schema convergence
-   - Eval runner: `app/services/agent_eval_baseline_service.py`
-   - Schema audit: `scripts/audit_schema_convergence.py`
-   - Required proof: 200+ eval cases can run through the operating-system router baseline, and Agent Ops tables stay on `organization_id`.
-
-## Recommended Commands
+## 推荐命令
 
 ```bash
 python scripts/production_proof_gate.py
+python scripts/check_migration_governance.py
+python scripts/check_transaction_contracts.py
+python scripts/scan_migration_schema_conflicts.py
+python scripts/scan_rls_coverage.py
 python scripts/scan_rls_policy_columns.py
-python scripts/verify_migration_replay.py
 python scripts/audit_schema_convergence.py
-node scripts/generate_agent_eval_dataset.mjs
-npm run build
+python scripts/verify_migration_replay.py
+python scripts/customer_acceptance_gate.py
+
 cd nexus_backend
 pytest tests/production_proof -q
 ```
 
-Windows local wrapper:
+Windows 交接可使用：
 
 ```powershell
 .\scripts\run_last_mile_checks.ps1
 .\scripts\run_last_mile_checks.ps1 -RealMigrations -RealBackend
 ```
 
-For real staging proof:
+## 在线证明
+
+Agent 回放、RLS、迁移重放和客户成果验收各自要求显式凭据。发布负责人必须使用专用测试组织，保存 Commit、环境、数据集版本、起止时间、结果和清理记录。
+
+客户成果端到端证明：
 
 ```bash
-RUN_REAL_GOLDEN_FLOWS=1 \
-RUN_REAL_AGENT_GRAPH_E2E=1 \
-RUN_REAL_RLS_PROOF=1 \
-TEST_SUPABASE_URL=... \
-TEST_SUPABASE_SERVICE_KEY=... \
-TEST_SUPABASE_ANON_KEY=... \
-MIGRATION_REPLAY_DATABASE_URL=... \
-TEST_LLM_RECORDING_MODE=replay \
-pytest nexus_backend/tests/production_proof -q
+GOLDEN_ACCEPTANCE_BASE_URL=... \
+GOLDEN_ACCEPTANCE_TOKEN=... \
+GOLDEN_ACCEPTANCE_ORG_ID=... \
+python scripts/run_customer_golden_acceptance.py --require-live
 ```
+
+该流程上传五类科学仪器 fixture，等待知识入库，创建深度成果任务，并校验 DOCX/PDF 文件签名和最小体积。没有凭据时的 skip 不能用于客户签收。
+
+## 证据保留
+
+每次正式发布保存 gate 输出、测试报告、覆盖率、迁移/RLS 结果、Docker digest、在线黄金路径、SLO 快照和回滚目标。任何质量数字都必须绑定代码版本、数据集和运行模式。

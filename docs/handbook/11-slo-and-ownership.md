@@ -8,6 +8,10 @@
 | 核心 API P95 | < 800 ms（不含长 Agent） | Backend |
 | Agent 首个可见状态 P95 | < 1 s | Agent + Frontend |
 | 关键 Agent 完成率 | > 95% | Agent |
+| 企业资料入库成功率 | > 99% | Knowledge + SRE |
+| 精品成果任务完成率 | > 95% | Agent + Delivery |
+| 可交付成果证据覆盖率 | > 90%（按已声明关键事实） | Agent + Domain |
+| 已完成成果下载成功率 | > 99% | Backend + SRE |
 | 高风险错误执行 | 0 | Security + Domain |
 | 跨租户数据泄露 | 0 | Security + Data |
 | 队列最老任务 | < 5 min | SRE |
@@ -19,6 +23,7 @@ SLO 是初始值，应在获得真实流量后按场景拆分。错误预算耗�
 - **Frontend**：页面、设计系统、Web Vitals、SSE 消费与无障碍。
 - **Backend**：API、领域事务、任务幂等与集成适配。
 - **Agent**：路由、prompt/context、工具目录、eval 和成本。
+- **Knowledge/Delivery**：资料入库、检索、证据契约、成果模板、质量门和下载生命周期。
 - **Data/Security**：迁移、RLS、审计、备份、隐私和事故响应。
 - **Product/Domain**：验收标准、领域数据集、HITL 边界和 ROI。
 

@@ -15,9 +15,9 @@ npm run dev
 
 cd nexus_backend
 python -m venv .venv
-.venv\Scripts\pip.exe install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 Copy-Item .env.example .env
-.venv\Scripts\uvicorn.exe app.main:app --reload --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
 ## 调试原则

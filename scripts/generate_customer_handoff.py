@@ -7,7 +7,6 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "dist" / "customer-handoff.md"
 
@@ -20,7 +19,11 @@ def module_list() -> list[str]:
     env_text = read(".env.production.example")
     for line in env_text.splitlines():
         if line.startswith("VITE_ENABLED_MODULES="):
-            return [item.strip() for item in line.split("=", 1)[1].split(",") if item.strip()]
+            return [
+                item.strip()
+                for item in line.split("=", 1)[1].split(",")
+                if item.strip()
+            ]
     return []
 
 
@@ -71,6 +74,8 @@ def build_report() -> str:
         "npm run check:bundle",
         "npm run test:e2e -- e2e/top10-critical-flows.spec.ts --project=chromium",
         "npm run test:e2e -- e2e/customer-business-acceptance.spec.ts --project=chromium",
+        "npm run test:e2e -- e2e/solution-workspace.spec.ts --project=chromium",
+        "npm run test:e2e -- e2e/tender-workspace.spec.ts --project=chromium",
         "```",
         "",
         "## Evidence",
@@ -99,7 +104,9 @@ def build_report() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate customer handoff markdown")
-    parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Output markdown path")
+    parser.add_argument(
+        "--output", default=str(DEFAULT_OUTPUT), help="Output markdown path"
+    )
     args = parser.parse_args()
     output = Path(args.output)
     if not output.is_absolute():

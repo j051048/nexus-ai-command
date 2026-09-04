@@ -67,6 +67,10 @@ async function setupCriticalMocks(page: Page) {
   await page.route('**/api/plugins**', async (route) => {
     await fulfillJson(route, { success: true, data: { plugins: [], installed: [] } });
   });
+
+  await page.route('**/api/competitors**', async (route) => {
+    await fulfillJson(route, { success: true, data: [] });
+  });
 }
 
 async function openCriticalRoute(page: Page, path: string) {
@@ -96,6 +100,11 @@ test.describe('Customer launch smoke flows', () => {
   test('@critical CRM customer workspace loads', async ({ page }) => {
     await mockLoggedInState(page, 'boss');
     await openCriticalRoute(page, '/crm');
+  });
+
+  test('@critical battlecard library loads', async ({ page }) => {
+    await mockLoggedInState(page, 'boss');
+    await openCriticalRoute(page, '/battlecards');
   });
 
   test('@critical approval center loads', async ({ page }) => {

@@ -49,3 +49,7 @@ repository.
 - Instrument-specific engineering starts only after evidence supports it.
 - Capacity and compliance targets are set from pilot workloads and expert
   review, not invented before a real device is connected.
+
+## Current Product Interpretation
+
+The default launch profile now focuses the existing platform on growth and outcome delivery for scientific-instrument companies: enterprise knowledge, CRM, competitor intelligence, solution generation, tender work and durable artifacts. This positioning does not by itself satisfy the discovery gate for device protocols, telemetry or regulated-lab compliance claims. SCPI/VISA, OPC-UA and validated-lab workflows remain evidence-gated additions.

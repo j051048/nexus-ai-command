@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted
+Accepted for stateless service facades; partially superseded by lifecycle and domain governance on 2026-09-04.
 
 ## Context
 
-The backend has ~15 service classes (TokenService, AuditLogger, CacheService, TenantCreditService, etc.) that need to be shared across API routes. Options considered:
+At the time of this decision, the backend had a smaller set of service classes (TokenService, AuditLogger, CacheService, TenantCreditService, etc.) that needed to be shared across API routes. Options considered:
 
 1. **Dependency injection (FastAPI Depends)** — create per-request instances
 2. **Module-level singletons** — instantiate once at import time
@@ -48,4 +48,8 @@ from app.services.tenant_credit_service import tenant_credit_service
 
 - Each service manages its own database client reference (passed as `db` parameter)
 - Background tasks (monitoring) are wired in `main.py` lifespan, not in the services
-- This pattern is a known technical debt item (see TECH_DEBT.md A-1) that may be revisited if testing complexity grows
+- This pattern remains a tracked debt when mutable process-local state or import-time side effects make testing and multi-worker execution unsafe.
+
+## Current Implementation Note
+
+Module-level instances are still common, but this ADR does not authorize background schedulers, locks or tenant state to live only in process memory. Startup and shutdown belong in `nexus_backend/app/startup` and FastAPI lifespan; distributed coordination belongs in Redis/PostgreSQL/Celery; gradual ownership is recorded in `nexus_backend/app/domains/__init__.py`. See `docs/handbook/09-known-debt.md` for the current debt statement.
