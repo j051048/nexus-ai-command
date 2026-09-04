@@ -10,9 +10,10 @@ import time
 import zipfile
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import httpx
+if TYPE_CHECKING:
+    import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "nexus_backend"
@@ -127,6 +128,11 @@ async def async_main(require_live: bool) -> int:
             return 2
         print("SKIP live golden acceptance: credentials are not configured")
         return 0
+
+    # Keep the static contract path dependency-free. Nightly jobs without live
+    # credentials should not need the HTTP client used by the live acceptance run.
+    import httpx
+
     headers = {"Authorization": f"Bearer {token}"}
     org_id = os.getenv("GOLDEN_ACCEPTANCE_ORG_ID", "").strip()
     if org_id:

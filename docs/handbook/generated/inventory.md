@@ -6,11 +6,11 @@
 
 | 范围 | 文件数 | 代码行数 |
 |---|---:|---:|
-| 前端 `src` | 563 | 104848 |
+| 前端 `src` | 566 | 104956 |
 | 后端 `nexus_backend/app` | 604 | 171722 |
-| 前端单元/集成测试 | 57 | 7018 |
+| 前端单元/集成测试 | 58 | 7090 |
 | 后端测试 | 213 | 34444 |
-| Playwright E2E | 17 | 3239 |
+| Playwright E2E | 17 | 3261 |
 
 ## 运行时资产
 
@@ -38,5 +38,5 @@
 | `src/pages/LLMModelManagement.tsx` | 1051 |
 | `src/pages/OrgChartPage.tsx` | 991 |
 | `src/pages/BattlecardLibrary.tsx` | 933 |
-| `src/pages/AgentDebugPanel.tsx` | 816 |
 | `src/pages/FinanceCenter.tsx` | 805 |
+| `src/pages/ContractManagement.tsx` | 750 |

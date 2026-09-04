@@ -104,12 +104,14 @@ function AssistantStatusPill({
 }
 
 export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
+  const location = useLocation();
   const [isCanvasOpen, setIsCanvasOpen] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(
+    () => !prefersBusinessCanvas() && !BUSINESS_FOCUS_ROUTES.has(location.pathname),
+  );
   const [chatWidth, setChatWidth] = useState(readStoredChatWidth);
   const [isCompactDesktop, setIsCompactDesktop] = useState(prefersBusinessCanvas);
   const chatPanelRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
   const { isPendingBoss } = useAuth();
 
   useWebSocketPush();
@@ -234,8 +236,9 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
           ref={chatPanelRef}
           className={cn(
             'assistant-workspace-panel relative z-10 flex h-full shrink-0 flex-col border-r border-border/90 bg-[hsl(var(--panel))] shadow-[var(--shadow-panel)] transition-[width,opacity] duration-200 before:absolute before:inset-x-0 before:top-0 before:z-30 before:h-0.5 before:bg-primary/70',
-            !isChatOpen && 'w-0 overflow-hidden opacity-0',
+            !isChatOpen && 'invisible w-0 overflow-hidden opacity-0 pointer-events-none',
           )}
+          aria-hidden={!isChatOpen}
           style={
             isChatOpen
               ? { width: isCanvasOpen ? `min(${chatWidth}px, 100vw)` : '100%' }

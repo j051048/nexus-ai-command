@@ -38,10 +38,11 @@ test.describe("核心业务链路", () => {
   });
 
   // ─── 链路 1: 登录 → 首页加载 ───────────────────────────────────
-  test("登录后应到达首页并显示聊天面板", async ({ page }) => {
+  test("登录后应到达首页并可打开聊天面板", async ({ page }) => {
     test.skip(!SUPABASE_SERVICE_KEY, "需要 SUPABASE_SERVICE_KEY");
 
     await loginAs(page, testEmail, testPass);
+    await page.getByRole("button", { name: "打开助手面板", exact: true }).click();
 
     // 验证首页核心元素可见（聊天输入区域）
     const chatArea = page.locator(
@@ -86,6 +87,7 @@ test.describe("核心业务链路", () => {
     test.skip(!SUPABASE_SERVICE_KEY, "需要 SUPABASE_SERVICE_KEY");
 
     await loginAs(page, testEmail, testPass);
+    await page.getByRole("button", { name: "打开助手面板", exact: true }).click();
 
     // 查找聊天输入框
     const chatInput = page.locator(

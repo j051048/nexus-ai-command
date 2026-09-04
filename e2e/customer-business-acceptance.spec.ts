@@ -533,6 +533,7 @@ test.describe('Customer business acceptance flows', () => {
 
     await page.goto('/dashboard');
     await expectHealthyPage(page);
+    await page.getByRole('button', { name: '打开助手面板', exact: true }).click();
     const input = page.getByTestId('chat-input');
     await expect(input).toBeVisible({ timeout: 15000 });
     await input.fill('查询本周新增客户并给出摘要');
@@ -667,6 +668,7 @@ test.describe('Customer business acceptance flows', () => {
     });
 
     await page.goto('/dashboard');
+    await page.getByRole('button', { name: '打开助手面板', exact: true }).click();
     const input = page.getByTestId('chat-input');
     await expect(input).toBeVisible({ timeout: 15000 });
     await input.fill('根据企业资料制作食品安全检测仪升级解决方案');

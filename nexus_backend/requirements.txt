@@ -5,11 +5,11 @@ supabase==2.11.0
 pydantic==2.13.4
 python-dotenv==1.2.2
 requests==2.33.0
-# httpx will be installed automatically by supabase, but let's be explicit for advanced functionality
-# httpx==0.27.0
+# HTTP client is a direct runtime dependency across integrations and live QA.
+httpx==0.28.1
 # pymilvus==2.3.6  # Uncomment when Milvus is deployed
 python-multipart==0.0.31
-pypdf==6.15.0
+pypdf==6.16.1
 pandas==2.2.3
 numpy==1.26.4
 openpyxl==3.1.5

@@ -216,7 +216,7 @@ export function DeliveryPanel({ workspace, projectId, canDeliver = false, versio
       </section>
 
       <section>
-        <h2 className="font-semibold">下载交付成果</h2>
+        <h2 className="font-semibold">导出交付物</h2>
         <p className="mt-1 text-sm text-muted-foreground">文件会进入右上角成果中心，后续可再次下载。</p>
         <div className="mt-5 divide-y border-y">
           {formats.map((format) => {
