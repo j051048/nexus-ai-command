@@ -355,19 +355,14 @@ class VectorService:
     def _document_is_visible(
         document: dict[str, Any], *, user_id: str, user_department: str | None
     ) -> bool:
-        if document.get("review_status") in {"rejected", "expired"}:
-            return False
-        if document.get("status") not in {None, "ready", "completed"}:
-            return False
-        visibility = str(document.get("visibility") or "organization")
-        if visibility == "private":
-            return str(document.get("owner_id") or "") == str(user_id)
-        if visibility == "department":
-            return bool(
-                user_department
-                and str(document.get("department") or "") == str(user_department)
+        from app.services.knowledge_access_service import document_access_reason
+
+        return (
+            document_access_reason(
+                document, user_id=user_id, user_department=user_department
             )
-        return visibility in {"organization", "public", ""}
+            is None
+        )
 
     async def _load_accessible_documents(
         self, *, user_id: str, org_id: str, limit: int = 250
@@ -775,7 +770,7 @@ class VectorService:
             if document_ids:
                 governance_fields = (
                     "id,name,doc_type,review_status,source_version,valid_until,"
-                    "quality_score,visibility,department,owner_id"
+                    "quality_score,visibility,department,owner_id,status,organization_id"
                 )
                 try:
                     governance = (
@@ -785,18 +780,11 @@ class VectorService:
                         .in_("id", document_ids)
                         .execute()
                     )
+                # fmt: off
                 except Exception:  # broad-except: intentional
-                    # Older deployments may not expose all ABAC columns yet;
-                    # RLS/RPC isolation still applies while schema converges.
-                    governance = (
-                        await supabase.table("documents")
-                        .select(
-                            "id,name,doc_type,review_status,source_version,valid_until,quality_score"
-                        )
-                        .eq("organization_id", org_id)
-                        .in_("id", document_ids)
-                        .execute()
-                    )
+                    # fmt: on
+                    logger.exception("Cannot verify retrieved document access")
+                    raise
                 user_department = None
                 try:
                     user_row = (
@@ -814,19 +802,8 @@ class VectorService:
                 governed: list[dict[str, Any]] = []
                 for item in evidence:
                     record = by_id.get(str(item.get("document_id")))
-                    if record and record.get("review_status") in {
-                        "rejected",
-                        "expired",
-                    }:
-                        continue
-                    visibility = (record or {}).get("visibility")
-                    if visibility == "private" and str(
-                        (record or {}).get("owner_id")
-                    ) != str(user_id):
-                        continue
-                    if visibility == "department" and (
-                        not user_department
-                        or (record or {}).get("department") != user_department
+                    if not record or not self._document_is_visible(
+                        record, user_id=user_id, user_department=user_department
                     ):
                         continue
                     governed.append({**item, **(record or {})})
@@ -834,7 +811,7 @@ class VectorService:
             return evidence
         except Exception as exc:  # broad-except: intentional
             logger.error("Structured evidence search failed: %s", exc)
-            return []
+            raise RuntimeError("企业资料检索暂不可用，请稍后重试") from exc
 
     async def _search_supabase(
         self,

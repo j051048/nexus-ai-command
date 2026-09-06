@@ -80,7 +80,7 @@ def public_job(row: dict[str, Any]) -> dict[str, Any]:
         "error": (
             {
                 "code": row.get("error_code") or "ARTIFACT_GENERATION_FAILED",
-                "message": row.get("error_message") or "成果生成失败",
+                "message": "成果生成未完成，可重试或联系管理员查询任务记录",
             }
             if row.get("status") == "failed"
             else None
@@ -178,6 +178,7 @@ async def request_cancel(
         )
         .eq("organization_id", organization_id)
         .eq("id", job_id)
+        .eq("status", row["status"])
         .execute()
     )
     return dict((result.data or [row])[0])
@@ -216,6 +217,8 @@ async def reset_for_retry(
         )
         .eq("organization_id", organization_id)
         .eq("id", job_id)
+        .eq("status", "failed")
+        .eq("attempt", row.get("attempt") or 0)
         .execute()
     )
     return dict((result.data or [row])[0])
@@ -340,6 +343,10 @@ async def run_generation_job(job_id: str) -> dict[str, Any]:
             .execute()
         )
         row = dict(result.data or {})
+        if not row:
+            raise RuntimeError(f"Artifact generation job {job_id} not found")
+        # A failed claim must never borrow another worker's lease.
+        return public_job(row)
     if not row:
         raise RuntimeError(f"Artifact generation job {job_id} not found")
     if not row.get("lease_token"):
@@ -402,29 +409,17 @@ async def run_generation_job(job_id: str) -> dict[str, Any]:
             session_id=payload.get("session_id"),
             review_confirmed=bool(payload.get("review_confirmed")),
             progress_callback=progress_callback,
+            job_id=job_id,
+            lease_token=lease_token,
         )
-        completed = (
-            await supabase.table("artifact_generation_jobs")
-            .update(
-                {
-                    "status": "completed",
-                    "stage": "completed",
-                    "progress": 100,
-                    "result_payload": generated,
-                    "artifact_id": generated.get("id"),
-                    "completed_at": _now(),
-                    "lease_token": None,
-                    "lease_expires_at": None,
-                    "worker_id": None,
-                    "updated_at": _now(),
-                }
-            )
-            .eq("id", job_id)
-            .eq("lease_token", lease_token)
-            .execute()
+        completed_row = await load_job(
+            supabase, organization_id=organization_id, job_id=job_id
         )
-        completed_row = _first_row(completed.data)
-        if not completed_row:
+        if (
+            not completed_row
+            or completed_row.get("status") != "completed"
+            or completed_row.get("artifact_id") != generated.get("id")
+        ):
             raise ArtifactJobLeaseLostError(
                 "Artifact generation lease expired before commit"
             )

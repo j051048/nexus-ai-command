@@ -15,6 +15,11 @@ from app.services.agent_evidence_service import (
     EvidenceRecord,
     retrieve_agent_evidence,
 )
+from app.services.evidence_selection import select_evidence
+from app.services.knowledge_access_service import (
+    document_access_reason,
+    document_department,
+)
 
 
 def _document_excerpt(document: dict[str, Any]) -> str:
@@ -84,7 +89,7 @@ _TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
 
 _DOCUMENT_FIELDS = (
     "id,name,doc_type,review_status,source_version,valid_until,quality_score,"
-    "extracted_data"
+    "extracted_data,organization_id,owner_id,visibility,department,status"
 )
 
 
@@ -107,6 +112,7 @@ async def _load_explicit_documents(
     *,
     db: Any,
     organization_id: str,
+    user_id: str,
     selected_document_ids: list[str],
     query: str,
 ) -> list[dict[str, Any]]:
@@ -145,7 +151,22 @@ async def _load_explicit_documents(
                 if item.get("id")
             }
         )
-    return list(documents.values())
+    department = None
+    if any(row.get("visibility") == "department" for row in documents.values()):
+        department = await document_department(
+            db, user_id=user_id, organization_id=organization_id
+        )
+    return [
+        row
+        for row in documents.values()
+        if document_access_reason(
+            row,
+            user_id=user_id,
+            organization_id=organization_id,
+            user_department=department,
+        )
+        is None
+    ]
 
 
 def _split_excerpt(value: str, limit: int = 1600) -> list[str]:
@@ -171,7 +192,12 @@ def _split_excerpt(value: str, limit: int = 1600) -> list[str]:
             paragraphs.append(current_sentence_block)
     chunks: list[str] = []
     current = ""
-    for paragraph in paragraphs:
+    bounded_paragraphs = [
+        part[start : start + limit]
+        for part in paragraphs
+        for start in range(0, len(part), limit)
+    ]
+    for paragraph in bounded_paragraphs:
         starts_section = bool(_HEADING_RE.match(paragraph))
         if current and (
             len(current) + len(paragraph) + 1 > limit
@@ -219,9 +245,9 @@ def _prompt_context(records: list[EvidenceRecord]) -> str:
         blocks.append(
             f"[{record.citation_id}] {record.title} | type={record.doc_type} | "
             f"version={record.source_version or 'unknown'} | purpose={','.join(record.purposes)}\n"
-            f"{record.excerpt[:1400]}"
+            f"{record.excerpt}"
         )
-    return "\n\n---\n\n".join(blocks)[:28000]
+    return "\n\n---\n\n".join(blocks)
 
 
 async def compile_artifact_evidence(
@@ -254,13 +280,13 @@ async def compile_artifact_evidence(
         db=db,
     )
     records = list(packet.records)
-    explicit_topics: set[str] = set()
     ids = list(
         dict.fromkeys(str(item) for item in (selected_document_ids or []) if item)
     )[:20]
     explicit_documents = await _load_explicit_documents(
         db=db,
         organization_id=organization_id,
+        user_id=user_id,
         selected_document_ids=ids,
         query=query,
     )
@@ -272,7 +298,6 @@ async def compile_artifact_evidence(
             title = str(document.get("name") or "企业资料")
             for index, excerpt in enumerate(chunks):
                 purposes = _match_topics(topics, excerpt, title)
-                explicit_topics.update(purposes)
                 records.append(
                     EvidenceRecord(
                         document_id=str(document.get("id")),
@@ -289,22 +314,10 @@ async def compile_artifact_evidence(
                     )
                 )
 
-    deduplicated: list[EvidenceRecord] = []
-    seen: set[tuple[str, str]] = set()
-    seen_content: set[str] = set()
-    for record in sorted(records, key=lambda item: item.score, reverse=True):
-        key = (record.document_id, record.chunk_id)
-        content_hash = hashlib.sha256(
-            re.sub(r"\s+", "", record.excerpt).encode("utf-8")
-        ).hexdigest()
-        if key in seen or content_hash in seen_content or not record.excerpt.strip():
-            continue
-        seen.add(key)
-        seen_content.add(content_hash)
-        deduplicated.append(record)
-    deduplicated = deduplicated[:24]
+    deduplicated = select_evidence(records, topics)
 
-    covered = set(packet.covered_topics) | explicit_topics
+    # Coverage describes retained passages, never discarded retrieval results.
+    covered = {topic for record in deduplicated for topic in record.purposes}
     topics = list(spec.retrieval_topics or packet.topics or [query])
     missing = [topic for topic in topics if topic not in covered]
     coverage = 1.0 if not topics else (len(topics) - len(missing)) / len(topics)
@@ -316,7 +329,12 @@ async def compile_artifact_evidence(
     )
     fingerprint_source = json.dumps(
         [
-            (item.document_id, item.chunk_id, item.source_version)
+            (
+                item.document_id,
+                item.chunk_id,
+                item.source_version,
+                hashlib.sha256(item.excerpt.encode()).hexdigest(),
+            )
             for item in deduplicated
         ],
         ensure_ascii=False,
@@ -332,4 +350,5 @@ async def compile_artifact_evidence(
         sufficient=sufficient,
         prompt_context=_prompt_context(deduplicated),
         fingerprint=hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest(),
+        failed_topics=packet.failed_topics,
     )

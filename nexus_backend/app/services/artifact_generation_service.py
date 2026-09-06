@@ -27,6 +27,7 @@ from app.services.artifact_content_sanitizer import (
 )
 from app.services.artifact_evidence_compiler import compile_artifact_evidence
 from app.services.artifact_llm_judge import evaluate_delivery_package
+from app.services.artifact_persistence import persist_artifact_package
 from app.services.artifact_quality_service import (
     evaluate_text_artifact,
     persist_artifact_quality_event,
@@ -1286,6 +1287,8 @@ async def generate_artifact(
     session_id: str | None = None,
     review_confirmed: bool = False,
     progress_callback: ProgressCallback | None = None,
+    job_id: str | None = None,
+    lease_token: str | None = None,
 ) -> dict[str, Any]:
     """Run the deep delivery orchestration and persist one durable version."""
 
@@ -1547,39 +1550,35 @@ async def generate_artifact(
         94,
         {"quality_score": quality.get("score"), "ready": quality.get("ready")},
     )
-    await db.table("artifacts").insert(
-        {
-            "id": artifact_id,
-            "organization_id": organization_id,
-            "created_by": user_id,
-            "artifact_code": artifact_code,
-            "title": artifact_title,
-            "artifact_type": spec.artifact_type.value,
-            "audience": spec.audience.value,
-            "status": status,
-            "approval_status": approval_status,
-            "quality_score": quality.get("score", 0),
-            "latest_version": 1,
-            "source_request": original_request,
-            "metadata": metadata,
-            "created_at": now,
-            "updated_at": now,
-        }
-    ).execute()
-    await db.table("artifact_versions").insert(
-        {
-            "id": version_id,
-            "organization_id": organization_id,
-            "artifact_id": artifact_id,
-            "version_number": 1,
-            "content_markdown": content,
-            "quality_snapshot": quality,
-            "evidence_snapshot": evidence.model_dump(mode="json"),
-            "generation_metadata": metadata["generation"],
-            "created_by": user_id,
-            "created_at": now,
-        }
-    ).execute()
+    artifact_row = {
+        "id": artifact_id,
+        "organization_id": organization_id,
+        "created_by": user_id,
+        "artifact_code": artifact_code,
+        "title": artifact_title,
+        "artifact_type": spec.artifact_type.value,
+        "audience": spec.audience.value,
+        "status": status,
+        "approval_status": approval_status,
+        "quality_score": quality.get("score", 0),
+        "latest_version": 1,
+        "source_request": original_request,
+        "metadata": metadata,
+        "created_at": now,
+        "updated_at": now,
+    }
+    version_row = {
+        "id": version_id,
+        "organization_id": organization_id,
+        "artifact_id": artifact_id,
+        "version_number": 1,
+        "content_markdown": content,
+        "quality_snapshot": quality,
+        "evidence_snapshot": evidence.model_dump(mode="json"),
+        "generation_metadata": metadata["generation"],
+        "created_by": user_id,
+        "created_at": now,
+    }
     links = [
         {
             "organization_id": organization_id,
@@ -1594,8 +1593,6 @@ async def generate_artifact(
         }
         for item in evidence.records
     ]
-    if links:
-        await db.table("artifact_evidence_links").insert(links).execute()
     await persist_artifact_quality_event(
         quality=quality,
         spec=spec,
@@ -1614,13 +1611,7 @@ async def generate_artifact(
             template_key=str(template["template_key"]),
             quality=quality,
         )
-    await _emit_progress(
-        progress_callback,
-        "completed",
-        100,
-        {"artifact_id": artifact_id, "quality_score": quality.get("score")},
-    )
-    return {
+    result = {
         "id": artifact_id,
         "artifact_code": artifact_code,
         "title": artifact_title,
@@ -1648,3 +1639,13 @@ async def generate_artifact(
             "repair_count": repair_count,
         },
     }
+    await persist_artifact_package(
+        db,
+        artifact=artifact_row,
+        version=version_row,
+        links=links,
+        result=result,
+        job_id=job_id,
+        lease_token=lease_token,
+    )
+    return result

@@ -2,17 +2,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.tools.load_knowledge_tool import LoadKnowledgeTool, _loaded_cache
+from app.tools.load_knowledge_tool import LoadKnowledgeTool
 
 ORG_ID = "11111111-1111-4111-8111-111111111111"
 USER_ID = "22222222-2222-4222-8222-222222222222"
-
-
-@pytest.fixture(autouse=True)
-def clear_loaded_knowledge_cache():
-    _loaded_cache.clear()
-    yield
-    _loaded_cache.clear()
 
 
 @pytest.mark.asyncio
@@ -37,7 +30,7 @@ async def test_empty_retrieval_is_not_cached(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_successful_retrieval_replays_real_evidence(monkeypatch):
+async def test_successful_retrieval_rechecks_access(monkeypatch):
     from app.services.vector_service import vector_service
 
     search = AsyncMock(
@@ -64,4 +57,23 @@ async def test_successful_retrieval_replays_real_evidence(monkeypatch):
     assert first == second
     assert "FD-F多功能食品安全检测仪方案.docx" in second
     assert "EVID:33333333-3333-4333-8333-333333333333" in second
-    assert search.await_count == 1
+    assert search.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_organization_switch_and_revocation_do_not_replay_old_evidence(monkeypatch):
+    from app.services.vector_service import vector_service
+
+    search = AsyncMock(side_effect=[
+        [{"document_id": "a", "chunk_id": "1", "title": "private-A", "excerpt": "secret"}],
+        [], [],
+    ])
+    monkeypatch.setattr(vector_service, "search_evidence", search)
+    tool = LoadKnowledgeTool()
+    context = {"user_id": USER_ID, "org_id": ORG_ID, "session_id": "same"}
+    assert "secret" in await tool.execute({"query": "specs"}, context)
+    assert "secret" not in await tool.execute({"query": "specs"}, context)
+    context["org_id"] = "other-org"
+    assert "secret" not in await tool.execute({"query": "specs"}, context)
+    assert search.await_args.kwargs["org_id"] == "other-org"
+    assert not tool.cacheable

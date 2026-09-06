@@ -42,6 +42,7 @@ class EvidencePacket(BaseModel):
     sufficient: bool = False
     prompt_context: str = ""
     fingerprint: str = ""
+    failed_topics: list[str] = Field(default_factory=list)
 
 
 def build_retrieval_topics(
@@ -106,8 +107,10 @@ async def retrieve_agent_evidence(
     )
     merged: dict[tuple[str, str], EvidenceRecord] = {}
     covered_topics: list[str] = []
-    for result in raw_results:
+    failed_topics = []
+    for requested_topic, result in zip(topics, raw_results, strict=True):
         if isinstance(result, Exception):
+            failed_topics.append(requested_topic)
             continue
         topic, rows = result
         if rows:
@@ -162,6 +165,9 @@ async def retrieve_agent_evidence(
         except Exception:  # broad-except: intentional
             graph_context = ""
 
+    covered_topics = list(
+        dict.fromkeys(topic for row in records for topic in row.purposes)
+    )
     missing = [topic for topic in topics if topic not in covered_topics]
     coverage = len(covered_topics) / len(topics) if topics else 0.0
     prompt_context = _format_prompt_context(records, graph_context)
@@ -175,6 +181,7 @@ async def retrieve_agent_evidence(
         min(3, len(topics)) if spec.requires_quality_gate and topics else 1
     )
     return EvidencePacket(
+        failed_topics=failed_topics,
         records=records,
         graph_context=graph_context,
         topics=topics,

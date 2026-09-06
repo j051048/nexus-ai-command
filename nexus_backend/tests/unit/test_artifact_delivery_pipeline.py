@@ -238,6 +238,15 @@ class _FakeDB:
     def table(self, name):
         return _FakeQuery(name, self.rows)
 
+    def rpc(self, name, payload):
+        assert name == "persist_artifact_package"
+        async def execute():
+            self.rows["artifacts"] = [payload["p_artifact"]]
+            self.rows["artifact_versions"] = [payload["p_version"]]
+            self.rows["artifact_evidence_links"] = payload["p_links"]
+            return SimpleNamespace(data=payload["p_artifact"]["id"])
+        return SimpleNamespace(execute=execute)
+
 
 @pytest.mark.asyncio
 async def test_explicit_enterprise_document_is_split_into_citable_topics(monkeypatch):
@@ -347,6 +356,7 @@ async def test_generation_pipeline_persists_version_evidence_and_quality(monkeyp
             "项目推进过程中还应建立需求确认、配置冻结、到货检查、安装调试、培训考核"
             "和验收归档的阶段门，每个阶段记录输入、负责人、输出与异常处置方式，"
             "确保方案不仅能够阅读，也能够直接转化为可执行、可检查、可复盘的工作计划。"
+            "交付完成后保留验收记录与配置清单，并由客户负责人确认后续服务联系人和响应时限。"
         )
         if index < 3:
             body += (

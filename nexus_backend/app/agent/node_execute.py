@@ -394,20 +394,22 @@ _TOOL_TTL_OVERRIDES: dict[str, int] = {
 }
 
 
-def _query_cache_key(tool_name: str, tool_args: dict, org_id: str | None = None) -> str:
+def _query_cache_key(
+    tool_name: str, tool_args: dict, org_id: str | None = None, actor_scope: str = ""
+) -> str:
     """Generate a stable cache key from tool name + sorted args + org_id for tenant isolation."""
     args_str = (
         _json.dumps(tool_args, sort_keys=True, ensure_ascii=False) if tool_args else ""
     )
-    prefix = f"{org_id}:" if org_id else ""
+    prefix = f"{org_id}:{actor_scope}:"
     return f"{prefix}{tool_name}:{hashlib.md5(args_str.encode()).hexdigest()}"
 
 
 def _get_cached_result(
-    tool_name: str, tool_args: dict, org_id: str | None = None
+    tool_name: str, tool_args: dict, org_id: str | None = None, actor_scope: str = ""
 ) -> str | None:
     """Return cached result if available and not expired (uses tool-specific TTL)."""
-    key = _query_cache_key(tool_name, tool_args, org_id)
+    key = _query_cache_key(tool_name, tool_args, org_id, actor_scope)
     entry = _query_result_cache.get(key)
     if entry is None:
         return None
@@ -420,7 +422,11 @@ def _get_cached_result(
 
 
 def _set_cached_result(
-    tool_name: str, tool_args: dict, result: str, org_id: str | None = None
+    tool_name: str,
+    tool_args: dict,
+    result: str,
+    org_id: str | None = None,
+    actor_scope: str = "",
 ) -> None:
     """Cache a query tool result."""
     if len(_query_result_cache) >= _QUERY_CACHE_MAX:
@@ -430,7 +436,7 @@ def _set_cached_result(
         )
         for k in sorted_keys[: _QUERY_CACHE_MAX // 2]:
             del _query_result_cache[k]
-    key = _query_cache_key(tool_name, tool_args, org_id)
+    key = _query_cache_key(tool_name, tool_args, org_id, actor_scope)
     _query_result_cache[key] = (result, time.time())
 
 
@@ -473,17 +479,15 @@ async def _execute_single_tool(
     # #17: Record tool version for audit trail
     record.tool_version = getattr(tool, "version", "1.0.0")
 
-    # -1. Idempotency Check: prevent duplicate execution on retry
-    idempotency_key = f"{record.tool_call_id}:{record.tool_name}"
-    if idempotency_key and idempotency_key in _idempotency_cache:
-        cached = _idempotency_cache[idempotency_key]
-        record.status = cached["status"]
-        record.result = cached["result"]
-        record.duration_ms = cached.get("duration_ms", 0)
-        logger.info(
-            f"[Idempotency] Returning cached result for {record.tool_name} (call_id={record.tool_call_id})"
-        )
+    if getattr(tool, "requires_org_id", True) and not config.org_id:
+        record.status = "blocked"
+        record.result = "缺少企业信息，工具未执行，请重新登录。"
         return record
+    actor_scope = hashlib.sha256(
+        _json.dumps(
+            [config.user_id, config.user_role, config.session_id, config.token]
+        ).encode()
+    ).hexdigest()
 
     # 0. Circuit Breaker Check
     if not tool_circuit_breaker.allow_request():
@@ -494,7 +498,9 @@ async def _execute_single_tool(
     # 0b. P0-9: Redis-backed cross-worker loop circuit breaker
     from app.agent.loop_detector import record_tool_call_redis
 
-    if await record_tool_call_redis(config.session_id, record.tool_name):
+    if await record_tool_call_redis(
+        f"{config.org_id}:{config.user_id}:{config.session_id}", record.tool_name
+    ):
         record.status = "error"
         record.result = (
             f"Error: 工具 '{record.tool_name}' 在本会话中调用次数过多，已触发熔断。"
@@ -545,33 +551,6 @@ async def _execute_single_tool(
         record.duration_ms = 0
         logger.info(f"[DryRun] Simulated {record.tool_name}")
         return record
-
-    # 2d. P1-4: Pre-Flight Validation — business logic checks
-    if tool.has_side_effects:
-        try:
-            from app.agent.preflight_rules import run_preflight_checks
-
-            passed, error_msg = await run_preflight_checks(
-                record.tool_name, record.tool_args
-            )
-            if not passed:
-                record.status = "error"
-                record.result = f"预检失败: {error_msg}"
-                record.error_type = ErrorType.FATAL
-                logger.warning(f"[PreFlight] {record.tool_name} blocked: {error_msg}")
-                return record
-        except Exception as e:
-            logger.error(f"[PreFlight] Check error for {record.tool_name}: {e}")
-
-    # 2a. Query Result Cache — skip execution for read-only tools with same args
-    if tool.cacheable and record.tool_name not in LONG_RUNNING_TOOLS:
-        cached = _get_cached_result(record.tool_name, record.tool_args, config.org_id)
-        if cached is not None:
-            record.status = "success"
-            record.result = cached
-            record.duration_ms = 0
-            logger.info(f"[QueryCache] Hit for {record.tool_name}, skipping execution")
-            return record
 
     # 2b-pre. P0-6: Prompt Firewall — scan string args for injection payloads
     from app.core.prompt_firewall import RiskLevel, prompt_firewall
@@ -638,6 +617,41 @@ async def _execute_single_tool(
     # Allow hooks to modify args
     record.tool_args = hook_ctx.get("tool_args", record.tool_args)
 
+    try:
+        await tool.validate(record.tool_args)
+    except (ValueError, TypeError, KeyError) as exc:
+        record.status = "error"
+        record.result = _format_validation_error(record.tool_name, exc, tool.parameters)
+        return record
+    confirmation_msg, confirmation_type = tool.check_confirmation(
+        record.tool_args, system_confirmed=config.system_confirmed
+    )
+    if confirmation_msg is not None:
+        record.status = "blocked"
+        record.result = confirmation_msg
+        record.confirmation_type = confirmation_type
+        return record
+
+    # Validate the final arguments after hooks, before any cache or execution.
+    from app.agent.preflight_rules import PRE_FLIGHT_RULES, run_preflight_checks
+
+    if record.tool_name in PRE_FLIGHT_RULES:
+        try:
+            from app.tools._shared import _get_client
+
+            client = _get_client({"org_id": config.org_id, "token": config.token})
+            passed, error_msg = await run_preflight_checks(
+                record.tool_name, record.tool_args, client, org_id=config.org_id
+            )
+        except (RuntimeError, ValueError, KeyError, ConnectionError) as exc:
+            logger.warning("Required tool preflight unavailable: %s", exc)
+            passed, error_msg = False, "暂时无法验证操作，工具未执行，请稍后重试"
+        if not passed:
+            record.status = "blocked"
+            record.result = f"预检失败: {error_msg}"
+            record.error_type = ErrorType.FATAL
+            return record
+
     # 4. Tenant isolation: reject tools that require org_id without one
     if getattr(tool, "requires_org_id", True) and not config.org_id:
         record.status = "error"
@@ -675,12 +689,36 @@ async def _execute_single_tool(
         )
         return record
 
+    idempotency_key = (
+        f"{record.tool_call_id}:"
+        + _query_cache_key(
+            record.tool_name, record.tool_args, config.org_id, actor_scope
+        )
+        if record.tool_call_id
+        else ""
+    )
+    if idempotency_key in _idempotency_cache:
+        cached = _idempotency_cache[idempotency_key]
+        record.status = cached["status"]
+        record.result = cached["result"]
+        record.duration_ms = cached.get("duration_ms", 0)
+        return record
+    if tool.cacheable and record.tool_name not in LONG_RUNNING_TOOLS:
+        cached = _get_cached_result(
+            record.tool_name, record.tool_args, config.org_id, actor_scope
+        )
+        if cached is not None:
+            record.status, record.result, record.duration_ms = "success", cached, 0
+            return record
+
     # 5. Execute with configurable timeout and structured retry
     start_time = time.time()
     last_error = None
     timeout = config.tool_timeout if hasattr(config, "tool_timeout") else 30.0
     max_retries = config.tool_max_retries if hasattr(config, "tool_max_retries") else 2
     max_attempts = max_retries + 1  # total attempts = retries + 1
+    if tool.has_side_effects:
+        max_attempts = 1
 
     # Use longer timeout for known long-running tools
     if record.tool_name in LONG_RUNNING_TOOLS:
@@ -714,7 +752,7 @@ async def _execute_single_tool(
                 ],
                 expires=int(timeout) + 30,
             )
-            result = celery_result.get(timeout=timeout + 10)
+            result = await asyncio.to_thread(celery_result.get, timeout=timeout + 10)
             record.result = str(result)
             record.status = "success"
             record.duration_ms = int((time.time() - start_time) * 1000)
@@ -728,6 +766,12 @@ async def _execute_single_tool(
                 "[Execute] Celery not available, falling back to inline execution"
             )
         except Exception as e:
+            if tool.has_side_effects:
+                record.status = "error"
+                record.error_type = "fatal"
+                record.result = "远程操作结果暂未确认，请先检查业务记录，避免重复提交。"
+                logger.warning("Remote tool outcome unknown: %s", record.tool_name)
+                return record
             logger.warning(
                 f"[Execute] Celery execution failed for {record.tool_name}: {e}, falling back to inline"
             )
@@ -781,9 +825,13 @@ async def _execute_single_tool(
                     "duration_ms": record.duration_ms,
                 }
             # Cache query tool results for session-level dedup
-            if not tool.is_irreversible and record.result:
+            if tool.cacheable and record.result:
                 _set_cached_result(
-                    record.tool_name, record.tool_args, record.result, config.org_id
+                    record.tool_name,
+                    record.tool_args,
+                    record.result,
+                    config.org_id,
+                    actor_scope,
                 )
             return record
         except TimeoutError:
@@ -804,7 +852,7 @@ async def _execute_single_tool(
                 f"[Execute] Tool {record.tool_name} failed (attempt {attempt + 1}/{max_attempts}), type={error_type}: {error_str}"
             )
 
-            if error_type == ErrorType.FATAL:
+            if error_type == ErrorType.FATAL or tool.has_side_effects:
                 # Fatal errors: stop immediately, no retry
                 break
 
@@ -863,12 +911,13 @@ async def _execute_single_tool(
                                 "result": record.result,
                                 "duration_ms": record.duration_ms,
                             }
-                        if not tool.is_irreversible and record.result:
+                        if tool.cacheable and record.result:
                             _set_cached_result(
                                 record.tool_name,
                                 record.tool_args,
                                 record.result,
                                 config.org_id,
+                                actor_scope,
                             )
                         return record
                     except Exception as heal_err:

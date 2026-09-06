@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -101,3 +102,32 @@ def test_migration_recovery_is_atomic_and_lease_scoped():
     assert "job.lease_expires_at < now()" in sql
     assert "recover_stale_artifact_generation_jobs" in sql
     assert "job.recovery_count + 1" in sql
+
+
+@pytest.mark.asyncio
+async def test_failed_claim_does_not_borrow_another_workers_lease(monkeypatch):
+    from app.services import artifact_generation_job_service as service
+
+    db = MagicMock()
+    query = db.table.return_value.select.return_value.eq.return_value.maybe_single.return_value
+    query.execute = AsyncMock(return_value=SimpleNamespace(data={
+        "id": "job-1", "status": "running", "lease_token": "other-worker-secret",
+    }))
+    generate = AsyncMock()
+    heartbeat = AsyncMock()
+    monkeypatch.setattr("app.core.database.supabase", db)
+    monkeypatch.setattr(service, "_claim_job", AsyncMock(return_value=None))
+    monkeypatch.setattr(service, "generate_artifact", generate)
+    monkeypatch.setattr(service, "_heartbeat_loop", heartbeat)
+    result = await service.run_generation_job("job-1")
+    assert result["status"] == "running"
+    assert "lease_token" not in result
+    generate.assert_not_awaited()
+    heartbeat.assert_not_awaited()
+
+
+def test_public_failure_never_exposes_backend_credentials():
+    from app.services.artifact_generation_job_service import public_job
+
+    result = public_job({"status": "failed", "error_message": "Bearer secret-key"})
+    assert "secret-key" not in str(result)

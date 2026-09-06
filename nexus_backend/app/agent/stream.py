@@ -1029,7 +1029,9 @@ async def _run_agent_stream_impl(
                                     }
                                 }
                             )
-                            yield _sse_content("\n\n⚠️ 回复已达到输出上限，已自动截断。")
+                            yield _sse_content(
+                                "\n\n⚠️ 回复已达到输出上限，已自动截断。"
+                            )
                             break
                     elif kind == "on_chain_end":
                         data = event.get("data", {})

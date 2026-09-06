@@ -128,6 +128,10 @@ class BaseTool(ABC):
             return ToolActionType.IRREVERSIBLE
         if self.supports_compensation:
             return ToolActionType.MUTATE
+        from app.tools.reviewed_policies import REVIEWED_ACTIONS
+
+        if self.name in REVIEWED_ACTIONS:
+            return ToolActionType(REVIEWED_ACTIONS[self.name])
         return ToolActionType.UNKNOWN
 
     @property

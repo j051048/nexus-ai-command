@@ -35,6 +35,13 @@ class AgentReplayHarness:
         def add(name: str, passed: bool, details: dict[str, Any] | None = None):
             checks.append({"name": name, "passed": passed, "details": details or {}})
 
+        add("non_empty_trace", bool(steps), {"steps": len(steps)})
+        final_state = trace_data.get("final_state") or {}
+        if final_state.get("error"):
+            add(
+                "execution_completed", False, {"error": str(final_state["error"])[:200]}
+            )
+
         expected_nodes = expectations.get("expected_nodes")
         if expected_nodes:
             actual_nodes = [s.get("node_type") or s.get("node_name") for s in steps]
@@ -51,6 +58,23 @@ class AgentReplayHarness:
                 "tool_calls",
                 set(expected_tools).issubset(set(actual_tools)),
                 {"expected": expected_tools, "actual": actual_tools},
+            )
+
+        successful_tools = expectations.get("successful_tools") or []
+        if successful_tools:
+            actual_successes = {
+                call.get("tool_name") or call.get("name")
+                for step in steps
+                for call in step.get("tool_calls") or []
+                if (call.get("status") or step.get("status")) == "success"
+            }
+            add(
+                "successful_tools",
+                set(successful_tools).issubset(actual_successes),
+                {
+                    "expected": successful_tools,
+                    "actual": sorted(actual_successes - {None}),
+                },
             )
 
         forbidden_tools = expectations.get("forbidden_tools") or []

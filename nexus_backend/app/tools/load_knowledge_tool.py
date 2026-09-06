@@ -70,20 +70,6 @@ def build_skill_index_prompt() -> str:
     return "\n".join(lines)
 
 
-# Track successful evidence per session to avoid redundant embedding calls.
-# Failed/empty retrievals are deliberately not cached so a newly indexed
-# document can be found immediately on retry.
-_loaded_cache: dict[tuple[str, str, str], str] = {}
-_CACHE_MAX_SIZE = 200
-
-
-def _query_hash(query: str) -> str:
-    """Simple hash for dedup."""
-    import hashlib
-
-    return hashlib.md5(query.encode()).hexdigest()[:12]
-
-
 @register_tool(
     name="load_knowledge", category="knowledge", description="加载知识库技能详情"
 )
@@ -106,7 +92,7 @@ class LoadKnowledgeTool(BaseTool):
         },
     ]
     related_tools = ["search_long_term_memory", "web_search"]
-    gotchas = "只缓存成功证据；重复查询会回放原证据。文件名和型号可直接检索，domain 仅用于表达检索目的，不会误删其他资料。"
+    gotchas = "每次检索都会重新检查资料权限与最新版本。文件名和型号可直接检索，domain 仅表达检索目的。"
     parameters = {
         "type": "object",
         "properties": {
@@ -125,24 +111,24 @@ class LoadKnowledgeTool(BaseTool):
     category = "knowledge"
     domain = "knowledge"
 
+    @property
+    def cacheable(self) -> bool:
+        # Revoking document access must take effect within an existing session.
+        return False
+
     async def execute(
         self, arguments: dict[str, Any], context: dict[str, Any] | None = None
     ) -> str:
         ctx = context or {}
         user_id = ctx.get("user_id", "")
-        session_id = ctx.get("session_id", "default")
         org_id = ctx.get("org_id")
         query = arguments.get("query", "").strip()
         domain = arguments.get("domain", "").strip()
 
         if not query:
             return "错误：query 不能为空"
-        if not org_id:
+        if not org_id or not user_id:
             return "知识库检索失败：缺少企业组织信息，请重新登录后再试。"
-
-        cache_key = (user_id, session_id, _query_hash(f"{domain}:{query}"))
-        if cache_key in _loaded_cache:
-            return _loaded_cache[cache_key]
 
         try:
             from app.services.vector_service import vector_service
@@ -180,11 +166,6 @@ class LoadKnowledgeTool(BaseTool):
                 + "\n\n---\n\n".join(evidence_lines)
                 + "\n[检索结束：回答或生成文件时必须标注上述来源，不得声称未找到。]"
             )
-            if len(_loaded_cache) >= _CACHE_MAX_SIZE:
-                keys_to_remove = list(_loaded_cache.keys())[: _CACHE_MAX_SIZE // 2]
-                for key in keys_to_remove:
-                    _loaded_cache.pop(key, None)
-            _loaded_cache[cache_key] = result
             return result
 
         except Exception as e:

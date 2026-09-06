@@ -54,17 +54,20 @@ class ToolInfo:
 
     def to_manifest(self) -> dict[str, Any]:
         """Return governance metadata for audits, prompts and admin UIs."""
+        tool = self.get_instance()
+        policy = tool.policy
         return {
             "name": self.name,
             "category": self.category,
             "description": self.description,
-            "required_role": self.required_role,
-            "risk": self.risk,
+            "required_role": policy.required_role,
+            "risk": policy.risk_level.value,
             "owner": self.owner,
             "timeout_s": self.timeout_s,
-            "idempotent": self.idempotent,
-            "side_effect": self.side_effect,
-            "is_irreversible": self.is_irreversible,
+            "idempotent": not tool.has_side_effects,
+            "side_effect": tool.has_side_effects,
+            "is_irreversible": tool.is_irreversible,
+            "action_type": policy.action_type.value,
             "extras": self.extras,
         }
 

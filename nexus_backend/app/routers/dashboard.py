@@ -8,10 +8,11 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.core.auth import get_current_user_id
+from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.agent_slo_cost_service import summarize_agent_slo_cost
+from app.services.bounded_query_service import collect_bounded_rows
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
@@ -572,52 +573,49 @@ async def agent_slo_cost_summary(
     days = min(max(days, 1), 30)
     start_time = (datetime.now(UTC) - timedelta(days=days)).isoformat()
 
-    try:
-        user_res = (
-            await client.table("users")
-            .select("org_id,organization_id")
-            .eq("id", user_id)
-            .single()
-            .execute()
-        )
-        user_row = user_res.data or {}
-        org_id = user_row.get("organization_id") or user_row.get("org_id")
-    except Exception:
-        org_id = None
+    org_id = await get_current_org_id(request)
 
     agent_runs: list[dict] = []
     llm_calls: list[dict] = []
+    unavailable = []
+    complete = True
 
     try:
-        query = (
-            client.table("agent_runs")
-            .select(
-                "status,duration_ms,cost_usd,total_cost,input_tokens,output_tokens,started_at,updated_at"
-            )
+        agent_runs, runs_complete = await collect_bounded_rows(
+            lambda: client.table("agent_runs")
+            .select("id,status,duration_ms,started_at")
+            .eq("organization_id", org_id)
             .gte("started_at", start_time)
+            .order("started_at", desc=True)
+            .order("id")
         )
-        if org_id:
-            query = query.eq("organization_id", org_id)
-        res = await query.limit(500).execute()
-        agent_runs = res.data or []
+        complete = complete and runs_complete
     except Exception as e:
         logger.info("Agent SLO run query unavailable: %s", e)
+        unavailable.append("agent_runs")
 
     try:
-        query = (
-            client.table("llm_call_log")
+        llm_calls, calls_complete = await collect_bounded_rows(
+            lambda: client.table("llm_call_log")
             .select(
-                "model_code,input_tokens,output_tokens,total_tokens,call_cost,exec_time_ms,status,create_time"
+                "id,agent_code,model_code,input_tokens,output_tokens,total_tokens,call_cost,exec_time_ms,status,create_time"
             )
+            .eq("tenant_id", org_id)
             .gte("create_time", start_time)
+            .order("create_time", desc=True)
+            .order("id")
         )
-        if org_id:
-            query = query.eq("tenant_id", org_id)
-        res = await query.limit(1000).execute()
-        llm_calls = res.data or []
+        complete = complete and calls_complete
     except Exception as e:
         logger.info("Agent SLO LLM call query unavailable: %s", e)
+        unavailable.append("llm_call_log")
 
-    summary = summarize_agent_slo_cost(agent_runs=agent_runs, llm_calls=llm_calls)
+    summary = summarize_agent_slo_cost(
+        agent_runs=agent_runs,
+        llm_calls=llm_calls,
+        window_days=days,
+        complete=complete,
+        unavailable_sources=unavailable,
+    )
     summary["window_days"] = days
     return api_success(data=summary)

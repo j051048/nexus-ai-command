@@ -8,6 +8,7 @@ judge covers semantic safety, this module covers mechanical safety.
 from __future__ import annotations
 
 import re
+from io import BytesIO
 from typing import Any
 
 DELIVERY_SCAN_VERSION = "artifact-delivery-scan.v1"
@@ -110,7 +111,9 @@ def verify_docx_render(docx_bytes: bytes) -> dict[str, Any]:
     try:
         from docx import Document
 
-        document = Document(docx_bytes)
+        document = Document(
+            BytesIO(docx_bytes) if isinstance(docx_bytes, bytes) else docx_bytes
+        )
         paragraphs = len(document.paragraphs)
         tables = len(document.tables)
         text_len = sum(len(p.text or "") for p in document.paragraphs)

@@ -41,6 +41,7 @@ import { repeatDownload } from '@/features/deliverables/exportContent';
 import { listArtifacts, recordArtifactFeedback } from '@/features/deliverables/artifactApi';
 import type { DeliverableFormat, DeliverableRecord } from '@/features/deliverables/types';
 import { cn } from '@/lib/utils';
+import { ArtifactJobList } from './ArtifactJobList';
 
 const FORMAT_ICON: Record<DeliverableFormat, typeof FileText> = {
   docx: FileText,
@@ -231,6 +232,7 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
+          <ArtifactJobList key={scope} scope={scope} />
           {!records.length ? (
             <div className="flex min-h-80 flex-col items-center justify-center px-8 text-center">
               <PackageCheck className="h-8 w-8 text-muted-foreground/50" />

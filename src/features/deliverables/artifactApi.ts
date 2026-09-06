@@ -131,6 +131,16 @@ function unwrap<T>(value: unknown): T {
 
 const sleep = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
+export async function listArtifactJobs() {
+  const response = await httpClient.get('/api/artifacts/jobs', { silentError: true });
+  return unwrap<{ jobs: ArtifactGenerationJob[] }>(response).jobs;
+}
+
+export async function retryArtifactJob(jobId: string) {
+  const response = await httpClient.post(`/api/artifacts/jobs/${jobId}/retry`, undefined, { silentError: true });
+  return unwrap<ArtifactGenerationJob>(response);
+}
+
 export async function getArtifactJob(jobId: string) {
   const response = await httpClient.get(`/api/artifacts/jobs/${jobId}`, {
     timeout: 30000,
@@ -162,15 +172,32 @@ export async function generateArtifact(
     timeout: 30000,
     silentError: true,
   });
-  let job = unwrap<ArtifactGenerationJob>(response);
+  return waitForArtifactJob(unwrap<ArtifactGenerationJob>(response), onProgress);
+}
+
+export async function waitForArtifactJob(
+  initialJob: ArtifactGenerationJob,
+  onProgress?: (job: ArtifactGenerationJob) => void,
+) {
+  let job = initialJob;
+  let failures = 0;
   onProgress?.(job);
   const deadline = Date.now() + 15 * 60 * 1000;
   while (!['completed', 'failed', 'cancelled'].includes(job.status)) {
     if (Date.now() >= deadline) {
       throw new Error('成果仍在后台制作，可稍后在成果中心继续查看');
     }
-    await sleep(1200);
-    job = await getArtifactJob(job.id);
+    await sleep(Math.min(1200 * 2 ** failures, 10000));
+    try {
+      job = await getArtifactJob(job.id);
+      failures = 0;
+    } catch (error) {
+      const status = (error as { response?: { status?: number } }).response?.status;
+      if (status && status < 500 && ![408, 429].includes(status)) throw error;
+      failures += 1;
+      if (failures >= 5) throw new Error('暂时无法连接，任务仍保留在成果中心，请勿重复提交');
+      continue;
+    }
     onProgress?.(job);
   }
   if (job.status === 'failed') {

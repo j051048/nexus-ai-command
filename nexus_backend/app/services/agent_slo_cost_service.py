@@ -55,6 +55,9 @@ def summarize_agent_slo_cost(
     agent_runs: list[dict[str, Any]] | None = None,
     llm_calls: list[dict[str, Any]] | None = None,
     targets: AgentSLOTargets | None = None,
+    window_days: int = 1,
+    complete: bool = True,
+    unavailable_sources: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build a compact quality and cost dashboard payload."""
 
@@ -64,7 +67,7 @@ def summarize_agent_slo_cost(
 
     run_count = len(agent_runs)
     successful_runs = sum(1 for run in agent_runs if _is_success(run.get("status")))
-    success_rate = successful_runs / run_count if run_count else 1.0
+    success_rate = successful_runs / run_count if run_count else 0.0
     run_durations = [
         int(run.get("duration_ms") or 0)
         for run in agent_runs
@@ -104,10 +107,17 @@ def summarize_agent_slo_cost(
     model_counts: Counter[str] = Counter()
     model_costs: defaultdict[str, float] = defaultdict(float)
     expensive_calls = 0
+    agent_costs: defaultdict[str, float] = defaultdict(float)
+    agent_counts: Counter[str] = Counter()
     for call in llm_calls:
         model = str(call.get("model_code") or call.get("model") or "unknown")
         model_counts[model] += 1
         model_costs[model] += float(
+            call.get("call_cost") or call.get("cost_usd") or call.get("total_cost") or 0
+        )
+        agent = str(call.get("agent_code") or "unattributed")
+        agent_counts[agent] += 1
+        agent_costs[agent] += float(
             call.get("call_cost") or call.get("cost_usd") or call.get("total_cost") or 0
         )
         if _is_expensive_model(model):
@@ -115,7 +125,7 @@ def summarize_agent_slo_cost(
 
     expensive_model_share = expensive_calls / call_count if call_count else 0.0
     violations = []
-    if success_rate < targets.agent_success_rate_min:
+    if run_count and success_rate < targets.agent_success_rate_min:
         violations.append("agent_success_rate_below_slo")
     if agent_p95_duration_ms > targets.agent_p95_duration_ms_max:
         violations.append("agent_p95_duration_above_slo")
@@ -123,19 +133,38 @@ def summarize_agent_slo_cost(
         violations.append("llm_p95_latency_above_slo")
     if expensive_model_share > targets.expensive_model_share_max:
         violations.append("expensive_model_share_above_budget")
-    if total_cost_usd > targets.daily_cost_usd_max:
+    daily_cost = total_cost_usd / max(1, window_days)
+    if daily_cost > targets.daily_cost_usd_max:
         violations.append("daily_cost_above_budget")
 
     return {
-        "status": "breaching" if violations else "healthy",
+        "status": (
+            "unavailable"
+            if unavailable_sources
+            else (
+                "partial"
+                if not complete
+                else (
+                    "insufficient_data"
+                    if not run_count or not call_count
+                    else "breaching" if violations else "healthy"
+                )
+            )
+        ),
+        "data_quality": {
+            "complete": complete and not unavailable_sources,
+            "unavailable_sources": unavailable_sources or [],
+            "window_days": window_days,
+        },
         "targets": targets.as_dict(),
         "metrics": {
             "agent_run_count": run_count,
-            "agent_success_rate": round(success_rate, 4),
+            "agent_success_rate": round(success_rate, 4) if run_count else None,
             "agent_p95_duration_ms": agent_p95_duration_ms,
             "llm_call_count": call_count,
             "llm_p95_latency_ms": llm_p95_latency_ms,
             "total_cost_usd": total_cost_usd,
+            "average_daily_cost_usd": round(daily_cost, 6),
             "total_tokens": total_tokens,
             "expensive_model_share": round(expensive_model_share, 4),
         },
@@ -148,4 +177,12 @@ def summarize_agent_slo_cost(
             for model, count in model_counts.most_common()
         ],
         "violations": violations,
+        "agent_costs": [
+            {
+                "agent_code": agent,
+                "calls": count,
+                "cost_usd": round(agent_costs[agent], 6),
+            }
+            for agent, count in agent_counts.most_common()
+        ],
     }

@@ -20,6 +20,7 @@ from app.services.artifact_docx_renderer import (
     render_artifact_pdf,
     render_artifact_xlsx,
 )
+from app.services.artifact_export_validation import validate_export
 from app.services.artifact_feedback_loop import record_delivery_event
 from app.services.artifact_generation_job_service import (
     artifact_job_health,
@@ -212,6 +213,25 @@ async def create_artifact_job(
     )
 
 
+@router.get("/jobs")
+async def list_artifact_jobs(
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+    user_id: str = Depends(get_current_user_id),
+    limit: int = Query(default=10, ge=1, le=40),
+):
+    result = await (
+        db.table("artifact_generation_jobs")
+        .select("*")
+        .eq("organization_id", organization_id)
+        .eq("created_by", user_id)
+        .order("queued_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return api_success(data={"jobs": [public_job(row) for row in result.data or []]})
+
+
 @router.get("/jobs/health")
 async def get_artifact_jobs_health(
     db=Depends(get_request_db),
@@ -344,11 +364,24 @@ async def download_artifact(
         media_type = (
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+    validation = validate_export(
+        content,
+        format,
+        title=str(artifact.get("title") or ""),
+        expected_markdown=artifact_payload["content_markdown"],
+        evidence_packet=evidence,
+    )
+    if not validation["ok"]:
+        raise api_error(
+            ErrorCode.SYSTEM_INTERNAL_ERROR,
+            "文件导出校验未通过，请稍后重试或重新生成成果",
+        )
     filename = f"{artifact.get('title') or 'AI成果'}.{format}"
     headers = {
         "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
         "X-Artifact-Quality": str(artifact.get("quality_score") or 0),
         "X-Artifact-Approval": str(artifact.get("approval_status") or "pending"),
+        "X-Artifact-Version": str(version.get("version_number") or 1),
     }
     await record_delivery_event(
         db,
@@ -358,7 +391,10 @@ async def download_artifact(
         user_id=user_id,
         event_type="downloaded",
         output_format=format,
-        metadata={"quality_score": artifact.get("quality_score") or 0},
+        metadata={
+            "quality_score": artifact.get("quality_score") or 0,
+            "export_validation": validation,
+        },
     )
     return Response(content=content, media_type=media_type, headers=headers)
 

@@ -10,7 +10,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from app.core.auth import get_current_user_id
+from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.agent_replay_service import agent_replay_service
@@ -130,14 +130,19 @@ async def run_full_replay_case(
     try:
         from app.services.full_graph_replay_service import full_graph_replay_service
 
-        org_id = getattr(request.state, "org_id", None)
+        org_id = await get_current_org_id(request)
+        authorization = request.headers.get("authorization", "")
+        token = authorization[7:] if authorization.lower().startswith("bearer ") else ""
+        if not token:
+            raise HTTPException(status_code=401, detail="回放需要用户身份凭证")
         result = await full_graph_replay_service.run_case(
             {
                 **body.model_dump(),
                 "user_id": user_id,
                 "organization_id": org_id,
                 "dry_run": True,
-                "thread_id": f"{org_id or 'global'}::replay::{body.id}",
+                "token": token,
+                "user_role": "employee",
             }
         )
         return api_success(data=result)

@@ -30,7 +30,9 @@ try:
     from postgrest import AsyncPostgrestClient
 
     # P1-3修复: 使用ContextVar替代全局字典,避免线程安全问题
-    _request_scoped_clients: ContextVar[dict] = ContextVar("scoped_clients", default={})
+    _request_scoped_clients: ContextVar[dict | None] = ContextVar(
+        "scoped_clients", default=None
+    )
     _SCOPED_CLIENT_CACHE_MAX = 200
 
     class MiniSupabaseClient:
@@ -68,8 +70,10 @@ try:
 
         def get_scoped_client(self, token: str):
             # P1-3修复: 使用ContextVar获取请求级别的缓存
-            cache = _request_scoped_clients.get()
-            cache_key = hashlib.sha256(token.encode()).hexdigest() if token else ""
+            if not token:
+                raise PermissionError("A user token is required for a scoped client")
+            cache = dict(_request_scoped_clients.get() or {})
+            cache_key = hashlib.sha256(f"{self._url}:{token}".encode()).hexdigest()
 
             if cache_key in cache:
                 return cache[cache_key]
@@ -120,6 +124,7 @@ try:
     class OrgFilteredClient:
         _ORG_TABLES = {
             "users",
+            "customers",
             "documents",
             "document_embeddings",
             "sales_leads",

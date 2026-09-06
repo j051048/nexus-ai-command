@@ -18,8 +18,9 @@ from app.services.artifact_content_sanitizer import (
     contains_internal_trace_markers,
     duplicate_paragraph_ratio,
 )
+from app.services.artifact_text_metrics import body_character_count
 
-ARTIFACT_EVALUATOR_VERSION = "artifact-quality.v3"
+ARTIFACT_EVALUATOR_VERSION = "artifact-quality.v4"
 _CITATION_RE = re.compile(r"\[EVID:([^:\]\s]+):([^\]\s]+)\]")
 _NUMBER_RE = re.compile(
     r"(?<![\w-])\d+(?:\.\d+)?\s*(?:%|万|万元|元|天|小时|年|个月|台|套|pp[mb]|mg|μg|nm)?",
@@ -54,6 +55,7 @@ class ArtifactQualityResult(BaseModel):
 
 
 def _heading_present(text: str, title: str) -> bool:
+    text = "\n".join(re.findall(r"^#{2,6}\s+(.+)$", text, re.M))
     normalized = re.sub(r"[\s、，,：:（）()/_-]", "", title).lower()
     compact_text = re.sub(r"[\s、，,：:（）()/_-]", "", text).lower()
     if normalized in compact_text:
@@ -234,7 +236,7 @@ def evaluate_text_artifact(
             )
         )
 
-    plain_length = _plain_character_count(text)
+    plain_length = body_character_count(text)
     if spec.requires_quality_gate and plain_length < spec.minimum_character_count:
         findings.append(
             QualityFinding(

@@ -6,6 +6,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, is_dataclass
 from typing import Any
+from uuid import uuid4
 
 from app.services.agent_replay_harness import agent_replay_harness
 
@@ -20,7 +21,12 @@ class FullGraphReplayService:
         executor: GraphExecutor | None = None,
     ) -> dict[str, Any]:
         state = self._initial_state(case)
-        thread_id = str(case.get("thread_id") or f"replay:{case.get('id', 'case')}")
+        prefix = f"{case.get('organization_id')}::replay:{case.get('user_id')}:"
+        thread_id = str(case.get("thread_id") or f"{prefix}{uuid4()}")
+        if not thread_id.startswith(prefix):
+            raise ValueError(
+                "Replay thread must belong to the requesting tenant and user"
+            )
         runner = executor or self._execute_production_graph
         started = time.perf_counter()
         final_state = await runner(state, thread_id)
@@ -31,6 +37,8 @@ class FullGraphReplayService:
         )
         return {
             "case_id": case.get("id"),
+            "execution_mode": "injected_executor" if executor else "production_graph",
+            "thread_id": thread_id,
             "passed": result.passed,
             "score": result.score,
             "checks": result.checks,
@@ -49,6 +57,7 @@ class FullGraphReplayService:
             "user_role": str(case.get("user_role") or "employee"),
             "session_id": str(case.get("session_id") or "replay-session"),
             "agent_name": str(case.get("agent_code") or "default"),
+            "token": str(case.get("token") or ""),
             "dry_run": bool(case.get("dry_run", True)),
         }
         return {
@@ -56,8 +65,8 @@ class FullGraphReplayService:
             "config": AgentConfig(**config_data),
             "iteration": 0,
             "thinking_steps": [],
-            "tool_calls": [],
-            "tool_results": [],
+            "pending_tool_calls": [],
+            "completed_tool_calls": [],
             "trace_id": str(case.get("id") or "replay"),
         }
 
@@ -92,13 +101,22 @@ class FullGraphReplayService:
                     ),
                 }
             )
-        for raw in final_state.get("tool_calls") or []:
+        calls = (
+            final_state.get("completed_tool_calls")
+            or final_state.get("tool_calls")
+            or []
+        )
+        for raw in calls:
             call = self._to_dict(raw)
             steps.append(
                 {
                     "node_type": "execute",
                     "status": call.get("status"),
-                    "error": call.get("error_type"),
+                    "error": (
+                        call.get("error_type")
+                        if call.get("status") == "error"
+                        else None
+                    ),
                     "tool_calls": [call],
                 }
             )
@@ -114,7 +132,10 @@ class FullGraphReplayService:
             + int(final_state.get("total_output_tokens") or 0),
             "total_duration_ms": duration_ms,
             "side_effects": final_state.get("side_effects") or [],
-            "hitl_required": bool(final_state.get("requires_confirmation")),
+            "hitl_required": bool(
+                final_state.get("confirmation_pending")
+                or final_state.get("requires_confirmation")
+            ),
             "evidence_contract": final_state.get("evidence_contract") or {},
         }
 
@@ -132,7 +153,7 @@ class FullGraphReplayService:
     def _json_safe_state(cls, state: dict[str, Any]) -> dict[str, Any]:
         safe: dict[str, Any] = {}
         for key, value in state.items():
-            if key == "messages":
+            if key in {"messages", "config"}:
                 continue
             safe_value = cls._json_safe_value(value)
             if safe_value is not None or value is None:
@@ -144,7 +165,12 @@ class FullGraphReplayService:
         if isinstance(value, str | int | float | bool | None):
             return value
         if isinstance(value, dict):
-            return {str(key): cls._json_safe_value(item) for key, item in value.items()}
+            return {
+                str(key): cls._json_safe_value(item)
+                for key, item in value.items()
+                if str(key).lower()
+                not in {"token", "api_key", "authorization", "password", "secret"}
+            }
         if isinstance(value, list | tuple):
             return [cls._json_safe_value(item) for item in value]
         if is_dataclass(value):

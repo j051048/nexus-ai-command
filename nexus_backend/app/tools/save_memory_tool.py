@@ -125,4 +125,6 @@ class SaveMemoryTool(BaseTool):
             )
         except Exception as e:
             logger.warning(f"[SaveMemory] Failed to save memory: {e}")
-            return self.format_result(data={}, summary=safe_tool_error(e, "⚠️ 记忆保存"))
+            return self.format_result(
+                data={}, summary=safe_tool_error(e, "⚠️ 记忆保存")
+            )
