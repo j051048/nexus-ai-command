@@ -11,7 +11,10 @@
 """
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.agent.state import AgentConfig, ToolCallRecord
 from app.tools.base_tool import BaseTool
@@ -23,6 +26,7 @@ from app.tools.base_tool import BaseTool
 
 class SlowTool(BaseTool):
     """模拟执行超慢的工具"""
+
     requires_org_id = False
 
     @property
@@ -44,6 +48,7 @@ class SlowTool(BaseTool):
 
 class ErrorTool(BaseTool):
     """模拟抛出异常的工具"""
+
     requires_org_id = False
 
     @property
@@ -64,6 +69,7 @@ class ErrorTool(BaseTool):
 
 class NoneReturnTool(BaseTool):
     """模拟返回 None 的工具"""
+
     requires_org_id = False
 
     @property
@@ -84,6 +90,7 @@ class NoneReturnTool(BaseTool):
 
 class SuccessTool(BaseTool):
     """模拟正常执行的工具"""
+
     requires_org_id = False
 
     @property
@@ -323,40 +330,107 @@ class TestCircuitBreaker:
 class TestIdempotency:
     """测试工具执行的幂等性"""
 
-    async def test_cached_result_returned(self):
-        """已缓存的 tool_call_id 应直接返回缓存结果"""
-        from app.agent.nodes import _execute_single_tool
-
+    @pytest.fixture
+    def authorized_call(self, monkeypatch):
         config = AgentConfig(
             user_id="user-007",
+            user_role="admin",
+            org_id="org-007",
+            session_id="session-007",
             api_key="sk-fake",
         )
-
-        record = ToolCallRecord(
-            tool_name="success_tool",
-            tool_args={"query": "test"},
-            tool_call_id="tc-idem-001",
+        tool = SuccessTool()
+        tool.requires_org_id = True
+        tool.run = AsyncMock(return_value="查询结果")
+        monkeypatch.setattr("app.agent.node_execute.get_tool", lambda _: tool)
+        monkeypatch.setattr(
+            "app.agent.node_execute.tool_circuit_breaker.allow_request", lambda: True
+        )
+        monkeypatch.setattr(
+            "app.agent.node_execute.record_tool_execution", lambda *_: None
+        )
+        monkeypatch.setattr("app.agent.node_execute.check_tool_alert", lambda *_: None)
+        monkeypatch.setattr(
+            "app.agent.loop_detector.record_tool_call_redis",
+            AsyncMock(return_value=False),
+        )
+        monkeypatch.setattr(
+            "app.agent.node_execute.check_symbolic_policy",
+            AsyncMock(return_value=SimpleNamespace(allowed=True)),
         )
 
-        # 预填充幂等性缓存
-        cache = {
-            "tc-idem-001:success_tool": {
-                "status": "success",
-                "result": "缓存的结果",
-                "duration_ms": 50,
-            }
-        }
+        async def passthrough(_event, context):
+            return context
 
-        with (
-            patch("app.agent.node_execute.get_tool", return_value=SuccessTool()),
-            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
-        ):
-            mock_cb.allow_request.return_value = True
-            result = await _execute_single_tool(record, config, cache)
+        monkeypatch.setattr("app.agent.node_execute.run_hooks", passthrough)
+        return config, tool, {}
 
-        assert result.status == "success"
-        assert result.result == "缓存的结果"
-        assert result.duration_ms == 50
+    @staticmethod
+    async def execute(config, cache, query="test"):
+        from app.agent.nodes import _execute_single_tool
+
+        return await _execute_single_tool(
+            ToolCallRecord(
+                tool_name="success_tool",
+                tool_args={"query": query},
+                tool_call_id="tc-idem-001",
+            ),
+            config,
+            cache,
+        )
+
+    async def test_cached_result_returned(self, authorized_call):
+        """通过真实执行填充缓存，同一授权上下文不重复调用工具。"""
+        config, tool, cache = authorized_call
+        first = await self.execute(config, cache)
+        second = await self.execute(config, cache)
+        assert first.status == second.status == "success"
+        assert first.result == second.result == "查询结果"
+        assert first.duration_ms == second.duration_ms
+        tool.run.assert_awaited_once()
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("org_id", "org-other"),
+            ("user_id", "user-other"),
+            ("user_role", "boss"),
+            ("session_id", "session-other"),
+            ("token", "new-token"),
+        ],
+    )
+    async def test_cache_isolated_by_actor_context(self, authorized_call, field, value):
+        config, tool, cache = authorized_call
+        assert (await self.execute(config, cache)).status == "success"
+        changed = config.model_copy(update={field: value})
+        assert (await self.execute(changed, cache)).status == "success"
+        assert tool.run.await_count == 2
+
+    async def test_changed_arguments_do_not_reuse_cache(self, authorized_call):
+        config, tool, cache = authorized_call
+        await self.execute(config, cache)
+        assert (
+            await self.execute(config, cache, query="different")
+        ).status == "success"
+        assert tool.run.await_count == 2
+
+    @pytest.mark.parametrize("change", [{"org_id": None}, {"user_role": "employee"}])
+    async def test_cache_never_bypasses_current_authorization(
+        self, authorized_call, change
+    ):
+        config, tool, cache = authorized_call
+        assert (await self.execute(config, cache)).status == "success"
+        result = await self.execute(config.model_copy(update=change), cache)
+        assert result.status == "blocked"
+        assert result.result != "查询结果"
+        tool.run.assert_awaited_once()
+
+    async def test_legacy_unscoped_cache_is_not_trusted(self, authorized_call):
+        config, tool, cache = authorized_call
+        cache["tc-idem-001:success_tool"] = {"status": "success", "result": "旧缓存"}
+        result = await self.execute(config, cache)
+        assert result.result == "查询结果"
+        tool.run.assert_awaited_once()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -393,13 +467,20 @@ class TestExecuteNodeTimeout:
         }
 
         # 模拟一个慢工具
-        async def slow_execute(record, config, cache=None, prior_completed=None, trace_id=None):
+        async def slow_execute(
+            record, config, cache=None, prior_completed=None, trace_id=None
+        ):
             await asyncio.sleep(100)
             return record
 
         with (
-            patch("app.agent.node_execute._execute_single_tool", side_effect=slow_execute),
-            patch("app.agent.node_execute.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch(
+                "app.agent.node_execute._execute_single_tool", side_effect=slow_execute
+            ),
+            patch(
+                "app.agent.node_execute.plugin_system_service.run_hooks",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await execute_node(state)
 
@@ -428,7 +509,10 @@ class TestErrorNode:
             "iteration": 1,
         }
 
-        with patch("app.agent.node_respond.plugin_system_service.run_hooks", new_callable=AsyncMock):
+        with patch(
+            "app.agent.node_respond.plugin_system_service.run_hooks",
+            new_callable=AsyncMock,
+        ):
             result = await error_node(state)
 
         assert result["error_recovery_level"] == 1
@@ -447,7 +531,10 @@ class TestErrorNode:
             "iteration": 2,
         }
 
-        with patch("app.agent.node_respond.plugin_system_service.run_hooks", new_callable=AsyncMock):
+        with patch(
+            "app.agent.node_respond.plugin_system_service.run_hooks",
+            new_callable=AsyncMock,
+        ):
             result = await error_node(state)
 
         assert result["error_recovery_level"] == 2
@@ -466,7 +553,10 @@ class TestErrorNode:
             "iteration": 4,
         }
 
-        with patch("app.agent.node_respond.plugin_system_service.run_hooks", new_callable=AsyncMock):
+        with patch(
+            "app.agent.node_respond.plugin_system_service.run_hooks",
+            new_callable=AsyncMock,
+        ):
             result = await error_node(state)
 
         assert result["current_phase"] == AgentPhase.RESPONDING

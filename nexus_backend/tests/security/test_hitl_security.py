@@ -10,6 +10,9 @@
 - RBAC: employee 调用 manager 专用工具 -> 阻止
 """
 
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.tools.base_tool import CONFIRMATION_THRESHOLDS, BaseTool
 
@@ -121,7 +124,9 @@ class TestConfirmationGate:
     def test_irreversible_tool_blocked_without_confirmation(self):
         """不可逆工具在未确认时应被阻止"""
         tool = MockIrreversibleTool()
-        result, _type = tool.check_confirmation(args={"id": "req-001"}, system_confirmed=False)
+        result, _type = tool.check_confirmation(
+            args={"id": "req-001"}, system_confirmed=False
+        )
 
         assert result is not None  # 非 None 表示需要确认
         assert "不可逆" in result or "确认" in result
@@ -129,7 +134,9 @@ class TestConfirmationGate:
     def test_irreversible_tool_allowed_with_confirmation(self):
         """不可逆工具在 system_confirmed=True 时应允许"""
         tool = MockIrreversibleTool()
-        result, _type = tool.check_confirmation(args={"id": "req-001"}, system_confirmed=True)
+        result, _type = tool.check_confirmation(
+            args={"id": "req-001"}, system_confirmed=True
+        )
 
         assert result is None  # None 表示允许执行
 
@@ -263,6 +270,7 @@ class TestRBAC:
         config = AgentConfig(
             user_id="user-001",
             user_role="employee",
+            org_id="org-001",
             api_key="sk-fake",
         )
 
@@ -325,6 +333,7 @@ class TestRBAC:
         config = AgentConfig(
             user_id="user-003",
             user_role="employee",
+            org_id="org-001",
             api_key="sk-fake",
         )
 
@@ -345,6 +354,31 @@ class TestRBAC:
 
         assert result.status == "blocked"
         assert "权限" in result.result
+
+    @pytest.mark.parametrize(
+        "role,tool_class",
+        [
+            ("employee", MockManagerTool),
+            ("manager", MockManagerTool),
+            ("boss", MockBossTool),
+        ],
+    )
+    async def test_missing_tenant_blocks_even_authorized_roles(self, role, tool_class):
+        from app.agent.nodes import _execute_single_tool
+        from app.agent.state import AgentConfig, ToolCallRecord
+
+        tool = tool_class()
+        tool.run = AsyncMock()
+        with patch("app.agent.node_execute.get_tool", return_value=tool):
+            result = await _execute_single_tool(
+                ToolCallRecord(
+                    tool_name=tool.name, tool_args={}, tool_call_id="missing-tenant"
+                ),
+                AgentConfig(user_id="user-001", user_role=role, system_confirmed=True),
+            )
+        assert result.status == "blocked"
+        assert "企业信息" in result.result
+        tool.run.assert_not_awaited()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
