@@ -408,6 +408,8 @@ async def run_generation_job(job_id: str) -> dict[str, Any]:
             generation_mode=str(payload.get("generation_mode") or "deep"),
             session_id=payload.get("session_id"),
             review_confirmed=bool(payload.get("review_confirmed")),
+            delivery_requirements=payload.get("delivery_requirements"),
+            revision_of=payload.get("revision_of"),
             progress_callback=progress_callback,
             job_id=job_id,
             lease_token=lease_token,
@@ -451,7 +453,12 @@ async def run_generation_job(job_id: str) -> dict[str, Any]:
             artifact_id=str(generated.get("id") or ""),
             user_id=user_id,
             event_type="generated",
-            metadata={"source": "durable-job", "job_id": job_id},
+            metadata={
+                "source": "durable-job",
+                "job_id": job_id,
+                "usage": generated.get("usage") or {},
+                "usage_scope": generated.get("usage_scope"),
+            },
         )
         return public_job(completed_row)
     except ArtifactJobLeaseLostError:

@@ -145,7 +145,9 @@ async def retrieve_agent_evidence(
             elif topic not in merged[key].purposes:
                 merged[key].purposes.append(topic)
 
-    records = sorted(merged.values(), key=lambda item: item.score, reverse=True)[:12]
+    from app.services.evidence_selection import select_evidence
+
+    records = select_evidence(list(merged.values()), topics, max_records=12)
     graph_context = ""
     if db is not None and spec.requires_quality_gate:
         try:

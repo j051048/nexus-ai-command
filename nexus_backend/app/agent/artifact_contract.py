@@ -13,6 +13,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.agent.delivery_requirements import DeliveryRequirements
+
 
 class ArtifactType(StrEnum):
     ANSWER = "answer"
@@ -54,6 +56,10 @@ class ArtifactSpec(BaseModel):
     max_repair_cycles: int = Field(default=2, ge=0, le=3)
     skill_id: str | None = None
     skill_version: str | None = None
+    delivery_requirements: DeliveryRequirements = Field(
+        default_factory=DeliveryRequirements
+    )
+    commercial_quote: dict[str, Any] | None = None
 
     @property
     def requires_quality_gate(self) -> bool:

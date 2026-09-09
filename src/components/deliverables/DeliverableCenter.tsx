@@ -42,6 +42,7 @@ import { listArtifacts, recordArtifactFeedback } from '@/features/deliverables/a
 import type { DeliverableFormat, DeliverableRecord } from '@/features/deliverables/types';
 import { cn } from '@/lib/utils';
 import { ArtifactJobList } from './ArtifactJobList';
+import { ArtifactPreviewButton } from './ArtifactPreviewButton';
 
 const FORMAT_ICON: Record<DeliverableFormat, typeof FileText> = {
   docx: FileText,
@@ -192,7 +193,7 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
         <SheetHeader className="border-b px-5 py-5 pr-12">
           <SheetTitle className="flex items-center gap-2 text-base">
             <PackageCheck className="h-4 w-4 text-primary" />成果中心
@@ -330,6 +331,7 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
+                      {record.artifactId && <ArtifactPreviewButton key={`${scope}:${user?.id}:${record.artifactId}`} artifactId={record.artifactId} />}
                       <Button
                         variant="ghost"
                         size="icon"

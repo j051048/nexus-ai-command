@@ -16,6 +16,7 @@ from app.agent.artifact_contract import (
     ArtifactType,
     infer_artifact_spec,
 )
+from app.agent.delivery_requirements import DeliveryRequirements
 from app.agent.scientific_writing_skills import (
     build_writing_skill_prompt,
     enrich_artifact_spec,
@@ -32,14 +33,20 @@ from app.services.artifact_quality_service import (
     evaluate_text_artifact,
     persist_artifact_quality_event,
 )
+from app.services.artifact_stage_cache import ArtifactStageCache, merge_delivery_usage
 from app.services.artifact_template_service import (
     build_template_system_prompt,
     get_optimal_template,
     record_template_usage,
 )
+from app.services.artifact_workspace_service import (
+    load_artifact_snapshot,
+    require_current_evidence_access,
+)
+from app.services.delivery_requirement_service import resolve_delivery_quote
 from app.services.llm_gateway import llm_gateway
 
-ARTIFACT_PIPELINE_VERSION = "artifact-pipeline.v3"
+ARTIFACT_PIPELINE_VERSION = "artifact-pipeline.v4"
 DEEP_ORCHESTRATION_VERSION = "artifact-deep-orchestration.v1"
 SEMANTIC_DIMENSIONS = (
     "instruction_following",
@@ -249,23 +256,14 @@ def _evidence_payload(
     ]
 
 
-def _merge_usage(responses: list[Any]) -> dict[str, int]:
-    totals: dict[str, int] = {}
-    for response in responses:
-        usage = getattr(response, "usage", None) or {}
-        for key, value in usage.items():
-            if isinstance(value, int):
-                totals[key] = totals.get(key, 0) + value
-    return totals
+def _merge_usage(responses: list[Any]) -> dict[str, int | float]:
+    return merge_delivery_usage(
+        *(getattr(response, "usage", None) for response in responses)
+    )
 
 
-def _merge_usage_values(*usages: dict[str, Any] | None) -> dict[str, int]:
-    totals: dict[str, int] = {}
-    for usage in usages:
-        for key, value in (usage or {}).items():
-            if isinstance(value, int):
-                totals[key] = totals.get(key, 0) + value
-    return totals
+def _merge_usage_values(*usages: dict[str, Any] | None) -> dict[str, int | float]:
+    return merge_delivery_usage(*usages)
 
 
 def _record_generation_stage(
@@ -1094,8 +1092,12 @@ async def _generate_draft(
     template_prompt: str,
     organization_id: str,
     user_id: str,
+    checkpoints: ArtifactStageCache | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    analysis, analysis_response = await _analyze_evidence(
+    checkpoints = checkpoints or ArtifactStageCache()
+    analysis, analysis_response = await checkpoints.pair(
+        "evidence_analysis",
+        _analyze_evidence,
         original_request=original_request,
         source_content=source_content,
         customer_context=customer_context,
@@ -1105,7 +1107,9 @@ async def _generate_draft(
         organization_id=organization_id,
         user_id=user_id,
     )
-    strategy, strategy_response = await _develop_delivery_strategy(
+    strategy, strategy_response = await checkpoints.pair(
+        "delivery_strategy",
+        _develop_delivery_strategy,
         original_request=original_request,
         customer_context=customer_context,
         spec=spec,
@@ -1136,7 +1140,9 @@ async def _generate_draft(
     batches = [plans[index : index + 3] for index in range(0, len(plans), 3)]
     results = await asyncio.gather(
         *[
-            _generate_section_batch(
+            checkpoints.pair(
+                f"section_batch_{index}",
+                _generate_section_batch,
                 plans=batch,
                 original_request=original_request,
                 customer_context=customer_context,
@@ -1148,7 +1154,7 @@ async def _generate_draft(
                 user_id=user_id,
                 section_target=section_target,
             )
-            for batch in batches
+            for index, batch in enumerate(batches)
         ]
     )
     sections: list[dict[str, Any]] = []
@@ -1168,7 +1174,9 @@ async def _generate_draft(
     if deficits:
         rewrite_results = await asyncio.gather(
             *[
-                _rewrite_section_batch(
+                checkpoints.pair(
+                    f"section_rewrite_{index}",
+                    _rewrite_section_batch,
                     plans=deficits[index : index + 2],
                     original_request=original_request,
                     customer_context=customer_context,
@@ -1289,8 +1297,19 @@ async def generate_artifact(
     progress_callback: ProgressCallback | None = None,
     job_id: str | None = None,
     lease_token: str | None = None,
+    delivery_requirements: dict[str, Any] | None = None,
+    revision_of: str | None = None,
 ) -> dict[str, Any]:
     """Run the deep delivery orchestration and persist one durable version."""
+
+    if revision_of:
+        _, previous_version = await load_artifact_snapshot(
+            db, organization_id, revision_of
+        )
+        await require_current_evidence_access(
+            db, organization_id, user_id, previous_version
+        )
+        source_content = str(previous_version.get("content_markdown") or "")
 
     overrides: dict[str, Any] = {
         "audience": audience,
@@ -1304,11 +1323,15 @@ async def generate_artifact(
         overrides["target_character_count"] = target_character_count
         overrides["minimum_character_count"] = target_character_count
     normalized_context = dict(customer_context or {})
+    requirements = DeliveryRequirements.model_validate(delivery_requirements or {})
+    quote = await resolve_delivery_quote(db, organization_id, requirements)
     spec = enrich_artifact_spec(
         infer_artifact_spec(f"{original_request}\n{source_content[:1000]}", overrides)
     )
     spec = spec.model_copy(
         update={
+            "delivery_requirements": requirements,
+            "commercial_quote": quote,
             "instrument_line": spec.instrument_line
             or normalized_context.get("instrument_line")
             or normalized_context.get("instrument_line_code"),
@@ -1361,7 +1384,28 @@ async def generate_artifact(
         template_prompt=template_prompt,
         organization_id=organization_id,
         user_id=user_id,
+        checkpoints=(
+            checkpoints := ArtifactStageCache(
+                db=db,
+                organization_id=organization_id,
+                user_id=user_id,
+                job_id=job_id,
+                lease_token=lease_token,
+                context={
+                    "pipeline": ARTIFACT_PIPELINE_VERSION,
+                    "orchestration": DEEP_ORCHESTRATION_VERSION,
+                    "evidence_fingerprint": evidence.fingerprint,
+                    "spec": spec.model_dump(mode="json"),
+                    "source": safe_source,
+                    "request": original_request,
+                    "customer": normalized_context,
+                    "template": template_prompt,
+                },
+            )
+        ),
     )
+    generation["checkpoint_hits"] = checkpoints.hits
+    generation["usage_scope"] = "retained_stages_not_all_attempts"
     await _emit_progress(
         progress_callback,
         "deep_writing",
@@ -1519,6 +1563,7 @@ async def generate_artifact(
     )
     artifact_code = f"ART-{datetime.now(UTC):%Y%m%d}-{artifact_id[:8].upper()}"
     metadata = {
+        "revision_of": revision_of,
         "pipeline_version": ARTIFACT_PIPELINE_VERSION,
         "generation_mode": generation_mode,
         "orchestration_version": DEEP_ORCHESTRATION_VERSION,
@@ -1534,6 +1579,8 @@ async def generate_artifact(
             "industry": (template or {}).get("industry"),
         },
         "content_contract": {
+            "delivery_requirements": requirements.model_dump(mode="json"),
+            "commercial_quote": quote,
             "target_character_count": spec.target_character_count,
             "minimum_character_count": spec.minimum_character_count,
             "minimum_table_count": spec.minimum_table_count,
@@ -1613,6 +1660,8 @@ async def generate_artifact(
         )
     result = {
         "id": artifact_id,
+        "usage": generation.get("usage") or {},
+        "usage_scope": generation.get("usage_scope"),
         "artifact_code": artifact_code,
         "title": artifact_title,
         "artifact_type": spec.artifact_type.value,

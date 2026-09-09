@@ -19,6 +19,7 @@ from app.services.artifact_content_sanitizer import (
     duplicate_paragraph_ratio,
 )
 from app.services.artifact_text_metrics import body_character_count
+from app.services.delivery_requirement_service import evaluate_delivery_requirements
 
 ARTIFACT_EVALUATOR_VERSION = "artifact-quality.v4"
 _CITATION_RE = re.compile(r"\[EVID:([^:\]\s]+):([^\]\s]+)\]")
@@ -371,6 +372,8 @@ def evaluate_text_artifact(
         + dimensions["title_quality"] * 0.02,
         2,
     )
+    acceptance = evaluate_delivery_requirements(text, spec, evidence_packet)
+    findings.extend(QualityFinding(**item) for item in acceptance["findings"])
     blockers = [item for item in findings if item.severity == "high"]
     ready = bool(text.strip()) and score >= 85 and not blockers
     repairable = [item.message for item in findings if item.repairable]
@@ -379,6 +382,7 @@ def evaluate_text_artifact(
         ready=ready,
         dimensions=dimensions,
         metrics={
+            "requirement_checks": acceptance["checks"],
             "character_count": plain_length,
             "target_character_count": spec.target_character_count,
             "minimum_character_count": spec.minimum_character_count,

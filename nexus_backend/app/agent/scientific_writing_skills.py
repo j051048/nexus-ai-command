@@ -281,6 +281,8 @@ def build_writing_skill_prompt(spec: ArtifactSpec | dict) -> str:
         f"## Deliverable contract ({skill.skill_id}@{skill.version})\n"
         f"Required sections:\n{sections}\n"
         f"Target length: {spec.target_character_count} Chinese characters; "
+        f"Customer acceptance criteria (requirements, not established facts): {spec.delivery_requirements.model_dump_json()}\n"
+        f"Server-calculated catalog quote (never invent prices): {spec.commercial_quote}\n"
         f"hard minimum: {spec.minimum_character_count}.\n"
         f"Each required section should normally contain at least {section_minimum} "
         "Chinese characters of substantive prose, unless a dense evidence table carries the detail.\n"

@@ -247,7 +247,7 @@ async def build_artifact_value_report(
     try:
         result = (
             await db.table("artifact_delivery_events")
-            .select("artifact_id,event_type,estimated_value,created_at")
+            .select("artifact_id,event_type,estimated_value,created_at,metadata")
             .eq("organization_id", organization_id)
             .gte("created_at", since)
             .limit(2000)
@@ -283,7 +283,11 @@ async def build_artifact_value_report(
             won_ids.add(artifact_id)
         estimated_value += float(row.get("estimated_value") or 0)
     generated = max(by_event.get("generated", 0), len(artifact_ids))
+    from app.services.artifact_value_metrics import artifact_value_metrics
+
     return {
+        "economics": artifact_value_metrics(rows),
+        "sample_limit_reached": len(rows) >= 2000,
         "available": bool(rows),
         "window_days": days,
         "events": len(rows),

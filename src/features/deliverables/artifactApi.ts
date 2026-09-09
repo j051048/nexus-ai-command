@@ -13,6 +13,13 @@ export type ArtifactType =
 export type ArtifactOutputFormat = 'docx' | 'pdf' | 'xlsx';
 
 export interface ArtifactGenerateInput {
+  delivery_requirements?: {
+    required_facts: { topic: string; expected_text: string; evidence_required: boolean }[];
+    forbidden_claims: string[];
+    budget?: number;
+    currency?: string;
+    catalog_quantities?: Record<string, number>;
+  };
   original_request: string;
   source_content: string;
   title?: string;
@@ -127,6 +134,25 @@ function unwrap<T>(value: unknown): T {
     return (outer as { data: T }).data;
   }
   return outer as T;
+}
+
+export interface ArtifactPreview extends ArtifactResult {
+  content_markdown: string;
+  requirements: { target_character_count?: number; minimum_character_count?: number };
+  sources: { title: string; document_id: string; source_version?: string }[];
+  usage: { total_tokens?: number; call_cost?: number };
+  checkpoint_hits: number;
+  revision_of?: string;
+}
+
+export async function getArtifactPreview(id: string) {
+  return unwrap<ArtifactPreview>(await httpClient.get(`/api/artifacts/${id}/preview`, { silentError: true }));
+}
+
+export async function reviseArtifact(id: string, instructions: string, requestKey: string) {
+  return unwrap<ArtifactGenerationJob>(await httpClient.post(`/api/artifacts/${id}/revisions`, {
+    instructions, request_key: requestKey,
+  }, { silentError: true }));
 }
 
 const sleep = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));

@@ -640,6 +640,9 @@ def render_artifact_xlsx(
             cell.fill = PatternFill("solid", fgColor=BRAND_BLUE)
         for row in sheet.iter_rows():
             for cell in row:
+                # Generated prose is data, never an executable spreadsheet formula.
+                if isinstance(cell.value, str):
+                    cell.data_type = "s"
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
         for column in sheet.columns:
             letter = column[0].column_letter

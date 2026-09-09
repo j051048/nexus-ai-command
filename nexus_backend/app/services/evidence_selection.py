@@ -37,7 +37,7 @@ def select_evidence(records, topics, *, max_records=24, max_characters=24000):
     selected = []
     used = 0
     for record in ordered:
-        record.excerpt = record.excerpt[:1400]
+        # Keep complete compiler passages/table rows; the total context is bounded below.
         cost = (
             len(record.excerpt)
             + len(record.title)

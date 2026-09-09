@@ -22,6 +22,9 @@ def validate_export(
     title: str = "",
     expected_markdown: str = "",
     evidence_packet: dict[str, Any] | None = None,
+    minimum_characters: int = 0,
+    required_terms: list[str] | None = None,
+    forbidden_terms: list[str] | None = None,
 ) -> dict[str, Any]:
     errors: list[str] = []
     metrics: dict[str, Any] = {}
@@ -40,17 +43,37 @@ def validate_export(
             }
             if title and not any(p.style.name == "Title" for p in document.paragraphs):
                 errors.append("title_style_missing")
+            available_width = min(
+                (section.page_width - section.left_margin - section.right_margin) / 635
+                for section in document.sections
+            )
+            for table in document.tables:
+                widths = [int(node.get(qn("w:w")) or 0) for node in table._tbl.tblGrid]
+                if sum(widths) > available_width + 20:
+                    errors.append("table_outside_page")
         elif output_format == "pdf":
             from pypdf import PdfReader
 
             document = PdfReader(BytesIO(content))
             text = "\n".join(page.extract_text() or "" for page in document.pages)
             metrics = {"pages": len(document.pages)}
+            if any(
+                float(page.mediabox.width) <= 0 or float(page.mediabox.height) <= 0
+                for page in document.pages
+            ):
+                errors.append("invalid_page_geometry")
         elif output_format == "xlsx":
             from openpyxl import load_workbook
 
-            workbook = load_workbook(BytesIO(content), read_only=True, data_only=True)
+            workbook = load_workbook(BytesIO(content), read_only=True, data_only=False)
             try:
+                if any(
+                    cell.data_type == "f"
+                    for sheet in workbook
+                    for row in sheet
+                    for cell in row
+                ):
+                    errors.append("unexpected_executable_formula")
                 text = "\n".join(
                     str(value)
                     for sheet in workbook
@@ -68,6 +91,12 @@ def validate_export(
             errors.append("empty_export")
         if title and _normalize(title) not in normalized:
             errors.append("title_missing")
+        if len(normalized) < minimum_characters:
+            errors.append("insufficient_export_length")
+        if any(_normalize(term) not in normalized for term in required_terms or []):
+            errors.append("required_fact_missing")
+        if any(_normalize(term) in normalized for term in forbidden_terms or []):
+            errors.append("forbidden_claim_present")
         if expected_markdown:
             sanitized = sanitize_artifact_content(expected_markdown, evidence_packet)
             missing = 0

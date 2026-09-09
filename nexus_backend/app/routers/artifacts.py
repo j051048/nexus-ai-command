@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.agent.artifact_contract import ArtifactAudience, ArtifactType
+from app.agent.delivery_requirements import DeliveryRequirements
 from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.dependencies import get_request_db
 from app.core.errors import ErrorCode, api_error, api_success
@@ -34,11 +35,18 @@ from app.services.artifact_generation_job_service import (
     run_generation_job,
 )
 from app.services.artifact_generation_service import generate_artifact
+from app.services.artifact_workspace_service import (
+    load_artifact_snapshot,
+    require_current_evidence_access,
+    result_preview,
+    revision_payload,
+)
 
 router = APIRouter(prefix="/api/artifacts", tags=["Agent Artifacts"])
 
 
 class ArtifactGenerateRequest(BaseModel):
+    revision_of: UUID | None = None
     original_request: str = Field(min_length=2, max_length=8000)
     source_content: str = Field(default="", max_length=40000)
     title: str | None = Field(default=None, max_length=300)
@@ -54,6 +62,9 @@ class ArtifactGenerateRequest(BaseModel):
     session_id: str | None = Field(default=None, max_length=200)
     review_confirmed: bool = False
     request_key: str | None = Field(default=None, max_length=120)
+    delivery_requirements: DeliveryRequirements = Field(
+        default_factory=DeliveryRequirements
+    )
 
 
 class ArtifactReviewRequest(BaseModel):
@@ -63,6 +74,7 @@ class ArtifactReviewRequest(BaseModel):
 
 
 class ArtifactFeedbackRequest(BaseModel):
+    rework_minutes: int | None = Field(default=None, ge=0, le=10080)
     rating: int = Field(ge=1, le=5)
     comment: str | None = Field(default=None, max_length=2000)
     outcome: Literal["used", "edited", "discarded", "won", "lost"] | None = None
@@ -72,30 +84,7 @@ class ArtifactFeedbackRequest(BaseModel):
 async def _load_artifact(
     db: Any, organization_id: str, artifact_id: UUID
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    artifact_result = (
-        await db.table("artifacts")
-        .select("*")
-        .eq("organization_id", organization_id)
-        .eq("id", str(artifact_id))
-        .maybe_single()
-        .execute()
-    )
-    artifact = artifact_result.data
-    if not artifact:
-        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "成果不存在或无权访问")
-    version_result = (
-        await db.table("artifact_versions")
-        .select("*")
-        .eq("organization_id", organization_id)
-        .eq("artifact_id", str(artifact_id))
-        .eq("version_number", artifact.get("latest_version") or 1)
-        .maybe_single()
-        .execute()
-    )
-    version = version_result.data
-    if not version:
-        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "成果版本不存在")
-    return artifact, version
+    return await load_artifact_snapshot(db, organization_id, artifact_id)
 
 
 def _public_artifact(
@@ -168,6 +157,8 @@ async def create_artifact(
         generation_mode=body.generation_mode,
         session_id=body.session_id,
         review_confirmed=body.review_confirmed,
+        delivery_requirements=body.delivery_requirements.model_dump(mode="json"),
+        revision_of=str(body.revision_of) if body.revision_of else None,
     )
     result["download_urls"] = {
         output_format: f"/api/artifacts/{result['id']}/download?format={output_format}"
@@ -179,7 +170,11 @@ async def create_artifact(
         artifact_id=str(result["id"]),
         user_id=user_id,
         event_type="generated",
-        metadata={"source": "synchronous-api"},
+        metadata={
+            "source": "synchronous-api",
+            "usage": result.get("usage") or {},
+            "usage_scope": result.get("usage_scope"),
+        },
     )
     return api_success(data=result, message="精品成果已生成")
 
@@ -337,6 +332,7 @@ async def download_artifact(
     user_id: str = Depends(get_current_user_id),
 ):
     artifact, version = await _load_artifact(db, organization_id, artifact_id)
+    await require_current_evidence_access(db, organization_id, user_id, version)
     artifact_payload = {
         **artifact,
         "content_markdown": version.get("content_markdown") or "",
@@ -376,7 +372,13 @@ async def download_artifact(
             ErrorCode.SYSTEM_INTERNAL_ERROR,
             "文件导出校验未通过，请稍后重试或重新生成成果",
         )
-    filename = f"{artifact.get('title') or 'AI成果'}.{format}"
+    draft_prefix = (
+        "审核草稿-"
+        if not (version.get("quality_snapshot") or {}).get("ready")
+        or artifact.get("approval_status") != "approved"
+        else ""
+    )
+    filename = f"{draft_prefix}{artifact.get('title') or 'AI成果'}.{format}"
     headers = {
         "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
         "X-Artifact-Quality": str(artifact.get("quality_score") or 0),
@@ -471,6 +473,8 @@ async def record_artifact_feedback(
         body.outcome in {"used", "edited"}
         and body.rating >= 4
         and revised_content.strip()
+        and (version.get("quality_snapshot") or {}).get("ready")
+        and artifact.get("approval_status") == "approved"
     )
     await db.table("artifact_feedback_events").insert(
         {
@@ -498,7 +502,11 @@ async def record_artifact_feedback(
             artifact_version_id=str(version.get("id") or "") or None,
             user_id=user_id,
             event_type=body.outcome,
-            metadata={"rating": body.rating, "source": "artifact-feedback"},
+            metadata={
+                "rating": body.rating,
+                "source": "artifact-feedback",
+                "rework_minutes": body.rework_minutes,
+            },
         )
     return api_success(
         data={
@@ -506,4 +514,50 @@ async def record_artifact_feedback(
             "recorded": True,
             "title": artifact.get("title"),
         }
+    )
+
+
+class ArtifactRevisionRequest(BaseModel):
+    instructions: str = Field(min_length=2, max_length=4000)
+    request_key: str = Field(min_length=8, max_length=120)
+
+
+@router.get("/{artifact_id}/preview")
+async def preview_artifact(
+    artifact_id: UUID,
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+    user_id: str = Depends(get_current_user_id),
+):
+    artifact, version = await _load_artifact(db, organization_id, artifact_id)
+    await require_current_evidence_access(db, organization_id, user_id, version)
+    return api_success(
+        data={
+            **_public_artifact(artifact, version),
+            **result_preview(artifact, version),
+        }
+    )
+
+
+@router.post("/{artifact_id}/revisions", status_code=status.HTTP_202_ACCEPTED)
+async def revise_artifact(
+    artifact_id: UUID,
+    body: ArtifactRevisionRequest,
+    background_tasks: BackgroundTasks,
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+    user_id: str = Depends(get_current_user_id),
+):
+    artifact, version = await _load_artifact(db, organization_id, artifact_id)
+    await require_current_evidence_access(db, organization_id, user_id, version)
+    request = ArtifactGenerateRequest.model_validate(
+        revision_payload(
+            artifact,
+            version,
+            body.instructions,
+            body.request_key,
+        )
+    )
+    return await create_artifact_job(
+        request, background_tasks, db, organization_id, user_id
     )

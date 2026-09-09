@@ -3,6 +3,7 @@ import { Download, Loader2, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { ArtifactPreviewButton } from './ArtifactPreviewButton';
 import { cancelArtifactJob, downloadArtifact, listArtifactJobs, retryArtifactJob, type ArtifactGenerationJob } from '@/features/deliverables/artifactApi';
 
 const STATUS_LABEL: Record<ArtifactGenerationJob['status'], string> = {
@@ -67,6 +68,7 @@ export function ArtifactJobList({ scope }: { scope: string }) {
           </div>
           {['queued', 'running'].includes(job.status) && <Button variant="ghost" size="icon" disabled={busy === job.id} title="取消制作" aria-label="取消制作" onClick={() => void act(job, 'cancel')}><X className="h-4 w-4" /></Button>}
           {job.status === 'failed' && job.attempt < job.max_attempts && <Button variant="ghost" size="icon" disabled={busy === job.id} title="重试任务" aria-label="重试任务" onClick={() => void act(job, 'retry')}><RotateCcw className="h-4 w-4" /></Button>}
+          {job.status === 'completed' && job.result?.id && <ArtifactPreviewButton key={`${scope}:${job.result.id}`} artifactId={job.result.id} onQueued={() => setRevision((value) => value + 1)} />}
           {job.status === 'completed' && job.result?.id && <Button variant="ghost" size="icon" disabled={busy === job.id} title={label === '待修订' ? '下载审核草稿' : '下载成果'} aria-label="下载任务成果" onClick={() => void act(job, 'download')}><Download className="h-4 w-4" /></Button>}
         </li>;
       })}

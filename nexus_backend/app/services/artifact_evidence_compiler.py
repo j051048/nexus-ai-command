@@ -210,7 +210,7 @@ def _split_excerpt(value: str, limit: int = 1600) -> list[str]:
         chunks.append(current)
     if not chunks and value.strip():
         chunks = [value[index : index + limit] for index in range(0, len(value), limit)]
-    return chunks[:20]
+    return chunks
 
 
 def _topic_score(topic: str, excerpt: str, title: str) -> int:
@@ -267,7 +267,14 @@ async def compile_artifact_evidence(
     """
 
     spec = enrich_artifact_spec(spec)
-    topics = list(spec.retrieval_topics or [query])
+    topics = list(
+        dict.fromkeys(
+            [
+                *(spec.retrieval_topics or [query]),
+                *(fact.topic for fact in spec.delivery_requirements.required_facts),
+            ]
+        )
+    )
     packet = await retrieve_agent_evidence(
         query=query,
         config=AgentConfig(
@@ -298,6 +305,12 @@ async def compile_artifact_evidence(
             title = str(document.get("name") or "企业资料")
             for index, excerpt in enumerate(chunks):
                 purposes = _match_topics(topics, excerpt, title)
+                required_matches = [
+                    fact.topic
+                    for fact in spec.delivery_requirements.required_facts
+                    if fact.expected_text in excerpt
+                ]
+                purposes = list(dict.fromkeys([*required_matches, *purposes]))
                 records.append(
                     EvidenceRecord(
                         document_id=str(document.get("id")),
@@ -306,7 +319,13 @@ async def compile_artifact_evidence(
                         source=title,
                         doc_type=str(document.get("doc_type") or "other"),
                         excerpt=excerpt,
-                        score=1.0,
+                        score=1.0
+                        + len(required_matches)
+                        + max(
+                            (_topic_score(topic, excerpt, "") for topic in topics),
+                            default=0,
+                        )
+                        / 100,
                         source_version=document.get("source_version"),
                         valid_until=document.get("valid_until"),
                         review_status=document.get("review_status"),
@@ -318,7 +337,6 @@ async def compile_artifact_evidence(
 
     # Coverage describes retained passages, never discarded retrieval results.
     covered = {topic for record in deduplicated for topic in record.purposes}
-    topics = list(spec.retrieval_topics or packet.topics or [query])
     missing = [topic for topic in topics if topic not in covered]
     coverage = 1.0 if not topics else (len(topics) - len(missing)) / len(topics)
     minimum = min(4, len(topics)) if spec.requires_quality_gate and topics else 1

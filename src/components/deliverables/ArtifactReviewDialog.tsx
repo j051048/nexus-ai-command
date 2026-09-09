@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArtifactSourcePicker } from '@/components/deliverables/ArtifactSourcePicker';
+import { DeliveryRequirementsEditor } from './DeliveryRequirementsEditor';
+import type { ArtifactGenerateInput } from '@/features/deliverables/artifactApi';
 import {
   Dialog,
   DialogContent,
@@ -122,10 +124,13 @@ export function ArtifactReviewDialog({
   const [result, setResult] = useState<ArtifactResult | null>(null);
   const [downloading, setDownloading] = useState<ArtifactOutputFormat | null>(null);
   const [feedback, setFeedback] = useState<'used' | 'edited' | null>(null);
+  const [requirements, setRequirements] = useState<ArtifactGenerateInput['delivery_requirements']>();
+  const [requirementsValid, setRequirementsValid] = useState(true);
+  const [criteriaDraft, setCriteriaDraft] = useState({ facts: '', forbidden: '' });
 
   const canSubmit = useMemo(
-    () => formats.length > 0 && (audience === 'internal' || (factsConfirmed && promisesConfirmed)),
-    [audience, factsConfirmed, formats.length, promisesConfirmed],
+    () => requirementsValid && formats.length > 0 && (audience === 'internal' || (factsConfirmed && promisesConfirmed)),
+    [audience, factsConfirmed, formats.length, promisesConfirmed, requirementsValid],
   );
 
   const toggleFormat = (format: ArtifactOutputFormat) => {
@@ -186,6 +191,7 @@ export function ArtifactReviewDialog({
         },
         selected_document_ids: selectedDocuments,
         target_character_count: targetCharacters,
+        delivery_requirements: requirements,
         generation_mode: 'deep',
         session_id: sessionId,
         review_confirmed: audience === 'internal' || (factsConfirmed && promisesConfirmed),
@@ -442,6 +448,7 @@ export function ArtifactReviewDialog({
             </div>
 
             <ArtifactSourcePicker selected={selectedDocuments} onChange={setSelectedDocuments} />
+            <DeliveryRequirementsEditor draft={criteriaDraft} onDraftChange={setCriteriaDraft} onChange={(value, valid) => { setRequirements(value); setRequirementsValid(valid); }} />
 
             <div className="border-b px-6 py-5">
               <div className="text-xs font-medium">需要的格式</div>
