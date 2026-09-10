@@ -56,6 +56,21 @@ npm run quality:frontend
 The RLS scan is static, not an execution against a deployed database. No production
 migration, deployment or Git push was performed as part of this repair.
 
+Verification on the local Windows checkout:
+
+- RLS coverage: 135 tenant tables, zero missing RLS/policies; policy-column,
+  schema-conflict and migration-governance checks passed.
+- Delivery-focused backend regression: 90 passed. Black (24.10.0), Ruff and
+  handover checks passed. This is not a full backend-suite certification: the
+  earlier full Windows run hit a native Python crash; Linux CI still needs to
+  establish that result.
+- Frontend component regression: 19 passed. Full Chromium suite without retries:
+  63 passed, 17 conditionally skipped, zero failures. Existing credential-dependent
+  and opt-in visual tests were not changed to bypass their requirements.
+- TypeScript diagnostic comparison against pre-repair HEAD: 114 existing errors,
+  114 after this repair, zero newly introduced diagnostics. Do not report full
+  type-check success or relax its configuration to hide this debt.
+
 ## Implementation boundaries for handover
 
 - Requirements live in `app/agent/delivery_requirements.py`; evaluation and
