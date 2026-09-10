@@ -13,7 +13,6 @@ import MobileAISheet from '@/components/mobile/MobileAISheet';
 import MobileAIFAB from '@/components/mobile/MobileAIFAB';
 import { CommandPalette } from '@/components/common/CommandPalette';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
-import { DeliverableCenter } from '@/components/deliverables/DeliverableCenter';
 
 // Sprint 3: 移动端专属首页 + 工作台
 import MobileHomePage from '@/components/mobile/MobileHomePage';
@@ -25,7 +24,7 @@ import MobileProfilePage from '@/components/mobile/MobileProfilePage';
 
 import { useWebSocketPush } from '@/hooks/useWebSocketPush';
 
-export function MobileLayout() {
+export function MobileLayout({ deliverablesAction }: { deliverablesAction?: React.ReactNode }) {
   const location = useLocation();
   const [isAISheetOpen, setIsAISheetOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -104,7 +103,7 @@ export function MobileLayout() {
         onBack={goBack}
         onAIPress={handleAIPress}
         onSearch={handleSearch}
-        rightActions={<DeliverableCenter iconOnly />}
+        rightActions={deliverablesAction}
       />
 
       {/* 主内容区 */}

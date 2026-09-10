@@ -1,9 +1,11 @@
 import copy
+import re
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.agent.artifact_contract import ArtifactSpec
@@ -84,9 +86,10 @@ def test_fact_needs_source_and_local_citation():
     evidence = {
         "records": [{"document_id": "doc", "chunk_id": "c1", "excerpt": "提供安装培训"}]
     }
-    check = lambda text, packet=evidence: evaluate_delivery_requirements(
-        text, spec, packet
-    )
+
+    def check(text, packet=evidence):
+        return evaluate_delivery_requirements(text, spec, packet)
+
     assert not check("提供安装培训 [EVID:doc:c1]")["findings"]
     assert check("提供安装培训\n\n其他事项 [EVID:doc:c1]")["findings"]
     assert check("提供安装培训 [EVID:doc:c1]", {})["findings"]
@@ -254,6 +257,28 @@ def test_checkpoint_migration_has_actor_lease_and_service_guards():
         assert token in sql
 
 
+def test_checkpoint_policy_is_explicit_and_worker_only():
+    root = Path(__file__).parents[3]
+    sql = (
+        root / "supabase/migrations/20260910_001_artifact_stage_checkpoint_policy.sql"
+    ).read_text(encoding="utf-8")
+    policies = re.findall(r"CREATE POLICY\s+.*?;", sql, re.DOTALL | re.IGNORECASE)
+    assert len(policies) == 1
+    assert re.search(
+        r"ON public\.artifact_stage_checkpoints\s+FOR ALL TO service_role\s+USING",
+        policies[0],
+    )
+    assert "FROM PUBLIC, anon, authenticated" in sql
+    assert "ENABLE ROW LEVEL SECURITY" in sql
+    assert "DISABLE ROW LEVEL SECURITY" not in sql
+    rollback = (
+        root
+        / "supabase/migrations/rollback/20260910_001_artifact_stage_checkpoint_policy.rollback.sql"
+    ).read_text(encoding="utf-8")
+    assert "DROP POLICY IF EXISTS artifact_stage_checkpoints_service_only" in rollback
+    assert "DROP TABLE" not in rollback and "GRANT" not in rollback
+
+
 @pytest.mark.asyncio
 async def test_preview_and_revision_recheck_source_acl_and_version():
     doc_id = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
@@ -273,12 +298,13 @@ async def test_preview_and_revision_recheck_source_acl_and_version():
     db = DB(documents=[row])
     await require_current_evidence_access(db, "org", "user", version)
     for org, user in (("other", "user"), ("org", "other")):
-        with pytest.raises(Exception) as exc:
+        with pytest.raises(HTTPException) as exc:
             await require_current_evidence_access(db, org, user, version)
         assert exc.value.status_code == 409
     row["source_version"] = "v2"
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException) as exc:
         await require_current_evidence_access(db, "org", "user", version)
+    assert exc.value.status_code == 409
 
 
 def test_revision_keeps_requirements_and_resets_approval():

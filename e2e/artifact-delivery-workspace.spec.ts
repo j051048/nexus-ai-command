@@ -12,9 +12,18 @@ const result = {
   usage: { total_tokens: 6200 }, checkpoint_hits: 3,
 };
 
-for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
-  test(`result preview and revision at ${viewport.width}px`, async ({ page }, testInfo) => {
+const desktop = { width: 1440, height: 1000 };
+const mobile = { width: 390, height: 844 };
+for (const scenario of [
+  { name: 'desktop', start: desktop, viewport: desktop },
+  { name: 'mobile', start: mobile, viewport: mobile },
+  { name: 'desktop to mobile', start: desktop, viewport: mobile },
+  { name: 'mobile to desktop', start: mobile, viewport: desktop },
+]) {
+  test(`result preview and revision: ${scenario.name}`, async ({ page }, testInfo) => {
     test.setTimeout(90000);
+    const { viewport } = scenario;
+    await page.setViewportSize(scenario.start);
     // All business traffic is mocked, including unexpected requests. No live writes.
     await page.route('**/api/**', (route) => fulfillJson(route, { success: true, data: {} }));
     await page.route('**/rest/v1/**', (route) => fulfillJson(route, []));
@@ -31,9 +40,15 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await page.getByTestId('deliverable-center-trigger').first().click();
     await page.getByRole('button', { name: '预览与修订', exact: true }).click();
     await expect(page.getByRole('heading', { name: '客户目标' })).toBeVisible();
-    await page.setViewportSize(viewport);
     const dialog = page.getByRole('dialog').last();
+    await dialog.getByRole('combobox', { name: '文件格式' }).selectOption('pdf');
+    await dialog.getByText('修改要求', { exact: true }).click();
+    await dialog.getByLabel('修订要求').fill('补充安装培训和售后边界');
+    await page.setViewportSize(viewport);
     await expect(dialog.getByRole('button', { name: '下载审核草稿', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('combobox', { name: '文件格式' })).toHaveValue('pdf');
+    await expect(dialog.getByLabel('修订要求')).toHaveValue('补充安装培训和售后边界');
+    await dialog.getByText('修改要求', { exact: true }).click();
     const box = await dialog.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
@@ -48,5 +63,8 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await dialog.getByLabel('修订要求').fill('补充安装培训和售后边界');
     await dialog.getByRole('button', { name: '生成修订稿' }).click();
     await expect(page.getByText('修订任务已提交，原稿已保留')).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+    await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page.getByTestId('deliverable-center-trigger')).toBeFocused();
   });
 }

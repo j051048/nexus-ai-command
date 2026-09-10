@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type RefObject } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import {
@@ -40,9 +40,9 @@ import {
 import { repeatDownload } from '@/features/deliverables/exportContent';
 import { listArtifacts, recordArtifactFeedback } from '@/features/deliverables/artifactApi';
 import type { DeliverableFormat, DeliverableRecord } from '@/features/deliverables/types';
-import { cn } from '@/lib/utils';
 import { ArtifactJobList } from './ArtifactJobList';
 import { ArtifactPreviewButton } from './ArtifactPreviewButton';
+import { DeliverableCenterTrigger } from './DeliverableCenterTrigger';
 
 const FORMAT_ICON: Record<DeliverableFormat, typeof FileText> = {
   docx: FileText,
@@ -64,7 +64,16 @@ function formatCoverage(value: number) {
   return Math.round(value <= 1 ? value * 100 : value);
 }
 
-export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) {
+interface DeliverableCenterProps {
+  iconOnly?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+  onRecentCountChange?: (count: number) => void;
+  returnFocusRef?: RefObject<HTMLButtonElement>;
+}
+
+export function DeliverableCenter({ iconOnly = false, open, onOpenChange, showTrigger = true, onRecentCountChange, returnFocusRef }: DeliverableCenterProps) {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
   const scope = profile?.organization_id || user?.id || 'personal';
@@ -130,6 +139,7 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
   const recentCount = useMemo(() => records.filter((record) => (
     Date.now() - new Date(record.createdAt).getTime() < 24 * 60 * 60 * 1000
   )).length, [records]);
+  useEffect(() => { onRecentCountChange?.(recentCount); }, [recentCount, onRecentCountChange]);
   const visibleRecords = useMemo(
     () => formatFilter === 'all' ? records : records.filter((record) => record.format === formatFilter),
     [formatFilter, records],
@@ -175,25 +185,13 @@ export function DeliverableCenter({ iconOnly = false }: { iconOnly?: boolean }) 
   };
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size={iconOnly ? 'icon' : 'sm'}
-          className={cn('relative text-muted-foreground hover:text-foreground', iconOnly ? 'h-10 w-10' : 'h-8 gap-1.5 px-2.5')}
-          aria-label="打开成果中心"
-          data-testid="deliverable-center-trigger"
-        >
-          <PackageCheck className="h-4 w-4" />
-          {!iconOnly && <span>成果</span>}
-          {recentCount > 0 && (
-            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-              {recentCount > 9 ? '9+' : recentCount}
-            </span>
-          )}
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      {showTrigger && <SheetTrigger asChild>
+        <DeliverableCenterTrigger iconOnly={iconOnly} recentCount={recentCount} />
+      </SheetTrigger>}
+      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-lg" onCloseAutoFocus={(event) => {
+        if (returnFocusRef?.current) { event.preventDefault(); returnFocusRef.current.focus(); }
+      }}>
         <SheetHeader className="border-b px-5 py-5 pr-12">
           <SheetTitle className="flex items-center gap-2 text-base">
             <PackageCheck className="h-4 w-4 text-primary" />成果中心

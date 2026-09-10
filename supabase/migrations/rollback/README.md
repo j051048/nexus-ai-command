@@ -32,6 +32,7 @@ psql $DATABASE_URL -f rollback/20260411_004_lead_scoring.down.sql
 | `20260411_004_lead_scoring` | MEDIUM | 移除 AI 评分列 |
 | `20260411_005_hr_write_rls` | MEDIUM | 仅移除 RLS 策略，保留表和数据 |
 | `20260718_membership_atomic_access` | **HIGH** | 删除会员资格原子调整 RPC；不回滚已写入的会员数据 |
+| `20260910_001_artifact_stage_checkpoint_policy` | MEDIUM | 仅移除后端专用检查点策略，保留表、RLS 和普通用户权限撤销；回滚后 RLS 覆盖门禁会重新报告缺少策略 |
 
 ## 回滚顺序
 

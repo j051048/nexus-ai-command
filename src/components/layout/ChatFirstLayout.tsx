@@ -18,7 +18,6 @@ import { TrialBanner } from '@/components/billing/TrialBanner';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
-import { DeliverableCenter } from '@/components/deliverables/DeliverableCenter';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Button } from '@/components/ui/button';
@@ -27,6 +26,7 @@ import { cn } from '@/lib/utils';
 
 interface ChatFirstLayoutProps {
   children?: React.ReactNode;
+  deliverablesAction?: React.ReactNode;
 }
 
 type WorkspaceMode = 'business' | 'split' | 'assistant';
@@ -103,7 +103,7 @@ function AssistantStatusPill({
   );
 }
 
-export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
+export const ChatFirstLayout = ({ children, deliverablesAction }: ChatFirstLayoutProps) => {
   const location = useLocation();
   const [isCanvasOpen, setIsCanvasOpen] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(
@@ -329,7 +329,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 </Button>
               )}
               <AssistantStatusPill isChatOpen={isChatOpen} onOpen={() => setIsChatOpen(true)} />
-              <DeliverableCenter />
+              {deliverablesAction}
               <NotificationCenter />
               <Button
                 variant="ghost"

@@ -35,4 +35,6 @@ npx playwright test --project=chromium
 
 客户成果在线验收使用 `python scripts/run_customer_golden_acceptance.py --require-live`，覆盖上传、入库、成果任务和 DOCX/PDF 下载。没有 `GOLDEN_ACCEPTANCE_*` 凭据时只能证明静态契约，不能作为在线交付通过证据。
 
+成果交付的验收要求、步骤检查点、预览修订与文件级评测，以及 2026-09-10 的 RLS/移动端修复，见[交付质量记录](../quality/delivery-hardening-20260909.md)。新增迁移必须经过 RLS 覆盖和策略字段检查；后端专用表只能给后端角色策略，不得为通过扫描而向普通用户开放。
+
 发布必须可回滚：前端保留上一构建，后端保持向后兼容一个版本，数据库优先 roll-forward；破坏性回滚需经过数据负责人批准。

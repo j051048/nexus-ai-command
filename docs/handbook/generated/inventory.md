@@ -6,11 +6,11 @@
 
 | 范围 | 文件数 | 代码行数 |
 |---|---:|---:|
-| 前端 `src` | 571 | 105332 |
+| 前端 `src` | 574 | 105441 |
 | 后端 `nexus_backend/app` | 617 | 172942 |
-| 前端单元/集成测试 | 60 | 7195 |
-| 后端测试 | 223 | 35385 |
-| Playwright E2E | 18 | 3322 |
+| 前端单元/集成测试 | 61 | 7240 |
+| 后端测试 | 223 | 35409 |
+| Playwright E2E | 18 | 3340 |
 
 ## 运行时资产
 
@@ -20,8 +20,8 @@
 | FastAPI 路由模块 | 111 | `nexus_backend/app/routers` |
 | 后端服务模块 | 226 | `nexus_backend/app/services` |
 | Agent 工具模块 | 68 | `nexus_backend/app/tools` |
-| 正向 SQL 迁移 | 138 | `supabase/migrations/*.sql` |
-| 回滚 SQL | 12 | `supabase/migrations/rollback` |
+| 正向 SQL 迁移 | 139 | `supabase/migrations/*.sql` |
+| 回滚 SQL | 13 | `supabase/migrations/rollback` |
 | 强制生产聊天模型 | `deepseek-v4-flash` | `nexus_backend/app/core/config.py` |
 
 ## 前端最大文件
