@@ -53,8 +53,8 @@ npx playwright test e2e/artifact-delivery-workspace.spec.ts --project=chromium -
 npm run quality:frontend
 ```
 
-The RLS scan is static, not an execution against a deployed database. No production
-migration, deployment or Git push was performed as part of this repair.
+The RLS scan is static, not an execution against a deployed database. These local
+checks do not apply the migration; database deployment is a separate operation.
 
 Verification on the local Windows checkout:
 
