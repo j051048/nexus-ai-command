@@ -2,6 +2,8 @@
 
 from langchain_core.messages import SystemMessage
 
+from app.agent.context_compiler import ContextBudgetExceeded, context_message
+
 from app.agent.node_helpers import (
     _ALWAYS_INCLUDE_TOOLS,
     AgentConfig,
@@ -54,14 +56,12 @@ async def inject_system_prompts(
     # Task decomposition hints
     _inject_task_decomposition(lc_msgs, state, complexity, iteration)
 
-    lc_msgs = _compile_global_context(lc_msgs, state, agent_config, complexity)
-
     _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity)
 
     return lc_msgs
 
 
-def _compile_global_context(lc_msgs, state, agent_config, complexity):
+def _compile_global_context(lc_msgs, state, agent_config, complexity, *, tool_tokens=0, model=None):
     """Apply one global budget after every prompt/context injector has run."""
     try:
         from app.agent.context_compiler import (
@@ -78,7 +78,7 @@ def _compile_global_context(lc_msgs, state, agent_config, complexity):
         )
         compiled, report = context_compiler.compile(
             lc_msgs,
-            policy=ContextCompilePolicy(max_input_tokens=context_window),
+            policy=ContextCompilePolicy(max_input_tokens=context_window, reserved_tool_tokens=tool_tokens, model=model or "deepseek-v4-flash"),
             ledger=state.get("context_ledger") or {},
         )
         state["context_compile_report"] = report.to_dict()
@@ -114,9 +114,10 @@ def _compile_global_context(lc_msgs, state, agent_config, complexity):
             or bool((state.get("artifact_spec") or {}).get("strict_quality")),
         }
         return compiled
+    except ContextBudgetExceeded:
+        raise
     except Exception as e:
-        logger.warning("[PromptBuilder] global context compilation skipped: %s", e)
-        return lc_msgs
+        raise ContextBudgetExceeded("Context compilation failed; request was not sent") from e
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +280,7 @@ async def _inject_error_learning(
             )
             lc_msgs.insert(
                 2 if len(lc_msgs) > 1 else len(lc_msgs),
-                SystemMessage(content=_warn_text),
+                context_message(_warn_text, kind="experience"),
             )
     except Exception as e:
         logger.debug("[PromptBuilder] Learning system injection skipped: %s", e)
@@ -297,24 +298,11 @@ async def _inject_few_shot(lc_msgs, agent_config, state, intent_summary):
             from app.core.database import supabase as _mem_db
 
             if _mem_db and agent_config.user_id:
-                golden_res = (
-                    await _mem_db.table("conversation_memories")
-                    .select("value")
-                    .eq("user_id", agent_config.user_id)
-                    .eq("category", "golden_example")
-                    .is_("superseded_by", "null")
-                    .order("importance", desc=True)
-                    .limit(2)
-                    .execute()
-                )
-                if golden_res.data:
-                    from app.services.conversation_memory.storage import (
-                        decrypt_memory_value,
-                    )
+                from app.services.conversation_memory.retrieval import get_memories
 
-                    ex_parts = [
-                        decrypt_memory_value(r["value"]) for r in golden_res.data
-                    ]
+                golden_rows = await get_memories(agent_config.user_id, category="golden_example", limit=2, db=_mem_db, org_id=agent_config.org_id, user_role=agent_config.user_role)
+                if golden_rows:
+                    ex_parts = [r["value"] for r in golden_rows]
                     few_shot = "【历史优秀对话参考】\n" + "\n---\n".join(ex_parts)
         except Exception as e:
             logger.debug(
@@ -328,7 +316,7 @@ async def _inject_few_shot(lc_msgs, agent_config, state, intent_summary):
         if few_shot:
             lc_msgs.insert(
                 2 if len(lc_msgs) > 1 else len(lc_msgs),
-                SystemMessage(content=f"[参考示例]\n{few_shot}"),
+                context_message(f"[参考示例]\n{few_shot}", kind="example"),
             )
     except Exception as e:
         logger.debug("[PromptBuilder] Few-shot injection skipped: %s", e)
@@ -347,7 +335,7 @@ def _inject_role_few_shot(lc_msgs, agent_config):
             _ex_text = "\n---\n".join(_examples)
             lc_msgs.insert(
                 2 if len(lc_msgs) > 1 else len(lc_msgs),
-                SystemMessage(content=f"[角色参考示例]\n{_ex_text}"),
+                context_message(f"[角色参考示例]\n{_ex_text}", kind="example"),
             )
     except Exception as e:
         logger.debug("[PromptBuilder] Role few-shot injection skipped: %s", e)
@@ -380,6 +368,7 @@ async def _inject_task_board(lc_msgs, agent_config, state, iteration):
             await _db.table("agent_tasks")
             .select("title, status, context_summary")
             .eq("user_id", agent_config.user_id)
+            .eq("organization_id", agent_config.org_id)
             .eq("conversation_id", _session_id)
             .order("sort_order")
             .order("created_at")
@@ -414,8 +403,8 @@ def _inject_compacted_summary(lc_msgs, state):
     if compacted_summary:
         lc_msgs.insert(
             1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
-            SystemMessage(
-                content=f"[上下文摘要 — 之前的对话和工具结果已压缩]\n{compacted_summary}"
+            context_message(
+                f"[上下文摘要 — 之前的对话和工具结果已压缩]\n{compacted_summary}", kind="summary"
             ),
         )
 
@@ -474,7 +463,7 @@ async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
         if engine_ctx:
             lc_msgs.insert(
                 1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
-                SystemMessage(content=f"[上下文引擎检索结果]\n{engine_ctx}"),
+                context_message(f"[上下文引擎检索结果]\n{engine_ctx}", kind="evidence", source_ids=[str(eid) for entry in ledger.to_dict().get("entries", []) if entry.get("included") for eid in entry.get("evidence_ids", [])]),
             )
     except Exception as e:
         logger.error(f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}")
@@ -494,7 +483,7 @@ def _inject_rag_context(lc_msgs, rag_context):
         rag_block = f"{rag_disclaimer}\n[检索到的参考知识]\n{rag_context}"
         lc_msgs.insert(
             1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
-            SystemMessage(content=rag_block),
+            context_message(rag_block, kind="evidence"),
         )
 
 

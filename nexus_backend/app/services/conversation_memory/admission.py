@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from .governance import RULE_CATEGORIES
+
 _SECRET_KEY_RE = re.compile(
     r"(password|passwd|secret|token|api[_-]?key|private[_-]?key|authorization|cookie)",
     re.IGNORECASE,
@@ -92,6 +94,9 @@ def evaluate_memory_admission(
         provenance["evidence_ref"] = evidence_ref
     if metadata and metadata.get("session_id"):
         provenance["session_id"] = metadata["session_id"]
+    provenance["authority"] = "personal_statement" if explicit else "inference"
+    if category in RULE_CATEGORIES:
+        provenance["authority"] = "policy_candidate"
 
     if _SECRET_VALUE_RE.search(value):
         return MemoryAdmissionDecision(
@@ -110,7 +115,9 @@ def evaluate_memory_admission(
     else:
         sensitivity = "internal"
 
-    if category in {"compliance_evidence", "calibration_baseline"} and not evidence_ref:
+    if category in RULE_CATEGORIES:
+        lifecycle_state = "pending_review"
+    elif category in {"compliance_evidence", "calibration_baseline"} and not evidence_ref:
         lifecycle_state = "pending_review"
     elif explicit:
         lifecycle_state = "confirmed"

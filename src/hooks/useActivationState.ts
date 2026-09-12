@@ -61,13 +61,14 @@ function toServer(value: Partial<ActivationState>) {
 export function useActivationState() {
   const { profile, user } = useAuth();
   const scope = useMemo(
-    () => profile?.organization_id || user?.id || 'workspace',
+    () => profile?.organization_id && user?.id ? `${profile.organization_id}:${user.id}` : 'anonymous',
     [profile?.organization_id, user?.id],
   );
   const [state, setState] = useState<ActivationState>(() => readActivationState(scope));
 
   useEffect(() => {
     setState(readActivationState(scope));
+    if (scope === 'anonymous') return;
     let cancelled = false;
     void httpClient.get('/api/onboarding/activation', { silentError: true })
       .then((response) => {
@@ -98,6 +99,7 @@ export function useActivationState() {
   }, [scope]);
 
   const update = useCallback((patch: Partial<ActivationState>) => {
+    if (scope === 'anonymous') return;
     setState((current) => mergeActivationState(scope, current, patch));
     void httpClient.patch('/api/onboarding/activation', toServer(patch), { silentError: true })
       .catch(() => undefined);

@@ -104,10 +104,17 @@ async def get_deployment_health(_role: str = Depends(require_deploy_admin)):
                 check["message"] = "production requires LANGGRAPH_CHECKPOINTER=postgres"
 
     failed = [check for check in checks if not check["ok"]]
+    from app.services.deployment_dependency_probe import probe_deployment_dependencies
+
+    dependency_checks = await probe_deployment_dependencies()
+    checks.extend(dependency_checks)
+    failed.extend(check for check in dependency_checks if not check["ok"])
     warnings = [check for check in optional if not check["ok"]]
     return api_success(
         data={
             "ready": not failed,
+            "verification_scope": "configuration_and_read_only_dependency_probes",
+            "recovery_drill_verified": False,
             "environment": os.getenv("ENV", "development"),
             "checks": checks,
             "warnings": warnings,

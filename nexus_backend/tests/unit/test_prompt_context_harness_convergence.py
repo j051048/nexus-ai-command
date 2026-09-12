@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.agent.context_compiler import ContextCompilePolicy, context_compiler
+from app.agent.context_compiler import ContextCompilePolicy, context_compiler, context_message
 from app.services.context_ablation_service import context_ablation_service
 from app.services.full_graph_replay_service import full_graph_replay_service
 from app.services.prompt_artifact_service import (
@@ -65,9 +65,9 @@ def test_prompt_release_gate_requires_ordered_passing_evidence():
 def test_global_context_compiler_reserves_policy_and_drops_low_utility_blocks():
     messages = [
         SystemMessage(content="[Security policy]\nNever bypass confirmation."),
-        SystemMessage(content="[参考示例]\n" + "example " * 500),
-        SystemMessage(
-            content="[Evidence]\nsource_id: calibration-cert-42\nCertified drift: 0.2%"
+        context_message("[参考示例]\n" + "example " * 500, kind="example"),
+        context_message(
+            "[Evidence]\nsource_id: calibration-cert-42\nCertified drift: 0.2%", kind="evidence"
         ),
         HumanMessage(content="Check calibration drift"),
     ]

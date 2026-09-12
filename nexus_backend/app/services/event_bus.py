@@ -12,6 +12,7 @@ import os
 import time
 import uuid
 from collections.abc import Callable
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -100,6 +101,11 @@ class Event:
     user_id: str | None = None
     timestamp: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
+    organization_id: str | None = None
+
+    def tenant_id(self) -> str | None:
+        values = {str(value) for value in (self.organization_id, self.payload.get("organization_id"), self.payload.get("org_id"), self.metadata.get("organization_id"), self.metadata.get("org_id")) if value}
+        return next(iter(values)) if len(values) == 1 else None
 
     def to_dict(self) -> dict:
         return {
@@ -109,6 +115,7 @@ class Event:
             "user_id": self.user_id,
             "timestamp": self.timestamp,
             "metadata": self.metadata,
+            "organization_id": self.organization_id,
         }
 
     @classmethod
@@ -137,6 +144,22 @@ class InMemoryEventBus:
         self._worker_task: asyncio.Task | None = None
         self._event_history: list[Event] = []
         self._max_history = 1000
+        self._seen: OrderedDict[tuple[str | None, str, str], float] = OrderedDict()
+
+    def _accept(self, event: Event) -> bool:
+        now = time.monotonic()
+        while self._seen and next(iter(self._seen.values())) < now - 600:
+            self._seen.popitem(last=False)
+        key = (event.tenant_id(), event.type, event.id)
+        if key in self._seen:
+            return False
+        self._seen[key] = now
+        if len(self._seen) > 10000:
+            self._seen.popitem(last=False)
+        return True
+
+    def _matching_handlers(self, event: Event) -> list[Callable]:
+        return list(dict.fromkeys([*self._handlers.get(event.type, []), *self._handlers.get("*", [])]))
 
     def subscribe(self, event_type: str, handler: Callable):
         """
@@ -145,7 +168,8 @@ class InMemoryEventBus:
         """
         if event_type not in self._handlers:
             self._handlers[event_type] = []
-        self._handlers[event_type].append(handler)
+        if handler not in self._handlers[event_type]:
+            self._handlers[event_type].append(handler)
         logger.debug(f"EventBus: Subscribed handler to {event_type}")
 
     def unsubscribe(self, event_type: str, handler: Callable):
@@ -160,25 +184,28 @@ class InMemoryEventBus:
         Publish an event to the bus.
         Handlers are executed asynchronously.
         """
+        if not self._accept(event):
+            return False
         await self._queue.put(event)
 
         # Store in history
         self._event_history.append(event)
         if len(self._event_history) > self._max_history:
             self._event_history = self._event_history[-self._max_history :]
+        return True
 
     async def publish_sync(self, event: Event):
         """
         Publish an event and wait for all handlers to complete.
         Use sparingly - prefer async publish for performance.
         """
-        handlers = self._handlers.get(event.type, [])
-        # Also check for wildcard handlers
-        handlers += self._handlers.get("*", [])
+        if not self._accept(event):
+            return
+        handlers = self._matching_handlers(event)
 
         for handler in handlers:
             try:
-                await handler(event)
+                await self._safe_handle(handler, event)
             except Exception as e:
                 logger.error(f"EventBus: Handler error for {event.type}: {e}")
 
@@ -189,9 +216,7 @@ class InMemoryEventBus:
                 # Wait for an event with timeout
                 event = await asyncio.wait_for(self._queue.get(), timeout=1.0)
 
-                handlers = self._handlers.get(event.type, [])
-                # Also check for wildcard handlers
-                handlers += self._handlers.get("*", [])
+                handlers = self._matching_handlers(event)
 
                 # Execute handlers concurrently
                 if handlers:
@@ -209,7 +234,9 @@ class InMemoryEventBus:
     async def _safe_handle(self, handler: Callable, event: Event):
         """Safely execute a handler with error catching"""
         try:
-            await handler(event)
+            from app.services.business_event_receipts import dispatch_business_event
+
+            await dispatch_business_event(handler, event)
         except Exception as e:
             logger.error(f"EventBus: Handler error for {event.type}: {e}")
 
@@ -223,7 +250,6 @@ class InMemoryEventBus:
 
     async def stop(self):
         """Stop the event processing worker with graceful queue drain."""
-        self._running = False
         if self._worker_task:
             # Drain remaining events in the queue (max 5s grace period)
             try:
@@ -235,6 +261,7 @@ class InMemoryEventBus:
                 logger.warning(
                     f"EventBus: Queue drain timeout, {self._queue.qsize()} events dropped"
                 )
+            self._running = False
             self._worker_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._worker_task
@@ -284,6 +311,7 @@ async def emit(event_type: str, payload: dict = None, user_id: str = None, **kwa
         payload=payload or {},
         user_id=user_id,
         metadata=kwargs,
+        organization_id=kwargs.get("organization_id") or kwargs.get("org_id"),
     )
     await event_bus.publish(event)
     return event.id
@@ -351,13 +379,14 @@ async def notify_approval_escalated(event: Event):
     """Notify boss when approval is escalated"""
     from app.core.database import supabase
 
-    if not supabase:
+    org_id = event.tenant_id()
+    if not supabase or not org_id:
         return
 
     try:
         # Find all bosses
         bosses = (
-            await supabase.table("users").select("id").eq("role", "founder").execute()
+            await supabase.table("users").select("id").eq("organization_id", org_id).eq("role", "founder").execute()
         )
 
         for boss in bosses.data or []:
@@ -413,21 +442,18 @@ async def handle_system_alert(event: Event):
 
     try:
         # Find org admins (founders and admins)
+        org_id = event.tenant_id()
         if org_id:
             admins = (
                 await supabase.table("users")
                 .select("id")
-                .eq("org_id", org_id)
+                .eq("organization_id", org_id)
                 .in_("role", ["founder", "boss"])
                 .execute()
             )
         else:
-            admins = (
-                await supabase.table("users")
-                .select("id")
-                .eq("role", "founder")
-                .execute()
-            )
+            logger.warning("System alert without an unambiguous tenant was not broadcast")
+            return
 
         for admin in admins.data or []:
             await (
@@ -559,6 +585,7 @@ async def calculate_deal_bonus(event: Event):
         logger.info(f"Deal bonus calculated: ¥{bonus} for user {user_id}")
     except Exception as e:
         logger.error(f"Failed to calculate deal bonus: {e}")
+        raise
 
 
 # ============== P0: EventBus → AutoTriggerService Bridge ==============
@@ -656,6 +683,7 @@ async def auto_create_contract_from_deal(event: Event):
         )
     except Exception as e:
         logger.error(f"[CrossModule] Failed to auto-create contract from deal: {e}")
+        raise
 
 
 @on(EventType.CONTRACT_SIGNED.value)
@@ -693,6 +721,7 @@ async def auto_create_invoice_from_contract(event: Event):
         finance_roles = (
             await supabase.table("users")
             .select("id")
+            .eq("organization_id", event.tenant_id())
             .in_("role", ["founder", "manager"])
             .execute()
         )
@@ -714,6 +743,7 @@ async def auto_create_invoice_from_contract(event: Event):
         logger.info(f"[CrossModule] Auto-created invoice from contract {contract_id}")
     except Exception as e:
         logger.error(f"[CrossModule] Failed to auto-create invoice from contract: {e}")
+        raise
 
 
 @on(EventType.LEAD_QUALIFIED.value)
@@ -797,12 +827,15 @@ async def update_sales_metrics_on_payment(event: Event):
         )
     except Exception as e:
         logger.error(f"[CrossModule] Failed to update metrics on payment: {e}")
+        raise
 
 
 @on(EventType.APPROVAL_APPROVED.value)
 async def trigger_downstream_on_approval(event: Event):
     """When an approval is approved, trigger downstream actions based on type."""
     approval_type = event.payload.get("type", "")
+    if not event.tenant_id():
+        return
 
     if approval_type == "contract":
         # Auto-emit contract signed event
@@ -810,6 +843,7 @@ async def trigger_downstream_on_approval(event: Event):
             EventType.CONTRACT_SIGNED.value,
             payload=event.payload,
             user_id=event.user_id,
+            org_id=event.tenant_id(),
         )
     elif approval_type == "expense":
         # Notify finance for expense reimbursement
@@ -820,6 +854,7 @@ async def trigger_downstream_on_approval(event: Event):
                 finance_users = (
                     await supabase.table("users")
                     .select("id")
+                    .eq("organization_id", event.tenant_id())
                     .in_("role", ["founder"])
                     .execute()
                 )

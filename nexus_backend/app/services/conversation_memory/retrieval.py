@@ -10,6 +10,7 @@ from typing import Any
 from app.core.database import supabase
 
 from .cleanup import compute_decay_score, mmr_rerank
+from .governance import filter_current_memories
 
 logger = logging.getLogger(__name__)
 
@@ -516,13 +517,9 @@ async def get_memories(
     query = client.table("conversation_memories").select("*")
 
     # P1.1: Apply visibility-based RBAC filtering
-    try:
-        from .visibility import apply_visibility_filter
+    from .visibility import apply_visibility_filter
 
-        query = apply_visibility_filter(query, user_id, org_id, user_role)
-    except Exception:
-        # Fallback to simple user filter if visibility column doesn't exist
-        query = query.eq("user_id", user_id)
+    query = apply_visibility_filter(query, user_id, org_id, user_role)
 
     if category:
         query = query.eq("category", category)
@@ -542,6 +539,8 @@ async def get_memories(
     from .storage import decrypt_memory_value
 
     memories = result.data or []
+    if lifecycle_states is None:
+        memories = filter_current_memories(memories, user_id=user_id, org_id=org_id, user_role=user_role)
     for memory in memories:
         memory["value"] = decrypt_memory_value(memory.get("value", ""))
         if memory.get("enriched_value"):
@@ -611,9 +610,18 @@ async def search_memories(
             timeout=20.0,
         )
 
+        candidate_ids = list(dict.fromkeys(str(row["id"]) for rows in results if isinstance(rows, list) for row in rows if row.get("id")))
+        current_by_id = {}
+        if candidate_ids:
+            from .visibility import apply_visibility_filter
+
+            current_query = apply_visibility_filter(client.table("conversation_memories").select("*"), user_id, org_id, user_role)
+            current_result = await current_query.in_("id", candidate_ids).execute()
+            current_by_id = {str(row["id"]): row for row in filter_current_memories(current_result.data or [], user_id=user_id, org_id=org_id, user_role=user_role)}
+
         for r in results:
             if isinstance(r, list) and r:
-                rrf_lists.append(r)
+                rrf_lists.append([{**row, **current_by_id[str(row["id"])]} for row in r if str(row.get("id")) in current_by_id])
 
         # ── RRF (Reciprocal Rank Fusion) ──────────────────────
         # Score = Σ 1/(k + rank_i) across all lists where the item appears
@@ -771,6 +779,8 @@ async def search_memories(
     except Exception as e:
         logger.warning(f"Memory search failed: {e}")
 
+    memories = filter_current_memories(memories, user_id=user_id, org_id=org_id, user_role=user_role)
+
     # P1: Fire-and-forget DB updates in a separate task group to avoid blocking retrieval
     async def _bg_updates(mems_to_update):
         now = datetime.now(UTC).isoformat()
@@ -791,6 +801,7 @@ async def search_memories(
                         }
                     )
                     .eq("id", mem["id"])
+                    .eq("user_id", mem["user_id"])
                     .execute()
                 )
             except Exception:
@@ -849,7 +860,7 @@ async def search_memories(
     else:
         logger.info("[Memory] Skipping spreading activation (BENCHMARK_MODE)")
 
-    return memories
+    return filter_current_memories(memories, user_id=user_id, org_id=org_id, user_role=user_role)
 
 
 async def _semantic_search(

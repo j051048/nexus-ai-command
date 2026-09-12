@@ -8,12 +8,17 @@ identifiers so final answers can be traced back to evidence.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from langchain_core.messages import BaseMessage, SystemMessage
+
+from app.services.token_service import TokenCounter
+
+_token_counter = TokenCounter()
 
 
 @dataclass(frozen=True)
@@ -22,15 +27,29 @@ class ContextCompilePolicy:
     reserved_output_tokens: int = 2_000
     reserved_history_tokens: int = 4_000
     minimum_context_tokens: int = 1_000
+    reserved_tool_tokens: int = 0
+    model: str = "deepseek-v4-flash"
 
     @property
     def system_budget(self) -> int:
         return max(
-            self.minimum_context_tokens,
+            0,
             self.max_input_tokens
             - self.reserved_output_tokens
             - self.reserved_history_tokens,
         )
+
+
+class ContextBudgetExceeded(ValueError):
+    """Required instructions and the current conversation cannot fit safely."""
+
+
+def context_message(content: str, *, kind: str, source_ids: Iterable[str] = ()) -> SystemMessage:
+    """Attach trusted producer metadata; document text never assigns authority."""
+    return SystemMessage(
+        content=content,
+        additional_kwargs={"context_block": {"kind": kind, "source_ids": list(source_ids)}},
+    )
 
 
 @dataclass
@@ -52,6 +71,8 @@ class ContextCompileReport:
     dropped_blocks: list[dict[str, Any]]
     evidence_ids: list[str]
     fingerprint: str
+    conversation_tokens: int = 0
+    tool_tokens: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -94,7 +115,14 @@ class ContextCompiler:
         policy: ContextCompilePolicy,
         ledger: dict[str, Any] | None = None,
     ) -> tuple[list[BaseMessage], ContextCompileReport]:
-        candidates = self._candidates(messages, ledger or {})
+        candidates = self._candidates(messages, ledger or {}, policy.model)
+        conversation_tokens = sum(
+            self._estimate_tokens(json.dumps(message.model_dump(), ensure_ascii=False, default=str), policy.model)
+            for message in messages if not isinstance(message, SystemMessage)
+        )
+        budget = max(0, policy.max_input_tokens - policy.reserved_output_tokens
+                     - max(policy.reserved_history_tokens, conversation_tokens)
+                     - policy.reserved_tool_tokens)
         selected: set[int] = set()
         used = 0
         dropped: list[dict[str, Any]] = []
@@ -112,16 +140,15 @@ class ContextCompiler:
             ),
         )
 
+        if sum(candidate.tokens for candidate in mandatory) > budget or conversation_tokens + policy.reserved_output_tokens + policy.reserved_tool_tokens > policy.max_input_tokens:
+            raise ContextBudgetExceeded("Required context exceeds the model input budget")
+
         for candidate in [*mandatory, *optional]:
-            remaining = policy.system_budget - used
+            remaining = budget - used
             if remaining <= 0:
                 dropped.append(self._block(candidate, "global_budget"))
                 continue
             if candidate.tokens <= remaining:
-                selected.add(candidate.index)
-                used += candidate.tokens
-                continue
-            if candidate.mandatory:
                 selected.add(candidate.index)
                 used += candidate.tokens
                 continue
@@ -151,23 +178,19 @@ class ContextCompiler:
             ).encode("utf-8")
         ).hexdigest()
         return compiled, ContextCompileReport(
-            budget_tokens=policy.system_budget,
+            budget_tokens=budget,
             used_tokens=used,
             included_blocks=included,
             dropped_blocks=dropped,
             evidence_ids=evidence_ids,
             fingerprint=digest,
+            conversation_tokens=conversation_tokens,
+            tool_tokens=policy.reserved_tool_tokens,
         )
 
     def _candidates(
-        self, messages: Iterable[BaseMessage], ledger: dict[str, Any]
+        self, messages: Iterable[BaseMessage], ledger: dict[str, Any], model: str = "deepseek-v4-flash"
     ) -> list[ContextCandidate]:
-        ledger_evidence = {
-            str(item)
-            for entry in ledger.get("entries", [])
-            if entry.get("included")
-            for item in entry.get("evidence_ids", [])
-        }
         candidates: list[ContextCandidate] = []
         for index, message in enumerate(messages):
             if not isinstance(message, SystemMessage):
@@ -175,25 +198,22 @@ class ContextCompiler:
             content = str(message.content)
             block_name = self._block_name(content)
             lowered = content.lower()
-            mandatory = index == 0 or any(
-                hint in lowered for hint in MANDATORY_BLOCK_HINTS
-            )
+            block = message.additional_kwargs.get("context_block") or {}
+            kind = block.get("kind")
+            # Legacy system instructions remain required until their producer is migrated.
+            mandatory = kind not in {"evidence", "experience", "example", "summary"}
             utility = 0.45
             for hints, score in UTILITY_HINTS:
                 if any(hint.lower() in lowered for hint in hints):
                     utility = max(utility, score)
-            source_ids = set(SOURCE_ID_RE.findall(content))
-            if any(
-                hint in lowered
-                for hint in ("context engine", "上下文引擎", "evidence", "证据", "rag")
-            ):
-                source_ids.update(ledger_evidence)
+            source_ids = set(str(item) for item in block.get("source_ids", []))
+            source_ids.update(SOURCE_ID_RE.findall(content))
             candidates.append(
                 ContextCandidate(
                     index=index,
                     content=content,
                     block_name=block_name,
-                    tokens=self._estimate_tokens(content),
+                    tokens=self._estimate_tokens(content, model),
                     mandatory=mandatory,
                     utility=utility,
                     source_ids=sorted(source_ids),
@@ -207,8 +227,9 @@ class ContextCompiler:
         return first_line.strip("[]【】 ")[:80] or "system"
 
     @staticmethod
-    def _estimate_tokens(content: str) -> int:
-        return max(1, (len(content) + 3) // 4)
+    def _estimate_tokens(content: str, model: str = "deepseek-v4-flash") -> int:
+        # Reuse the warmed tokenizer, with headroom for provider-specific framing.
+        return max(1, int(_token_counter.count_tokens(content, model) * 1.2) + 8)
 
     @staticmethod
     def _block(candidate: ContextCandidate, reason: str | None) -> dict[str, Any]:

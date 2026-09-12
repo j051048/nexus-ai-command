@@ -78,15 +78,7 @@ class RedisEventBus(InMemoryEventBus):
         # Register local handler (parent class)
         super().subscribe(event_type, handler)
 
-        # Subscribe Redis channel
-        if self._redis_available and self._pubsub:
-            channel = f"{REDIS_CHANNEL_PREFIX}{event_type}"
-            try:
-                await self._pubsub.subscribe(channel)
-            except Exception as e:
-                logger.warning(
-                    f"[RedisEventBus] Failed to subscribe Redis channel {channel}: {e}"
-                )
+        # One pattern subscription receives every channel without duplicate messages.
 
     def subscribe_sync(self, event_type: str, handler: Callable):
         """
@@ -100,7 +92,8 @@ class RedisEventBus(InMemoryEventBus):
         Publish event to both local queue and Redis channel.
         """
         # Always process locally
-        await super().publish(event)
+        if not await super().publish(event):
+            return
 
         # Also publish to Redis for cross-instance delivery
         if self._redis_available and self._redis:
@@ -150,14 +143,7 @@ class RedisEventBus(InMemoryEventBus):
                     continue
 
                 # Dispatch to local handlers (don't re-publish to avoid loops)
-                handlers = self._handlers.get(event.type, [])
-                handlers += self._handlers.get("*", [])
-
-                if handlers:
-                    await asyncio.gather(
-                        *[self._safe_handle(h, event) for h in handlers],
-                        return_exceptions=True,
-                    )
+                await super().publish(event)
 
             except asyncio.CancelledError:
                 break

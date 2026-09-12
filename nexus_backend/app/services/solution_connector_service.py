@@ -7,6 +7,8 @@ referenced value may be a HTTPS URL or JSON with ``url`` and optional ``token``.
 from __future__ import annotations
 
 import ipaddress
+import asyncio
+import socket
 import json
 import os
 import re
@@ -43,9 +45,11 @@ def _validate_url(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme != "https" or not parsed.hostname:
         raise ValueError("连接器仅允许 HTTPS 地址")
+    if parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("连接器地址不能包含认证信息或片段")
     try:
         address = ipaddress.ip_address(parsed.hostname)
-        if address.is_private or address.is_loopback or address.is_link_local:
+        if not address.is_global:
             raise ValueError("连接器不允许访问内网地址")
     except ValueError as exc:
         if "不允许" in str(exc):
@@ -55,9 +59,16 @@ def _validate_url(url: str) -> str:
         for value in os.getenv("SOLUTION_CONNECTOR_ALLOWED_HOSTS", "").split(",")
         if value.strip()
     }
-    if allowed and parsed.hostname.casefold() not in allowed:
+    if not allowed or parsed.hostname.casefold() not in allowed:
         raise ValueError("连接器域名不在服务器允许列表")
     return url
+
+
+async def _validate_public_dns(url: str) -> None:
+    parsed = urlparse(url)
+    addresses = await asyncio.wait_for(asyncio.get_running_loop().getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM), timeout=3)
+    if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
+        raise ValueError("连接器域名解析到了非公网地址")
 
 
 def prepare_solution_payload(
@@ -95,11 +106,12 @@ async def deliver_solution_payload(
         raise ValueError("连接器未启用")
     config = _configuration(connector.get("config_ref"))
     url = _validate_url(str(config.get("url") or ""))
+    await _validate_public_dns(url)
     outbound_payload = prepare_solution_payload(connector, payload)
     headers = {"Content-Type": "application/json", "User-Agent": "Nexus-Solution/1.0"}
     if config.get("token"):
         headers["Authorization"] = f"Bearer {config['token']}"
-    async with httpx.AsyncClient(timeout=httpx.Timeout(15, connect=5)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15, connect=5), follow_redirects=False, trust_env=False) as client:
         response = await client.post(url, json=outbound_payload, headers=headers)
         response.raise_for_status()
     external_id = response.headers.get("x-request-id")

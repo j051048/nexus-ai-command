@@ -20,6 +20,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/onboarding", tags=["Onboarding"])
 
 
+@router.get("/readiness")
+async def get_activation_readiness(
+    db=Depends(get_request_db),
+    organization_id: str = Depends(get_current_org_id),
+    user_id: str = Depends(get_current_user_id),
+):
+    from app.services.activation_readiness_service import activation_readiness
+
+    return api_success(data=await activation_readiness(db, organization_id=organization_id, user_id=user_id))
+
+
 class ActivationStatePatch(BaseModel):
     step: (
         Literal["knowledge", "organize", "review", "first_value", "complete"] | None

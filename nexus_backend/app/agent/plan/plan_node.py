@@ -29,7 +29,7 @@ from app.agent.node_helpers import (
     run_hooks,
 )
 from app.agent.plan.llm_caller import call_llm
-from app.agent.plan.prompt_builder import inject_system_prompts
+from app.agent.plan.prompt_builder import _compile_global_context, inject_system_prompts
 from app.agent.plan.response_recovery import recover_response
 from app.agent.plan.tool_binding import bind_tools_to_llm
 from app.agent.plan.tool_parser import parse_tool_calls
@@ -179,6 +179,8 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         trace_id=_trace_id,
         user_query=_last_user_msg or intent_summary,
     )
+
+    lc_msgs = _compile_global_context(lc_msgs, state, agent_config, complexity, tool_tokens=state.get("bound_tool_tokens", 0), model=model)
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,

@@ -128,6 +128,11 @@ def main() -> int:
             failed.append("CORS_ORIGINS")
         if not debug_ok:
             failed.append("DEBUG=false")
+        aes_key = os.getenv("LANGGRAPH_AES_KEY", "")
+        if aes_key and len(aes_key.encode("utf-8")) not in {16, 24, 32}:
+            failed.append("LANGGRAPH_AES_KEY invalid byte length")
+        if not os.getenv("DATABASE_URL") and not os.getenv("SUPABASE_DB_PASSWORD"):
+            warnings.append("checkpoint database credentials require runtime verification")
 
     if private_deployment:
         for path in REQUIRED_FILES:
@@ -139,7 +144,8 @@ def main() -> int:
     if failed:
         print("Deployment is not ready. Missing/invalid: " + ", ".join(failed), file=sys.stderr)
         return 1
-    print(f"Deployment readiness checks passed with {len(warnings)} warning(s)")
+    print(f"Static configuration checks passed with {len(warnings)} warning(s)")
+    print("Runtime connectivity, migrations, worker recovery and backup restore are NOT verified by this command.")
     return 0
 
 

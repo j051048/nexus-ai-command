@@ -62,7 +62,11 @@ def can_access_memory(
     Returns:
         True if access is allowed, False otherwise
     """
-    # Owner always has access
+    if not requesting_user_id:
+        return False
+    if requesting_org_id != memory_org_id:
+        return False
+    # Ownership never bypasses the active tenant boundary.
     if requesting_user_id == memory_user_id:
         return True
 
@@ -114,7 +118,7 @@ def apply_visibility_filter(
 
     if not org_id:
         # No org context: only show user's own private memories
-        query = query.eq("user_id", user_id)
+        query = query.eq("user_id", user_id).is_("organization_id", "null")
         return query
 
     # Build OR filter for visibility-based access:
@@ -131,7 +135,7 @@ def apply_visibility_filter(
     if role_level >= get_role_level("manager"):
         or_parts.append(f"and(organization_id.eq.{org_id},visibility.eq.organization)")
 
-    query = query.or_(",".join(or_parts))
+    query = query.eq("organization_id", org_id).or_(",".join(or_parts))
     return query
 
 

@@ -15,9 +15,11 @@ def document_access_reason(
         return "not_accessible"
     if (
         organization_id
-        and str(document.get("organization_id") or organization_id) != organization_id
+        and str(document.get("organization_id") or "") != organization_id
     ):
         return "not_accessible"
+    if document.get("deleted_at") or document.get("revoked_at"):
+        return "not_current"
     visibility = document.get("visibility") or "organization"
     if visibility == "private" and str(document.get("owner_id") or "") != user_id:
         return "not_accessible"
