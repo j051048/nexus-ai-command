@@ -1346,10 +1346,6 @@ async def _expand_top_connections(
     return hop1_memories[:max_total]
 
 
-def _scope_owned_query(query: Any, user_id: str, org_id: str | None) -> Any:
-    return apply_owner_scope(query, user_id, org_id)
-
-
 async def search_consolidations(
     user_id: str,
     query: str,
@@ -1383,7 +1379,7 @@ async def search_consolidations(
         if not ids:
             return []
         # RPC output is a ranking hint, not proof of current tenant access.
-        current = await _scope_owned_query(
+        current = await apply_owner_scope(
             client.table("memory_consolidations").select("*").in_("id", ids),
             user_id,
             org_id,
@@ -1424,7 +1420,7 @@ async def build_memory_context(
     try:
         if client:
             obs_result = await (
-                _scope_owned_query(
+                apply_owner_scope(
                     client.table("memory_consolidations").select("*"), user_id, org_id
                 )
                 .eq("insight_type", "observation")
@@ -1666,7 +1662,7 @@ async def get_l1_critical_facts(
     try:
         # 1) High-importance directives (importance >= 0.85, any category)
         directive_res = await (
-            _scope_owned_query(
+            apply_owner_scope(
                 client.table("conversation_memories").select("*"), user_id, org_id
             )
             .gte("importance", 0.85)
@@ -1688,7 +1684,7 @@ async def get_l1_critical_facts(
 
         # 2) Anti-patterns (user corrections — always high signal)
         anti_res = await (
-            _scope_owned_query(
+            apply_owner_scope(
                 client.table("conversation_memories").select("*"), user_id, org_id
             )
             .eq("category", "anti_pattern")

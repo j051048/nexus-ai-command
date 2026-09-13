@@ -11,6 +11,7 @@
 7. `docs/DOCUMENT_QUALITY_PLATFORM.md`：企业资料到可下载成果的交付内核。
 8. `07-testing-and-release.md`：哪些门禁是真执行，哪些需要外部环境。
 9. `09-known-debt.md`：不要把历史债务误判为新设计。
+10. [企业中台优化交接记录](../quality/enterprise-control-plane-20260913.md)：本轮实现、验证边界、检查点配置变化和待办。
 
 ## 30/60/90 天接管目标
 

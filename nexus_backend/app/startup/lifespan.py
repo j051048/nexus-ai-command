@@ -42,7 +42,10 @@ async def lifespan(app: FastAPI):
         await setup_checkpointer()
         logger.info("LangGraph Checkpointer initialized")
     except Exception as e:
-        logger.warning(f"Checkpointer initialization skipped: {e}")
+        if settings.IS_PRODUCTION:
+            await event_bus.stop()
+            raise RuntimeError("Durable Agent checkpoint initialization failed") from e
+        logger.warning("Checkpointer initialization skipped: %s", type(e).__name__)
 
     # Cold start optimization: pre-compile LangGraph agent graph
     try:

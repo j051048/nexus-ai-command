@@ -124,6 +124,16 @@ class Settings(BaseSettings):
 
     # Database (read by database.py via os.getenv, declared here for validation)
     SUPABASE_URL: str = Field(default="", description="Supabase project URL")
+    DATABASE_URL: str | None = Field(
+        default=None,
+        repr=False,
+        description="Explicit PostgreSQL connection URL for Agent checkpoints",
+    )
+    SUPABASE_DB_PASSWORD: str | None = Field(
+        default=None,
+        repr=False,
+        description="Database password, never the Supabase service-role API key",
+    )
     SUPABASE_SERVICE_KEY: str = Field(
         default="", description="Supabase service role key"
     )

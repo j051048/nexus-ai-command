@@ -3,7 +3,7 @@ import { fulfillJson, loginViaForm, setupBusinessMocks } from './fixtures/busine
 
 for (const width of [1440, 390]) {
   test(`first delivery shows real progress at ${width}px`, async ({ page }, testInfo) => {
-    await page.setViewportSize({ width, height: 900 });
+    await page.setViewportSize({ width: 1440, height: 900 });
     await setupBusinessMocks(page);
     await page.addInitScript(() => {
       localStorage.setItem('hasSeenTour', 'true');
@@ -22,7 +22,8 @@ for (const width of [1440, 390]) {
         facts_confirmed: false, artifact_ready: false, artifact_id: null,
       } }, unavailable ? 503 : 200));
     await loginViaForm(page);
-    await page.goto('/boss-dashboard');
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/performance-dashboard');
     const progress = page.getByRole('region', { name: '首次交付进度' });
     await expect(progress.getByText('资料整理中')).toBeVisible();
     await expect(progress.getByText('已完成', { exact: true })).toHaveCount(1);

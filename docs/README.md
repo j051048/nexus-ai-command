@@ -27,6 +27,7 @@
 - SOC 2 控制证据：`SOC2_CONTROLS.md`
 - 私有化连接池：`PRIVATE_DEPLOYMENT_PGBOUNCER.md`
 - 数据库回滚：`../supabase/migrations/rollback/README.md`
+- 企业中台本轮交接：[实现与验证边界](quality/enterprise-control-plane-20260913.md)
 
 ## 历史与规划
 

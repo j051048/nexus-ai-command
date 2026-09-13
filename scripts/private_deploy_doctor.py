@@ -132,7 +132,7 @@ def main() -> int:
         if aes_key and len(aes_key.encode("utf-8")) not in {16, 24, 32}:
             failed.append("LANGGRAPH_AES_KEY invalid byte length")
         if not os.getenv("DATABASE_URL") and not os.getenv("SUPABASE_DB_PASSWORD"):
-            warnings.append("checkpoint database credentials require runtime verification")
+            failed.append("DATABASE_URL or SUPABASE_DB_PASSWORD required for checkpoints")
 
     if private_deployment:
         for path in REQUIRED_FILES:

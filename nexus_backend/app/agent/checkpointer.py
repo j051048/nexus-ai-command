@@ -10,6 +10,7 @@ Usage:
 """
 
 import logging
+from urllib.parse import quote, urlsplit
 
 from app.core.config import settings
 
@@ -52,10 +53,8 @@ def get_checkpointer():
 
     if backend == "postgres":
         _checkpointer_instance = _create_postgres_checkpointer()
-        # _create_postgres_checkpointer may fall back to memory on error
-        from langgraph.checkpoint.memory import MemorySaver
-
-        _checkpointer_persistent = not isinstance(_checkpointer_instance, MemorySaver)
+        # Creating a pool is not proof that the checkpoint database is usable.
+        _checkpointer_persistent = False
     else:
         _checkpointer_instance = _create_memory_checkpointer()
         _checkpointer_persistent = False
@@ -68,7 +67,7 @@ def _create_memory_checkpointer():
     from langgraph.checkpoint.memory import MemorySaver
 
     logger.info("[Checkpointer] Using MemorySaver (non-persistent)")
-    return MemorySaver()
+    return MemorySaver(serde=_build_encrypted_serde())
 
 
 def _create_postgres_checkpointer():
@@ -79,8 +78,10 @@ def _create_postgres_checkpointer():
     Requires langgraph-checkpoint-postgres package.
     When LANGGRAPH_AES_KEY is set, checkpoint state is AES-encrypted at rest.
     """
+    serde = _build_encrypted_serde()
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+        from psycopg.rows import dict_row
         from psycopg_pool import AsyncConnectionPool
 
         # Build connection string from Supabase settings
@@ -91,11 +92,13 @@ def _create_postgres_checkpointer():
             conninfo=db_url,
             max_size=10,
             min_size=2,
-            open=False,  # Will be opened on first use
+            open=False,  # Opened explicitly during async startup.
+            kwargs={
+                "autocommit": True,
+                "prepare_threshold": 0,
+                "row_factory": dict_row,
+            },
         )
-
-        # Enable AES encryption if key is configured
-        serde = _build_encrypted_serde()
 
         checkpointer = (
             AsyncPostgresSaver(pool, serde=serde) if serde else AsyncPostgresSaver(pool)
@@ -157,51 +160,23 @@ def _build_encrypted_serde():
 
 
 def _build_postgres_url() -> str:
-    """
-    Build PostgreSQL connection URL from Supabase settings.
-
-    Supabase provides:
-    - SUPABASE_URL: https://xxxx.supabase.co
-    - SUPABASE_SERVICE_KEY: service role key
-
-    For direct Postgres connection, we need to transform:
-    - Host: db.xxxx.supabase.co (Supabase pooler)
-    - Port: 6543 (pooler) or 5432 (direct)
-    - Database: postgres
-    - User: postgres
-    - Password: from service key or separate setting
-    """
-    supabase_url = settings.SUPABASE_URL
-
-    if not supabase_url:
-        raise ValueError("SUPABASE_URL is required for PostgreSQL checkpointer")
-
-    # Extract project ref from Supabase URL
-    # https://xxxx.supabase.co -> xxxx
-    project_ref = supabase_url.replace("https://", "").split(".")[0]
-
-    # Use connection pooler for serverless/production
-    # Direct connection: db.xxxx.supabase.co:5432 (limited connections)
-    # Pooler: aws-0-ap-southeast-1.pooler.supabase.com:6543 (recommended)
-    # P0 Fix: Use pooler port 6543 to avoid hitting connection limits in production
-    db_host = f"db.{project_ref}.supabase.co"
-    db_port = 6543  # Supabase connection pooler (pgBouncer)
-    db_name = "postgres"
-    db_user = "postgres"
-
-    # Prefer dedicated database password if available
-    # Otherwise, use the service key (which works as postgres password in Supabase)
-    db_password = (
-        getattr(settings, "SUPABASE_DB_PASSWORD", None) or settings.SUPABASE_SERVICE_KEY
-    )
-
-    if not db_password:
-        raise ValueError("Database password required for PostgreSQL checkpointer")
-
-    # Build URL with asyncpg driver
-    url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-
-    return url
+    """Prefer an explicit DSN; API service-role keys are not database passwords."""
+    explicit = settings.DATABASE_URL
+    if explicit:
+        parsed = urlsplit(explicit)
+        if (
+            parsed.scheme not in {"postgres", "postgresql"}
+            or not parsed.hostname
+            or not parsed.username
+        ):
+            raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
+        return explicit
+    password = settings.SUPABASE_DB_PASSWORD
+    hostname = urlsplit(settings.SUPABASE_URL).hostname or ""
+    if not password or not hostname.endswith(".supabase.co"):
+        raise ValueError("Configure DATABASE_URL or a Supabase database password")
+    # Only direct Supabase hosts can be derived. Pooler/custom hosts need an explicit DSN.
+    return f"postgresql://postgres:{quote(password, safe='')}@db.{hostname}:5432/postgres?sslmode=require"
 
 
 async def setup_checkpointer():
@@ -209,15 +184,22 @@ async def setup_checkpointer():
     Initialize the checkpointer (create tables, etc.).
     Call this at application startup.
     """
+    global _checkpointer_persistent
     checkpointer = get_checkpointer()
 
     # Postgres checkpointer needs setup
     if hasattr(checkpointer, "setup"):
         try:
+            pool = getattr(checkpointer, "conn", None)
+            if pool is not None and hasattr(pool, "open"):
+                await pool.open(wait=True, timeout=10)
             await checkpointer.setup()
+            _checkpointer_persistent = True
             logger.info("[Checkpointer] PostgreSQL tables created/verified")
         except Exception as e:
-            logger.error(f"[Checkpointer] Setup failed: {e}")
+            _checkpointer_persistent = False
+            logger.error("[Checkpointer] Setup failed: %s", type(e).__name__)
+            await shutdown_checkpointer()
             raise
 
     return checkpointer
@@ -242,6 +224,8 @@ async def shutdown_checkpointer():
     Call this in the app lifespan shutdown handler.
     """
     global _checkpointer_instance
+    global _checkpointer_persistent
+    _checkpointer_persistent = False
     if _checkpointer_instance is None:
         return
 

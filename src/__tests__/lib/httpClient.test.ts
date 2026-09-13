@@ -71,7 +71,7 @@ describe('httpClient interceptors', () => {
       requestConfig.headers = { 'x-org-id': 'request-org' };
       // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.request.handlers[0];
-      const config = await handler.fulfilled({ ...requestConfig, headers: new AxiosHeaders(requestConfig.headers) });
+      const config = await handler.fulfilled({ ...requestConfig, headers: new AxiosHeaders({ 'x-org-id': 'request-org' }) });
       expect(config.headers['x-org-id']).toBe('request-org');
       expect(config.headers['X-Org-ID']).toBeUndefined();
     });

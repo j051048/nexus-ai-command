@@ -1,4 +1,5 @@
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -66,6 +67,41 @@ def test_actual_history_and_tools_are_counted(compiler):
                 reserved_tool_tokens=20,
             ),
         )
+
+
+def test_runtime_resolved_window_overrides_cached_tier():
+    from app.agent.plan.prompt_builder import _compile_global_context
+
+    config = SimpleNamespace(resolved_configs={"balanced": {"context_window": 32000}})
+    with pytest.raises(ContextBudgetExceeded):
+        _compile_global_context(
+            [SystemMessage(content="required policy")],
+            {},
+            config,
+            "simple",
+            resolved_config={"context_window": 10},
+        )
+
+
+def test_snapshot_is_built_from_compiled_messages(monkeypatch):
+    from app.agent.plan import prompt_builder
+
+    snapshot_calls = []
+    monkeypatch.setattr(
+        prompt_builder,
+        "_attach_prompt_snapshot",
+        lambda messages, *args, **kwargs: snapshot_calls.append(messages),
+    )
+    config = SimpleNamespace(resolved_configs={})
+    messages = [
+        context_message("evidence " * 50000, kind="evidence"),
+        SystemMessage(content="required policy"),
+    ]
+    result = prompt_builder._compile_global_context(
+        messages, {}, config, "simple", resolved_config={"context_window": 8000}
+    )
+    assert result == [messages[1]]
+    assert snapshot_calls == [result]
 
 
 @pytest.mark.asyncio
