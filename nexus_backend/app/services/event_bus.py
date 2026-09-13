@@ -11,8 +11,8 @@ import logging
 import os
 import time
 import uuid
-from collections.abc import Callable
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -104,7 +104,17 @@ class Event:
     organization_id: str | None = None
 
     def tenant_id(self) -> str | None:
-        values = {str(value) for value in (self.organization_id, self.payload.get("organization_id"), self.payload.get("org_id"), self.metadata.get("organization_id"), self.metadata.get("org_id")) if value}
+        values = {
+            str(value)
+            for value in (
+                self.organization_id,
+                self.payload.get("organization_id"),
+                self.payload.get("org_id"),
+                self.metadata.get("organization_id"),
+                self.metadata.get("org_id"),
+            )
+            if value
+        }
         return next(iter(values)) if len(values) == 1 else None
 
     def to_dict(self) -> dict:
@@ -159,7 +169,11 @@ class InMemoryEventBus:
         return True
 
     def _matching_handlers(self, event: Event) -> list[Callable]:
-        return list(dict.fromkeys([*self._handlers.get(event.type, []), *self._handlers.get("*", [])]))
+        return list(
+            dict.fromkeys(
+                [*self._handlers.get(event.type, []), *self._handlers.get("*", [])]
+            )
+        )
 
     def subscribe(self, event_type: str, handler: Callable):
         """
@@ -386,7 +400,11 @@ async def notify_approval_escalated(event: Event):
     try:
         # Find all bosses
         bosses = (
-            await supabase.table("users").select("id").eq("organization_id", org_id).eq("role", "founder").execute()
+            await supabase.table("users")
+            .select("id")
+            .eq("organization_id", org_id)
+            .eq("role", "founder")
+            .execute()
         )
 
         for boss in bosses.data or []:
@@ -452,7 +470,9 @@ async def handle_system_alert(event: Event):
                 .execute()
             )
         else:
-            logger.warning("System alert without an unambiguous tenant was not broadcast")
+            logger.warning(
+                "System alert without an unambiguous tenant was not broadcast"
+            )
             return
 
         for admin in admins.data or []:

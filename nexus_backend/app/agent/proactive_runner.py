@@ -78,6 +78,7 @@ async def run_proactive_agent(
             user_id=user_id,
             current_query=prompt,
             db=db_client,
+            org_id=org_id,
         )
     except Exception as mem_err:
         logger.warning("[ProactiveRunner] Memory injection skipped: %s", mem_err)

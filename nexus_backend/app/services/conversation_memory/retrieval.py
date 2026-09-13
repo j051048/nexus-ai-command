@@ -10,7 +10,8 @@ from typing import Any
 from app.core.database import supabase
 
 from .cleanup import compute_decay_score, mmr_rerank
-from .governance import filter_current_memories
+from .governance import filter_current_memories, memory_is_current
+from .visibility import apply_owner_scope
 
 logger = logging.getLogger(__name__)
 
@@ -540,7 +541,9 @@ async def get_memories(
 
     memories = result.data or []
     if lifecycle_states is None:
-        memories = filter_current_memories(memories, user_id=user_id, org_id=org_id, user_role=user_role)
+        memories = filter_current_memories(
+            memories, user_id=user_id, org_id=org_id, user_role=user_role
+        )
     for memory in memories:
         memory["value"] = decrypt_memory_value(memory.get("value", ""))
         if memory.get("enriched_value"):
@@ -610,18 +613,45 @@ async def search_memories(
             timeout=20.0,
         )
 
-        candidate_ids = list(dict.fromkeys(str(row["id"]) for rows in results if isinstance(rows, list) for row in rows if row.get("id")))
+        candidate_ids = list(
+            dict.fromkeys(
+                str(row["id"])
+                for rows in results
+                if isinstance(rows, list)
+                for row in rows
+                if row.get("id")
+            )
+        )
         current_by_id = {}
         if candidate_ids:
             from .visibility import apply_visibility_filter
 
-            current_query = apply_visibility_filter(client.table("conversation_memories").select("*"), user_id, org_id, user_role)
+            current_query = apply_visibility_filter(
+                client.table("conversation_memories").select("*"),
+                user_id,
+                org_id,
+                user_role,
+            )
             current_result = await current_query.in_("id", candidate_ids).execute()
-            current_by_id = {str(row["id"]): row for row in filter_current_memories(current_result.data or [], user_id=user_id, org_id=org_id, user_role=user_role)}
+            current_by_id = {
+                str(row["id"]): row
+                for row in filter_current_memories(
+                    current_result.data or [],
+                    user_id=user_id,
+                    org_id=org_id,
+                    user_role=user_role,
+                )
+            }
 
         for r in results:
             if isinstance(r, list) and r:
-                rrf_lists.append([{**row, **current_by_id[str(row["id"])]} for row in r if str(row.get("id")) in current_by_id])
+                rrf_lists.append(
+                    [
+                        {**row, **current_by_id[str(row["id"])]}
+                        for row in r
+                        if str(row.get("id")) in current_by_id
+                    ]
+                )
 
         # ── RRF (Reciprocal Rank Fusion) ──────────────────────
         # Score = Σ 1/(k + rank_i) across all lists where the item appears
@@ -779,7 +809,9 @@ async def search_memories(
     except Exception as e:
         logger.warning(f"Memory search failed: {e}")
 
-    memories = filter_current_memories(memories, user_id=user_id, org_id=org_id, user_role=user_role)
+    memories = filter_current_memories(
+        memories, user_id=user_id, org_id=org_id, user_role=user_role
+    )
 
     # P1: Fire-and-forget DB updates in a separate task group to avoid blocking retrieval
     async def _bg_updates(mems_to_update):
@@ -860,7 +892,9 @@ async def search_memories(
     else:
         logger.info("[Memory] Skipping spreading activation (BENCHMARK_MODE)")
 
-    return filter_current_memories(memories, user_id=user_id, org_id=org_id, user_role=user_role)
+    return filter_current_memories(
+        memories, user_id=user_id, org_id=org_id, user_role=user_role
+    )
 
 
 async def _semantic_search(
@@ -1312,6 +1346,10 @@ async def _expand_top_connections(
     return hop1_memories[:max_total]
 
 
+def _scope_owned_query(query: Any, user_id: str, org_id: str | None) -> Any:
+    return apply_owner_scope(query, user_id, org_id)
+
+
 async def search_consolidations(
     user_id: str,
     query: str,
@@ -1335,13 +1373,33 @@ async def search_consolidations(
             "match_user_id": user_id,
             "match_limit": limit,
         }
-        if org_id:
-            params["match_org_id"] = org_id
+        params["match_org_id"] = org_id
 
         result = await client.rpc(
             "search_consolidations_by_embedding", params
         ).execute()
-        return result.data or []
+        candidates = result.data or []
+        ids = [row["id"] for row in candidates if row.get("id")]
+        if not ids:
+            return []
+        # RPC output is a ranking hint, not proof of current tenant access.
+        current = await _scope_owned_query(
+            client.table("memory_consolidations").select("*").in_("id", ids),
+            user_id,
+            org_id,
+        ).execute()
+        authorized = {
+            row["id"]: row
+            for row in current.data or []
+            if row.get("user_id") == user_id
+            and row.get("organization_id") == org_id
+            and memory_is_current(row)
+        }
+        return [
+            {**row, **authorized[row["id"]]}
+            for row in candidates
+            if row.get("id") in authorized
+        ]
     except Exception as e:
         logger.error(f"Consolidation search failed: {e}")
         return []
@@ -1352,6 +1410,8 @@ async def build_memory_context(
     current_query: str,
     db: Any = None,
     complexity: str | None = None,
+    org_id: str | None = None,
+    user_role: str = "employee",
 ) -> str:
     """
     构建记忆上下文，注入到 system prompt 中。
@@ -1364,15 +1424,15 @@ async def build_memory_context(
     try:
         if client:
             obs_result = await (
-                client.table("memory_consolidations")
-                .select("content")
-                .eq("user_id", user_id)
+                _scope_owned_query(
+                    client.table("memory_consolidations").select("*"), user_id, org_id
+                )
                 .eq("insight_type", "observation")
                 .order("created_at", desc=True)
                 .limit(1)
                 .execute()
             )
-            if obs_result.data:
+            if obs_result.data and memory_is_current(obs_result.data[0]):
                 obs_content = obs_result.data[0].get("content", "")
                 if obs_content:
                     context_parts.append(
@@ -1427,6 +1487,8 @@ async def build_memory_context(
         category="explicit_memory",
         limit=explicit_limit,
         db=db,
+        org_id=org_id,
+        user_role=user_role,
     )
     if explicit:
         # Split: importance >= 0.85 → <constraints> header; rest → <user-memories>
@@ -1453,6 +1515,8 @@ async def build_memory_context(
             query=current_query,
             limit=relevant_limit,
             db=db,
+            org_id=org_id,
+            user_role=user_role,
         )
         if relevant:
             existing_ids = {m["id"] for m in explicit}
@@ -1523,6 +1587,7 @@ async def build_memory_context(
                 query=current_query,
                 limit=consolidated_limit,
                 db=db,
+                org_id=org_id,
             )
             if consolidations:
                 cons_lines = [
@@ -1583,6 +1648,8 @@ async def build_memory_context(
 async def get_l1_critical_facts(
     user_id: str,
     db: Any = None,
+    org_id: str | None = None,
+    user_role: str = "employee",
 ) -> str:
     """L1: 高重要性记忆 + 用户指令 + 纠正记录。~120 tokens，始终注入。
 
@@ -1599,9 +1666,9 @@ async def get_l1_critical_facts(
     try:
         # 1) High-importance directives (importance >= 0.85, any category)
         directive_res = await (
-            client.table("conversation_memories")
-            .select("value, enriched_value, importance, category")
-            .eq("user_id", user_id)
+            _scope_owned_query(
+                client.table("conversation_memories").select("*"), user_id, org_id
+            )
             .gte("importance", 0.85)
             .is_("superseded_by", "null")
             .in_("lifecycle_state", ["active", "confirmed"])
@@ -1609,16 +1676,21 @@ async def get_l1_critical_facts(
             .limit(5)
             .execute()
         )
-        for m in directive_res.data or []:
+        for m in filter_current_memories(
+            directive_res.data or [],
+            user_id=user_id,
+            org_id=org_id,
+            user_role=user_role,
+        ):
             val = decrypt_memory_value(m.get("enriched_value") or m.get("value", ""))
             if val:
                 lines.append(f"  - {val[:120]}")
 
         # 2) Anti-patterns (user corrections — always high signal)
         anti_res = await (
-            client.table("conversation_memories")
-            .select("value, enriched_value")
-            .eq("user_id", user_id)
+            _scope_owned_query(
+                client.table("conversation_memories").select("*"), user_id, org_id
+            )
             .eq("category", "anti_pattern")
             .is_("superseded_by", "null")
             .in_("lifecycle_state", ["active", "confirmed"])
@@ -1627,7 +1699,9 @@ async def get_l1_critical_facts(
             .execute()
         )
         seen = {l for l in lines}  # dedup against directives
-        for m in anti_res.data or []:
+        for m in filter_current_memories(
+            anti_res.data or [], user_id=user_id, org_id=org_id, user_role=user_role
+        ):
             val = decrypt_memory_value(m.get("enriched_value") or m.get("value", ""))
             candidate = f"  - [纠正] {val[:100]}"
             if val and candidate not in seen:
@@ -1646,6 +1720,8 @@ async def get_l2_contextual(
     query: str,
     complexity: str | None = None,
     db: Any = None,
+    org_id: str | None = None,
+    user_role: str = "employee",
 ) -> str:
     """L2: 查询相关记忆，预算感知 ~300 tokens。
 
@@ -1675,6 +1751,8 @@ async def get_l2_contextual(
             query=query,
             limit=relevant_limit,
             db=db,
+            org_id=org_id,
+            user_role=user_role,
         )
         if relevant:
             # Exclude L1 items: high-importance directives and anti-patterns
@@ -1698,6 +1776,7 @@ async def get_l2_contextual(
             query=query,
             limit=consolidated_limit,
             db=db,
+            org_id=org_id,
         )
         if consolidations:
             for c in consolidations:

@@ -256,10 +256,17 @@ class ConversationMemoryService:
         current_query: str,
         db: Any = None,
         complexity: str | None = None,
+        org_id: str | None = None,
+        user_role: str = "employee",
     ) -> str:
         """构建记忆上下文，注入到 system prompt 中。"""
         return await retrieval.build_memory_context(
-            user_id=user_id, current_query=current_query, db=db, complexity=complexity
+            user_id=user_id,
+            current_query=current_query,
+            db=db,
+            complexity=complexity,
+            org_id=org_id,
+            user_role=user_role,
         )
 
     # ─── P0-2: Memory Decay ─────────────────────────────────────

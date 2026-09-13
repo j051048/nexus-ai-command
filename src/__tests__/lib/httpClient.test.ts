@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { httpClient } from '../../lib/httpClient';
-import { AxiosRequestConfig } from 'axios';
+import { AxiosHeaders, AxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
 // Mock 外部依赖
@@ -67,6 +67,15 @@ describe('httpClient interceptors', () => {
   });
 
   describe('Request Interceptor', () => {
+    it('应保留请求绑定的企业，不能被切换后的本地缓存覆盖', async () => {
+      requestConfig.headers = { 'x-org-id': 'request-org' };
+      // @ts-expect-error access private handlers for test
+      const handler = httpClient.interceptors.request.handlers[0];
+      const config = await handler.fulfilled({ ...requestConfig, headers: new AxiosHeaders(requestConfig.headers) });
+      expect(config.headers['x-org-id']).toBe('request-org');
+      expect(config.headers['X-Org-ID']).toBeUndefined();
+    });
+
     it('应该正确注入 Token、Org-ID 和全局标记', async () => {
       // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.request.handlers[0];

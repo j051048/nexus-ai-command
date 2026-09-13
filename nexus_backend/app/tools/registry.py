@@ -64,7 +64,9 @@ class ToolInfo:
             "risk": policy.risk_level.value,
             "owner": self.owner,
             "timeout_s": self.timeout_s,
-            "idempotent": not tool.has_side_effects or policy.idempotency_strategy in {"idempotency_key", "terminal_state_guard"},
+            "idempotent": not tool.has_side_effects
+            or policy.idempotency_strategy
+            in {"idempotency_key", "terminal_state_guard"},
             "idempotency_strategy": policy.idempotency_strategy,
             "retry_requires_receipt": tool.has_side_effects,
             "supports_compensation": policy.supports_compensation,

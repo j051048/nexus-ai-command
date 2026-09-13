@@ -3,7 +3,6 @@
 from langchain_core.messages import SystemMessage
 
 from app.agent.context_compiler import ContextBudgetExceeded, context_message
-
 from app.agent.node_helpers import (
     _ALWAYS_INCLUDE_TOOLS,
     AgentConfig,
@@ -56,12 +55,19 @@ async def inject_system_prompts(
     # Task decomposition hints
     _inject_task_decomposition(lc_msgs, state, complexity, iteration)
 
-    _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity)
-
     return lc_msgs
 
 
-def _compile_global_context(lc_msgs, state, agent_config, complexity, *, tool_tokens=0, model=None):
+def _compile_global_context(
+    lc_msgs,
+    state,
+    agent_config,
+    complexity,
+    *,
+    tool_tokens=0,
+    model=None,
+    resolved_config=None,
+):
     """Apply one global budget after every prompt/context injector has run."""
     try:
         from app.agent.context_compiler import (
@@ -74,11 +80,16 @@ def _compile_global_context(lc_msgs, state, agent_config, complexity, *, tool_to
             complexity.model_tier if hasattr(complexity, "model_tier") else "balanced"
         )
         context_window = int(
-            (resolved.get(tier_key) or {}).get("context_window") or 32_000
+            (resolved_config or resolved.get(tier_key) or {}).get("context_window")
+            or 32_000
         )
         compiled, report = context_compiler.compile(
             lc_msgs,
-            policy=ContextCompilePolicy(max_input_tokens=context_window, reserved_tool_tokens=tool_tokens, model=model or "deepseek-v4-flash"),
+            policy=ContextCompilePolicy(
+                max_input_tokens=context_window,
+                reserved_tool_tokens=tool_tokens,
+                model=model or "deepseek-v4-flash",
+            ),
             ledger=state.get("context_ledger") or {},
         )
         state["context_compile_report"] = report.to_dict()
@@ -113,11 +124,16 @@ def _compile_global_context(lc_msgs, state, agent_config, complexity, *, tool_to
             "requires_citations": bool(evidence_ids)
             or bool((state.get("artifact_spec") or {}).get("strict_quality")),
         }
+        _attach_prompt_snapshot(
+            compiled, state, agent_config, complexity, context_window=context_window
+        )
         return compiled
     except ContextBudgetExceeded:
         raise
     except Exception as e:
-        raise ContextBudgetExceeded("Context compilation failed; request was not sent") from e
+        raise ContextBudgetExceeded(
+            "Context compilation failed; request was not sent"
+        ) from e
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +316,14 @@ async def _inject_few_shot(lc_msgs, agent_config, state, intent_summary):
             if _mem_db and agent_config.user_id:
                 from app.services.conversation_memory.retrieval import get_memories
 
-                golden_rows = await get_memories(agent_config.user_id, category="golden_example", limit=2, db=_mem_db, org_id=agent_config.org_id, user_role=agent_config.user_role)
+                golden_rows = await get_memories(
+                    agent_config.user_id,
+                    category="golden_example",
+                    limit=2,
+                    db=_mem_db,
+                    org_id=agent_config.org_id,
+                    user_role=agent_config.user_role,
+                )
                 if golden_rows:
                     ex_parts = [r["value"] for r in golden_rows]
                     few_shot = "【历史优秀对话参考】\n" + "\n---\n".join(ex_parts)
@@ -404,7 +427,8 @@ def _inject_compacted_summary(lc_msgs, state):
         lc_msgs.insert(
             1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
             context_message(
-                f"[上下文摘要 — 之前的对话和工具结果已压缩]\n{compacted_summary}", kind="summary"
+                f"[上下文摘要 — 之前的对话和工具结果已压缩]\n{compacted_summary}",
+                kind="summary",
             ),
         )
 
@@ -463,7 +487,16 @@ async def _inject_context_engine(lc_msgs, state, agent_config, complexity):
         if engine_ctx:
             lc_msgs.insert(
                 1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
-                context_message(f"[上下文引擎检索结果]\n{engine_ctx}", kind="evidence", source_ids=[str(eid) for entry in ledger.to_dict().get("entries", []) if entry.get("included") for eid in entry.get("evidence_ids", [])]),
+                context_message(
+                    f"[上下文引擎检索结果]\n{engine_ctx}",
+                    kind="evidence",
+                    source_ids=[
+                        str(eid)
+                        for entry in ledger.to_dict().get("entries", [])
+                        if entry.get("included")
+                        for eid in entry.get("evidence_ids", [])
+                    ],
+                ),
             )
     except Exception as e:
         logger.error(f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}")
@@ -534,7 +567,9 @@ def _inject_task_decomposition(lc_msgs, state, complexity, iteration):
                 lc_msgs[-1] = _HM(content=lc_msgs[-1].content + decomp_hint)
 
 
-def _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity):
+def _attach_prompt_snapshot(
+    lc_msgs, state, agent_config, complexity, *, context_window=None
+):
     """Attach a compact prompt snapshot to state for trace/eval gates."""
     try:
         from app.agent.prompt_snapshot import build_prompt_snapshot
@@ -543,7 +578,9 @@ def _attach_prompt_snapshot(lc_msgs, state, agent_config, complexity):
         _tier_key = (
             complexity.model_tier if hasattr(complexity, "model_tier") else "balanced"
         )
-        _ctx_window = (_resolved.get(_tier_key) or {}).get("context_window")
+        _ctx_window = context_window or (_resolved.get(_tier_key) or {}).get(
+            "context_window"
+        )
         prompt_version = (
             state.get("prompt_version")
             or _resolve_prompt_version(getattr(agent_config, "agent_code", None))

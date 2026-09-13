@@ -5,6 +5,10 @@ from typing import Any
 
 from app.core.database import supabase
 
+from .governance import filter_current_memories
+from .storage import decrypt_memory_value
+from .visibility import apply_owner_scope
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,9 +39,9 @@ async def consolidate_user_memories(
 
     try:
         result = (
-            await client.table("conversation_memories")
-            .select("id, category, key, value, importance")
-            .eq("user_id", user_id)
+            await apply_owner_scope(
+                client.table("conversation_memories").select("*"), user_id, org_id
+            )
             .eq("is_consolidated", False)
             .order("importance", desc=True)
             .limit(batch_size)
@@ -47,7 +51,9 @@ async def consolidate_user_memories(
         logger.warning(f"Consolidation query failed for user {user_id}: {e}")
         return {"user_id": user_id, "processed": 0, "insights_created": 0}
 
-    memories = result.data or []
+    memories = filter_current_memories(
+        result.data or [], user_id=user_id, org_id=org_id
+    )
     if len(memories) < 5:
         return {"user_id": user_id, "processed": 0, "insights_created": 0}
 
@@ -55,7 +61,7 @@ async def consolidate_user_memories(
     mem_lines = []
     for i, m in enumerate(memories):
         # P0 Fix: Truncate value to prevent context_length_exceeded on long-session datasets (LoCoMo)
-        val = str(m.get("value", ""))
+        val = decrypt_memory_value(m.get("enriched_value") or m.get("value", ""))
         if len(val) > 3000:
             val = val[:3000] + "... (truncated for consolidation)"
         mem_lines.append(f"[{i}] ({m['category']}) {m['key']}: {val}")
@@ -146,9 +152,13 @@ async def consolidate_user_memories(
     if memories:
         mem_ids = [m["id"] for m in memories]
         try:
-            await client.table("conversation_memories").update(
-                {"is_consolidated": True}
-            ).in_("id", mem_ids).execute()
+            await apply_owner_scope(
+                client.table("conversation_memories")
+                .update({"is_consolidated": True})
+                .in_("id", mem_ids),
+                user_id,
+                org_id,
+            ).execute()
         except Exception as e:
             logger.warning(f"Failed to mark memories as consolidated: {e}")
 
@@ -243,21 +253,23 @@ async def generate_user_observation(
     try:
         # Pull top-30 high-importance memories for this user
         result = await (
-            client.table("conversation_memories")
-            .select("id, category, key, value, importance")
-            .eq("user_id", user_id)
+            apply_owner_scope(
+                client.table("conversation_memories").select("*"), user_id, org_id
+            )
             .is_("superseded_by", "null")
             .order("importance", desc=True)
             .limit(30)
             .execute()
         )
-        memories = result.data or []
+        memories = filter_current_memories(
+            result.data or [], user_id=user_id, org_id=org_id
+        )
         if len(memories) < 3:
             return None
 
         mem_lines = []
         for m in memories:
-            val = str(m.get("value", ""))
+            val = decrypt_memory_value(m.get("enriched_value") or m.get("value", ""))
             if len(val) > 2000:
                 val = val[:2000] + "..."
             mem_lines.append(f"- ({m['category']}) {m['key']}: {val}")
@@ -292,9 +304,9 @@ async def generate_user_observation(
         # Upsert: delete existing observation for this user, then insert new one
         try:
             await (
-                client.table("memory_consolidations")
-                .delete()
-                .eq("user_id", user_id)
+                apply_owner_scope(
+                    client.table("memory_consolidations").delete(), user_id, org_id
+                )
                 .eq("insight_type", "observation")
                 .execute()
             )

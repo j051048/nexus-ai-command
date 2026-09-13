@@ -856,13 +856,14 @@ class BulkImportRequest(BaseModel):
 async def bulk_import_documents(
     payload: BulkImportRequest,
     req: Request,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(require_kb_admin),
 ):
     """
     批量导入知识库文档（管理员专用）。
 
     接收 JSON 数组，为每个条目创建 documents 记录。
-    不触发 AI 解析或 Embedding 生成（适用于预置的知识库内容）。
+    导入原文后进入统一持久化入库流程，索引完成前不标记为可检索。
     需要 admin / founder / boss 角色。
     """
     from app.core.database import supabase as global_supabase
@@ -872,12 +873,24 @@ async def bulk_import_documents(
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库服务不可用")
 
     org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(
+            ErrorCode.VALIDATION_MISSING_FIELD, "企业身份缺失，无法导入资料"
+        )
+    from app.services.knowledge_access_service import document_department
+
+    department = await document_department(
+        client, user_id=user_id, organization_id=org_id
+    )
 
     # Prefetch library code -> id mapping
     library_map: dict[str, int] = {}
     try:
         lib_res = (
-            await client.table("knowledge_library").select("id, library_code").execute()
+            await client.table("knowledge_library")
+            .select("id, library_code")
+            .eq("tenant_id", org_id)
+            .execute()
         )
         if lib_res.data:
             library_map = {row["library_code"]: row["id"] for row in lib_res.data}
@@ -891,6 +904,15 @@ async def bulk_import_documents(
 
     for item in payload.documents:
         try:
+            if item.visibility == "department" and not department:
+                raise ValueError("部门资料需要先设置所属部门")
+            if item.library_code and item.library_code not in library_map:
+                raise ValueError("目标资料库不存在或无权访问")
+            filename = (
+                item.title
+                if item.title.lower().endswith((".txt", ".md"))
+                else f"{item.title}.txt"
+            )
             # Dedup by content hash
             content_bytes = item.content.encode("utf-8")
             content_hash = hashlib.sha256(content_bytes).hexdigest()
@@ -899,7 +921,10 @@ async def bulk_import_documents(
             existing = (
                 await client.table("documents")
                 .select("id, name")
-                .eq("name", item.title)
+                .eq("organization_id", org_id)
+                .eq("owner_id", user_id)
+                .eq("name", filename)
+                .eq("content_hash", content_hash)
                 .limit(1)
                 .execute()
             )
@@ -928,18 +953,20 @@ async def bulk_import_documents(
             )
 
             record = {
-                "name": item.title,
+                "name": filename,
                 "doc_type": item.doc_type,
                 "version": 1,
                 "extracted_data": extracted_data,
                 "owner_id": user_id,
-                "status": "ready",
-                "progress": 100,
-                "stage": "completed",
+                "status": "processing",
+                "progress": 0,
+                "stage": "queued",
                 "visibility": item.visibility,
                 "content_hash": content_hash,
                 "organization_id": org_id,
                 "category": item.doc_type,
+                "department": department if item.visibility == "department" else None,
+                "source_version": content_hash[:16],
             }
 
             if library_id:
@@ -948,6 +975,17 @@ async def bulk_import_documents(
             res = await client.table("documents").insert(record).execute()
             if res.data:
                 doc_id = res.data[0]["id"]
+                durable = await _schedule_ingestion(
+                    background_tasks=background_tasks,
+                    db=client,
+                    organization_id=org_id,
+                    document_id=doc_id,
+                    content=content_bytes,
+                    filename=filename,
+                    content_type="text/plain; charset=utf-8",
+                    user_id=user_id,
+                    category=item.doc_type,
+                )
                 success_count += 1
                 results.append(
                     {
@@ -955,6 +993,8 @@ async def bulk_import_documents(
                         "status": "created",
                         "document_id": doc_id,
                         "library_id": library_id,
+                        "ingestion_status": "queued",
+                        "durable_ingestion": durable,
                     }
                 )
             else:
@@ -994,12 +1034,13 @@ async def bulk_import_documents(
                     .table("documents")
                     .select("id")
                     .eq("library_id", lib_id)
+                    .eq("organization_id", org_id)
                     .execute()
                 )
                 doc_count = len(count_res.data) if count_res.data else 0
                 await (admin_client or client).table("knowledge_library").update(
                     {"doc_count": doc_count}
-                ).eq("id", lib_id).execute()
+                ).eq("id", lib_id).eq("tenant_id", org_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to update doc_count for library {code}: {e}")
 

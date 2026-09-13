@@ -6,12 +6,12 @@ referenced value may be a HTTPS URL or JSON with ``url`` and optional ``token``.
 
 from __future__ import annotations
 
-import ipaddress
 import asyncio
-import socket
+import ipaddress
 import json
 import os
 import re
+import socket
 from typing import Any
 from urllib.parse import urlparse
 
@@ -66,8 +66,15 @@ def _validate_url(url: str) -> str:
 
 async def _validate_public_dns(url: str) -> None:
     parsed = urlparse(url)
-    addresses = await asyncio.wait_for(asyncio.get_running_loop().getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM), timeout=3)
-    if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
+    addresses = await asyncio.wait_for(
+        asyncio.get_running_loop().getaddrinfo(
+            parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM
+        ),
+        timeout=3,
+    )
+    if not addresses or any(
+        not ipaddress.ip_address(item[4][0]).is_global for item in addresses
+    ):
         raise ValueError("连接器域名解析到了非公网地址")
 
 
@@ -111,7 +118,9 @@ async def deliver_solution_payload(
     headers = {"Content-Type": "application/json", "User-Agent": "Nexus-Solution/1.0"}
     if config.get("token"):
         headers["Authorization"] = f"Bearer {config['token']}"
-    async with httpx.AsyncClient(timeout=httpx.Timeout(15, connect=5), follow_redirects=False, trust_env=False) as client:
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(15, connect=5), follow_redirects=False, trust_env=False
+    ) as client:
         response = await client.post(url, json=outbound_payload, headers=headers)
         response.raise_for_status()
     external_id = response.headers.get("x-request-id")

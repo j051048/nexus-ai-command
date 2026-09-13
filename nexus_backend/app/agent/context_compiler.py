@@ -36,19 +36,24 @@ class ContextCompilePolicy:
             0,
             self.max_input_tokens
             - self.reserved_output_tokens
-            - self.reserved_history_tokens,
+            - self.reserved_history_tokens
+            - self.reserved_tool_tokens,
         )
 
 
-class ContextBudgetExceeded(ValueError):
+class ContextBudgetExceeded(ValueError):  # noqa: N818 - public exception contract
     """Required instructions and the current conversation cannot fit safely."""
 
 
-def context_message(content: str, *, kind: str, source_ids: Iterable[str] = ()) -> SystemMessage:
+def context_message(
+    content: str, *, kind: str, source_ids: Iterable[str] = ()
+) -> SystemMessage:
     """Attach trusted producer metadata; document text never assigns authority."""
     return SystemMessage(
         content=content,
-        additional_kwargs={"context_block": {"kind": kind, "source_ids": list(source_ids)}},
+        additional_kwargs={
+            "context_block": {"kind": kind, "source_ids": list(source_ids)}
+        },
     )
 
 
@@ -78,18 +83,6 @@ class ContextCompileReport:
         return asdict(self)
 
 
-MANDATORY_BLOCK_HINTS = (
-    "prompt artifact",
-    "prompt registry",
-    "角色与工具",
-    "安全",
-    "权限",
-    "确认",
-    "policy",
-    "permission",
-    "security",
-)
-
 UTILITY_HINTS: tuple[tuple[tuple[str, ...], float], ...] = (
     (("业务规则", "business rule", "permission", "权限"), 1.0),
     (("检索到的参考知识", "rag", "evidence", "证据"), 0.92),
@@ -117,12 +110,20 @@ class ContextCompiler:
     ) -> tuple[list[BaseMessage], ContextCompileReport]:
         candidates = self._candidates(messages, ledger or {}, policy.model)
         conversation_tokens = sum(
-            self._estimate_tokens(json.dumps(message.model_dump(), ensure_ascii=False, default=str), policy.model)
-            for message in messages if not isinstance(message, SystemMessage)
+            self._estimate_tokens(
+                json.dumps(message.model_dump(), ensure_ascii=False, default=str),
+                policy.model,
+            )
+            for message in messages
+            if not isinstance(message, SystemMessage)
         )
-        budget = max(0, policy.max_input_tokens - policy.reserved_output_tokens
-                     - max(policy.reserved_history_tokens, conversation_tokens)
-                     - policy.reserved_tool_tokens)
+        budget = max(
+            0,
+            policy.max_input_tokens
+            - policy.reserved_output_tokens
+            - max(policy.reserved_history_tokens, conversation_tokens)
+            - policy.reserved_tool_tokens,
+        )
         selected: set[int] = set()
         used = 0
         dropped: list[dict[str, Any]] = []
@@ -140,8 +141,16 @@ class ContextCompiler:
             ),
         )
 
-        if sum(candidate.tokens for candidate in mandatory) > budget or conversation_tokens + policy.reserved_output_tokens + policy.reserved_tool_tokens > policy.max_input_tokens:
-            raise ContextBudgetExceeded("Required context exceeds the model input budget")
+        if (
+            sum(candidate.tokens for candidate in mandatory) > budget
+            or conversation_tokens
+            + policy.reserved_output_tokens
+            + policy.reserved_tool_tokens
+            > policy.max_input_tokens
+        ):
+            raise ContextBudgetExceeded(
+                "Required context exceeds the model input budget"
+            )
 
         for candidate in [*mandatory, *optional]:
             remaining = budget - used
@@ -189,7 +198,10 @@ class ContextCompiler:
         )
 
     def _candidates(
-        self, messages: Iterable[BaseMessage], ledger: dict[str, Any], model: str = "deepseek-v4-flash"
+        self,
+        messages: Iterable[BaseMessage],
+        ledger: dict[str, Any],
+        model: str = "deepseek-v4-flash",
     ) -> list[ContextCandidate]:
         candidates: list[ContextCandidate] = []
         for index, message in enumerate(messages):

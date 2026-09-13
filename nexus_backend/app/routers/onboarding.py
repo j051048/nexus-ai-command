@@ -28,7 +28,11 @@ async def get_activation_readiness(
 ):
     from app.services.activation_readiness_service import activation_readiness
 
-    return api_success(data=await activation_readiness(db, organization_id=organization_id, user_id=user_id))
+    return api_success(
+        data=await activation_readiness(
+            db, organization_id=organization_id, user_id=user_id
+        )
+    )
 
 
 class ActivationStatePatch(BaseModel):

@@ -92,6 +92,16 @@ def can_access_memory(
     return False
 
 
+def apply_owner_scope(query: Any, user_id: str, org_id: str | None) -> Any:
+    """Keep personal/derived memory reads and writes inside their original tenant."""
+    query = query.eq("user_id", user_id)
+    return (
+        query.eq("organization_id", org_id)
+        if org_id
+        else query.is_("organization_id", "null")
+    )
+
+
 def apply_visibility_filter(
     query: Any,
     user_id: str,

@@ -180,7 +180,15 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         user_query=_last_user_msg or intent_summary,
     )
 
-    lc_msgs = _compile_global_context(lc_msgs, state, agent_config, complexity, tool_tokens=state.get("bound_tool_tokens", 0), model=model)
+    lc_msgs = _compile_global_context(
+        lc_msgs,
+        state,
+        agent_config,
+        complexity,
+        tool_tokens=state.get("bound_tool_tokens", 0),
+        model=model,
+        resolved_config=resolved,
+    )
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,

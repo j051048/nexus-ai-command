@@ -3,7 +3,6 @@
 import json
 
 from app.agent.context_compiler import context_compiler
-
 from app.agent.node_helpers import (
     _ALWAYS_INCLUDE_TOOLS,
     AgentConfig,
@@ -75,7 +74,10 @@ async def bind_tools_to_llm(
         ]
         if simple_schemas:
             llm = llm.bind_tools(simple_schemas, parallel_tool_calls=True)
-            state["bound_tool_tokens"] = context_compiler._estimate_tokens(json.dumps(simple_schemas, ensure_ascii=False), model or "deepseek-v4-flash")
+            state["bound_tool_tokens"] = context_compiler._estimate_tokens(
+                json.dumps(simple_schemas, ensure_ascii=False),
+                model or "deepseek-v4-flash",
+            )
     else:
         bind_kwargs = {"parallel_tool_calls": True}
         # For re-planning after irreversible tool confirmation, force tool usage
@@ -147,7 +149,9 @@ async def bind_tools_to_llm(
             )
 
         llm = llm.bind_tools(schemas, **bind_kwargs)
-        state["bound_tool_tokens"] = context_compiler._estimate_tokens(json.dumps(schemas, ensure_ascii=False), model or "deepseek-v4-flash")
+        state["bound_tool_tokens"] = context_compiler._estimate_tokens(
+            json.dumps(schemas, ensure_ascii=False), model or "deepseek-v4-flash"
+        )
 
     # ── Explainability: log tool binding decision ──
     _tool_choice_mode = (

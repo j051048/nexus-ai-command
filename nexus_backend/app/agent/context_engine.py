@@ -522,6 +522,8 @@ class SemanticMemoryProvider(ContextProvider):
             ctx = await conversation_memory_service.build_memory_context(
                 user_id=user_id,
                 current_query=query,
+                org_id=org_id,
+                user_role=kwargs.get("user_role") or "employee",
             )
             return ctx or ""
         except Exception as e:

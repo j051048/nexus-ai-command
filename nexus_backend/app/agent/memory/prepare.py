@@ -412,6 +412,8 @@ async def prepare_initial_state(
                 ctx = await get_l1_critical_facts(
                     user_id=config.user_id,
                     db=client,
+                    org_id=config.org_id,
+                    user_role=config.user_role,
                 )
                 if ctx:
                     logger.info(
@@ -434,6 +436,8 @@ async def prepare_initial_state(
                     query=last_user_msg,
                     complexity=str(state.get("complexity", "")) if state else None,
                     db=client,
+                    org_id=config.org_id,
+                    user_role=config.user_role,
                 )
                 if ctx:
                     logger.info(

@@ -64,13 +64,15 @@ export function useActivationState() {
     () => profile?.organization_id && user?.id ? `${profile.organization_id}:${user.id}` : 'anonymous',
     [profile?.organization_id, user?.id],
   );
-  const [state, setState] = useState<ActivationState>(() => readActivationState(scope));
+  const [snapshot, setSnapshot] = useState(() => ({ scope, value: readActivationState(scope) }));
+  const state = snapshot.scope === scope ? snapshot.value : readActivationState(scope);
+  const headers = useMemo(() => ({ 'X-Org-ID': profile?.organization_id }), [profile?.organization_id]);
 
   useEffect(() => {
-    setState(readActivationState(scope));
+    setSnapshot({ scope, value: readActivationState(scope) });
     if (scope === 'anonymous') return;
     let cancelled = false;
-    void httpClient.get('/api/onboarding/activation', { silentError: true })
+    void httpClient.get('/api/onboarding/activation', { silentError: true, headers })
       .then((response) => {
         if (cancelled) return;
         const outer = response.data as { data?: unknown };
@@ -79,16 +81,18 @@ export function useActivationState() {
           ? (payload as { data?: ServerActivationState }).data
           : payload as ServerActivationState | undefined;
         if (!remote) return;
-        setState((current) => mergeActivationState(scope, current, fromServer(remote)));
+        setSnapshot((current) => current.scope === scope
+          ? { scope, value: mergeActivationState(scope, current.value, fromServer(remote)) }
+          : current);
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [scope]);
+  }, [scope, headers]);
 
   useEffect(() => {
     const sync = (event: Event) => {
       const detail = (event as CustomEvent<{ scope?: string }>).detail;
-      if (!detail?.scope || detail.scope === scope) setState(readActivationState(scope));
+      if (!detail?.scope || detail.scope === scope) setSnapshot({ scope, value: readActivationState(scope) });
     };
     window.addEventListener(ACTIVATION_UPDATED_EVENT, sync);
     window.addEventListener('storage', sync);
@@ -100,10 +104,11 @@ export function useActivationState() {
 
   const update = useCallback((patch: Partial<ActivationState>) => {
     if (scope === 'anonymous') return;
-    setState((current) => mergeActivationState(scope, current, patch));
-    void httpClient.patch('/api/onboarding/activation', toServer(patch), { silentError: true })
+    setSnapshot((current) => ({ scope, value: mergeActivationState(scope,
+      current.scope === scope ? current.value : readActivationState(scope), patch) }));
+    void httpClient.patch('/api/onboarding/activation', toServer(patch), { silentError: true, headers })
       .catch(() => undefined);
-  }, [scope]);
+  }, [scope, headers]);
 
   const open = useCallback(() => {
     window.dispatchEvent(new CustomEvent(ACTIVATION_OPEN_EVENT));

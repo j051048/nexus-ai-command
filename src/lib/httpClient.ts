@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -35,7 +35,7 @@ httpClient.interceptors.request.use(
     }
 
     const orgId = localStorage.getItem('current_org_id');
-    if (orgId) {
+    if (orgId && !AxiosHeaders.from(config.headers).has('X-Org-ID')) {
       config.headers['X-Org-ID'] = orgId;
     }
 

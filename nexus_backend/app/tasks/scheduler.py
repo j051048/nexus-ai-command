@@ -922,11 +922,11 @@ def consolidate_memories():
         if not supabase:
             return "skipped: no db"
 
-        # Get distinct users with unconsolidated memories
+        # Each user's memories are consolidated independently for each tenant.
         try:
             result = (
                 await supabase.table("conversation_memories")
-                .select("user_id")
+                .select("user_id,organization_id")
                 .eq("is_consolidated", False)
                 .limit(500)
                 .execute()
@@ -935,14 +935,18 @@ def consolidate_memories():
             logger.warning(f"Consolidation user query failed: {e}")
             return f"error: {e}"
 
-        user_ids = list({r["user_id"] for r in (result.data or [])})
+        scopes = list(
+            dict.fromkeys(
+                (r["user_id"], r.get("organization_id")) for r in (result.data or [])
+            )
+        )
         total_insights = 0
         processed_users = 0
 
-        for uid in user_ids[:50]:  # Cap at 50 users per batch
+        for uid, org_id in scopes[:50]:
             try:
                 r = await conversation_memory_service.consolidate_user_memories(
-                    user_id=uid, batch_size=30, db=supabase
+                    user_id=uid, org_id=org_id, batch_size=30, db=supabase
                 )
                 total_insights += r.get("insights_created", 0)
                 if r.get("processed", 0) > 0:
@@ -952,7 +956,7 @@ def consolidate_memories():
 
         return (
             f"Consolidated {total_insights} insights "
-            f"for {processed_users}/{len(user_ids[:50])} users"
+            f"for {processed_users}/{len(scopes[:50])} user/tenant scopes"
         )
 
     return _run_async(_run())

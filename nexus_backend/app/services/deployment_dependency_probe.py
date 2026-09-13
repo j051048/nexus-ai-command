@@ -16,8 +16,13 @@ async def probe_deployment_dependencies() -> list[dict]:
     async def database():
         if supabase is None:
             return False
-        result = await supabase.table("migration_history").select("name").in_("name", sorted(REQUIRED_MIGRATIONS)).execute()
-        return REQUIRED_MIGRATIONS <= {row["name"] for row in result.data or []}
+        result = (
+            await supabase.table("migration_history")
+            .select("name")
+            .in_("name", sorted(REQUIRED_MIGRATIONS))
+            .execute()
+        )
+        return {row["name"] for row in result.data or []} >= REQUIRED_MIGRATIONS
 
     async def redis():
         import redis.asyncio as aioredis
@@ -37,15 +42,42 @@ async def probe_deployment_dependencies() -> list[dict]:
         saver = get_checkpointer()
         if not is_checkpointer_persistent():
             return False
-        await saver.aget_tuple({"configurable": {"thread_id": "nexus-readiness-probe", "checkpoint_ns": ""}})
+        await saver.aget_tuple(
+            {
+                "configurable": {
+                    "thread_id": "nexus-readiness-probe",
+                    "checkpoint_ns": "",
+                }
+            }
+        )
         return True
 
     checks = []
-    for name, probe in (("database_migrations", database), ("redis_connectivity", redis), ("checkpoint_read", checkpoint)):
+    for name, probe in (
+        ("database_migrations", database),
+        ("redis_connectivity", redis),
+        ("checkpoint_read", checkpoint),
+    ):
         try:
             ok = await asyncio.wait_for(probe(), timeout=3)
-        except Exception as exc:  # broad-except: dependency health boundary; never return secrets
-            checks.append({"name": name, "ok": False, "severity": "critical", "message": type(exc).__name__})
+        except (
+            Exception
+        ) as exc:  # broad-except: dependency health boundary; never return secrets
+            checks.append(
+                {
+                    "name": name,
+                    "ok": False,
+                    "severity": "critical",
+                    "message": type(exc).__name__,
+                }
+            )
         else:
-            checks.append({"name": name, "ok": ok, "severity": "critical", "message": "read_only_probe"})
+            checks.append(
+                {
+                    "name": name,
+                    "ok": ok,
+                    "severity": "critical",
+                    "message": "read_only_probe",
+                }
+            )
     return checks

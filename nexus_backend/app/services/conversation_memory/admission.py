@@ -117,7 +117,9 @@ def evaluate_memory_admission(
 
     if category in RULE_CATEGORIES:
         lifecycle_state = "pending_review"
-    elif category in {"compliance_evidence", "calibration_baseline"} and not evidence_ref:
+    elif (
+        category in {"compliance_evidence", "calibration_baseline"} and not evidence_ref
+    ):
         lifecycle_state = "pending_review"
     elif explicit:
         lifecycle_state = "confirmed"

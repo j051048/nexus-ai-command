@@ -111,6 +111,8 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
             memory_context = await conversation_memory_service.build_memory_context(
                 user_id=config.user_id,
                 current_query=user_message,
+                org_id=config.org_id,
+                user_role=config.user_role,
             )
 
             updates: dict[str, Any] = {

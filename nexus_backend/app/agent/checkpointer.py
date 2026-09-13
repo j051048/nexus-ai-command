@@ -147,9 +147,13 @@ def _build_encrypted_serde():
         logger.info("[Checkpointer] AES encryption enabled for checkpoint state")
         return serde
     except ImportError as e:
-        raise RuntimeError("Configured checkpoint encryption requires pycryptodome") from e
+        raise RuntimeError(
+            "Configured checkpoint encryption requires pycryptodome"
+        ) from e
     except Exception as e:
-        raise RuntimeError("Configured checkpoint encryption could not be initialized") from e
+        raise RuntimeError(
+            "Configured checkpoint encryption could not be initialized"
+        ) from e
 
 
 def _build_postgres_url() -> str:
