@@ -68,3 +68,34 @@ describe('aiClient error presentation policy', () => {
     );
   });
 });
+
+describe('aiClient transport contract', () => {
+  beforeEach(() => { mocks.request.mockReset(); });
+
+  it('keeps fetch raw and get wrapped without discarding the API envelope', async () => {
+    const payload = { success: true, data: { tools: [{ name: 'search' }] } };
+    mocks.request.mockResolvedValue({ data: payload });
+    expect(await aiClient.fetch<typeof payload>('/api/tools/metadata')).toEqual(payload);
+    expect(await aiClient.get<typeof payload>('/api/tools/metadata')).toEqual({ data: payload });
+  });
+
+  it.each(['post', 'put'] as const)('%s preserves the JSON body and tenant header', async (method) => {
+    mocks.request.mockResolvedValue({ data: { success: true } });
+    expect(await aiClient[method]<{ success: boolean }>('/api/record', { amount: 0 }, {
+      headers: { 'X-Org-ID': 'org-a' },
+    })).toEqual({ data: { success: true } });
+    expect(mocks.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: method.toUpperCase(), data: { amount: 0 },
+      headers: expect.objectContaining({ 'X-Org-ID': 'org-a' }),
+    }));
+  });
+
+  it('passes cancellation through and normalizes a nullable signal', async () => {
+    mocks.request.mockResolvedValue({ data: [] });
+    const controller = new AbortController();
+    await aiClient.get('/api/records', { signal: controller.signal });
+    expect(mocks.request.mock.calls[0][0].signal).toBe(controller.signal);
+    await aiClient.delete('/api/record', { signal: null });
+    expect(mocks.request.mock.calls[1][0]).toMatchObject({ method: 'DELETE', signal: undefined });
+  });
+});

@@ -11,6 +11,7 @@ import { useTabCounts } from '@/hooks/useUnifiedApprovals';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from '@/components/common/PullToRefreshIndicator';
+import { WorkErrorState } from '@/components/common/WorkState';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,7 +67,7 @@ function ApprovalAIRiskPanel({
 
 export function ApprovalCenter() {
   const { role } = useAuth();
-  const isBoss = role === 'boss' || role === 'founder';
+  const isBoss = role === 'boss';
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
@@ -74,8 +75,8 @@ export function ApprovalCenter() {
   const [showCreate, setShowCreate] = useState(false);
 
   // 数据源
-  const { data: typeConfigs = [] } = useApprovalTypeConfig();
-  const { data: tabCounts } = useTabCounts();
+  const { data: typeConfigs = [], isError: typeConfigError, refetch: retryTypeConfig } = useApprovalTypeConfig();
+  const { data: tabCounts, isError: countsError, refetch: retryCounts } = useTabCounts();
 
   // 选中的审批类型（用于展开提交表单）
   const [selectedTypeCode, setSelectedTypeCode] = useState<string | null>(null);
@@ -139,11 +140,13 @@ export function ApprovalCenter() {
         </div>
       </div>
 
-      <ApprovalAIRiskPanel
+      {countsError ? <WorkErrorState title="审批数量加载失败" onAction={() => retryCounts()} /> : tabCounts && <ApprovalAIRiskPanel
         isBoss={isBoss}
-        pending={tabCounts?.pending ?? 0}
-        mine={tabCounts?.mine ?? 0}
-      />
+        pending={tabCounts.pending}
+        mine={tabCounts.mine}
+      />}
+
+      {showCreate && typeConfigError && <WorkErrorState title="审批类型加载失败" onAction={() => retryTypeConfig()} />}
 
       {/* 审批类型入口卡片（动态渲染） */}
       {showCreate && typeConfigs.length > 0 && (

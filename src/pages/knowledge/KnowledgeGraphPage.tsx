@@ -17,6 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { KnowledgeSubnav } from '@/components/knowledge/KnowledgeSubnav';
+import { WorkErrorState, WorkLoadingState } from '@/components/common/WorkState';
+import { useEnterpriseQueryScope } from '@/hooks/useEnterpriseQueryScope';
 import {
   useSearchEntities,
   useEntityRelations,
@@ -43,12 +45,19 @@ function getTypeColor(type: string): string {
 // ─── 主组件 ──────────────────────────────────────────────
 
 export default function KnowledgeGraphPage() {
+  const scope = useEnterpriseQueryScope();
+  if (!scope.enabled) return <WorkLoadingState title="正在确认企业身份" />;
+  return <KnowledgeGraphWorkspace key={JSON.stringify(scope.key)} />;
+}
+
+function KnowledgeGraphWorkspace() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
 
   // Debounce search
   const debounceRef = React.useRef<ReturnType<typeof setTimeout>>();
+  React.useEffect(() => () => clearTimeout(debounceRef.current), []);
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     clearTimeout(debounceRef.current);
@@ -56,9 +65,9 @@ export default function KnowledgeGraphPage() {
   };
 
   // Queries
-  const { data: searchResults = [], isLoading: isSearching } = useSearchEntities(debouncedQuery);
-  const { data: relations = [], isLoading: isLoadingRelations } = useEntityRelations(selectedEntityId);
-  const { data: patterns, isLoading: isLoadingPatterns } = usePatternInsights();
+  const { data: searchResults = [], isLoading: isSearching, isError: searchError, refetch: retrySearch } = useSearchEntities(debouncedQuery);
+  const { data: relations = [], isLoading: isLoadingRelations, isError: relationsError, refetch: retryRelations } = useEntityRelations(selectedEntityId);
+  const { data: patterns, isLoading: isLoadingPatterns, isError: patternsError, refetch: retryPatterns } = usePatternInsights();
 
   // 选中实体对象
   const selectedEntity = useMemo(
@@ -123,7 +132,9 @@ export default function KnowledgeGraphPage() {
 
           {/* Entity list */}
           <div className="flex-1 overflow-y-auto">
-            {!debouncedQuery ? (
+            {searchError ? (
+              <WorkErrorState title="关系搜索暂不可用" onAction={() => retrySearch()} />
+            ) : !debouncedQuery ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                 <Search className="w-10 h-10 opacity-10 mb-4" />
                 <p className="text-sm font-medium">输入关键词搜索实体</p>
@@ -155,7 +166,9 @@ export default function KnowledgeGraphPage() {
         {/* Right: Relations + Insights */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-dot-pattern">
           {/* Relations panel */}
-          {selectedEntityId ? (
+          {selectedEntityId && relationsError ? (
+            <WorkErrorState title="关联关系加载失败" onAction={() => retryRelations()} />
+          ) : selectedEntityId ? (
             <RelationsPanel
               entity={selectedEntity}
               relations={relations}
@@ -170,7 +183,9 @@ export default function KnowledgeGraphPage() {
           )}
 
           {/* Pattern Insights */}
-          <PatternInsightsPanel patterns={patterns} isLoading={isLoadingPatterns} />
+          {patternsError ? (
+            <WorkErrorState title="关系洞察暂不可用" onAction={() => retryPatterns()} />
+          ) : <PatternInsightsPanel patterns={patterns} isLoading={isLoadingPatterns} />}
         </div>
       </div>
     </div>

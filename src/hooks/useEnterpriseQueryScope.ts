@@ -9,7 +9,7 @@ export function useEnterpriseQueryScope() {
 
   return {
     enabled,
-    key: [orgId, userId, role, Boolean(isSuperAdmin)] as const,
+    key: [orgId, userId, role, Boolean(isSuperAdmin), enabled] as const,
     options(signal?: AbortSignal) {
       if (!enabled || !orgId) throw new Error('企业身份尚未就绪，请稍后重试');
       return { signal, headers: { 'X-Org-ID': orgId } };

@@ -26,6 +26,8 @@ import type {
   CompetitorDetail,
 } from '@/hooks/useCompetitors';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
+import { WorkErrorState, WorkLoadingState } from '@/components/common/WorkState';
+import { useEnterpriseQueryScope } from '@/hooks/useEnterpriseQueryScope';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -775,9 +777,15 @@ function CompetitorDetailPanel({
 
 // ─── 主页面 ────────────────────────────────────────
 export function BattlecardLibrary() {
+  const scope = useEnterpriseQueryScope();
+  if (!scope.enabled) return <WorkLoadingState title="正在确认企业身份" />;
+  return <BattlecardWorkspace key={JSON.stringify(scope.key)} />;
+}
+
+function BattlecardWorkspace() {
   const { role } = useAuth();
   // 放开权限，允许业务人员（销售、员工）维护竞品库
-  const canEdit = ['boss', 'manager', 'sales', 'employee'].includes(role || 'boss');
+  const canEdit = ['boss', 'manager', 'sales', 'employee'].includes(role || '');
 
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -788,8 +796,8 @@ export function BattlecardLibrary() {
   const { confirm, ConfirmDialogProps } = useConfirmDialog();
 
   // 数据
-  const { data: competitors = [], isLoading: listLoading } = useCompetitors();
-  const { data: detail, isLoading: detailLoading } = useCompetitorDetail(selectedId);
+  const { data: competitors = [], isLoading: listLoading, isError: listError, refetch: retryList } = useCompetitors();
+  const { data: detail, isLoading: detailLoading, isError: detailError, refetch: retryDetail } = useCompetitorDetail(selectedId);
   const deleteMut = useDeleteCompetitor();
 
   // 搜索过滤
@@ -866,7 +874,9 @@ export function BattlecardLibrary() {
 
           <ScrollArea className="h-[calc(100vh-280px)]">
             <div className="space-y-2 pr-2">
-              {listLoading ? (
+              {listError ? (
+                <WorkErrorState title="竞品资料加载失败" onAction={() => retryList()} />
+              ) : listLoading ? (
                 Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)
               ) : filtered.length === 0 ? (
                 competitors.length === 0 ? (
@@ -917,7 +927,7 @@ export function BattlecardLibrary() {
 
         {/* 右侧详情 */}
         <div className="lg:col-span-8 xl:col-span-9">
-          <CompetitorDetailPanel
+          {detailError ? <WorkErrorState title="竞品详情加载失败" onAction={() => retryDetail()} /> : <CompetitorDetailPanel
             detail={detail}
             isLoading={detailLoading && !!selectedId}
             canEdit={canEdit}
@@ -925,7 +935,7 @@ export function BattlecardLibrary() {
               if (detail?.competitor) setCompetitorDialog({ open: true, competitor: detail.competitor });
             }}
             onDeleteCompetitor={handleDeleteCompetitor}
-          />
+          />}
         </div>
       </div>
     </div>
