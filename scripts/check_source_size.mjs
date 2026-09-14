@@ -8,6 +8,8 @@ const SOURCE_ROOTS = ["src"];
 const EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 const DEFAULT_MAX_LINES = 500;
 const DEBT_GRACE_LINES = 25;
+// Deterministically generated, checked against the metadata snapshot in CI.
+const GENERATED_FILES = new Set(['src/integrations/supabase/database-tables.ts']);
 
 const IGNORED_DIRS = new Set([
   ".git",
@@ -102,6 +104,7 @@ for (const sourceRoot of SOURCE_ROOTS) {
 
   for (const filePath of walk(absoluteRoot)) {
     const relativePath = normalizePath(filePath);
+    if (GENERATED_FILES.has(relativePath)) continue;
     const lines = countLines(filePath);
     const debtBaseline = MANAGED_DEBT.get(relativePath);
 

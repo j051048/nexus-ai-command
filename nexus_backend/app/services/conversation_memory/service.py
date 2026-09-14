@@ -101,18 +101,24 @@ class ConversationMemoryService:
         user_id: str,
         memory_id: str,
         db: Any = None,
+        org_id: str | None = None,
     ) -> bool:
         """删除单条记忆"""
-        return await storage.delete_memory(user_id=user_id, memory_id=memory_id, db=db)
+        return await storage.delete_memory(
+            user_id=user_id, memory_id=memory_id, db=db, org_id=org_id
+        )
 
     async def clear_memories(
         self,
         user_id: str,
         category: str | None = None,
         db: Any = None,
+        org_id: str | None = None,
     ) -> int:
         """清除记忆（可按分类清除）"""
-        return await storage.clear_memories(user_id=user_id, category=category, db=db)
+        return await storage.clear_memories(
+            user_id=user_id, category=category, db=db, org_id=org_id
+        )
 
     async def update_memory(
         self,
@@ -124,6 +130,7 @@ class ConversationMemoryService:
         lifecycle_state: str | None = None,
         expires_at: str | None = None,
         db: Any = None,
+        org_id: str | None = None,
     ) -> dict | None:
         return await storage.update_memory(
             user_id=user_id,
@@ -133,6 +140,7 @@ class ConversationMemoryService:
             lifecycle_state=lifecycle_state,
             expires_at=expires_at,
             db=db,
+            org_id=org_id,
         )
 
     # ─── 偏好自动提取（规则引擎 + LLM 增强）─────────────────────

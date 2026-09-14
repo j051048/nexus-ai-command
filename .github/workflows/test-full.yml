@@ -42,7 +42,7 @@ jobs:
       - name: Lint code
         run: npm run lint
       - name: TypeScript check
-        run: npx tsc --noEmit
+        run: npm run typecheck
       - name: Source size guard
         run: npm run check:size
       - name: Build frontend
@@ -94,6 +94,9 @@ jobs:
       - name: Engineering handover readiness
         working-directory: ${{ github.workspace }}
         run: python scripts/check_handover_readiness.py
+      - name: Generated database column contract
+        working-directory: ${{ github.workspace }}
+        run: python scripts/generate_supabase_contract.py --check
       - name: Broad exception debt governance
         working-directory: ${{ github.workspace }}
         run: python scripts/check_exception_governance.py

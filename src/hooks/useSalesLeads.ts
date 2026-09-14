@@ -13,22 +13,26 @@ export function useSalesLeads() {
 
     // 获取所有线索
     const { profile } = useAuth();
-    const { data: leads = [], isLoading } = useQuery({
+    const { data: leads = [], isLoading, error, refetch } = useQuery({
         queryKey: ['sales-leads', profile?.organization_id],
         queryFn: async () => {
             if (!session?.user?.id || !profile?.organization_id) return [];
 
-            const response = await httpClient.get('/api/sales-leads');
+            const response = await httpClient.get<{ leads: unknown[] }>('/api/sales-leads');
             const data = Array.isArray(response.data?.leads) ? response.data.leads : [];
 
             // 数据屏蔽层：使用 Zod 验证并提供默认值
             return (data || []).map(item => {
                 const result = salesLeadSchema.safeParse(item);
-                if (!result.success) {
-                    console.warn('Invalid lead data found:', result.error);
-                }
-                // 即便失败也返回原始数据（或默认值），确保 UI 不崩溃
-                return (result.success ? result.data : item) as SalesLead;
+                if (!result.success) throw new Error('线索数据格式异常，请刷新或联系管理员');
+                const lead = result.data;
+                return {
+                    id: lead.id, name: lead.name, company: lead.company || '',
+                    title: lead.title || '', score: lead.score, stage: lead.stage,
+                    aiSuggestion: lead.ai_suggestion || '', winProbability: lead.win_probability,
+                    lastContact: lead.last_contact && Number.isFinite(Date.parse(lead.last_contact))
+                        ? new Date(lead.last_contact) : undefined,
+                } satisfies SalesLead;
             });
         },
         enabled: !!session?.user?.id && !!profile?.organization_id,
@@ -48,6 +52,8 @@ export function useSalesLeads() {
     return {
         leads,
         isLoading,
+        error,
+        refetch,
         updateLeadStage,
     };
 }

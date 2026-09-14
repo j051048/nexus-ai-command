@@ -6,6 +6,9 @@
  */
 
 export interface ProactiveMessage {
+  id: string;
+  organizationId: string;
+  userId: string;
   sessionId: string;
   title: string;
   message: string;
@@ -20,16 +23,20 @@ export const PROACTIVE_MSG_EVENT = 'nexus:proactive-message';
 
 /** Called by useWebSocketPush when a proactive_chat WS message arrives */
 export function enqueueProactiveMessage(msg: ProactiveMessage): void {
-  if (consumedIds.has(msg.sessionId)) return;
-  if (pendingQueue.some(m => m.sessionId === msg.sessionId)) return;
+  if (!msg.id || !msg.organizationId || !msg.userId) return;
+  const key = `${msg.organizationId}:${msg.userId}:${msg.id}`;
+  if (consumedIds.has(key)) return;
+  if (pendingQueue.some(m => m.id === msg.id && m.userId === msg.userId && m.organizationId === msg.organizationId)) return;
   pendingQueue.push(msg);
+  if (pendingQueue.length > 100) pendingQueue.shift();
   window.dispatchEvent(new CustomEvent(PROACTIVE_MSG_EVENT));
 }
 
 /** Called by EnhancedAIChatPanel to drain all pending messages */
-export function drainProactiveMessages(): ProactiveMessage[] {
-  const messages = [...pendingQueue];
+export function drainProactiveMessages(organizationId: string, userId: string): ProactiveMessage[] {
+  const messages = pendingQueue.filter(message => message.organizationId === organizationId && message.userId === userId);
   pendingQueue.length = 0;
-  messages.forEach(m => consumedIds.add(m.sessionId));
+  messages.forEach(m => consumedIds.add(`${m.organizationId}:${m.userId}:${m.id}`));
+  while (consumedIds.size > 500) consumedIds.delete(consumedIds.values().next().value!);
   return messages;
 }

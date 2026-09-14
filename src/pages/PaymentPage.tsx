@@ -173,7 +173,7 @@ export default function PaymentPage() {
       });
       toast.success(`订单已创建：${res.data.order.order_no}`);
       await fetchOrders();
-      if (selectedMethod === 'bank_transfer') await fetchBankInfo(selectedPlan);
+      if (selectedMethod === 'bank_transfer') await fetchBankInfo(selectedPlanInfo.id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '创建订单失败，请稍后重试');
     } finally {

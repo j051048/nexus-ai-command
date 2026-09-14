@@ -67,6 +67,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 vi.mock('sonner', () => ({ toast: { info: vi.fn(), warning: vi.fn(), error: vi.fn() } }));
 vi.mock('@/lib/proactiveMessageStore', () => ({ enqueueProactiveMessage: vi.fn() }));
+vi.mock('@/hooks/useEnterpriseQueryScope', () => ({ useEnterpriseQueryScope: () => ({ enabled: true, key: ['a', 'u'] }) }));
 
 vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.com');
 

@@ -291,7 +291,7 @@ export function ThinkingChain({
                   key={`${step.timestamp}-${index}`}
                   step={step}
                   isLast={index === stepsWithDuration.length - 1}
-                  isActive={isStreaming && index === stepsWithDuration.length - 1}
+                  isActive={Boolean(isStreaming) && index === stepsWithDuration.length - 1}
                 />
               ))}
             </div>

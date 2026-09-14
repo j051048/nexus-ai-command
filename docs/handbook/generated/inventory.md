@@ -6,9 +6,9 @@
 
 | 范围 | 文件数 | 代码行数 |
 |---|---:|---:|
-| 前端 `src` | 576 | 105449 |
+| 前端 `src` | 581 | 105867 |
 | 后端 `nexus_backend/app` | 621 | 173605 |
-| 前端单元/集成测试 | 62 | 7317 |
+| 前端单元/集成测试 | 65 | 7628 |
 | 后端测试 | 227 | 36132 |
 | Playwright E2E | 19 | 3379 |
 
@@ -37,6 +37,6 @@
 | `src/pages/crm/CustomerDetailSheet.tsx` | 1101 |
 | `src/pages/LLMModelManagement.tsx` | 1051 |
 | `src/pages/OrgChartPage.tsx` | 991 |
-| `src/pages/BattlecardLibrary.tsx` | 933 |
+| `src/pages/BattlecardLibrary.tsx` | 943 |
 | `src/pages/FinanceCenter.tsx` | 805 |
 | `src/pages/ContractManagement.tsx` | 750 |

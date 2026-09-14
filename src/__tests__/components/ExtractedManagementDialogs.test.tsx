@@ -16,7 +16,7 @@ describe('拆分后的管理对话框契约', () => {
         open
         onOpenChange={vi.fn()}
         isEditing
-        model={{ ...EMPTY_MODEL, id: 'model-1', name: 'DeepSeek V4 Flash' }}
+        model={{ ...EMPTY_MODEL, id: 'model-1', model_name: 'DeepSeek V4 Flash' }}
         setModel={vi.fn()}
         onSave={onSave}
         onTest={onTest}

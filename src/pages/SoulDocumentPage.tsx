@@ -43,9 +43,8 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 function SoulDocumentPage() {
-  const { profile } = useAuth();
-  const userRole = (profile as Record<string, unknown>)?.role as string | undefined;
-  const canEdit = userRole === 'boss' || userRole === 'founder';
+  const { role } = useAuth();
+  const canEdit = role === 'boss';
 
   const [doc, setDoc] = useState<SoulDocument>(DEFAULT_DOC);
   const [loading, setLoading] = useState(true);

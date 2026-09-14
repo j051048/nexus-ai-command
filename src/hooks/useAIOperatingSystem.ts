@@ -450,7 +450,7 @@ export function useAeonInspiredOps(focusVar = 'scientific instrument sales') {
 export function useRunAeonInspiredHeartbeat() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (focusVar = 'scientific instrument sales') => {
+    mutationFn: async (focusVar: string = 'scientific instrument sales') => {
       const response = await httpClient.post('/api/ai-operating-system/aeon-inspired-ops/run-heartbeat', null, {
         params: { focus_var: focusVar },
       });
@@ -468,7 +468,7 @@ export function useRunAeonInspiredHeartbeat() {
 export function useRegisterAeonHeartbeatSchedule() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (focusVar = 'scientific instrument sales') => {
+    mutationFn: async (focusVar: string = 'scientific instrument sales') => {
       const response = await httpClient.post(
         '/api/ai-operating-system/aeon-inspired-ops/register-heartbeat-schedule',
         null,

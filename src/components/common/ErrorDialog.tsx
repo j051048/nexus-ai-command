@@ -21,7 +21,7 @@ export function ErrorDialog({ error, onRetry, onClose }: ErrorDialogProps) {
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm">{error?.message}</p>
-          {error?.details && (
+          {error?.details != null && (
             <Collapsible>
               <CollapsibleTrigger className="text-xs text-muted-foreground hover:text-foreground">
                 查看详情 ↓

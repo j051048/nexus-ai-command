@@ -62,6 +62,16 @@
 - RLS 覆盖、策略列检查、迁移治理、异常治理、交接就绪检查：本地通过。这些是静态检查，不是线上 RLS 攻击测试。
 - **未通过**：`npx tsc -p tsconfig.app.json --noEmit --pretty false` 仍有 114 处存量报错。本轮新增 hook 和请求头回归代码不在报错列表中；未下调门禁或屏蔽全量类型检查。
 
+## 2026-09-14 接口与缓存隔离续作
+
+- 修复 `aiClient` 泛型传递和 nullable signal；保留 `fetch` 原始返回、`get/post/put/delete` 外层包装的兼容契约。
+- 统一知识关系、竞品、审批类型/列表/计数和工具元数据的响应解包。错误或无效响应不再在这些 hooks 中被转换成空列表/零计数；知识关系、竞品与审批页面增加局部错误和重试状态。
+- 上述查询按企业、用户、角色、平台管理员标志和身份就绪状态区分缓存，请求显式携带企业 ID 和取消信号。身份未就绪时禁止请求；竞品写操作也绑定企业。服务端鉴权仍是安全边界，前端隔离不能替代 RLS 或 ACL。
+- 修复自动审批规则把 `aiClient` 当函数调用、从不存在的 `profile.role` 读取权限的问题；规则面板和知识/竞品工作区在身份变化时重建，清理原企业的选择和未提交表单。
+- 定向前端测试：5 个文件、52 passed。覆盖响应层级、跨企业/用户/角色缓存、取消与晚返回、未就绪身份、竞品写请求、规则创建/删除/失败重试与切换企业。命令：`npx vitest run src/__tests__/hooks/enterpriseQueryContracts.test.tsx src/__tests__/hooks/useUnifiedApprovals.test.ts src/__tests__/lib/aiClient.test.ts src/__tests__/lib/apiResponse.test.ts src/__tests__/components/AutoApprovalRules.test.tsx`。
+- `npm run quality:frontend` 通过；全量 TypeScript 报错由上一轮 114 处降至 **91 处，仍未通过**，未降低 strict 配置。数据库类型缺失 `Relationships`，恢复校验还会暴露未登记表和旧字段，需核对真实 Schema 后统一修复，不能补猜测字段或切换为 `any`。
+- 本续作未跑完整前端测试集、完整浏览器回归或真实后端联调，未执行生产 SQL。不要将上一节的浏览器结果视作本续作的浏览器验证。
+
 ## 下一批必须完成
 
 1. **P0**：单独清理全量 TypeScript 错误并运行完整前后端 CI；补全服务角色下的知识库目录/共享记忆/后台任务权限审计；不能只依据本轮定向测试宣布安全收敛。

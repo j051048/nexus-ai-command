@@ -11,6 +11,7 @@ from app.core.database import supabase
 
 from .cleanup import compute_decay_score, mmr_rerank
 from .governance import filter_current_memories, memory_is_current
+from .lineage import filter_valid_consolidations
 from .visibility import apply_owner_scope
 
 logger = logging.getLogger(__name__)
@@ -1386,7 +1387,9 @@ async def search_consolidations(
         ).execute()
         authorized = {
             row["id"]: row
-            for row in current.data or []
+            for row in await filter_valid_consolidations(
+                current.data or [], user_id=user_id, org_id=org_id, db=client
+            )
             if row.get("user_id") == user_id
             and row.get("organization_id") == org_id
             and memory_is_current(row)
@@ -1428,8 +1431,11 @@ async def build_memory_context(
                 .limit(1)
                 .execute()
             )
-            if obs_result.data and memory_is_current(obs_result.data[0]):
-                obs_content = obs_result.data[0].get("content", "")
+            valid_observations = await filter_valid_consolidations(
+                obs_result.data or [], user_id=user_id, org_id=org_id, db=client
+            )
+            if valid_observations:
+                obs_content = valid_observations[0].get("content", "")
                 if obs_content:
                     context_parts.append(
                         f"<observation>\n{obs_content}\n</observation>"

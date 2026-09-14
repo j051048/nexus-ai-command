@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 import { DocumentCard } from './components/DocumentCard';
 import { useUser } from '@/contexts/UserContext';
 import { NexusDocument } from '@/types/nexus';
+import type { Tables } from '@/integrations/supabase/types';
+import { toDocument } from './documentContract';
 
 const DOC_TYPE_OPTIONS = [
     { value: 'contract', label: '销售合同' },
@@ -60,22 +62,10 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
     const fetchDocuments = async () => {
         setIsLoading(true);
         try {
-            const response = await httpClient.get('/api/documents');
+            const response = await httpClient.get<{ documents: Tables<'documents'>[] }>('/api/documents');
             const data = response.data?.documents || [];
 
-            const formattedDocs: NexusDocument[] = (data || []).map((doc) => ({
-                id: doc.id,
-                name: doc.name,
-                doc_type: doc.doc_type || 'other',
-                created_at: doc.created_at,
-                status: doc.status === 'ready' ? 'completed'
-                    : doc.status === 'pending' || doc.status === 'processing' ? 'processing'
-                    : doc.status === 'failed' || doc.status === 'error' ? 'error'
-                    : 'completed',
-                extracted_data: typeof doc.extracted_data === 'string'
-                    ? JSON.parse(doc.extracted_data)
-                    : (doc.extracted_data || {})
-            }));
+            const formattedDocs = data.map(toDocument);
 
             setDocuments(formattedDocs);
             setSelectedIds(new Set()); // Clear selection on refresh

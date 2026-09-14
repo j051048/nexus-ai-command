@@ -104,7 +104,7 @@ export function TeamPerformanceChart() {
                         />
                         <Tooltip 
                             content={<ChartTooltipContent />}
-                            formatter={(value: number, name: string, props: { payload: { bonus: number; calls: number; conversions: number } }) => [
+                            formatter={(value: number, name: string, props: { payload?: { bonus: number; calls: number; conversions: number } }) => [
                                 <div key="tooltip" className="space-y-1.5 min-w-[120px]">
                                     <div className="flex items-center justify-between font-bold text-sm">
                                         <span>综合战力</span>
@@ -115,15 +115,15 @@ export function TeamPerformanceChart() {
                                     <div className="h-px w-full bg-border/50 my-1"/>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                         <span>预测奖金</span>
-                                        <span className="font-semibold text-foreground">¥{props.payload.bonus.toLocaleString()}</span>
+                                        <span className="font-semibold text-foreground">¥{props.payload?.bonus.toLocaleString() ?? '—'}</span>
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                         <span>有效通话</span>
-                                        <span className="font-semibold text-foreground">{props.payload.calls}次</span>
+                                        <span className="font-semibold text-foreground">{props.payload?.calls ?? '—'}次</span>
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                         <span>成单转化</span>
-                                        <span className="font-semibold text-foreground">{props.payload.conversions}单</span>
+                                        <span className="font-semibold text-foreground">{props.payload?.conversions ?? '—'}单</span>
                                     </div>
                                 </div>,
                                 ''

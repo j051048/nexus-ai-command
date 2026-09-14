@@ -182,7 +182,7 @@ export function useLeaderboard(limit: number = 5) {
     queryKey: ['leaderboard', limit, profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
-      const response = await httpClient.get('/api/sales/leaderboard', { params: { limit } });
+      const response = await httpClient.get<{ data: Array<{ id: string; name: string; score: number | null; total_bonus: number | null }> }>('/api/sales/leaderboard', { params: { limit } });
       const data = Array.isArray(response.data?.data) ? response.data.data : [];
       return data.map((person: { id: string; name: string; score: number | null; total_bonus: number | null }, index: number) => ({
         rank: index + 1,
@@ -235,27 +235,6 @@ export function useSaveSalesMetric() {
     },
     onError: (err: Error) => {
       toast.error(err.message || '保存销售数据失败');
-    },
-  });
-}
-
-export function useUpdateProfile() {
-  const queryClient = useQueryClient();
-  const { session } = useAuth();
-
-  return useMutation({
-    mutationFn: async (updates: { score?: number; total_bonus?: number; rank?: number }) => {
-      if (!session?.user?.id) throw new Error('Not authenticated');
-      const { data, error } = await supabase.from('profiles').update(updates).eq('user_id', session.user.id).select().single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['team-performance'] });
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || '更新个人信息失败');
     },
   });
 }

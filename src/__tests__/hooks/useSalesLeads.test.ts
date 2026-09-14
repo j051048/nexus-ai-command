@@ -27,14 +27,6 @@ vi.mock('@/components/auth/AuthContext', () => ({
   useAuth: () => mockAuth,
 }));
 
-vi.mock('@/lib/schemas', () => ({
-  salesLeadSchema: {
-    safeParse: (item: any) => {
-      if (item._invalid) return { success: false, error: 'validation error' };
-      return { success: true, data: item };
-    },
-  },
-}));
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -44,7 +36,8 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 const LEAD = {
-  id: 'lead-1', company_name: '测试公司', stage: 'new',
+  id: '00000000-0000-4000-8000-000000000001', name: '张三', company: '测试公司', stage: 'new',
+  ai_suggestion: '跟进试用', win_probability: 75,
   contact_name: '张三', created_at: '2026-01-01',
 };
 
@@ -64,7 +57,7 @@ describe('useSalesLeads', () => {
     const { useSalesLeads } = await import('@/hooks/useSalesLeads');
     const { result } = renderHook(() => useSalesLeads(), { wrapper });
     await waitFor(() => expect(result.current.leads).toHaveLength(1));
-    expect(result.current.leads[0].id).toBe('lead-1');
+    expect(result.current.leads[0]).toMatchObject({ id: LEAD.id, aiSuggestion: '跟进试用', winProbability: 75 });
   });
 
   it('session 缺失时不请求', async () => {
@@ -82,14 +75,13 @@ describe('useSalesLeads', () => {
     expect(result.current.leads).toEqual([]);
   });
 
-  it('Zod 校验失败时降级返回原始数据', async () => {
-    const invalidLead = { ...LEAD, _invalid: true };
+  it('拒绝无效数据并暴露可重试错误', async () => {
+    const invalidLead = { ...LEAD, stage: 'not-a-stage' };
     mockHttpGet.mockResolvedValueOnce({ data: { leads: [invalidLead] } });
     const { useSalesLeads } = await import('@/hooks/useSalesLeads');
     const { result } = renderHook(() => useSalesLeads(), { wrapper });
-    await waitFor(() => expect(result.current.leads).toHaveLength(1));
-    // Should still return the original data even if validation fails
-    expect(result.current.leads[0].id).toBe('lead-1');
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    expect(result.current.leads).toEqual([]);
   });
 
   it('API 返回非数组时防御处理', async () => {

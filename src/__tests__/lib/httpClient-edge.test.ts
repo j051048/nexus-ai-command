@@ -102,8 +102,7 @@ describe('httpClient 请求拦截器', () => {
 describe('httpClient 响应拦截器 - 错误处理', () => {
   it('401 错误应触发重定向（非 login 页）', () => {
     // 验证 401 处理逻辑
-    const pathname = '/dashboard';
-    expect(pathname !== '/login').toBe(true);
+    expect(['/login'].includes('/dashboard')).toBe(false);
   });
 
   it('401 在 login 页不重定向', () => {

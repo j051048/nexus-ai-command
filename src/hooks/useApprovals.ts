@@ -16,7 +16,7 @@ export function useApprovals() {
   // Fetch pending approvals (for Boss)
   const { data: pendingApprovals = [], isLoading } = useQuery({
     queryKey: ['approvals', 'pending', profile?.organization_id],
-    queryFn: async () => {
+    queryFn: async (): Promise<ApprovalRequestSafe[]> => {
       if (!profile?.organization_id) return [];
 
       const response = await httpClient.get('/api/approval/list', {
@@ -316,4 +316,3 @@ export function useResubmitApproval() {
     },
   });
 }
-

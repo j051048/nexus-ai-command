@@ -6,6 +6,7 @@ from typing import Any
 from app.core.database import supabase
 
 from .governance import filter_current_memories
+from .lineage import source_snapshot
 from .storage import decrypt_memory_value
 from .visibility import apply_owner_scope
 
@@ -135,6 +136,9 @@ async def consolidate_user_memories(
                     "title": title,
                     "content": content,
                     "source_memory_ids": source_ids,
+                    "source_fingerprints": source_snapshot(
+                        [m for m in memories if str(m["id"]) in source_ids]
+                    ),
                     "importance": float(insight.get("importance", 0.6)),
                     "embedding": embedding,
                 }
@@ -319,7 +323,8 @@ async def generate_user_observation(
             "title": "用户画像摘要",
             "content": observation_text,
             "importance": 0.9,
-            "source_memory_ids": [str(m["id"]) for m in memories[:10]],
+            "source_memory_ids": [str(m["id"]) for m in memories],
+            "source_fingerprints": source_snapshot(memories),
         }
         if org_id:
             row["organization_id"] = org_id

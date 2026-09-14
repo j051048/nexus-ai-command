@@ -8,7 +8,7 @@ import { LeadDetailModal } from './components/LeadDetailModal';
 
 export function SalesPipeline() {
   const [selectedLead, setSelectedLead] = useState<SalesLead | null>(null);
-  const { leads, isLoading } = useSalesLeads();
+  const { leads, isLoading, error, refetch } = useSalesLeads();
 
   // Optimization: Memoize transformed leads
   const priorityLeads = useMemo(() => {
@@ -17,14 +17,15 @@ export function SalesPipeline() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
       .map((l, i) => ({
-        id: l.id,
-        name: l.name,
-        company: l.company,
+        ...l,
         priority: i + 1,
         reason: l.aiSuggestion || 'AI 实时测算显示该客户意向度极高，建议立即切入。'
       }));
   }, [leads]);
 
+  if (error) {
+    return <div role="alert" className="p-6 text-sm">线索暂时无法加载。<button className="ml-2 text-primary underline" onClick={() => void refetch()}>重试</button></div>;
+  }
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-[500px] gap-4">

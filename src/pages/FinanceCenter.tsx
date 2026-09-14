@@ -60,13 +60,13 @@ interface FinanceBudget {
 // Local interface for finance_invoices rows
 interface FinanceInvoice {
   id: string;
-  organization_id: string;
-  invoice_number: string;
-  amount: number;
-  status: string;
-  due_date: string | null;
-  customer_id: string | null;
-  created_at: string;
+  organization_id: string | null;
+  invoice_number: string | null;
+  amount: number | null;
+  status?: string;
+  due_date?: string | null;
+  customer_id?: string | null;
+  created_at: string | null;
 }
 
 function FinanceApprovalBanner() {
@@ -264,7 +264,7 @@ export function FinanceCenter() {
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setInvoices((data as FinanceInvoice[]) || []);
+      setInvoices(data || []);
     } catch (error: unknown) {
       toast.error('加载发票数据失败');
     } finally {
@@ -522,14 +522,14 @@ export function FinanceCenter() {
                         <div className="text-sm">
                           <p className="font-medium">{inv.invoice_number}</p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(inv.created_at).toLocaleDateString()}
+                            {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '日期未记录'}
                             {inv.due_date && ` | 到期: ${new Date(inv.due_date).toLocaleDateString()}`}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
-                        <span className="font-medium">¥{inv.amount.toLocaleString()}</span>
-                        {getStatusBadge(inv.status)}
+                        <span className="font-medium">{inv.amount == null ? '金额未记录' : `¥${inv.amount.toLocaleString()}`}</span>
+                        {inv.status ? getStatusBadge(inv.status) : <Badge variant="outline">付款状态未记录</Badge>}
                       </div>
                     </div>
                   ))}

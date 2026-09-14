@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { CalendarClock, History, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { ORGANIZATION_PLAN_NAMES } from './organization360Config';
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

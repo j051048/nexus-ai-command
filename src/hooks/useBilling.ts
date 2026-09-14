@@ -187,7 +187,7 @@ export function useCheckout() {
 export function useStartTrial() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (days = 14) => {
+    mutationFn: async (days: number = 14) => {
       const res = await aiClient.fetch<{ success: boolean; data: unknown }>('api/billing/trial', {
         method: 'POST',
         body: JSON.stringify({ days }),

@@ -291,7 +291,7 @@ export function useRecalcProgress() {
 
       if (!tasks || tasks.length === 0) return;
 
-      const completed = tasks.filter((t: { status: string }) => t.status === 'done' || t.status === 'completed').length;
+      const completed = tasks.filter(t => t.status === 'done' || t.status === 'completed').length;
       const progress = Math.round((completed / tasks.length) * 100);
 
       await aiClient.fetch(`api/projects/${projectId}`, {

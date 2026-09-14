@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { enqueueProactiveMessage } from '@/lib/proactiveMessageStore';
+import { useEnterpriseQueryScope } from './useEnterpriseQueryScope';
 
 /**
  * WebSocket 实时推送 hook
@@ -30,6 +31,9 @@ const NO_RECONNECT_CODES = new Set([
 
 export function useWebSocketPush() {
   const queryClient = useQueryClient();
+  const scope = useEnterpriseQueryScope();
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval>>();
@@ -126,10 +130,16 @@ export function useWebSocketPush() {
 
           // P0-1: AI 主动发起聊天对话
           if (msg.type === 'proactive_chat') {
-            const { session_id, title, message, priority } = msg.data;
+            const { session_id, title, message, priority, organization_id, user_id, event_id } = msg.data;
+            const current = scopeRef.current;
+            if (!current.enabled || organization_id !== current.key[0] || user_id !== current.key[1]) return;
+            if (typeof message !== 'string' || typeof title !== 'string' || typeof event_id !== 'string') return;
 
             // 入队 → ChatPanel 自动消费并显示在对话列表中
             enqueueProactiveMessage({
+              id: event_id,
+              organizationId: organization_id,
+              userId: user_id,
               sessionId: session_id,
               title,
               message,

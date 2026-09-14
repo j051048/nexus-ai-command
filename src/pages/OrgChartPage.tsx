@@ -272,7 +272,7 @@ function OrgListView() {
   const transferData = useTransferEmployeeData();
   const { user, role } = useAuth();
 
-  const isBossUser = role === 'boss' || role === 'founder';
+  const isBossUser = role === 'boss';
 
   const [search, setSearch] = useState('');
   const [editingManager, setEditingManager] = useState<OrgMember | null>(null);

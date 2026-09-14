@@ -1,6 +1,8 @@
 import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useUser } from '@/contexts/UserContext';
+import { useEnterpriseQueryScope } from '@/hooks/useEnterpriseQueryScope';
+import { loadPersistedProactiveMessages } from './persistedProactiveMessages';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
@@ -456,98 +458,43 @@ export function useChatPanel({ isExpanded, onToggle, defaultAgent, onSendMessage
   }, [isExpanded, isRecording]);
 
 
-  // Load proactive messages from DB
+  const enterpriseScope = useEnterpriseQueryScope();
+  const [proactiveOrgId, proactiveUserId] = enterpriseScope.key;
   useEffect(() => {
-    const loadProactiveFromDB = async () => {
-      try {
-        const lastSeenStr = localStorage.getItem(`nexus_last_seen_proactive_${user.id}`);
-        let query = supabase.from('proactive_messages').select('*')
-          .eq('user_id', user.id).eq('is_read', false).order('created_at', { ascending: false }).limit(10);
-        if (lastSeenStr) query = query.gt('created_at', lastSeenStr);
-        const { data } = await query;
-        if (!data?.length) return;
-
-        interface ProactiveRow { id: string; content: string; created_at: string; metadata?: { source?: string; task_id?: string; task_name?: string } }
-
-        // Filter out orphan scheduled tasks
-        const taskIds = data.filter((r: ProactiveRow) => r.metadata?.source === 'scheduled_task' && r.metadata?.task_id).map((r: ProactiveRow) => r.metadata!.task_id as string);
-        const taskNames = data.filter((r: ProactiveRow) => r.metadata?.source === 'scheduled_task' && !r.metadata?.task_id && r.metadata?.task_name).map((r: ProactiveRow) => r.metadata!.task_name as string);
-        let deletedTaskIds = new Set<string>();
-        let orphanTaskNames = new Set<string>();
-        try {
-          if (taskIds.length) {
-            const { data: existing } = await supabase.from('user_scheduled_tasks').select('id').in('id', taskIds);
-            const existingSet = new Set((existing || []).map((t: { id: string }) => t.id));
-            deletedTaskIds = new Set(taskIds.filter(id => !existingSet.has(id)));
-          }
-          if (taskNames.length) {
-            const { data: existingByName } = await supabase.from('user_scheduled_tasks').select('name').in('name', taskNames);
-            const existingNames = new Set((existingByName || []).map((t: { name: string }) => t.name));
-            orphanTaskNames = new Set(taskNames.filter(n => !existingNames.has(n)));
-          }
-        } catch { /* orphan task lookup is best-effort */ }
-
-        const validData = (deletedTaskIds.size > 0 || orphanTaskNames.size > 0)
-          ? data.filter((r: ProactiveRow) => {
-              if (r.metadata?.source !== 'scheduled_task') return true;
-              if (r.metadata?.task_id && deletedTaskIds.has(r.metadata.task_id as string)) return false;
-              if (!r.metadata?.task_id && r.metadata?.task_name && orphanTaskNames.has(r.metadata.task_name as string)) return false;
-              return true;
-            })
-          : data;
-        if (!validData.length) return;
-
-        const maxTime = Math.max(...validData.map((r: ProactiveRow) => new Date(r.created_at).getTime()));
-        localStorage.setItem(`nexus_last_seen_proactive_${user.id}`, new Date(maxTime).toISOString());
-
-        const seen = new Set<string>();
-        const deduplicated = validData.filter((row: ProactiveRow) => {
-          const contentKey = `${row.metadata?.task_name || ''}::${row.content?.slice(0, 100) || ''}`;
-          if (seen.has(contentKey)) return false;
-          seen.add(contentKey);
-          return true;
+    if (!enterpriseScope.enabled || !proactiveOrgId || !proactiveUserId) return;
+    const controller = new AbortController();
+    void loadPersistedProactiveMessages(proactiveOrgId, proactiveUserId, controller.signal)
+      .then(results => {
+        if (controller.signal.aborted) return;
+        setMessages(previous => {
+          const ids = new Set(previous.map(message => message.id));
+          return [...previous, ...results.filter(message => !ids.has(message.id))];
         });
-
-        setMessages(prev => {
-          const existingIds = new Set(prev.map(m => m.id));
-          const existingContents = new Set(prev.filter(m => m.isProactive).map(m => m.content?.slice(0, 100)));
-          const newMsgs = deduplicated
-            .filter((row: ProactiveRow) => !existingIds.has(`db-proactive-${row.id}`) && !existingContents.has(row.content?.slice(0, 100) || ''))
-            .map((row: ProactiveRow) => ({
-              id: `db-proactive-${row.id}`, role: 'assistant' as const, content: row.content || '',
-              timestamp: new Date(row.created_at),
-              agent: row.metadata?.task_name ? `${row.metadata?.source === 'smart_reminder' ? '智能提醒' : '定时任务'}: ${row.metadata.task_name}` : '主动推送',
-              isProactive: true,
-            }));
-          return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
-        });
-      } catch { /* proactive message loading is best-effort */ }
-    };
-    loadProactiveFromDB();
-  }, [user.id]);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) console.warn('主动消息加载失败，可在会话历史中重试');
+      });
+    return () => controller.abort();
+  }, [enterpriseScope.enabled, proactiveOrgId, proactiveUserId]);
 
   // Proactive messages
   useEffect(() => {
     const injectProactive = () => {
-      const pending = drainProactiveMessages();
+      if (!enterpriseScope.enabled || !proactiveOrgId || !proactiveUserId) return;
+      const pending = drainProactiveMessages(proactiveOrgId, proactiveUserId);
       if (!pending.length) return;
-      const maxTime = Math.max(...pending.map(p => p.receivedAt.getTime()));
-      const lastSeenStr = localStorage.getItem(`nexus_last_seen_proactive_${user.id}`);
-      if (!lastSeenStr || maxTime > new Date(lastSeenStr).getTime()) {
-        localStorage.setItem(`nexus_last_seen_proactive_${user.id}`, new Date(maxTime).toISOString());
-      }
       setMessages(prev => {
         const existingIds = new Set(prev.map(m => m.id));
         const newMsgs = pending
-          .filter(pm => !existingIds.has(`proactive-${pm.sessionId}`))
-          .map(pm => ({ id: `proactive-${pm.sessionId}`, role: 'assistant' as const, content: pm.message, timestamp: pm.receivedAt, agent: `${pm.title}`, isProactive: true }));
+          .filter(pm => !existingIds.has(`proactive-${pm.id}`))
+          .map(pm => ({ id: `proactive-${pm.id}`, role: 'assistant' as const, content: pm.message, timestamp: pm.receivedAt, agent: pm.title, isProactive: true }));
         return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
       });
     };
     injectProactive();
     window.addEventListener(PROACTIVE_MSG_EVENT, injectProactive);
     return () => window.removeEventListener(PROACTIVE_MSG_EVENT, injectProactive);
-  }, [user.id]);
+  }, [enterpriseScope.enabled, proactiveOrgId, proactiveUserId]);
 
   // Scroll follows streaming content
   const lastMsgContent = messages[messages.length - 1]?.content;

@@ -26,7 +26,7 @@ interface FadeInViewProps {
   duration?: AnimationDuration;
   delay?: number;
   threshold?: number;
-  as?: keyof JSX.IntrinsicElements;
+  as?: 'div' | 'section' | 'article' | 'main' | 'aside' | 'nav';
 }
 
 /**
@@ -46,7 +46,7 @@ export function FadeInView({
 
   return (
     <Component
-      ref={ref as React.RefObject<HTMLDivElement>}
+      ref={ref}
       className={cn(
         className,
         inView && !prefersReducedMotion && getEnterAnimationClass(animation, duration)

@@ -94,7 +94,7 @@ export function useSaveAISettings() {
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: normalizeAIModel(settings.model),
-            ...(settings.behavior_preferences !== undefined && { behavior_preferences: settings.behavior_preferences }),
+            ...(settings.behavior_preferences !== undefined && { behavior_preferences: { ...settings.behavior_preferences } }),
             updated_at: new Date().toISOString(),
           })
           .eq('id', (existing as Record<string, unknown>).id as string)
@@ -112,7 +112,7 @@ export function useSaveAISettings() {
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: normalizeAIModel(settings.model),
-            ...(settings.behavior_preferences !== undefined && { behavior_preferences: settings.behavior_preferences }),
+            ...(settings.behavior_preferences !== undefined && { behavior_preferences: { ...settings.behavior_preferences } }),
           })
           .select()
           .single();

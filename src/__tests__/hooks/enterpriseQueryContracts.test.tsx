@@ -1,5 +1,5 @@
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, type UseQueryResult } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -56,7 +56,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); clients.splice(0).forEach(client => client.clear()); });
 
-const queries = [
+const queries: Array<{ name: string; useQuery: () => UseQueryResult<unknown> }> = [
   { name: 'competitors', useQuery: useCompetitors },
   { name: 'competitor detail', useQuery: () => useCompetitorDetail('selected') },
   { name: 'competitor products', useQuery: () => useCompetitorProducts('selected') },

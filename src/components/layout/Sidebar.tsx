@@ -342,7 +342,7 @@ function SidebarComponent({ onNavClick }: { onNavClick?: () => void }) {
                 </p>
                 <div className="flex items-center gap-1">
                   <p className="truncate text-[11px] text-sidebar-foreground/50">
-                    {role === 'boss' || role === 'founder' ? '管理者' : role === 'manager' ? '团队负责人' : '成员'}
+                    {role === 'boss' ? '管理者' : role === 'manager' ? '团队负责人' : '成员'}
                   </p>
                   <Settings size={10} className="text-sidebar-foreground/20 group-hover:text-sidebar-primary/60 transition-colors" />
                 </div>

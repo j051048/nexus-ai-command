@@ -11,7 +11,7 @@ import React from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // 故意抛错的组件
-function ThrowError({ message }: { message: string }) {
+function ThrowError({ message }: { message: string }): never {
   throw new Error(message);
 }
 
@@ -164,7 +164,7 @@ describe('ErrorBoundary 边缘案例', () => {
   });
 
   it('Error 对象无 stack 不崩溃', () => {
-    function ThrowNoStack() {
+    function ThrowNoStack(): never {
       const err = new Error('no stack');
       err.stack = undefined;
       throw err;
@@ -178,7 +178,7 @@ describe('ErrorBoundary 边缘案例', () => {
   });
 
   it('非 Error 对象抛出', () => {
-    function ThrowString() {
+    function ThrowString(): never {
       throw 'string error';  
     }
     // React 会将非 Error 包装，ErrorBoundary 应该仍能捕获

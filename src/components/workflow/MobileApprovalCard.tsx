@@ -21,14 +21,14 @@ interface MobileApprovalCardProps {
 }
 
 export function MobileApprovalCard({ request, onViewDetails }: MobileApprovalCardProps) {
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     pending: 'bg-orange-100 text-orange-700',
     approved: 'bg-green-100 text-green-700',
     rejected: 'bg-red-100 text-red-700',
     current: 'bg-blue-100 text-blue-700',
   };
 
-  const typeLabels = {
+  const typeLabels: Record<string, string> = {
     expense: '费用报销',
     leave: '请假申请',
     purchase: '采购申请',

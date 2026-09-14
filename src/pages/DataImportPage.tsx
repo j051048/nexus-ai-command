@@ -100,10 +100,8 @@ export default function DataImportPage() {
     const fileExt = '.' + fileName.split('.').pop();
     
     if (!ALLOWED_TYPES.includes(fileExt)) {
-      toast({
-        title: '文件类型不支持',
+      toast.error('文件类型不支持', {
         description: `仅支持 ${ALLOWED_TYPES.join(', ')} 格式`,
-        variant: 'destructive',
       });
       return false;
     }
@@ -152,8 +150,7 @@ export default function DataImportPage() {
       setPreviewData(result.data);
       setFile(file);
       
-      toast({
-        title: '预览成功',
+      toast.success('预览成功', {
         description: `解析到 ${result.data.total} 条记录`,
       });
     } catch (error) {
@@ -234,8 +231,7 @@ export default function DataImportPage() {
       const result = await response.json();
       setImportResult(result.data);
       
-      toast({
-        title: '导入完成',
+      toast.success('导入完成', {
         description: `成功导入 ${result.data.success_count} 条记录`,
       });
     } catch (error) {

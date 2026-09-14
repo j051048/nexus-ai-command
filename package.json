@@ -9,6 +9,8 @@
     "build:raw": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "check:database-contract": "python scripts/generate_supabase_contract.py --check",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -20,7 +22,7 @@
     "check:text": "node scripts/check_text_quality.mjs",
     "check:ui": "node scripts/check_ui_aesthetics.mjs",
     "check:handover": "python scripts/check_handover_readiness.py && python scripts/check_exception_governance.py",
-    "quality:frontend": "npm run check:size && npm run check:ui && npm run build && npm run check:bundle && npm run check:text",
+    "quality:frontend": "npm run typecheck && npm run check:size && npm run check:ui && npm run build && npm run check:bundle && npm run check:text",
     "analyze": "vite build --mode analyze"
   },
   "dependencies": {

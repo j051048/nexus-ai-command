@@ -6,6 +6,7 @@ duplicated three-step push logic.
 """
 
 import logging
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +44,13 @@ async def push_agent_result(
                 {
                     "type": "proactive_chat",
                     "data": {
+                        **(metadata or {}),
+                        "event_id": str(uuid4()),
+                        "organization_id": org_id,
+                        "user_id": user_id,
                         "session_id": session_id,
                         "title": title,
                         "message": message,
-                        **(metadata or {}),
                     },
                 },
             )

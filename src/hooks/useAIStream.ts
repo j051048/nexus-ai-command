@@ -44,6 +44,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
   const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
   const [followUpSuggestions, setFollowUpSuggestions] = useState<string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
   const [sessionId, setSessionId] = useState<string>(
     `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   );
@@ -140,7 +141,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
       // 添加超时保护 — P0 #19: Dynamic timeout with tool_progress reset
       const STREAM_TIMEOUT = 120000; // 120s base timeout (was 60s — too short for multi-tool)
-      let streamTimeoutId: ReturnType<typeof setTimeout>;
+      let streamTimeoutId: ReturnType<typeof setTimeout> | undefined;
       const resetStreamTimeout = () => {
         clearTimeout(streamTimeoutId);
         streamTimeoutId = setTimeout(() => {

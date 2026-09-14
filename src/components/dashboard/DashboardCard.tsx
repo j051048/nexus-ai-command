@@ -57,7 +57,6 @@ const APPROVAL_STATS = {
 function DefaultEmptyState() {
   return (
     <EmptyState
-      compact
       title="暂无业务数据"
       description="当前看板暂无可用业务指标，系统将在业务数据录入后自动展示。"
     />

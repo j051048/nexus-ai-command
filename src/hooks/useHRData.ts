@@ -137,7 +137,7 @@ export function usePerformanceData(period?: string) {
   return useQuery({
     queryKey: ['hr-performance', user?.id, period],
     queryFn: async () => {
-      const response = await httpClient.get('/api/hr/performance');
+      const response = await httpClient.get<{ reviews: PerformanceReview[] }>('/api/hr/performance');
       return response.data?.reviews?.[0] || null;
     },
     enabled: !!user?.id,

@@ -42,7 +42,7 @@ describe('automatic approval rule controls', () => {
     fireEvent.click(await screen.findByRole('button', { name: '新增规则' }));
     fireEvent.change(screen.getByPlaceholderText('如：小额报销自动通过'), { target: { value: 'Expense limit' } });
     fireEvent.change(screen.getByPlaceholderText('500'), { target: { value: '500' } });
-    fireEvent.click(screen.getByRole('button', { name: '创建规则', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: '创建规则' }));
     await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/api/approval/auto-rules', {
       name: 'Expense limit', approval_type: 'expense', condition_field: 'amount', condition_op: 'lte', condition_value: 500,
     }, expect.objectContaining({ headers: { 'X-Org-ID': 'org-a' } })));

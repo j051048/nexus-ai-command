@@ -183,7 +183,7 @@ export function ProactiveCopilotPanel({
                         size="sm"
                         variant="ghost"
                         className="h-7 px-2 text-xs"
-                        onClick={() => navigate(insight.href)}
+                        onClick={() => { if (insight.href) navigate(insight.href); }}
                       >
                         查看
                         <ArrowRight className="ml-1 h-3.5 w-3.5" />

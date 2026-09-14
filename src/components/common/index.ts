@@ -8,18 +8,16 @@ export {
   EmptyState,
   NoSearchResults,
   NoDataYet,
-  LoadingError,
-  type EmptyStateType,
 } from './EmptyState';
 
 // Command Palette
 export { CommandPalette } from './CommandPalette';
 
 // AI Copilot
-export { default as AICopilotInsight } from './AICopilotInsight';
+export { AICopilotInsight } from './AICopilotInsight';
 
 // Notification Center
-export { default as NotificationCenter } from './NotificationCenter';
+export { NotificationCenter } from './NotificationCenter';
 export { EnhancedNotificationCenter } from './EnhancedNotificationCenter';
 
 // Animated Components

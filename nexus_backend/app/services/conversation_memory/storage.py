@@ -10,7 +10,7 @@ from app.core.database import supabase
 from .admission import evaluate_memory_admission
 from .embedding import generate_embedding
 from .pii_filter import sanitize_pii
-from .visibility import determine_visibility
+from .visibility import apply_owner_scope, determine_visibility
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +173,7 @@ async def save_memory(
         await client.table("conversation_memories")
         .select("id, access_count, version, importance")
         .eq("user_id", user_id)
+        .eq("organization_id", org_id)
         .eq("key", key)
         .is_("superseded_by", "null")
         .maybe_single()
@@ -199,7 +200,12 @@ async def save_memory(
     if not old_id and embedding and not is_bench:
         try:
             similar = await _find_semantically_similar(
-                user_id, embedding, threshold=0.92, category=category, db=client
+                user_id,
+                embedding,
+                threshold=0.92,
+                category=category,
+                db=client,
+                org_id=org_id,
             )
             if similar:
                 # Found a semantically similar memory — merge into it
@@ -218,7 +224,7 @@ async def save_memory(
 
     # P0 Fix: Per-user memory limit (500) — evict lowest-importance when full
     if not old_id and not is_bench:
-        await _enforce_memory_limit(user_id, client, category=category)
+        await _enforce_memory_limit(user_id, client, category=category, org_id=org_id)
 
     # P1.1: Auto-determine visibility level for RBAC
     resolved_visibility = determine_visibility(category, importance, visibility)
@@ -378,6 +384,8 @@ async def save_memory(
                     await client.table("conversation_memories")
                     .update(update_data)
                     .eq("id", old_id)
+                    .eq("organization_id", org_id)
+                    .eq("user_id", user_id)
                     .execute()
                 )
             else:
@@ -397,7 +405,9 @@ async def save_memory(
             try:
                 await client.table("conversation_memories").update(
                     {"superseded_by": new_id}
-                ).eq("id", old_id).execute()
+                ).eq("id", old_id).eq("organization_id", org_id).eq(
+                    "user_id", user_id
+                ).execute()
             except Exception:
                 logger.error(
                     f"Failed to mark old version {old_id} as superseded (column may not exist)"
@@ -449,6 +459,7 @@ async def delete_memory(
     user_id: str,
     memory_id: str,
     db: Any = None,
+    org_id: str | None = None,
 ) -> bool:
     """删除单条记忆"""
     client = db or supabase
@@ -461,8 +472,13 @@ async def delete_memory(
     memory_org_id = None
     try:
         existing = (
-            await client.table("conversation_memories")
-            .select("value, key, organization_id")
+            await apply_owner_scope(
+                client.table("conversation_memories").select(
+                    "value, key, organization_id"
+                ),
+                user_id,
+                org_id,
+            )
             .eq("id", memory_id)
             .eq("user_id", user_id)
             .maybe_single()
@@ -475,7 +491,9 @@ async def delete_memory(
     except Exception:
         pass
 
-    delete_query = client.table("conversation_memories").delete().eq("user_id", user_id)
+    delete_query = apply_owner_scope(
+        client.table("conversation_memories").delete(), user_id, org_id
+    )
     delete_query = (
         delete_query.eq("key", memory_key)
         if memory_key
@@ -509,13 +527,16 @@ async def clear_memories(
     user_id: str,
     category: str | None = None,
     db: Any = None,
+    org_id: str | None = None,
 ) -> int:
     """清除记忆（可按分类清除）"""
     client = db or supabase
     if not client:
         return 0
 
-    query = client.table("conversation_memories").delete().eq("user_id", user_id)
+    query = apply_owner_scope(
+        client.table("conversation_memories").delete(), user_id, org_id
+    )
 
     if category:
         query = query.eq("category", category)
@@ -538,14 +559,16 @@ async def update_memory(
     lifecycle_state: str | None = None,
     expires_at: str | None = None,
     db: Any = None,
+    org_id: str | None = None,
 ) -> dict | None:
     """Update user controls; content edits create a new immutable version."""
     client = db or supabase
     if not client:
         return None
     existing = (
-        await client.table("conversation_memories")
-        .select("*")
+        await apply_owner_scope(
+            client.table("conversation_memories").select("*"), user_id, org_id
+        )
         .eq("id", memory_id)
         .eq("user_id", user_id)
         .is_("superseded_by", "null")
@@ -591,8 +614,9 @@ async def update_memory(
     if expires_at is not None:
         updates["expires_at"] = expires_at
     result = (
-        await client.table("conversation_memories")
-        .update(updates)
+        await apply_owner_scope(
+            client.table("conversation_memories").update(updates), user_id, org_id
+        )
         .eq("id", memory_id)
         .eq("user_id", user_id)
         .execute()
@@ -658,6 +682,7 @@ async def _find_semantically_similar(
     threshold: float = 0.92,
     category: str | None = None,
     db: Any = None,
+    org_id: str | None = None,
 ) -> dict | None:
     """Find the most similar active memory via pgvector cosine search.
 
@@ -672,6 +697,7 @@ async def _find_semantically_similar(
         "match_user_id": user_id,
         "query_embedding": embedding,
         "match_limit": 1,
+        "match_org_id": org_id,
     }
 
     try:
@@ -684,7 +710,31 @@ async def _find_semantically_similar(
             # Filter by category if specified (RPC may not support this natively)
             if category and match.get("category") and match["category"] != category:
                 return None
-            return match
+            canonical = (
+                await apply_owner_scope(
+                    client.table("conversation_memories")
+                    .select("*")
+                    .eq("id", match.get("id")),
+                    user_id,
+                    org_id,
+                )
+                .maybe_single()
+                .execute()
+            )
+            current = canonical.data
+            if (
+                not isinstance(current, dict)
+                or current.get("organization_id") != org_id
+                or current.get("user_id") != user_id
+            ):
+                return None
+            from .governance import memory_is_current
+
+            if not memory_is_current(current) or (
+                category and current.get("category") != category
+            ):
+                return None
+            return current
     except Exception as e:
         logger.error(f"_find_semantically_similar RPC failed: {e}")
 
@@ -706,6 +756,7 @@ async def _enforce_memory_limit(
     *,
     category: str,
     max_memories: int = 1200,
+    org_id: str | None = None,
 ) -> None:
     """Evict lowest-importance memories when a user exceeds the cap.
 
@@ -714,8 +765,11 @@ async def _enforce_memory_limit(
     """
     try:
         count_res = (
-            await db.table("conversation_memories")
-            .select("id", count="exact")
+            await apply_owner_scope(
+                db.table("conversation_memories").select("id", count="exact"),
+                user_id,
+                org_id,
+            )
             .eq("user_id", user_id)
             .is_("superseded_by", "null")
             .execute()
@@ -727,8 +781,11 @@ async def _enforce_memory_limit(
         )
         category_limit = _CATEGORY_LIMITS.get(category, 300)
         category_count_res = (
-            await db.table("conversation_memories")
-            .select("id", count="exact")
+            await apply_owner_scope(
+                db.table("conversation_memories").select("id", count="exact"),
+                user_id,
+                org_id,
+            )
             .eq("user_id", user_id)
             .eq("category", category)
             .is_("superseded_by", "null")
@@ -746,8 +803,9 @@ async def _enforce_memory_limit(
         active_limit = min(max_memories, category_limit)
         evict_count = max(int(active_limit * 0.1), 1)
         victims = (
-            await db.table("conversation_memories")
-            .select("id")
+            await apply_owner_scope(
+                db.table("conversation_memories").select("id"), user_id, org_id
+            )
             .eq("user_id", user_id)
             .eq("category", category)
             .is_("superseded_by", "null")
@@ -759,16 +817,20 @@ async def _enforce_memory_limit(
         if victims.data:
             victim_ids = [v["id"] for v in victims.data]
             try:
-                await db.table("conversation_memories").update(
-                    {
-                        "lifecycle_state": "archived",
-                        "archived_at": datetime.now(UTC).isoformat(),
-                    }
+                await apply_owner_scope(
+                    db.table("conversation_memories").update(
+                        {
+                            "lifecycle_state": "archived",
+                            "archived_at": datetime.now(UTC).isoformat(),
+                        }
+                    ),
+                    user_id,
+                    org_id,
                 ).in_("id", victim_ids).execute()
             except Exception:
-                await db.table("conversation_memories").delete().in_(
-                    "id", victim_ids
-                ).execute()
+                logger.warning(
+                    "Memory archival unavailable; preserving records instead of destructive fallback"
+                )
             logger.info(
                 "[MemoryLimit] Evicted %d low-importance memories for user %s (total was %d, cap %d)",
                 len(victim_ids),

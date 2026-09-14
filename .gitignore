@@ -111,4 +111,5 @@ supabase/.temp/
 # Vite temp
 vite.config.ts.timestamp-*
 *.timestamp-*.mjs
-
+# Artifacts
+artifacts/

@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { httpClient } from '@/lib/httpClient';
+import { normalizeAuthRole, type AuthRole as AppRole } from '@/lib/userRoles';
 
 // 权限系统
-type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee' | 'pending_boss';
 
 interface Profile {
   id: string;
@@ -109,6 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (dbRole === 'manager') {
           setRole('manager');
           setIsPendingBoss(false);
+        } else if (dbRole === 'admin') {
+          setRole('admin');
+          setIsPendingBoss(false);
         } else if (dbRole === 'ai_assistant') {
           setRole('ai_assistant');
           setIsPendingBoss(false);
@@ -131,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setRole('employee');
               setIsPendingBoss(true);
             } else {
-              setRole(roleStr as AppRole);
+              setRole(normalizeAuthRole(roleStr));
               setIsPendingBoss(false);
             }
           } else {

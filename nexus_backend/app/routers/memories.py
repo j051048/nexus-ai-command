@@ -146,6 +146,7 @@ async def update_memory(
             lifecycle_state=body.lifecycle_state,
             expires_at=body.expires_at,
             db=getattr(request.state, "db", None),
+            org_id=getattr(request.state, "org_id", None),
         )
         if not updated:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "记忆不存在")
@@ -187,6 +188,7 @@ async def clear_memories(
             user_id=user_id,
             category=category,
             db=db,
+            org_id=getattr(request.state, "org_id", None),
         )
 
         return api_success(
@@ -214,6 +216,7 @@ async def delete_memory(
             user_id=user_id,
             memory_id=memory_id,
             db=db,
+            org_id=getattr(request.state, "org_id", None),
         )
 
         if not deleted:

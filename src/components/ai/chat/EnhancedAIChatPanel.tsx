@@ -14,6 +14,7 @@ import { QuotaDisplay } from './QuotaDisplay';
 import { ChatSuggestions } from './ChatSuggestions';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { useChatPanel } from './useChatPanel';
+import { useEnterpriseQueryScope } from '@/hooks/useEnterpriseQueryScope';
 import { ProactiveCopilotPanel } from '@/components/ai/ProactiveCopilotPanel';
 
 interface EnhancedAIChatPanelProps {
@@ -56,7 +57,12 @@ const agentTags = [
   },
 ];
 
-export function EnhancedAIChatPanel({
+export function EnhancedAIChatPanel(props: EnhancedAIChatPanelProps) {
+  const scope = useEnterpriseQueryScope();
+  return <ScopedChatPanel key={JSON.stringify(scope.key)} {...props} />;
+}
+
+function ScopedChatPanel({
   isExpanded,
   onToggle,
   defaultAgent,

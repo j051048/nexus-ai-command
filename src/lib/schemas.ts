@@ -22,7 +22,7 @@ export const approvalRequestSchema = z.object({
     type: z.string(),
     amount: z.number().nonnegative(),
     description: z.string().nullable().default('无描述'),
-    status: z.enum(['pending', 'approved', 'rejected']).default('pending'),
+    status: z.enum(['pending', 'approved', 'rejected', 'pending_resubmit']).default('pending'),
     created_at: z.string(),
     submitted_at: z.string().optional(),
     submitter_name: z.string().optional().default('未知用户'),

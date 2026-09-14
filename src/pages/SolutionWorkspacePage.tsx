@@ -131,7 +131,7 @@ export default function SolutionWorkspacePage() {
   const handleGenerate = async () => {
     try {
       await saveWorkspace.mutateAsync(workspace);
-      const result = await generateSolution.mutateAsync();
+      const result = await generateSolution.mutateAsync({});
       if (result.cached) {
         toast.success(`输入与资料未变化，已复用第 ${result.version} 版，未产生新的模型费用`);
         return;

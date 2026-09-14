@@ -19,12 +19,13 @@ export function getStripe(): Promise<Stripe | null> {
   return stripePromise;
 }
 
-/** 重定向到 Stripe Checkout */
-export async function redirectToCheckout(sessionId: string): Promise<void> {
-  const stripe = await getStripe();
-  if (!stripe) throw new Error('Stripe not initialized');
-  const { error } = await stripe.redirectToCheckout({ sessionId });
-  if (error) throw error;
+/** Redirect using the checkout URL returned by the authenticated backend. */
+export async function redirectToCheckout(checkoutUrl: string): Promise<void> {
+  const url = new URL(checkoutUrl);
+  if (url.protocol !== 'https:' || url.hostname !== 'checkout.stripe.com' || url.username || url.password) {
+    throw new Error('无效的支付链接');
+  }
+  window.location.assign(url.href);
 }
 
 /** 跳转到 Stripe 客户门户 */

@@ -165,7 +165,7 @@ export function ApprovalHistory({
                                         <div className="flex items-center gap-2">
                                             <p className="font-medium text-foreground truncate text-sm">{item.description}</p>
                                             <AICopilotInsight
-                                                title={item.description}
+                                                title={item.description || '审批申请'}
                                                 context={`Amount: ${item.amount}, Type: ${item.type}`}
                                                 insights={[
                                                     { type: 'summary', content: '系统识别到该项支出属于常规差旅范畴。' },

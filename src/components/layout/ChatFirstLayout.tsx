@@ -73,7 +73,7 @@ function AssistantStatusPill({
   const [isWorking, setIsWorking] = useState(false);
 
   useEffect(() => {
-    let timer: ReturnType<typeof window.setTimeout> | undefined;
+    let timer: number | undefined;
     const handler = () => {
       setIsWorking(true);
       timer = window.setTimeout(() => setIsWorking(false), 3200);

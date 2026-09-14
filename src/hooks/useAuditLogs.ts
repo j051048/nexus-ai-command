@@ -108,7 +108,7 @@ export function useAuditActions() {
     queryKey: ['audit-actions'],
     queryFn: async () => {
       if (!(await isAuditTableAvailable())) return [];
-      const response = await httpClient.get('/api/system/audit-logs');
+      const response = await httpClient.get<{ logs: AuditLogEntry[] }>('/api/system/audit-logs');
       const logs = Array.isArray(response.data?.logs) ? response.data.logs : [];
       return [...new Set(logs.map((l: AuditLogEntry) => l.action))];
     },

@@ -1067,23 +1067,66 @@ async def list_knowledge_libraries(
 ):
     """获取所有知识库分类及其文档计数"""
     from app.core.database import supabase as global_supabase
+    from app.services.knowledge_access_service import (
+        document_department,
+        library_is_accessible,
+    )
 
-    # knowledge_library 的 RLS 依赖 app.current_org_id，scoped client 无法读取
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "缺少企业身份")
+    # Legacy RLS relies on a session GUC; privileged reads must bind tenant and ACL explicitly.
     client = global_supabase
     if not client:
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库服务不可用")
 
     try:
+        columns = "id, tenant_id, library_code, library_name, description, access_level, department_id, owner_id, doc_count, is_active"
         res = (
             await client.table("knowledge_library")
-            .select(
-                "id, library_code, library_name, description, access_level, doc_count, is_active"
-            )
+            .select(columns)
+            .eq("tenant_id", org_id)
             .eq("is_active", True)
             .order("id")
             .execute()
         )
-        libraries = res.data if res.data else []
+        templates = (
+            await client.table("knowledge_library")
+            .select(columns)
+            .is_("tenant_id", "null")
+            .eq("is_active", True)
+            .order("id")
+            .execute()
+        )
+        department_ids: set[str] = set()
+        if any(row.get("access_level") == "department" for row in res.data or []):
+            department = await document_department(
+                client, user_id=_user_id, organization_id=org_id
+            )
+            if department:
+                departments = (
+                    await client.table("departments")
+                    .select("id")
+                    .eq("organization_id", org_id)
+                    .eq("name", department)
+                    .execute()
+                )
+                department_ids = {str(row["id"]) for row in departments.data or []}
+        libraries = [
+            {
+                **row,
+                "doc_count": (
+                    0 if row.get("tenant_id") is None else row.get("doc_count", 0)
+                ),
+            }
+            for row in (res.data or []) + (templates.data or [])
+            if library_is_accessible(
+                row,
+                organization_id=org_id,
+                user_id=_user_id,
+                department_ids=department_ids,
+            )
+        ]
         return api_success(data=libraries, message=f"共 {len(libraries)} 个知识库")
     except Exception as e:
         logger.error(f"Failed to list knowledge libraries: {e}")

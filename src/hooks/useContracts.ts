@@ -51,7 +51,7 @@ export function useContracts(filters?: { status?: string; search?: string }) {
       if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
       if (filters?.search) params.append('search', filters.search);
 
-      const response = await httpClient.get(`/api/contracts?${params}`);
+      const response = await httpClient.get<{ contracts: Contract[] }>(`/api/contracts?${params}`);
       const result = response.data?.contracts;
       return Array.isArray(result) ? result : [];
     },
@@ -64,8 +64,8 @@ export function useContractDetail(contractId: string | null) {
   return useQuery({
     queryKey: ['contract-detail', contractId],
     queryFn: async () => {
-      if (!contractId) return null;
-      const response = await httpClient.get(`/api/contracts/${contractId}/events`);
+      if (!contractId) return [];
+      const response = await httpClient.get<{ events: ContractEvent[] }>(`/api/contracts/${contractId}/events`);
       const result = response.data?.events;
       return Array.isArray(result) ? result : [];
     },

@@ -156,7 +156,7 @@ export function EmployeeDetail({
                             )}
                             <span className="flex items-center gap-1">
                                 <Calendar className="w-4 h-4" />
-                                入职日期: {new Date(employee.created_at).toLocaleDateString('zh-CN')}
+                                入职日期: {employee.created_at ? new Date(employee.created_at).toLocaleDateString('zh-CN') : '未记录'}
                             </span>
                         </div>
                     </div>
@@ -276,7 +276,7 @@ export function EmployeeDetail({
                                     )}>
                                         {project.type}
                                     </span>
-                                    <span className="text-xs text-muted-foreground">{new Date(project.updated_at).toLocaleDateString()} 更新</span>
+                                    <span className="text-xs text-muted-foreground">{project.updated_at ? `${new Date(project.updated_at).toLocaleDateString()} 更新` : '暂无更新时间'}</span>
                                 </div>
                                 <h4 className="font-semibold text-foreground">{project.name}</h4>
                                 <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{project.description}</p>
@@ -426,7 +426,11 @@ export function EmployeeDetail({
                             <label className="text-sm font-medium text-foreground">角色</label>
                             <Select
                                 value={editForm.role}
-                                onValueChange={(value) => setEditForm(prev => ({ ...prev, role: value }))}
+                                onValueChange={(value) => {
+                                    if (value === 'employee' || value === 'manager' || value === 'boss') {
+                                        setEditForm(prev => ({ ...prev, role: value }));
+                                    }
+                                }}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="选择角色" />

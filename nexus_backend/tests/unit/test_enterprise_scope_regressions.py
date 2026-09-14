@@ -86,20 +86,27 @@ async def test_context_builder_scopes_observation_and_all_lookups(monkeypatch):
 @pytest.mark.asyncio
 async def test_consolidations_revalidate_canonical_owner_and_tenant(monkeypatch):
     from app.services.vector_service import vector_service
+    from app.services.conversation_memory.lineage import source_snapshot
 
     monkeypatch.setattr(vector_service, "embed_text", AsyncMock(return_value=[0.1]))
     db = MagicMock()
     db.rpc.return_value = query([{"id": "ok", "content": "stale"}, {"id": "foreign"}])
-    db.table.return_value = query(
+    source = {"id": "s1", "user_id": "u", "organization_id": "org-a", "value": "source"}
+    insights_query = query(
         [
             {
                 "id": "ok",
                 "user_id": "u",
                 "organization_id": "org-a",
                 "content": "current",
+                "source_memory_ids": ["s1"],
+                "source_fingerprints": source_snapshot([source]),
             },
             {"id": "foreign", "user_id": "u", "organization_id": "org-b"},
         ]
+    )
+    db.table.side_effect = lambda table: (
+        query([source]) if table == "conversation_memories" else insights_query
     )
     rows = await retrieval.search_consolidations("u", "context", db=db, org_id="org-a")
     assert [row["id"] for row in rows] == ["ok"]

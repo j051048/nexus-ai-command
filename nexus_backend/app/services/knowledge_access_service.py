@@ -3,6 +3,40 @@
 from datetime import UTC, datetime
 from typing import Any
 
+DEFAULT_LIBRARY_CODES = frozenset(
+    {
+        "product_lib",
+        "regulation_lib",
+        "case_lib",
+        "tender_lib",
+        "training_lib",
+        "competitor_lib",
+    }
+)
+
+
+def library_is_accessible(
+    library: dict, *, organization_id: str, user_id: str, department_ids: set[str]
+) -> bool:
+    if not organization_id or not user_id:
+        return False
+    tenant_id = library.get("tenant_id")
+    if tenant_id is None:
+        # Only built-in, content-free category templates are global.
+        return (
+            library.get("library_code") in DEFAULT_LIBRARY_CODES
+            and not library.get("owner_id")
+            and not library.get("department_id")
+        )
+    if str(tenant_id) != organization_id:
+        return False
+    level = library.get("access_level") or "organization"
+    if level == "private":
+        return str(library.get("owner_id") or "") == user_id
+    if level == "department":
+        return str(library.get("department_id") or "") in department_ids
+    return level == "organization"
+
 
 def document_access_reason(
     document: dict[str, Any],
