@@ -22,6 +22,8 @@ describe('database-backed UI contracts', () => {
   });
   it('restores persisted results only for the exact tenant and user', () => {
     expect(toProactiveMessage(row, 'a', 'u')).toMatchObject({ id: 'm1', content: row.content, agent: '周报' });
+    expect(toProactiveMessage({ ...row, metadata: { source: 'proactive', event_id: 'shared-event' } }, 'a', 'u'))
+      .toMatchObject({ id: 'proactive-shared-event' });
     expect(toProactiveMessage(row, 'b', 'u')).toBeNull();
     expect(toProactiveMessage(row, 'a', 'other')).toBeNull();
     for (const patch of [{ role: 'user' }, { created_at: 'invalid' }, { metadata: {} }, { content: '' }]) {

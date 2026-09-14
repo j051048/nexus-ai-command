@@ -102,6 +102,23 @@ describe('useWebSocketPush', () => {
     expect(ws.url).toContain('token=test-jwt-token');
   });
 
+  it('rejects unscoped and foreign proactive payloads before enqueue or toast', async () => {
+    const { useWebSocketPush } = await import('@/hooks/useWebSocketPush');
+    const { enqueueProactiveMessage } = await import('@/lib/proactiveMessageStore');
+    const { toast } = await import('sonner');
+    const { unmount } = renderHook(() => useWebSocketPush(), { wrapper });
+    await vi.advanceTimersByTimeAsync(100);
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const data = { session_id: 'default', title: '结果', message: '完整结果', user_id: 'u', event_id: 'event' };
+    ws.simulateMessage({ type: 'proactive_chat', data });
+    ws.simulateMessage({ type: 'proactive_chat', data: { ...data, organization_id: 'b' } });
+    expect(enqueueProactiveMessage).not.toHaveBeenCalled();
+    expect(toast.info).not.toHaveBeenCalled();
+    ws.simulateMessage({ type: 'proactive_chat', data: { ...data, organization_id: 'a' } });
+    expect(enqueueProactiveMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'event', organizationId: 'a', userId: 'u' }));
+    unmount();
+  });
+
   it('NO_RECONNECT_CODES (1013/4001/4002/4003) 不触发重连', async () => {
     const { useWebSocketPush } = await import('@/hooks/useWebSocketPush');
     renderHook(() => useWebSocketPush(), { wrapper });

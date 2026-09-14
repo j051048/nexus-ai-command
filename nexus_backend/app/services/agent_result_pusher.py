@@ -22,6 +22,7 @@ async def push_agent_result(
     session_id: str = "default",
 ) -> None:
     """Push an agent result via notification, WebSocket, and chat persistence."""
+    event_id = str(uuid4())
     # 1. Send notification
     try:
         from app.services.notification_service import send_notification
@@ -30,6 +31,7 @@ async def push_agent_result(
             title=title,
             content=message[:500],
             target_user_id=user_id,
+            metadata={"organization_id": org_id, "event_id": event_id},
         )
     except Exception as e:
         logger.error("[push_agent_result] Notification failed: %s", e)
@@ -45,7 +47,7 @@ async def push_agent_result(
                     "type": "proactive_chat",
                     "data": {
                         **(metadata or {}),
-                        "event_id": str(uuid4()),
+                        "event_id": event_id,
                         "organization_id": org_id,
                         "user_id": user_id,
                         "session_id": session_id,
@@ -67,7 +69,7 @@ async def push_agent_result(
             role="assistant",
             content=message,
             agent=agent_name,
-            metadata={"source": "proactive", **(metadata or {})},
+            metadata={**(metadata or {}), "source": "proactive", "event_id": event_id},
             org_id=org_id,
         )
     except Exception as e:

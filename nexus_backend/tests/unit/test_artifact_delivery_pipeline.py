@@ -275,6 +275,9 @@ async def test_explicit_enterprise_document_is_split_into_citable_topics(monkeyp
                 {
                     "id": "11111111-1111-4111-8111-111111111111",
                     "name": "FD-F 完整产品方案.docx",
+                    "organization_id": "org-1",
+                    "owner_id": "user-1",
+                    "status": "ready",
                     "doc_type": "product",
                     "review_status": "approved",
                     "source_version": "2026.2",

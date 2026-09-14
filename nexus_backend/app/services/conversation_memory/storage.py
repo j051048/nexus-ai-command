@@ -309,11 +309,9 @@ async def save_memory(
             ).execute()
             used_atomic_rpc = True
         except Exception as rpc_error:
-            error_text = str(rpc_error).lower()
-            if not any(
-                marker in error_text
-                for marker in ("pgrst202", "42883", "function", "schema cache")
-            ):
+            # Permission errors often name the function too. Only an explicit
+            # missing-RPC code permits the legacy rolling-migration path.
+            if getattr(rpc_error, "code", None) not in {"PGRST202", "42883"}:
                 raise
             logger.warning(
                 "Atomic memory RPC is not available yet; using legacy write path"

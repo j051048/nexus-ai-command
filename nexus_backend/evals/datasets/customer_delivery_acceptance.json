@@ -11,7 +11,12 @@
       "request": "基于已上传产品资料，生成一份面向制药质控实验室的紫外可见光谱仪升级方案，包含需求验收矩阵、配置、实施、培训、售后与证据。",
       "instrument_line": "spectroscopy",
       "formats": ["docx", "pdf"],
-      "minimum_download_bytes": 1000
+      "minimum_download_bytes": 1000,
+      "minimum_character_count": 3000,
+      "minimum_headings": 3,
+      "minimum_tables": 1,
+      "required_terms": ["UV-2600", "验收", "实施", "来源"],
+      "forbidden_terms": ["[TOOL_RESULT]", "tool_args", "trace_id"]
     },
     {
       "id": "chromatography-method-migration",
@@ -22,7 +27,12 @@
       "request": "基于已上传资料，生成面向制药实验室的液相色谱方法迁移、配置、系统适用性、审计追踪和验收方案，参数必须有证据或标记待核验。",
       "instrument_line": "chromatography",
       "formats": ["docx", "pdf"],
-      "minimum_download_bytes": 1000
+      "minimum_download_bytes": 1000,
+      "minimum_character_count": 3000,
+      "minimum_headings": 3,
+      "minimum_tables": 1,
+      "required_terms": ["LC-600", "验收", "实施", "来源"],
+      "forbidden_terms": ["[TOOL_RESULT]", "tool_args", "trace_id"]
     },
     {
       "id": "mass-spectrometry-quantitation",
@@ -33,7 +43,12 @@
       "request": "基于已上传资料，生成面向食品安全实验室的三重四极杆质谱定量应用方案，覆盖真实基质、方法验证、配置、实施、培训和验收。",
       "instrument_line": "mass_spectrometry",
       "formats": ["docx", "pdf"],
-      "minimum_download_bytes": 1000
+      "minimum_download_bytes": 1000,
+      "minimum_character_count": 3000,
+      "minimum_headings": 3,
+      "minimum_tables": 1,
+      "required_terms": ["MSQ-450", "验收", "实施", "来源"],
+      "forbidden_terms": ["[TOOL_RESULT]", "tool_args", "trace_id"]
     },
     {
       "id": "energy-spectroscopy-acceptance",
@@ -44,7 +59,12 @@
       "request": "基于已上传资料，生成能谱系统升级、主机兼容、标定、轻元素分析、数据接口和验收服务方案，不得脱离测试条件承诺性能。",
       "instrument_line": "energy_spectroscopy",
       "formats": ["docx", "pdf"],
-      "minimum_download_bytes": 1000
+      "minimum_download_bytes": 1000,
+      "minimum_character_count": 3000,
+      "minimum_headings": 3,
+      "minimum_tables": 1,
+      "required_terms": ["EDS-80", "验收", "实施", "来源"],
+      "forbidden_terms": ["[TOOL_RESULT]", "tool_args", "trace_id"]
     },
     {
       "id": "electronic-service-proposal",
@@ -55,7 +75,12 @@
       "request": "基于已上传资料，生成频谱分析仪校准、SCPI 自动化与验收服务方案，所有参数必须有证据或标记待核验。",
       "instrument_line": "electronic_instrumentation",
       "formats": ["docx", "pdf"],
-      "minimum_download_bytes": 1000
+      "minimum_download_bytes": 1000,
+      "minimum_character_count": 3000,
+      "minimum_headings": 3,
+      "minimum_tables": 1,
+      "required_terms": ["SA-18", "验收", "实施", "来源"],
+      "forbidden_terms": ["[TOOL_RESULT]", "tool_args", "trace_id"]
     }
   ]
 }

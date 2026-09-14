@@ -47,8 +47,8 @@ jobs:
       - name: Run live customer delivery acceptance
         run: |
           if [[ -n "$GOLDEN_ACCEPTANCE_BASE_URL" && -n "$GOLDEN_ACCEPTANCE_TOKEN" && -n "$GOLDEN_ACCEPTANCE_ORG_ID" ]]; then
-            python -m pip install "httpx==0.28.1"
-            python scripts/run_customer_golden_acceptance.py --require-live
+            python -m pip install "httpx==0.28.1" "python-docx==1.1.2" "pypdf==6.16.1"
+            python scripts/run_customer_golden_acceptance.py --require-live --output dist/customer-golden-acceptance.json
           elif [[ "$REQUIRE_LIVE" == "true" ]]; then
             echo "::error::Live customer acceptance was required, but one or more GOLDEN_ACCEPTANCE credentials are missing"
             exit 1
@@ -77,4 +77,5 @@ jobs:
           path: |
             dist/release-evidence.json
             dist/soc2-evidence.json
+            dist/customer-golden-acceptance.json
           retention-days: 30

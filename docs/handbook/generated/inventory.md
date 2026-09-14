@@ -6,10 +6,10 @@
 
 | 范围 | 文件数 | 代码行数 |
 |---|---:|---:|
-| 前端 `src` | 581 | 105867 |
-| 后端 `nexus_backend/app` | 621 | 173605 |
-| 前端单元/集成测试 | 65 | 7628 |
-| 后端测试 | 227 | 36132 |
+| 前端 `src` | 587 | 105377 |
+| 后端 `nexus_backend/app` | 622 | 173892 |
+| 前端单元/集成测试 | 67 | 7721 |
+| 后端测试 | 231 | 36680 |
 | Playwright E2E | 19 | 3379 |
 
 ## 运行时资产
@@ -18,9 +18,9 @@
 |---|---:|---|
 | 前端页面文件 | 76 | `src/pages` |
 | FastAPI 路由模块 | 111 | `nexus_backend/app/routers` |
-| 后端服务模块 | 230 | `nexus_backend/app/services` |
+| 后端服务模块 | 231 | `nexus_backend/app/services` |
 | Agent 工具模块 | 68 | `nexus_backend/app/tools` |
-| 正向 SQL 迁移 | 140 | `supabase/migrations/*.sql` |
+| 正向 SQL 迁移 | 141 | `supabase/migrations/*.sql` |
 | 回滚 SQL | 13 | `supabase/migrations/rollback` |
 | 强制生产聊天模型 | `deepseek-v4-flash` | `nexus_backend/app/core/config.py` |
 
@@ -30,7 +30,6 @@
 
 | 文件 | 行数 |
 |---|---:|
-| `src/integrations/supabase/types.ts` | 1298 |
 | `src/lib/i18n.ts` | 1274 |
 | `src/pages/OACenter.tsx` | 1255 |
 | `src/lib/animations.ts` | 1185 |
@@ -40,3 +39,4 @@
 | `src/pages/BattlecardLibrary.tsx` | 943 |
 | `src/pages/FinanceCenter.tsx` | 805 |
 | `src/pages/ContractManagement.tsx` | 750 |
+| `src/pages/AgentDebugPanel.tsx` | 739 |

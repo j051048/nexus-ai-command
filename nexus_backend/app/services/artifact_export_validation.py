@@ -25,6 +25,8 @@ def validate_export(
     minimum_characters: int = 0,
     required_terms: list[str] | None = None,
     forbidden_terms: list[str] | None = None,
+    minimum_headings: int = 0,
+    minimum_tables: int = 0,
 ) -> dict[str, Any]:
     errors: list[str] = []
     metrics: dict[str, Any] = {}
@@ -40,7 +42,14 @@ def validate_export(
             metrics = {
                 "paragraphs": len(document.paragraphs),
                 "tables": len(document.tables),
+                "headings": sum(
+                    p.style.name.startswith("Heading ") for p in document.paragraphs
+                ),
             }
+            if metrics["headings"] < minimum_headings:
+                errors.append("insufficient_heading_structure")
+            if metrics["tables"] < minimum_tables:
+                errors.append("required_table_missing")
             if title and not any(p.style.name == "Title" for p in document.paragraphs):
                 errors.append("title_style_missing")
             available_width = min(

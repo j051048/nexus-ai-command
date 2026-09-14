@@ -7,13 +7,23 @@ import asyncio
 import json
 import re
 from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
 
 import pytest
+from postgrest.exceptions import APIError
 
 
 @pytest.mark.security
 @pytest.mark.asyncio
-async def test_cross_tenant_access_rejection():
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Row Level Security policy violation",
+        "permission denied for function upsert_conversation_memory_version",
+        "permission denied while loading function from schema cache",
+    ],
+)
+async def test_cross_tenant_access_rejection(message):
     """
     测试：租户 A 的 ID 被注入到 租户 B 的请求中。
     预期：RLS 或 Middleware 应当拒绝。
@@ -29,17 +39,18 @@ async def test_cross_tenant_access_rejection():
     mock_client = MagicMock()
 
     # 模拟 select 链（同步链式调用 + 异步 execute）
-    mock_execute_select = AsyncMock(return_value=MagicMock(data=None))
-    mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.is_.return_value.maybe_single.return_value.execute = (
-        mock_execute_select
-    )
+    query = MagicMock()
+    for method in ("select", "eq", "is_", "maybe_single", "order", "limit"):
+        getattr(query, method).return_value = query
+    query.execute = AsyncMock(return_value=SimpleNamespace(data=None, count=0))
+    mock_client.table.return_value = query
 
     # 原子记忆 RPC 是当前唯一写入边界，模拟数据库在该边界拒绝跨租户写入。
-    mock_execute_insert = AsyncMock(
-        side_effect=Exception("PGRST301: Row Level Security policy violation")
+    denied = APIError(
+        {"code": "42501", "message": message, "details": None, "hint": None}
     )
+    mock_execute_insert = AsyncMock(side_effect=denied)
     mock_client.rpc.return_value.execute = mock_execute_insert
-    mock_client.table.return_value.insert.return_value.execute = mock_execute_insert
 
     with (
         patch("app.services.conversation_memory.storage.supabase", mock_client),
@@ -49,14 +60,16 @@ async def test_cross_tenant_access_rejection():
             return_value=None,
         ),
     ):
-        try:
+        with pytest.raises(APIError) as failure:
             await save_memory(
                 user_id_a, "malicious_key", "secret_content", org_id=org_id_b
             )
-            pytest.fail("跨租户写入未被阻断！")
-        except Exception as e:
-            assert "Row Level Security" in str(e)
+        assert failure.value is denied
     mock_client.rpc.assert_called_once()
+    query.eq.assert_any_call("organization_id", org_id_b)
+    query.eq.assert_any_call("user_id", user_id_a)
+    query.insert.assert_not_called()
+    query.update.assert_not_called()
 
 
 @pytest.mark.security

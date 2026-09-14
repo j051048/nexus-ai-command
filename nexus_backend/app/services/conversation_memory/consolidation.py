@@ -105,6 +105,7 @@ async def consolidate_user_memories(
         insights = []
 
     created = 0
+    persisted_source_ids: set[str] = set()
     for insight in insights[:5]:
         try:
             # Map source indices to actual memory IDs
@@ -128,22 +129,28 @@ async def consolidate_user_memories(
             embedding = await vector_service.embed_text(f"{title}: {content}")
 
             # Insert into memory_consolidations
-            await client.table("memory_consolidations").insert(
-                {
-                    "user_id": user_id,
-                    "organization_id": org_id,
-                    "insight_type": insight.get("insight_type", "pattern"),
-                    "title": title,
-                    "content": content,
-                    "source_memory_ids": source_ids,
-                    "source_fingerprints": source_snapshot(
-                        [m for m in memories if str(m["id"]) in source_ids]
-                    ),
-                    "importance": float(insight.get("importance", 0.6)),
-                    "embedding": embedding,
-                }
-            ).execute()
+            saved = (
+                await client.table("memory_consolidations")
+                .insert(
+                    {
+                        "user_id": user_id,
+                        "organization_id": org_id,
+                        "insight_type": insight.get("insight_type", "pattern"),
+                        "title": title,
+                        "content": content,
+                        # The model saw the whole batch, not just its cited indices.
+                        "source_memory_ids": [str(m["id"]) for m in memories],
+                        "source_fingerprints": source_snapshot(memories),
+                        "importance": float(insight.get("importance", 0.6)),
+                        "embedding": embedding,
+                    }
+                )
+                .execute()
+            )
+            if not saved.data:
+                raise RuntimeError("Consolidation insert returned no persisted record")
             created += 1
+            persisted_source_ids.update(source_ids)
 
             # Build connections between source memories (Feature 3)
             connections = insight.get("connections", [])
@@ -152,14 +159,13 @@ async def consolidate_user_memories(
         except Exception as e:
             logger.error(f"Failed to store consolidation insight: {e}")
 
-    # Mark all processed memories as consolidated
-    if memories:
-        mem_ids = [m["id"] for m in memories]
+    # Failed/invalid output must leave sources eligible for a later retry.
+    if persisted_source_ids:
         try:
             await apply_owner_scope(
                 client.table("conversation_memories")
                 .update({"is_consolidated": True})
-                .in_("id", mem_ids),
+                .in_("id", sorted(persisted_source_ids)),
                 user_id,
                 org_id,
             ).execute()
@@ -199,21 +205,31 @@ async def _write_connections(
 
             from_id = str(memories[from_idx]["id"])
             to_id = str(memories[to_idx]["id"])
+            owner = memories[from_idx].get("user_id")
+            org_id = memories[from_idx].get("organization_id")
+            if not owner or (
+                memories[to_idx].get("user_id") != owner
+                or memories[to_idx].get("organization_id") != org_id
+            ):
+                continue
             strength = float(conn.get("strength", 0.7))
 
             # Write bidirectional: from->to and to->from
             for src_id, tgt_id in [(from_id, to_id), (to_id, from_id)]:
                 # Read current connections
                 res = (
-                    await client.table("conversation_memories")
-                    .select("connections")
+                    await apply_owner_scope(
+                        client.table("conversation_memories").select("connections"),
+                        owner,
+                        org_id,
+                    )
                     .eq("id", src_id)
                     .maybe_single()
                     .execute()
                 )
-                current = (
-                    (res.data or {}).get("connections", []) if res and res.data else []
-                )
+                if not res or not res.data:
+                    continue
+                current = res.data.get("connections", [])
                 if not isinstance(current, list):
                     current = []
                 # Avoid duplicates
@@ -226,8 +242,12 @@ async def _write_connections(
                         "strength": strength,
                     }
                 )
-                await client.table("conversation_memories").update(
-                    {"connections": current}
+                await apply_owner_scope(
+                    client.table("conversation_memories").update(
+                        {"connections": current}
+                    ),
+                    owner,
+                    org_id,
                 ).eq("id", src_id).execute()
         except Exception as e:
             logger.error(f"Failed to write memory connection: {e}")
@@ -241,8 +261,8 @@ async def generate_user_observation(
     """Generate a condensed user profile observation from top memories.
 
     Pulls the top-30 highest-importance memories and asks LLM to produce a
-    concise user profile summary (3-8 sentences). Upserts the result into
-    memory_consolidations with insight_type='observation'.
+    concise user profile summary (3-8 sentences). Persists a new observation
+    before cleaning up the previously observed records, preserving recovery.
 
     Throttle: caller should skip if last observation was generated < 1 hour ago.
 
@@ -305,17 +325,16 @@ async def generate_user_observation(
             f"用户画像: {observation_text[:200]}"
         )
 
-        # Upsert: delete existing observation for this user, then insert new one
-        try:
-            await (
-                apply_owner_scope(
-                    client.table("memory_consolidations").delete(), user_id, org_id
-                )
-                .eq("insight_type", "observation")
-                .execute()
+        # Capture old IDs before insertion; never delete a concurrent new result.
+        previous = (
+            await apply_owner_scope(
+                client.table("memory_consolidations").select("id"), user_id, org_id
             )
-        except Exception:
-            pass  # Table may not have existing observations
+            .eq("insight_type", "observation")
+            .limit(100)
+            .execute()
+        )
+        previous_ids = [row["id"] for row in previous.data or []]
 
         row = {
             "user_id": user_id,
@@ -335,8 +354,18 @@ async def generate_user_observation(
             await client.table("memory_consolidations").insert(row).execute()
         )
         if insert_result.data:
+            saved = insert_result.data[0]
+            if previous_ids:
+                try:
+                    await apply_owner_scope(
+                        client.table("memory_consolidations").delete(), user_id, org_id
+                    ).eq("insight_type", "observation").in_(
+                        "id", previous_ids
+                    ).execute()
+                except Exception as exc:
+                    logger.warning("[Observation] Old record cleanup deferred: %s", exc)
             logger.info(f"[Observation] Generated user observation for {user_id}")
-            return insert_result.data[0]
+            return saved
 
     except Exception as e:
         logger.warning(

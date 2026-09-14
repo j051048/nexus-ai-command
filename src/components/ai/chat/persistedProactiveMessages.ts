@@ -11,7 +11,7 @@ export function toProactiveMessage(row: ChatRow, orgId: string, userId: string):
   if (!meta || typeof meta !== 'object' || Array.isArray(meta) || typeof meta.source !== 'string' || !SOURCES.includes(meta.source)) return null;
   if (!row.content.trim() || !row.created_at || !Number.isFinite(Date.parse(row.created_at))) return null;
   return {
-    id: row.id,
+    id: typeof meta.event_id === 'string' ? `proactive-${meta.event_id}` : row.id,
     role: 'assistant',
     content: row.content,
     timestamp: new Date(row.created_at),

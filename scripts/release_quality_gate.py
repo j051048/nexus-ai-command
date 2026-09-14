@@ -726,9 +726,47 @@ CHECKS = [
     ),
     GateCheck(
         "P2",
-        "first-week launch checklist",
+        "server-derived first delivery progress",
         "src/components/product/LaunchChecklistPanel.tsx",
-        ("首周落地任务", "nexus:first-week-launch-checklist"),
+        (
+            "useLaunchReadiness",
+            "首次交付进度",
+            "data?.artifact_ready",
+            "暂时无法读取进度",
+        ),
+    ),
+    GateCheck(
+        "P0",
+        "first delivery identity validation",
+        "src/hooks/useLaunchReadiness.ts",
+        (
+            "/api/onboarding/readiness",
+            "Readiness identity mismatch",
+            "signal",
+            "orgId, userId",
+        ),
+    ),
+    GateCheck(
+        "P0",
+        "first delivery authorization and evidence",
+        "nexus_backend/app/services/activation_readiness_service.py",
+        (
+            "document_access_reason",
+            "require_current_evidence_access",
+            "quality_snapshot",
+            '"created_by", user_id',
+        ),
+    ),
+    GateCheck(
+        "P2",
+        "first delivery responsive browser regression",
+        "e2e/launch-readiness.spec.ts",
+        (
+            "1440, 390",
+            "资料整理中",
+            "暂时无法读取进度",
+            "scrollWidth <= element.clientWidth",
+        ),
     ),
     GateCheck(
         "P2",

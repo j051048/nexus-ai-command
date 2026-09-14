@@ -19,6 +19,16 @@ import pytest
 from app.agent.state import AgentConfig, ToolCallRecord
 from app.tools.base_tool import BaseTool
 
+
+@pytest.fixture(autouse=True)
+def isolate_circuit_breaker_transport(monkeypatch):
+    # These tests exercise tool execution, not Redis replication. Avoid leaving
+    # network tasks alive after pytest closes each function's event loop.
+    from app.services.error_recovery_service import tool_circuit_breaker
+
+    monkeypatch.setattr(tool_circuit_breaker, "_redis_sync", False)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Helper: 测试用工具
 # ═══════════════════════════════════════════════════════════════════════════════
