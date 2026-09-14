@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
+import { type ApiPayload, unwrapApiData, unwrapApiList } from '@/api/response';
+import { useEnterpriseQueryScope } from '@/hooks/useEnterpriseQueryScope';
 import { toast } from 'sonner';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,14 +77,13 @@ export interface CompetitorDetail {
 // ─── List competitors ──────────────────────────────────
 
 export function useCompetitors() {
+  const scope = useEnterpriseQueryScope();
   return useQuery<Competitor[]>({
-    queryKey: ['competitors'],
-    queryFn: async () => {
-      const res = await aiClient.get('/api/competitors');
-      // 后端统一格式: { success, data: [...] }  aiClient.get 再包一层 { data: ... }
-      const payload = res.data;
-      const list = payload?.data ?? payload;
-      return Array.isArray(list) ? list : [];
+    queryKey: ['competitors', ...scope.key],
+    enabled: scope.enabled,
+    queryFn: async ({ signal }) => {
+      const res = await aiClient.get<ApiPayload<Competitor[]>>('/api/competitors', scope.options(signal));
+      return unwrapApiList(res.data);
     },
   });
 }
@@ -90,31 +91,32 @@ export function useCompetitors() {
 // ─── Get competitor detail ─────────────────────────────
 
 export function useCompetitorDetail(competitorId: string | null) {
+  const scope = useEnterpriseQueryScope();
   return useQuery<CompetitorDetail>({
-    queryKey: ['competitor-detail', competitorId],
-    queryFn: async () => {
-      const res = await aiClient.get(`/api/competitors/${competitorId}`);
-      // 后端统一格式: { success, data: { competitor, products, features, documents } }
-      const payload = res.data;
-      const detail = payload?.data ?? payload;
+    queryKey: ['competitor-detail', competitorId, ...scope.key],
+    queryFn: async ({ signal }) => {
+      const res = await aiClient.get<ApiPayload<CompetitorDetail>>(`/api/competitors/${competitorId}`, scope.options(signal));
+      const detail = unwrapApiData(res.data);
+      if (!detail?.competitor?.id) throw new Error('竞品资料格式异常，请重试');
       return {
-        competitor: detail?.competitor ?? detail,
+        competitor: detail.competitor,
         products: Array.isArray(detail?.products) ? detail.products : [],
         features: Array.isArray(detail?.features) ? detail.features : [],
         documents: Array.isArray(detail?.documents) ? detail.documents : [],
       };
     },
-    enabled: !!competitorId,
+    enabled: scope.enabled && !!competitorId,
   });
 }
 
 // ─── Create competitor ─────────────────────────────────
 
 export function useCreateCompetitor() {
+  const scope = useEnterpriseQueryScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<Competitor>) => {
-      const res = await aiClient.post('/api/competitors', data);
+      const res = await aiClient.post('/api/competitors', data, scope.options());
       return res.data;
     },
     onSuccess: () => {
@@ -130,10 +132,11 @@ export function useCreateCompetitor() {
 // ─── Update competitor ─────────────────────────────────
 
 export function useUpdateCompetitor() {
+  const scope = useEnterpriseQueryScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Competitor> }) => {
-      const res = await aiClient.put(`/api/competitors/${id}`, data);
+      const res = await aiClient.put(`/api/competitors/${id}`, data, scope.options());
       return res.data;
     },
     onSuccess: () => {
@@ -150,10 +153,11 @@ export function useUpdateCompetitor() {
 // ─── Delete competitor ─────────────────────────────────
 
 export function useDeleteCompetitor() {
+  const scope = useEnterpriseQueryScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await aiClient.delete(`/api/competitors/${id}`);
+      await aiClient.delete(`/api/competitors/${id}`, scope.options());
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['competitors'] });
@@ -168,21 +172,23 @@ export function useDeleteCompetitor() {
 // ─── Products CRUD ─────────────────────────────────────
 
 export function useCompetitorProducts(competitorId: string | null) {
+  const scope = useEnterpriseQueryScope();
   return useQuery<CompetitorProduct[]>({
-    queryKey: ['competitor-products', competitorId],
-    queryFn: async () => {
-      const res = await aiClient.get(`/api/competitors/${competitorId}/products`);
-      return res.data || [];
+    queryKey: ['competitor-products', competitorId, ...scope.key],
+    queryFn: async ({ signal }) => {
+      const res = await aiClient.get<ApiPayload<CompetitorProduct[]>>(`/api/competitors/${competitorId}/products`, scope.options(signal));
+      return unwrapApiList(res.data);
     },
-    enabled: !!competitorId,
+    enabled: scope.enabled && !!competitorId,
   });
 }
 
 export function useCreateProduct() {
+  const scope = useEnterpriseQueryScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ competitorId, data }: { competitorId: string; data: Partial<CompetitorProduct> }) => {
-      const res = await aiClient.post(`/api/competitors/${competitorId}/products`, data);
+      const res = await aiClient.post(`/api/competitors/${competitorId}/products`, data, scope.options());
       return res.data;
     },
     onSuccess: (_d, vars) => {
@@ -197,10 +203,11 @@ export function useCreateProduct() {
 }
 
 export function useUpdateProduct() {
+  const scope = useEnterpriseQueryScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ competitorId, productId, data }: { competitorId: string; productId: string; data: Partial<CompetitorProduct> }) => {
-      const res = await aiClient.put(`/api/competitors/${competitorId}/products/${productId}`, data);
+      const res = await aiClient.put(`/api/competitors/${competitorId}/products/${productId}`, data, scope.options());
       return res.data;
     },
     onSuccess: (_d, vars) => {
@@ -215,10 +222,11 @@ export function useUpdateProduct() {
 }
 
 export function useDeleteProduct() {
+  const scope = useEnterpriseQueryScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ competitorId, productId }: { competitorId: string; productId: string }) => {
-      await aiClient.delete(`/api/competitors/${competitorId}/products/${productId}`);
+      await aiClient.delete(`/api/competitors/${competitorId}/products/${productId}`, scope.options());
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['competitor-products', vars.competitorId] });
@@ -234,10 +242,11 @@ export function useDeleteProduct() {
 // ─── Features CRUD ─────────────────────────────────────
 
 export function useUpsertFeature() {
+  const scope = useEnterpriseQueryScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ competitorId, data }: { competitorId: string; data: Partial<CompetitorFeature> }) => {
-      const res = await aiClient.post(`/api/competitors/${competitorId}/features`, data);
+      const res = await aiClient.post(`/api/competitors/${competitorId}/features`, data, scope.options());
       return res.data;
     },
     onSuccess: (_d, vars) => {
@@ -251,10 +260,11 @@ export function useUpsertFeature() {
 }
 
 export function useDeleteFeature() {
+  const scope = useEnterpriseQueryScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ competitorId, featureId }: { competitorId: string; featureId: string }) => {
-      await aiClient.delete(`/api/competitors/${competitorId}/features/${featureId}`);
+      await aiClient.delete(`/api/competitors/${competitorId}/features/${featureId}`, scope.options());
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['competitor-detail', vars.competitorId] });

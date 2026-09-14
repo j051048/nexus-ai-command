@@ -209,7 +209,7 @@ export const aiClient = {
         method: method as Method,
         headers,
         data: normalizeJsonBody(options.body, headers['Content-Type']),
-        signal: options.signal,
+        signal: options.signal ?? undefined,
         silentError: silent,
       };
       const response = await httpClient.request<T>(requestConfig);
@@ -263,7 +263,7 @@ export const aiClient = {
   },
 
   async get<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<{ data: T }> {
-    const data = await this.fetch(endpoint, {
+    const data = await this.fetch<T>(endpoint, {
       ...options,
       method: 'GET',
       _silentError: options._silentError ?? true,
@@ -276,7 +276,7 @@ export const aiClient = {
     body?: unknown,
     options: RequestOptions = {}
   ): Promise<{ data: T }> {
-    const data = await this.fetch(endpoint, {
+    const data = await this.fetch<T>(endpoint, {
       ...options,
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
@@ -289,7 +289,7 @@ export const aiClient = {
     body?: unknown,
     options: RequestOptions = {}
   ): Promise<{ data: T }> {
-    const data = await this.fetch(endpoint, {
+    const data = await this.fetch<T>(endpoint, {
       ...options,
       method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,
@@ -298,7 +298,7 @@ export const aiClient = {
   },
 
   async delete<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<{ data: T }> {
-    const data = await this.fetch(endpoint, { ...options, method: 'DELETE' });
+    const data = await this.fetch<T>(endpoint, { ...options, method: 'DELETE' });
     return { data };
   },
 

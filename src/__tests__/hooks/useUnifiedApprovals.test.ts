@@ -13,6 +13,12 @@ const mockFetch = vi.fn();
 vi.mock('@/api/aiClient', () => ({
   aiClient: { fetch: (...a: unknown[]) => mockFetch(...a) },
 }));
+vi.mock('@/components/auth/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'u-1' }, profile: { user_id: 'u-1', organization_id: 'org-1' },
+    role: 'employee', isSuperAdmin: false, loading: false,
+  }),
+}));
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -52,7 +58,7 @@ describe('useUnifiedApprovals', () => {
     const { useUnifiedApprovals } = await import('@/hooks/useUnifiedApprovals');
     const { result } = renderHook(() => useUnifiedApprovals('mine'), { wrapper });
     await waitFor(() => expect(result.current.data).toBeDefined());
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('tab=mine'));
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('tab=mine'), expect.objectContaining({ headers: { 'X-Org-ID': 'org-1' } }));
   });
 
   it('handled tab 带 typeFilter', async () => {
@@ -67,13 +73,12 @@ describe('useUnifiedApprovals', () => {
     expect(url).toContain('page=2');
   });
 
-  it('API 返回 null 时 fallback 默认值', async () => {
+  it('API 返回 null 时不能伪装成没有待办', async () => {
     mockFetch.mockResolvedValueOnce({ data: null });
     const { useUnifiedApprovals } = await import('@/hooks/useUnifiedApprovals');
     const { result } = renderHook(() => useUnifiedApprovals('pending'), { wrapper });
-    await waitFor(() => expect(result.current.data).toBeDefined());
-    expect(result.current.data?.items).toEqual([]);
-    expect(result.current.data?.total).toBe(0);
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
   });
 });
 
@@ -91,12 +96,11 @@ describe('useTabCounts', () => {
     expect(result.current.data?.mine).toBe(3);
   });
 
-  it('API 返回 null 时 fallback 默认值', async () => {
+  it('API 返回 null 时不能伪装成零计数', async () => {
     mockFetch.mockResolvedValueOnce({ data: null });
     const { useTabCounts } = await import('@/hooks/useUnifiedApprovals');
     const { result } = renderHook(() => useTabCounts(), { wrapper });
-    await waitFor(() => expect(result.current.data).toBeDefined());
-    expect(result.current.data?.pending).toBe(0);
-    expect(result.current.data?.mine).toBe(0);
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
   });
 });

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
+import { type ApiPayload, unwrapApiData } from '@/api/response';
+import { useEnterpriseQueryScope } from '@/hooks/useEnterpriseQueryScope';
 
 interface ToolMetadata {
   name: string;
@@ -13,18 +15,20 @@ interface ToolMetadata {
 }
 
 interface ToolsMetadataResponse {
-  data: {
-    tools: ToolMetadata[];
-    count: number;
-  };
+  tools: ToolMetadata[];
+  count: number;
 }
 
 export function useToolMetadata() {
+  const scope = useEnterpriseQueryScope();
   const query = useQuery({
-    queryKey: ['tools-metadata'],
-    queryFn: async () => {
-      const res = await aiClient.get<ToolsMetadataResponse>('/api/tools/metadata');
-      return res.data.tools;
+    queryKey: ['tools-metadata', ...scope.key],
+    enabled: scope.enabled,
+    queryFn: async ({ signal }) => {
+      const res = await aiClient.get<ApiPayload<ToolsMetadataResponse>>('/api/tools/metadata', scope.options(signal));
+      const data = unwrapApiData(res.data);
+      if (!data || !Array.isArray(data.tools)) throw new Error('工具数据格式异常，请重试');
+      return data.tools;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000,
@@ -40,6 +44,7 @@ export function useToolMetadata() {
   return {
     tools: query.data ?? [],
     isLoading: query.isLoading,
+    isError: query.isError,
     getRelatedTools,
   };
 }

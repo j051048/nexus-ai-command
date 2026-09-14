@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
+import { type ApiPayload, unwrapApiData, unwrapApiList } from '@/api/response';
+import { useEnterpriseQueryScope } from '@/hooks/useEnterpriseQueryScope';
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -38,15 +40,14 @@ export interface PatternInsight {
  * GET /api/knowledge/search?q=xxx
  */
 export function useSearchEntities(query: string) {
+  const scope = useEnterpriseQueryScope();
   return useQuery<KnowledgeEntity[]>({
-    queryKey: ['knowledge-search', query],
-    queryFn: async () => {
-      const res = await aiClient.get(`/api/knowledge/search?q=${encodeURIComponent(query)}`);
-      const payload = res.data;
-      const list = payload?.data ?? payload;
-      return Array.isArray(list) ? list : [];
+    queryKey: ['knowledge-search', query, ...scope.key],
+    queryFn: async ({ signal }) => {
+      const res = await aiClient.get<ApiPayload<KnowledgeEntity[]>>(`/api/knowledge/search?q=${encodeURIComponent(query)}`, scope.options(signal));
+      return unwrapApiList(res.data);
     },
-    enabled: query.trim().length > 0,
+    enabled: scope.enabled && query.trim().length > 0,
     staleTime: 30_000,
   });
 }
@@ -56,15 +57,14 @@ export function useSearchEntities(query: string) {
  * GET /api/knowledge/entity/{id}/relations
  */
 export function useEntityRelations(entityId: string | null) {
+  const scope = useEnterpriseQueryScope();
   return useQuery<EntityRelation[]>({
-    queryKey: ['knowledge-relations', entityId],
-    queryFn: async () => {
-      const res = await aiClient.get(`/api/knowledge/entity/${entityId}/relations`);
-      const payload = res.data;
-      const list = payload?.data ?? payload;
-      return Array.isArray(list) ? list : [];
+    queryKey: ['knowledge-relations', entityId, ...scope.key],
+    queryFn: async ({ signal }) => {
+      const res = await aiClient.get<ApiPayload<EntityRelation[]>>(`/api/knowledge/entity/${entityId}/relations`, scope.options(signal));
+      return unwrapApiList(res.data);
     },
-    enabled: !!entityId,
+    enabled: scope.enabled && !!entityId,
     staleTime: 30_000,
   });
 }
@@ -74,12 +74,16 @@ export function useEntityRelations(entityId: string | null) {
  * GET /api/knowledge/patterns
  */
 export function usePatternInsights() {
+  const scope = useEnterpriseQueryScope();
   return useQuery<PatternInsight>({
-    queryKey: ['knowledge-patterns'],
-    queryFn: async () => {
-      const res = await aiClient.get('/api/knowledge/patterns');
-      const payload = res.data;
-      const data = payload?.data ?? payload;
+    queryKey: ['knowledge-patterns', ...scope.key],
+    enabled: scope.enabled,
+    queryFn: async ({ signal }) => {
+      const res = await aiClient.get<ApiPayload<PatternInsight>>('/api/knowledge/patterns', scope.options(signal));
+      const data = unwrapApiData(res.data);
+      if (!data || typeof data.total_entities !== 'number' || typeof data.total_relations !== 'number') {
+        throw new Error('知识关系数据格式异常，请重试');
+      }
       return {
         entity_types: Array.isArray(data?.entity_types) ? data.entity_types : [],
         relation_types: Array.isArray(data?.relation_types) ? data.relation_types : [],

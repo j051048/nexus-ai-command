@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
+import { type ApiPayload, unwrapApiList } from '@/api/response';
+import { useEnterpriseQueryScope } from '@/hooks/useEnterpriseQueryScope';
 import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -34,19 +36,23 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export function AutoApprovalRules() {
-  const { profile } = useAuth();
-  const isAdmin = profile?.role && ['boss', 'founder', 'super_admin'].includes(profile.role);
+  const { role, isSuperAdmin } = useAuth();
+  const scope = useEnterpriseQueryScope();
+  if (!scope.enabled || (role !== 'boss' && !isSuperAdmin)) return null;
+  return <AutoApprovalRulesPanel key={JSON.stringify(scope.key)} scope={scope} />;
+}
 
-  const { data: rules = [], refetch, isLoading } = useQuery<AutoRule[]>({
-    queryKey: ['auto-approval-rules'],
-    queryFn: async () => {
-      const res = await aiClient('/api/approval/auto-rules') as { data?: AutoRule[] };
-      return res?.data || [];
+function AutoApprovalRulesPanel({ scope }: { scope: ReturnType<typeof useEnterpriseQueryScope> }) {
+  const { data: rules = [], refetch, isLoading, isError } = useQuery<AutoRule[]>({
+    queryKey: ['auto-approval-rules', ...scope.key],
+    queryFn: async ({ signal }) => {
+      const res = await aiClient.get<ApiPayload<AutoRule[]>>('/api/approval/auto-rules', scope.options(signal));
+      return unwrapApiList(res.data);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => aiClient(`/api/approval/auto-rules/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => aiClient.delete(`/api/approval/auto-rules/${id}`, scope.options()),
     onSuccess: () => { toast.success('规则已删除'); refetch(); },
     onError: () => toast.error('删除失败'),
   });
@@ -57,11 +63,9 @@ export function AutoApprovalRules() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => aiClient('/api/approval/auto-rules', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, condition_value: Number(form.condition_value) }),
-    }),
+    mutationFn: () => aiClient.post('/api/approval/auto-rules', {
+      ...form, condition_value: Number(form.condition_value),
+    }, scope.options()),
     onSuccess: () => {
       toast.success('规则已创建');
       setOpen(false);
@@ -70,8 +74,6 @@ export function AutoApprovalRules() {
     },
     onError: () => toast.error('创建失败'),
   });
-
-  if (!isAdmin) return null;
 
   return (
     <div className="bg-card rounded-2xl p-6 border border-border space-y-4">
@@ -126,7 +128,12 @@ export function AutoApprovalRules() {
         </Dialog>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <div role="alert" className="flex items-center justify-between gap-3 text-sm text-destructive">
+          <span>规则加载失败</span>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>重试</Button>
+        </div>
+      ) : isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : rules.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">暂无自动审批规则</p>
@@ -142,6 +149,7 @@ export function AutoApprovalRules() {
               </div>
               <Button
                 size="icon" variant="ghost"
+                aria-label={`删除规则 ${rule.name}`}
                 onClick={() => deleteMutation.mutate(rule.id)}
                 disabled={deleteMutation.isPending}
               >
