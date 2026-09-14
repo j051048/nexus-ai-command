@@ -210,14 +210,31 @@ class TestCrossModuleWorkflows:
 
         event = Event(
             type=EventType.APPROVAL_APPROVED.value,
-            payload={"type": "contract", "amount": 50000},
+            payload={"type": "contract", "amount": 50000, "org_id": "org-1"},
             user_id="user-1",
+            organization_id="org-1",
         )
 
         with patch("app.services.event_bus.emit", new_callable=AsyncMock) as mock_emit:
             await trigger_downstream_on_approval(event)
             mock_emit.assert_called_once()
             assert mock_emit.call_args[0][0] == EventType.CONTRACT_SIGNED.value
+            assert mock_emit.call_args[1]["org_id"] == "org-1"
+
+    @pytest.mark.asyncio
+    async def test_approval_missing_tenant_does_not_trigger_downstream(self):
+        """Approval without tenant_id should fail safe and not emit downstream events."""
+        from app.services.event_bus import trigger_downstream_on_approval
+
+        event = Event(
+            type=EventType.APPROVAL_APPROVED.value,
+            payload={"type": "contract", "amount": 50000},
+            user_id="user-1",
+        )
+
+        with patch("app.services.event_bus.emit", new_callable=AsyncMock) as mock_emit:
+            await trigger_downstream_on_approval(event)
+            mock_emit.assert_not_called()
 
 
 class TestEventHistory:

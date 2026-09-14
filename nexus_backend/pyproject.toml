@@ -54,6 +54,7 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 addopts = "-v --tb=short --timeout=30"
 markers = [
     "integration: tests that exercise multiple backend boundaries or live services",
