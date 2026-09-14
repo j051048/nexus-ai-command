@@ -57,19 +57,20 @@ function CRMAIInsightLayer({
   const trustLevel = staleCustomers.length > 3 ? 'medium' : 'high';
   const nextCustomer = topRisk || highValueOpen[0] || customers[0];
 
-  if (!nextCustomer) return null;
-
+  const title = nextCustomer ? `下一步客户动作：${nextCustomer.name}` : 'AI 客户经营洞察';
   const nextReason = topRisk
     ? `${topRisk.name} 已 ${topRiskDays} 天未更新，建议确认下一步。`
     : highValueOpen[0]
       ? `${highValueOpen[0].name} 是高价值机会，建议推进报价或拜访。`
-      : '当前客户池暂无明显风险，可以补充新线索或复盘成交路径。';
+      : customers.length > 0
+        ? '当前客户池暂无明显风险，可以补充新线索或复盘成交路径。'
+        : '当前暂无客户，先创建客户或通过 AI 批量导入销售线索。';
 
   return (
     <AIInsightPanel
       surfaceId="crm-next-action"
       variant="compact"
-      title={`下一步客户动作：${nextCustomer.name}`}
+      title={title}
       summary={nextReason}
       trustLevel={trustLevel}
       score={trustLevel === 'high' ? 88 : 74}

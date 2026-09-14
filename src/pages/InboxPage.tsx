@@ -131,15 +131,16 @@ function ActionInboxInsightStrip({ items }: { items: InboxActionItem[] }) {
   const crmRisk = items.filter((item) => item.source === 'crm');
   const nextItem = urgent[0] || items.find((item) => item.priority === 'high') || items[0];
 
-  if (!nextItem) return null;
+  const title = nextItem ? `今日重点 · 建议先处理：${nextItem.title}` : '今日待办已全部处理完毕';
+  const summary = nextItem ? '按风险和截止时间排序，可展开查看依据。' : '当前暂无积压待办，可查看历史事项或让 AI 生成今日工作计划。';
 
   return (
     <AIInsightPanel
       surfaceId="inbox-priority"
       variant="compact"
       icon={CheckCircle2}
-      title={`今日重点 · 建议先处理：${nextItem.title}`}
-      summary="按风险和截止时间排序，可展开查看依据。"
+      title={title}
+      summary={summary}
       trustLevel="high"
       score={91}
       stats={[
@@ -278,7 +279,7 @@ export default function InboxPage() {
         ]}
       />
 
-      {!isLoading && !isError && items.length > 0 && <ActionInboxInsightStrip items={items} />}
+      {!isLoading && !isError && <ActionInboxInsightStrip items={items} />}
       <nav className="flex flex-wrap gap-1 border-b">
         {tabs.map((tab) => {
           const Icon = tab.icon;

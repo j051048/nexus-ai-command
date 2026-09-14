@@ -156,6 +156,23 @@ export async function setupBusinessMocks(page: Page) {
     });
   });
 
+  await page.route('**/api/approval/tab-counts*', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: {
+        pending: 1,
+        mine: 0,
+      },
+    });
+  });
+
+  await page.route('**/api/approval/type-config*', async (route) => {
+    await fulfillJson(route, {
+      success: true,
+      data: [],
+    });
+  });
+
   // 8. 拦截销售目标 (Targets)
   await page.route('**/rest/v1/sales_targets*', async (route) => {
     await route.fulfill({

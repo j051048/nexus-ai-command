@@ -140,11 +140,15 @@ export function ApprovalCenter() {
         </div>
       </div>
 
-      {countsError ? <WorkErrorState title="审批数量加载失败" onAction={() => retryCounts()} /> : tabCounts && <ApprovalAIRiskPanel
-        isBoss={isBoss}
-        pending={tabCounts.pending}
-        mine={tabCounts.mine}
-      />}
+      {countsError ? (
+        <WorkErrorState title="审批数量加载失败" onAction={() => retryCounts()} />
+      ) : (
+        <ApprovalAIRiskPanel
+          isBoss={isBoss}
+          pending={tabCounts?.pending ?? 0}
+          mine={tabCounts?.mine ?? 0}
+        />
+      )}
 
       {showCreate && typeConfigError && <WorkErrorState title="审批类型加载失败" onAction={() => retryTypeConfig()} />}
 
