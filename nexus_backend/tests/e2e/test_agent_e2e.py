@@ -92,7 +92,7 @@ def _mock_supabase_client():
     return client
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture()
 async def patched_app():
     """Import the FastAPI app with all external services mocked."""
     mock_db = _mock_supabase_client()

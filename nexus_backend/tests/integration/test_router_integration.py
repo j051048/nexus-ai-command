@@ -19,12 +19,14 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from app.core.health_cache import HealthCache
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture()
 async def patched_app():
     """Import the FastAPI app with database and heavy services mocked out.
 
@@ -36,7 +38,10 @@ async def patched_app():
     We also neuter the lifespan-managed background services (cache, event bus,
     checkpointer, connection pools) so they don't attempt real I/O.
     """
+    # A degraded probe must not change the singleton used by later test modules.
+    test_health_cache = HealthCache()
     with (
+        patch("app.core.health_cache.health_cache", test_health_cache),
         patch("app.core.database.supabase", None),
         patch("app.services.cache_service.cache_service.init", new_callable=AsyncMock),
         patch(
@@ -51,10 +56,9 @@ async def patched_app():
         ),
     ):
         # Trigger one health refresh so the health cache is populated
-        from app.core.health_cache import health_cache
         from app.main import app  # noqa: E402 -- intentionally late import
 
-        await health_cache._refresh_health()
+        await test_health_cache._refresh_health()
 
         yield app
 

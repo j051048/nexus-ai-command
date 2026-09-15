@@ -12,6 +12,22 @@
 
 CI 中的静态 proof 证明“契约存在”，不等同于真实外部系统已跑通。需要密钥的任务若被跳过，发布负责人必须在 staging 补跑并保存证据。
 
+## 后端异步测试隔离
+
+`nexus_backend/pyproject.toml` 设置 `asyncio_default_fixture_loop_scope = "function"`。异步应用夹具、HTTP 客户端与测试默认都按用例创建和清理；`patched_app` 使用 `@pytest_asyncio.fixture()`，避免跨用例共享服务 mock。
+
+模拟健康探针降级时也要使用独立的 `HealthCache`，并在夹具退出时恢复模块单例；只恢复数据库和缓存服务的 mock 不会清除已经写入的健康状态。
+
+不要仅把异步夹具改成 `scope="module"` 或 `scope="session"`：其事件循环的作用域必须覆盖夹具缓存的作用域，否则会在初始化时报 `ScopeMismatch`。确需共享时，应显式设置兼容的 `loop_scope`，并确认客户端、循环绑定资源和清理逻辑都在正确的事件循环上执行，不能通过扩大全局事件循环作用域绕过测试隔离。
+
+修改异步测试配置后，在 `nexus_backend` 目录完整运行以下回归；先不启用失败重试，以便发现状态泄漏：
+
+```bash
+ENV=test ALLOW_TEST_NETWORK=0 python -m pytest tests/integration/ tests/e2e/ -q --tb=short -rs
+```
+
+这些后端 ASGI 测试会模拟外部服务，不等同于真实模型、生产数据库或浏览器联调。需要真实环境的跳过项必须单独验收。
+
 ## 发布门禁
 
 ```bash

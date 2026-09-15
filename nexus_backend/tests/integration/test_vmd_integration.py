@@ -30,7 +30,7 @@ from httpx import ASGITransport, AsyncClient
 # ---------------------------------------------------------------------------
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture()
 async def patched_app():
     """Import the FastAPI app with database and heavy services mocked out.
 
