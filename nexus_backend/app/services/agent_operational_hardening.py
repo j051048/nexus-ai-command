@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
-LOW_COST_DEFAULT_MODEL = "deepseek-v4-flash"
+LOW_COST_DEFAULT_MODEL = "deepseek-v4.1-flash"
 EXPENSIVE_MODEL_DENYLIST = {
     "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
@@ -314,7 +314,7 @@ def enforce_model_policy(
             requested_model=requested_model,
             resolved_model=LOW_COST_DEFAULT_MODEL,
             allowed=normalized in {"", LOW_COST_DEFAULT_MODEL},
-            reason="production model policy forces deepseek-v4-flash for agent and scheduled tasks",
+            reason="production model policy forces deepseek-v4.1-flash for agent and scheduled tasks",
             source=source,
         )
     if normalized != LOW_COST_DEFAULT_MODEL and environment == "production":

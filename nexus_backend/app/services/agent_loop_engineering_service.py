@@ -361,13 +361,13 @@ def build_llm_cost_governor_loop() -> LoopSpec:
         ),
         goal=(
             "Detect expensive model calls, attribute the source, downgrade to "
-            "deepseek-v4-flash where allowed, and report unresolved leaks."
+            "deepseek-v4.1-flash where allowed, and report unresolved leaks."
         ),
         verifier=LoopVerifier(
             kind="deterministic",
             name="low_cost_model_policy",
             deterministic_tokens=(
-                "deepseek-v4-flash",
+                "deepseek-v4.1-flash",
                 "gemini-3.1-pro-preview",
                 "force_low_cost_default",
             ),

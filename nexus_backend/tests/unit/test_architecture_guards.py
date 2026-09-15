@@ -162,8 +162,8 @@ def test_llm_gateway_defaults_to_low_cost_deepseek_policy():
     chat_router = read("nexus_backend/app/routers/chat.py")
     models_yaml = read("nexus_backend/config/models.yaml")
 
-    assert 'default="deepseek-v4-flash"' in config
-    assert 'FORCED_CHAT_MODEL = "deepseek-v4-flash"' in config
+    assert 'default="deepseek-v4.1-flash"' in config
+    assert 'FORCED_CHAT_MODEL = "deepseek-v4.1-flash"' in config
     assert "force_low_cost_chat_model" in config
     assert "gemini-*" in config
     assert "LLM_FORCE_DEFAULT_MODEL" in config
@@ -180,7 +180,7 @@ def test_llm_gateway_defaults_to_low_cost_deepseek_policy():
     assert "[LLMCostPolicy]" in chat_router
     assert "default:" in models_yaml
     assert "flagship:" in models_yaml
-    assert "model: deepseek-v4-flash" in models_yaml
+    assert "model: deepseek-v4.1-flash" in models_yaml
 
 
 def test_prompt_context_harness_is_wired_to_ops():

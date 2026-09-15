@@ -1,4 +1,4 @@
-export const LOW_COST_DEFAULT_MODEL = 'deepseek-v4-flash';
+export const LOW_COST_DEFAULT_MODEL = 'deepseek-v4.1-flash';
 
 export const EXPENSIVE_MODEL_DENYLIST = [
   'gemini-3.1-pro-preview',

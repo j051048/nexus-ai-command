@@ -57,7 +57,7 @@ def test_loop_model_policy_downgrades_expensive_models():
         environment="production",
     )
 
-    assert decision["resolved_model"] == "deepseek-v4-flash"
+    assert decision["resolved_model"] == "deepseek-v4.1-flash"
     assert decision["allowed"] is False
 
 
@@ -92,7 +92,7 @@ def test_loop_run_audit_records_terminal_state_cost_and_learned_failures():
         tokens_used=1200,
         cost_usd=0.01,
         verifier_results=[{"name": "low_cost_model_policy", "passed": True}],
-        actions=[{"type": "downgrade_model", "model": "deepseek-v4-flash"}],
+        actions=[{"type": "downgrade_model", "model": "deepseek-v4.1-flash"}],
         learned_failures=["scheduled_task_requested_gemini"],
     )
 
@@ -100,7 +100,7 @@ def test_loop_run_audit_records_terminal_state_cost_and_learned_failures():
 
     assert data["run_id"] == "loop-run-1"
     assert data["terminal_state"] == "success"
-    assert data["model"] == "deepseek-v4-flash"
+    assert data["model"] == "deepseek-v4.1-flash"
     assert data["verifier_results"][0]["passed"] is True
     assert data["learned_failures"] == ["scheduled_task_requested_gemini"]
 
@@ -123,7 +123,7 @@ def test_loop_engineering_contract_is_production_proof_ready():
     contract = get_loop_engineering_contract()
     validation = validate_loop_engineering_contract()
 
-    assert contract["default_model"] == "deepseek-v4-flash"
+    assert contract["default_model"] == "deepseek-v4.1-flash"
     assert contract["guardrails"]["model_judge_cannot_final_approve"] is True
     assert contract["audit_contract"]["records_tokens_and_cost"] is True
     assert validation["passed"] is True

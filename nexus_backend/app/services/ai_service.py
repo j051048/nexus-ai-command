@@ -65,7 +65,7 @@ class AIService:
             "model": (
                 getattr(settings, "AI_STRONG_MODEL", "") or settings.AI_DEFAULT_MODEL
                 if hasattr(settings, "AI_DEFAULT_MODEL")
-                else "deepseek-v4-flash"
+                else "deepseek-v4.1-flash"
             ),
             "messages": [
                 {"role": "system", "content": system_prompt},

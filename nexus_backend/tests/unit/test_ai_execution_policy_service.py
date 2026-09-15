@@ -44,7 +44,7 @@ def test_mode_presets_bound_calls_cost_and_latency():
         < strict.max_task_cost_usd
     )
     assert all(
-        policy.primary_model == "deepseek-v4-flash"
+        policy.primary_model == "deepseek-v4.1-flash"
         for policy in (economy, balanced, strict)
     )
     assert all(policy.premium_manual_only for policy in (economy, balanced, strict))

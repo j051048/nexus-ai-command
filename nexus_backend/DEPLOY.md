@@ -18,14 +18,14 @@
 - `SUPABASE_SERVICE_KEY`
 - `SUPABASE_JWT_SECRET` 或受支持的 JWT/JWKS 配置
 - `OPENAI_API_KEY`
-- `AI_BASE_URL`，目标网关必须提供 `deepseek-v4-flash`
+- `AI_BASE_URL`，目标网关必须提供 `deepseek-v4.1-flash`
 - `REDIS_URL`、`CELERY_BROKER_URL`、`CELERY_RESULT_BACKEND`
 - `LANGGRAPH_CHECKPOINTER=postgres`
 - `ENCRYPTION_KEY`
 - `HEALTH_CHECK_TOKEN`，至少 24 个字符
 - 精确的 `CORS_ORIGINS`/`ADDITIONAL_ALLOWED_ORIGINS`
 
-完整模板见 `.env.example` 和仓库根 `.env.production.example`。聊天模型由 `app/core/config.py` 强制为 `deepseek-v4-flash`，其他环境覆盖会被忽略并记录警告。
+完整模板见 `.env.example` 和仓库根 `.env.production.example`。聊天模型由 `app/core/config.py` 强制为 `deepseek-v4.1-flash`，其他环境覆盖会被忽略并记录警告。
 
 ## 数据库迁移
 

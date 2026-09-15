@@ -76,7 +76,7 @@ def test_permission_decision_v2_is_explainable():
 def test_skill_runtime_uses_deepseek_flash_and_tool_allowlists():
     assert SKILL_RUNTIME_MANIFESTS
     for skill in SKILL_RUNTIME_MANIFESTS:
-        assert skill["default_model"] == "deepseek-v4-flash"
+        assert skill["default_model"] == "deepseek-v4.1-flash"
         assert skill["allowed_tools"]
 
 

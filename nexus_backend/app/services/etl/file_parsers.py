@@ -55,7 +55,7 @@ async def parse_file_content(
 
         base64_image = base64.b64encode(content).decode("utf-8")
         payload = {
-            "model": settings.AI_MINI_MODEL or "deepseek-v4-flash",
+            "model": settings.AI_MINI_MODEL or "deepseek-v4.1-flash",
             "messages": [
                 {
                     "role": "user",

@@ -237,7 +237,7 @@ class ContentModerator:
         self._injection_patterns = []
         self._compile_patterns()
         self._llm_client = None
-        self._resolved_model = settings.AI_MINI_MODEL or "deepseek-v4-flash"
+        self._resolved_model = settings.AI_MINI_MODEL or "deepseek-v4.1-flash"
         self._detection_cache: dict[str, tuple[bool, str]] = {}
 
     def _get_llm_client(self):

@@ -21,7 +21,7 @@ except ImportError:
 
 from pydantic import Field, field_validator
 
-FORCED_CHAT_MODEL = "deepseek-v4-flash"
+FORCED_CHAT_MODEL = "deepseek-v4.1-flash"
 
 
 class Settings(BaseSettings):
@@ -83,15 +83,15 @@ class Settings(BaseSettings):
         description="Base URL for OpenAI-compatible API",
     )
     AI_DEFAULT_MODEL: str = Field(
-        default="deepseek-v4-flash",
+        default="deepseek-v4.1-flash",
         description="Default AI model for general tasks",
     )
     AI_MINI_MODEL: str = Field(
-        default="deepseek-v4-flash",
+        default="deepseek-v4.1-flash",
         description="Lightweight model for simple queries",
     )
     AI_STRONG_MODEL: str = Field(
-        default="deepseek-v4-flash",
+        default="deepseek-v4.1-flash",
         description="Strong model for complex/flagship tasks. When user's saved model is weak (mini/flash/turbo), "
         "power/flagship tier auto-upgrades to this. Falls back to AI_DEFAULT_MODEL if empty.",
     )

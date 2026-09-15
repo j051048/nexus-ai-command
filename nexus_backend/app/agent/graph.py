@@ -944,7 +944,7 @@ class AgentGraph:
                 initial_state["messages"] = await compress_conversation_history(
                     messages,
                     model=getattr(
-                        initial_state.get("config"), "mini_model", "deepseek-v4-flash"
+                        initial_state.get("config"), "mini_model", "deepseek-v4.1-flash"
                     ),
                 )
                 messages = initial_state.get("messages", [])

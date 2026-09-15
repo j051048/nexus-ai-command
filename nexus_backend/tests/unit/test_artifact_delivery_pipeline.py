@@ -418,7 +418,7 @@ async def test_generation_pipeline_persists_version_evidence_and_quality(monkeyp
         return SimpleNamespace(
             content=json.dumps(payload, ensure_ascii=False),
             finish_reason="stop",
-            model_code="deepseek-v4-flash",
+            model_code="deepseek-v4.1-flash",
             usage={"total_tokens": 1200},
         )
 

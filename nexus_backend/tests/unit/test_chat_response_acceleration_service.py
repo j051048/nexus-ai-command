@@ -107,8 +107,8 @@ def test_model_quality_policy_forces_low_cost_default():
         "gemini-3.1-pro-preview"
     )
 
-    assert policy["default_model"] == "deepseek-v4-flash"
-    assert policy["model_policy_decision"]["resolved_model"] == "deepseek-v4-flash"
+    assert policy["default_model"] == "deepseek-v4.1-flash"
+    assert policy["model_policy_decision"]["resolved_model"] == "deepseek-v4.1-flash"
 
 
 def test_prompt_slimming_limits_tool_schema_count():

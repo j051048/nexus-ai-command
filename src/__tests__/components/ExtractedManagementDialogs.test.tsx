@@ -40,7 +40,7 @@ describe('拆分后的管理对话框契约', () => {
     render(
       <QuickAddModelDialog
         model={{
-          model_id: 'deepseek-v4-flash',
+          model_id: 'deepseek-v4.1-flash',
           name: 'DeepSeek V4 Flash',
           provider: 'openai-compatible',
           provider_label: 'OpenAI 兼容',

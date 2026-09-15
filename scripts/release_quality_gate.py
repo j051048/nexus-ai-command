@@ -896,7 +896,7 @@ CHECKS = [
         "src/config/enterpriseOperatingFoundation.ts",
         (
             "NEXUS_EXECUTION_CONTEXT_BLUEPRINT",
-            "deepseek-v4-flash",
+            "deepseek-v4.1-flash",
             "BUSINESS_APP_MANIFESTS",
             "AI_SERVER_ACTIONS",
             "FIELD_PROMPT_POLICIES",
@@ -912,7 +912,7 @@ CHECKS = [
         "nexus_backend/app/services/enterprise_operating_foundation.py",
         (
             "NexusExecutionContext",
-            "deepseek-v4-flash",
+            "deepseek-v4.1-flash",
             "BUSINESS_APP_MANIFESTS",
             "AI_SERVER_ACTIONS",
             "FIELD_PROMPT_POLICIES",
@@ -978,7 +978,7 @@ CHECKS = [
         (
             "AGENT_OPERATIONAL_HARDENING_AREAS",
             "MODEL_POLICY_ENFORCER",
-            "deepseek-v4-flash",
+            "deepseek-v4.1-flash",
             "gemini-3.1-pro-preview",
             "RUNTIME_V2_MAIN_CHAIN_ADOPTION",
             "TOOL_LIFECYCLE_V2_ROLLOUT",

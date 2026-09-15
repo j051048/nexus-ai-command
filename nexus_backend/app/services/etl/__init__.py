@@ -575,7 +575,7 @@ class ETLService:
                 logger.warning(f"Model {model_name} processing error: {str(e)}")
                 return False, None
 
-        default_model = settings.AI_DEFAULT_MODEL or "deepseek-v4-flash"
+        default_model = settings.AI_DEFAULT_MODEL or "deepseek-v4.1-flash"
         success, response_json = await call_ai_model(default_model)
 
         if not success:

@@ -222,7 +222,7 @@ SKILL_RUNTIME_MANIFESTS: list[dict[str, Any]] = [
         "title": "科学仪器投标支持",
         "when_to_use": "用户上传招标文件、评分标准或要求生成技术响应时。",
         "context_mode": "fork",
-        "default_model": "deepseek-v4-flash",
+        "default_model": "deepseek-v4.1-flash",
         "allowed_tools": [
             "parse_tender_document",
             "score_tender_response",
@@ -235,7 +235,7 @@ SKILL_RUNTIME_MANIFESTS: list[dict[str, Any]] = [
         "title": "客户流失挽回",
         "when_to_use": "客户 30 天未跟进、健康分下降或进入流失风险区间时。",
         "context_mode": "inline",
-        "default_model": "deepseek-v4-flash",
+        "default_model": "deepseek-v4.1-flash",
         "allowed_tools": ["score_customer_health", "draft_followup", "create_task"],
         "hooks": ["BeforeContextBuild", "AfterToolUse"],
     },
@@ -244,7 +244,7 @@ SKILL_RUNTIME_MANIFESTS: list[dict[str, Any]] = [
         "title": "审批风控复核",
         "when_to_use": "审批金额异常、费用类别异常或命中合规规则时。",
         "context_mode": "fork",
-        "default_model": "deepseek-v4-flash",
+        "default_model": "deepseek-v4.1-flash",
         "allowed_tools": ["approval_risk_review", "explain_policy"],
         "hooks": ["BeforeToolUse", "RunStop"],
     },
@@ -253,7 +253,7 @@ SKILL_RUNTIME_MANIFESTS: list[dict[str, Any]] = [
         "title": "AI 周报生成",
         "when_to_use": "用户要求生成销售、审批、Agent 行为或业务价值周报时。",
         "context_mode": "inline",
-        "default_model": "deepseek-v4-flash",
+        "default_model": "deepseek-v4.1-flash",
         "allowed_tools": [
             "generate_customer_360",
             "fill_template",
@@ -350,7 +350,7 @@ def validate_core_agent_runtime_v2() -> dict[str, Any]:
         }
         == {"allow", "ask", "deny", "passthrough"},
         "SkillRuntime": all(
-            skill["default_model"] == "deepseek-v4-flash"
+            skill["default_model"] == "deepseek-v4.1-flash"
             for skill in SKILL_RUNTIME_MANIFESTS
         ),
     }

@@ -174,7 +174,7 @@ class TestLLMGatewayTenantIsolation:
         with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
             result = await service._resolve_model("chat", "default", "org-tenant-A")
 
-        assert result == "deepseek-v4-flash"
+        assert result == "deepseek-v4.1-flash"
 
     async def test_load_model_config_no_db(self):
         """无 DB 时 load_model_config 应返回 None"""

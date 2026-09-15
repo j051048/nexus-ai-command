@@ -8,7 +8,7 @@ const savePolicy = vi.fn();
 const preset = (mode: 'economy' | 'balanced' | 'strict', calls: number) => ({
   version: 'test-v1',
   mode,
-  primary_model: 'deepseek-v4-flash',
+  primary_model: 'deepseek-v4.1-flash',
   embedding_model: 'text-embedding-3-small',
   rerank_model: 'bge-reranker-v2-m3',
   premium_model: null,
@@ -57,7 +57,7 @@ describe('AIExecutionPolicyPanel', () => {
     expect(screen.getByText('省成本')).toBeInTheDocument();
     expect(screen.getByText('智能平衡')).toBeInTheDocument();
     expect(screen.getByText('严谨优先')).toBeInTheDocument();
-    expect(screen.getByText(/deepseek-v4-flash/)).toBeInTheDocument();
+    expect(screen.getByText(/deepseek-v4.1-flash/)).toBeInTheDocument();
     expect(screen.queryByText('gemini-3.1-pro-preview')).not.toBeInTheDocument();
   });
 

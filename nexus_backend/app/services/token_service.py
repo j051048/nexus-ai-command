@@ -114,7 +114,7 @@ class TokenCounter:
 
         return self._encoders[model]
 
-    def count_tokens(self, text: str, model: str = "deepseek-v4-flash") -> int:
+    def count_tokens(self, text: str, model: str = "deepseek-v4.1-flash") -> int:
         """Count tokens in text"""
         if not text:
             return 0
@@ -130,7 +130,7 @@ class TokenCounter:
         return max(1, int(chinese_chars / 1.5 + other_chars / 4))
 
     def count_messages_tokens(
-        self, messages: list[dict], model: str = "deepseek-v4-flash"
+        self, messages: list[dict], model: str = "deepseek-v4.1-flash"
     ) -> int:
         """Count tokens in a list of messages"""
         total = 0
@@ -160,7 +160,7 @@ class TokenCounter:
         system_prompt: str,
         messages: list[dict],
         tools: list[dict] | None = None,
-        model: str = "deepseek-v4-flash",
+        model: str = "deepseek-v4.1-flash",
     ) -> int:
         """Estimate total prompt tokens including system prompt, messages, and tool schemas."""
         total = self.count_tokens(system_prompt, model)

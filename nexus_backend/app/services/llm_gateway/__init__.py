@@ -83,7 +83,7 @@ def get_llm(
 
     Args:
         org_id: Tenant organization ID for config resolution.
-        model: Explicit model code (e.g. ``deepseek-v4-flash``).
+        model: Explicit model code (e.g. ``deepseek-v4.1-flash``).
         model_tier: Shorthand tier — all tiers map to the configured
                     low-cost default by policy.  Ignored when *model*
                     is explicitly provided.

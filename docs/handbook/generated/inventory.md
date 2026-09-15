@@ -22,7 +22,7 @@
 | Agent 工具模块 | 68 | `nexus_backend/app/tools` |
 | 正向 SQL 迁移 | 141 | `supabase/migrations/*.sql` |
 | 回滚 SQL | 13 | `supabase/migrations/rollback` |
-| 强制生产聊天模型 | `deepseek-v4-flash` | `nexus_backend/app/core/config.py` |
+| 强制生产聊天模型 | `deepseek-v4.1-flash` | `nexus_backend/app/core/config.py` |
 
 ## 前端最大文件
 

@@ -194,7 +194,7 @@ class TestResolveModelPriority:
         """Even stale deployment env settings should resolve to DeepSeek Flash."""
         from app.services.llm_gateway.model_resolution import _default_chat_model
 
-        assert _default_chat_model() == "deepseek-v4-flash"
+        assert _default_chat_model() == "deepseek-v4.1-flash"
 
     @pytest.mark.asyncio
     async def test_resolve_no_db_uses_default_chat_model(self):
@@ -206,7 +206,7 @@ class TestResolveModelPriority:
         with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
             result = await service._resolve_model("chat", "default_agent", "org-001")
 
-        assert result == "deepseek-v4-flash"
+        assert result == "deepseek-v4.1-flash"
 
     @pytest.mark.asyncio
     async def test_resolve_no_db_keeps_embedding_unresolved(self):
@@ -241,7 +241,7 @@ class TestResolveModelPriority:
             mock_cb.is_allowed.return_value = True
             result = await service._resolve_model("chat", "agent", "org-001")
 
-        assert result == "deepseek-v4-flash"
+        assert result == "deepseek-v4.1-flash"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

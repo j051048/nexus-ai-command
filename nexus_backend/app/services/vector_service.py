@@ -316,7 +316,7 @@ class VectorService:
 
             response = await asyncio.wait_for(
                 client.chat.completions.create(
-                    model=getattr(self, "_rerank_model", "deepseek-v4-flash"),
+                    model=getattr(self, "_rerank_model", "deepseek-v4.1-flash"),
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=50,
                     temperature=0,

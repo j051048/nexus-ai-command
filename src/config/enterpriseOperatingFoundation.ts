@@ -4,7 +4,7 @@ export interface NexusExecutionContextBlueprint {
   role: 'employee' | 'boss' | 'admin';
   locale: 'zh-CN';
   currency: 'CNY';
-  defaultLlmModel: 'deepseek-v4-flash';
+  defaultLlmModel: 'deepseek-v4.1-flash';
   monthlyLlmBudgetUsd: number;
   allowedApps: string[];
   featureFlags: string[];
@@ -54,7 +54,7 @@ export const NEXUS_EXECUTION_CONTEXT_BLUEPRINT: NexusExecutionContextBlueprint =
   role: 'employee',
   locale: 'zh-CN',
   currency: 'CNY',
-  defaultLlmModel: 'deepseek-v4-flash',
+  defaultLlmModel: 'deepseek-v4.1-flash',
   monthlyLlmBudgetUsd: 20,
   allowedApps: ['action_inbox', 'crm', 'ai_operating_system', 'approval', 'knowledge'],
   featureFlags: ['ai_server_actions'],

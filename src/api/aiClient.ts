@@ -316,7 +316,7 @@ export const aiClient = {
 
   async chat(
     messages: { role: string; content: string; [key: string]: unknown }[],
-    model = 'deepseek-v4-flash'
+    model = 'deepseek-v4.1-flash'
   ) {
     return this.fetch('api/chat', {
       method: 'POST',

@@ -6,7 +6,7 @@
 
 1. **生产凭据**
    - 配置 Supabase URL、Service Role、JWT/JWKS、Redis、加密密钥和至少 24 位健康检查令牌。
-   - 配置一个确实提供 `deepseek-v4-flash` 的 OpenAI-compatible 网关；后端会忽略其他聊天模型覆盖值。
+   - 配置一个确实提供 `deepseek-v4.1-flash` 的 OpenAI-compatible 网关；后端会忽略其他聊天模型覆盖值。
    - 所有密钥进入部署平台 Secret，不写入仓库、构建日志或前端变量。
 
 2. **数据库与租户**

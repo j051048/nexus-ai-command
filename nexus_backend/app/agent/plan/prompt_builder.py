@@ -88,7 +88,7 @@ def _compile_global_context(
             policy=ContextCompilePolicy(
                 max_input_tokens=context_window,
                 reserved_tool_tokens=tool_tokens,
-                model=model or "deepseek-v4-flash",
+                model=model or "deepseek-v4.1-flash",
             ),
             ledger=state.get("context_ledger") or {},
         )

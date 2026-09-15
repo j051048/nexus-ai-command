@@ -62,7 +62,7 @@ REQUIRED_EVIDENCE: dict[PromptReleaseState, tuple[str, ...]] = {
 
 @dataclass(frozen=True)
 class PromptModelProfile:
-    model: str = "deepseek-v4-flash"
+    model: str = "deepseek-v4.1-flash"
     max_input_tokens: int = 32_000
     reserved_output_tokens: int = 2_000
     temperature: float = 0.2

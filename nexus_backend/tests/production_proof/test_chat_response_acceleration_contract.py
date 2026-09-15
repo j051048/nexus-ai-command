@@ -37,7 +37,7 @@ def test_chat_response_acceleration_backend_contract():
         "ToolResultCachePolicy",
         "ConditionalReflectPolicy",
         "ChatLatencyTrace",
-        "deepseek-v4-flash",
+        "deepseek-v4.1-flash",
         "ToolSearch top-k",
         "time_to_first_token",
     ]:

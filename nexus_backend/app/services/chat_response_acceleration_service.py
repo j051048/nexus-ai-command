@@ -534,7 +534,7 @@ class ChatResponseAccelerationService:
         return {
             "source": "Nexus chat response acceleration",
             "areas": list(ACCELERATION_AREAS),
-            "default_model_literal": "deepseek-v4-flash",
+            "default_model_literal": "deepseek-v4.1-flash",
             "path_model": {
                 "fast_path": "safe greetings, help, no-tool answers",
                 "standard_path": "short business/general queries with slim context",

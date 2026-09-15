@@ -96,7 +96,7 @@ async def _enrich_chunks(
         try:
             from app.core.config import settings as app_settings
 
-            mini_model = getattr(app_settings, "AI_MINI_MODEL", "deepseek-v4-flash")
+            mini_model = getattr(app_settings, "AI_MINI_MODEL", "deepseek-v4.1-flash")
 
             resp = await client.post(
                 f"{base_url}/chat/completions",

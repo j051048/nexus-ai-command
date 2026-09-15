@@ -28,7 +28,7 @@ class ContextCompilePolicy:
     reserved_history_tokens: int = 4_000
     minimum_context_tokens: int = 1_000
     reserved_tool_tokens: int = 0
-    model: str = "deepseek-v4-flash"
+    model: str = "deepseek-v4.1-flash"
 
     @property
     def system_budget(self) -> int:
@@ -201,7 +201,7 @@ class ContextCompiler:
         self,
         messages: Iterable[BaseMessage],
         ledger: dict[str, Any],
-        model: str = "deepseek-v4-flash",
+        model: str = "deepseek-v4.1-flash",
     ) -> list[ContextCandidate]:
         candidates: list[ContextCandidate] = []
         for index, message in enumerate(messages):
@@ -239,7 +239,7 @@ class ContextCompiler:
         return first_line.strip("[]【】 ")[:80] or "system"
 
     @staticmethod
-    def _estimate_tokens(content: str, model: str = "deepseek-v4-flash") -> int:
+    def _estimate_tokens(content: str, model: str = "deepseek-v4.1-flash") -> int:
         # Reuse the warmed tokenizer, with headroom for provider-specific framing.
         return max(1, int(_token_counter.count_tokens(content, model) * 1.2) + 8)
 

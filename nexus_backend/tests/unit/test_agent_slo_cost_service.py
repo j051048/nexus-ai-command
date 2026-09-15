@@ -14,7 +14,7 @@ def test_agent_slo_cost_summary_is_healthy_for_low_cost_fast_runs():
         ],
         llm_calls=[
             {
-                "model_code": "deepseek-v4-flash",
+                "model_code": "deepseek-v4.1-flash",
                 "total_tokens": 800,
                 "call_cost": 0.001,
                 "exec_time_ms": 900,
@@ -25,7 +25,7 @@ def test_agent_slo_cost_summary_is_healthy_for_low_cost_fast_runs():
     assert result["status"] == "healthy"
     assert result["metrics"]["agent_success_rate"] == 1
     assert result["metrics"]["expensive_model_share"] == 0
-    assert result["model_mix"][0]["model_code"] == "deepseek-v4-flash"
+    assert result["model_mix"][0]["model_code"] == "deepseek-v4.1-flash"
 
 
 def test_agent_slo_cost_summary_flags_expensive_model_and_latency_regression():

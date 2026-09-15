@@ -60,7 +60,7 @@ async def test_vision_api_payload():
     payload = call_args[0][0]
 
     # Check payload structure for Vision
-    assert payload["model"] == "deepseek-v4-flash"
+    assert payload["model"] == "deepseek-v4.1-flash"
     assert payload["messages"][0]["content"][1]["type"] == "image_url"
     assert (
         "data:image/jpeg;base64,"

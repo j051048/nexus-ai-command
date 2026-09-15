@@ -44,7 +44,7 @@ def main() -> int:
             profile.execution_depth
         ]
         total_calls += min(planned_calls, policy.max_calls)
-        expensive_calls += int(policy.primary_model != "deepseek-v4-flash")
+        expensive_calls += int(policy.primary_model != "deepseek-v4.1-flash")
 
     accuracy = correct / len(cases)
     average_calls = total_calls / len(cases)

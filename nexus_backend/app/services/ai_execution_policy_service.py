@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 POLICY_CONFIG_TYPE = "ai_execution"
 POLICY_CONFIG_KEY = "policy"
 POLICY_VERSION = "2026-07-16.1"
-PRIMARY_CHAT_MODEL = "deepseek-v4-flash"
+PRIMARY_CHAT_MODEL = "deepseek-v4.1-flash"
 
 
 class AIExecutionMode(StrEnum):

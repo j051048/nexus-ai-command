@@ -76,7 +76,7 @@ async def bind_tools_to_llm(
             llm = llm.bind_tools(simple_schemas, parallel_tool_calls=True)
             state["bound_tool_tokens"] = context_compiler._estimate_tokens(
                 json.dumps(simple_schemas, ensure_ascii=False),
-                model or "deepseek-v4-flash",
+                model or "deepseek-v4.1-flash",
             )
     else:
         bind_kwargs = {"parallel_tool_calls": True}
@@ -150,7 +150,7 @@ async def bind_tools_to_llm(
 
         llm = llm.bind_tools(schemas, **bind_kwargs)
         state["bound_tool_tokens"] = context_compiler._estimate_tokens(
-            json.dumps(schemas, ensure_ascii=False), model or "deepseek-v4-flash"
+            json.dumps(schemas, ensure_ascii=False), model or "deepseek-v4.1-flash"
         )
 
     # ── Explainability: log tool binding decision ──

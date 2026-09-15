@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI):
     try:
         from app.services.token_service import token_counter
 
-        token_counter.count_tokens("warmup", "deepseek-v4-flash")
+        token_counter.count_tokens("warmup", "deepseek-v4.1-flash")
         logger.info("Token encoders warmed up")
     except Exception as e:
         logger.warning(f"Tiktoken warmup skipped: {e}")

@@ -111,7 +111,7 @@ def check_chat_latency_budget(failures: list[str]) -> None:
         "time_to_first_token",
         "semantic_tool_result_cache",
         "conditional_reflect_critic_policy",
-        "deepseek-v4-flash",
+        "deepseek-v4.1-flash",
     ):
         require(token in service, f"chat acceleration service missing {token}", failures)
 

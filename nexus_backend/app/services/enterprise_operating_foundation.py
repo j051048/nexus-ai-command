@@ -19,7 +19,7 @@ class NexusExecutionContext:
     role: str = "employee"
     locale: str = "zh-CN"
     currency: str = "CNY"
-    default_llm_model: str = "deepseek-v4-flash"
+    default_llm_model: str = "deepseek-v4.1-flash"
     trace_id: str | None = None
     monthly_llm_budget_usd: float = 20.0
     allowed_apps: list[str] = field(
@@ -303,7 +303,7 @@ def validate_enterprise_operating_foundation() -> dict[str, Any]:
         organization_id="contract-test-org",
     )
     checks = {
-        "nexus_execution_context": context.default_llm_model == "deepseek-v4-flash",
+        "nexus_execution_context": context.default_llm_model == "deepseek-v4.1-flash",
         "business_app_manifest": not incomplete_manifests,
         "ai_server_actions": not high_risk_without_hitl,
         "field_prompt_permissions": not prompt_policy_leaks,

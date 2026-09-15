@@ -32,7 +32,7 @@ def test_bounded_loop_engineering_contract():
         "max_tokens",
         "max_cost_usd",
         "max_minutes",
-        "deepseek-v4-flash",
+        "deepseek-v4.1-flash",
         "gemini-3.1-pro-preview",
     ]:
         assert token in service

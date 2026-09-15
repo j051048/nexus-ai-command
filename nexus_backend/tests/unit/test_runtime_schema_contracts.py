@@ -46,7 +46,7 @@ async def test_llm_call_log_uses_canonical_database_columns():
     harness = _LoggingHarness()
     await harness._log_call(
         org_id="00000000-0000-0000-0000-000000000001",
-        model_code="deepseek-v4-flash",
+        model_code="deepseek-v4.1-flash",
         scene_code="test",
         agent_code="test_agent",
         user_id="00000000-0000-0000-0000-000000000002",
@@ -73,7 +73,7 @@ def test_quota_rows_expand_to_daily_and_monthly_runtime_rules():
         {
             "tenant_id": "org-1",
             "quota_type": "model",
-            "target_id": "deepseek-v4-flash",
+            "target_id": "deepseek-v4.1-flash",
             "daily_token_limit": 1000,
             "daily_cost_limit": 5,
             "monthly_token_limit": 20000,
@@ -86,7 +86,7 @@ def test_quota_rows_expand_to_daily_and_monthly_runtime_rules():
     )
 
     assert [config.period for config in configs] == ["daily", "monthly"]
-    assert configs[0].model_code == "deepseek-v4-flash"
+    assert configs[0].model_code == "deepseek-v4.1-flash"
     assert configs[0].max_requests == 50
     assert configs[1].max_cost == 80
 

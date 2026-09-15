@@ -16,7 +16,7 @@ def test_nexus_execution_context_defaults_to_low_cost_model():
         role="employee",
     )
 
-    assert context.default_llm_model == "deepseek-v4-flash"
+    assert context.default_llm_model == "deepseek-v4.1-flash"
     assert context.locale == "zh-CN"
     assert context.currency == "CNY"
     assert "crm" in context.allowed_apps
@@ -68,6 +68,6 @@ def test_enterprise_operating_foundation_validation_passes():
     )
     result = validate_enterprise_operating_foundation()
 
-    assert model["summary"]["default_llm_model"] == "deepseek-v4-flash"
+    assert model["summary"]["default_llm_model"] == "deepseek-v4.1-flash"
     assert result["passed"] is True
     assert all(result["checks"].values())

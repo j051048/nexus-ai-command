@@ -153,8 +153,8 @@ class AgentConfig(BaseModel):
     agent_name: str = "default"
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
-    model: str = "deepseek-v4-flash"
-    mini_model: str = "deepseek-v4-flash"
+    model: str = "deepseek-v4.1-flash"
+    mini_model: str = "deepseek-v4.1-flash"
     system_confirmed: bool = False
     confirmed_tool: dict | None = None  # HITL: {tool_name, args} from blocked call
     org_id: str | None = None
@@ -202,12 +202,12 @@ class AgentConfig(BaseModel):
     @classmethod
     def force_runtime_chat_model(cls, v: str) -> str:
         """Runtime Agent calls are pinned to the production low-cost model."""
-        return "deepseek-v4-flash"
+        return "deepseek-v4.1-flash"
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
         """Return the single production chat model for every task depth."""
         del complexity
-        return "deepseek-v4-flash"
+        return "deepseek-v4.1-flash"
 
     def get_tier_config(self, complexity: QueryComplexity) -> dict:
         """Return full tier-aware config (model + temperature + timeout + tools).

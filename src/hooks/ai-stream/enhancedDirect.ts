@@ -64,7 +64,7 @@ export async function attemptEnhancedDirectStream({
   const response = await aiClient.stream('api/chat/proxy', {
     method: 'POST',
     body: JSON.stringify({
-      model: 'deepseek-v4-flash',
+      model: 'deepseek-v4.1-flash',
       messages: messagesWithContext,
       stream: true,
     }),

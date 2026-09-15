@@ -20,7 +20,7 @@ export interface AISettings {
   behavior_preferences?: BehaviorPreferences;
 }
 
-export const DEFAULT_AI_MODEL = 'deepseek-v4-flash';
+export const DEFAULT_AI_MODEL = 'deepseek-v4.1-flash';
 
 export function normalizeAIModel(_model?: string | null) {
   return DEFAULT_AI_MODEL;
