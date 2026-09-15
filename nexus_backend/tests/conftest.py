@@ -4,6 +4,7 @@ import os
 import socket
 from typing import Any
 
+import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -22,18 +23,38 @@ def block_unapproved_external_network(monkeypatch):
         return
 
     original_getaddrinfo = socket.getaddrinfo
+    original_http_request = httpx.HTTPTransport.handle_request
+    original_async_http_request = httpx.AsyncHTTPTransport.handle_async_request
     allowed_hosts = {"localhost", "127.0.0.1", "::1", "test"}
 
-    def guarded_getaddrinfo(host, *args, **kwargs):
+    def require_allowed_host(host):
         normalized = str(host or "").lower()
         if normalized in allowed_hosts:
-            return original_getaddrinfo(host, *args, **kwargs)
+            return
         raise RuntimeError(
             f"Unexpected external network request in backend test: {host}. "
             "Mock the dependency or set ALLOW_TEST_NETWORK=1 for a staging job."
         )
 
+    def guarded_getaddrinfo(host, *args, **kwargs):
+        require_allowed_host(host)
+        return original_getaddrinfo(host, *args, **kwargs)
+
+    # Check the destination before proxy resolution or pooled-connection reuse.
+    # ASGITransport and explicit MockTransport instances remain untouched.
+    def guarded_http_request(transport, request):
+        require_allowed_host(request.url.host)
+        return original_http_request(transport, request)
+
+    async def guarded_async_http_request(transport, request):
+        require_allowed_host(request.url.host)
+        return await original_async_http_request(transport, request)
+
     monkeypatch.setattr(socket, "getaddrinfo", guarded_getaddrinfo)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", guarded_http_request)
+    monkeypatch.setattr(
+        httpx.AsyncHTTPTransport, "handle_async_request", guarded_async_http_request
+    )
     yield
 
 

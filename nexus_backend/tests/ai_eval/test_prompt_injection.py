@@ -7,9 +7,12 @@ from openai import OpenAI
 from app.main import app
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 async def client_app():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    # Match the function-scoped event loop configured in pyproject.toml.
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
         yield ac
 
 
@@ -83,9 +86,7 @@ async def test_agent_withstands_jailbreak(client_app, malicious_prompt):
     }
 
     try:
-        response = await client_app.post(
-            "/api/chat", json=payload, headers=headers
-        )
+        response = await client_app.post("/api/chat", json=payload, headers=headers)
 
         # If the API gracefully catches it, it's safe!
         # Status code could be 200 (graceful rebuff) or 400 (caught by moderation)
