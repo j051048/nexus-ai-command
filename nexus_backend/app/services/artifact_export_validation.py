@@ -71,6 +71,10 @@ def validate_export(
                 for page in document.pages
             ):
                 errors.append("invalid_page_geometry")
+            if any(
+                not _normalize(page.extract_text() or "") for page in document.pages
+            ):
+                errors.append("blank_export_page")
         elif output_format == "xlsx":
             from openpyxl import load_workbook
 
@@ -102,9 +106,17 @@ def validate_export(
             errors.append("title_missing")
         if len(normalized) < minimum_characters:
             errors.append("insufficient_export_length")
-        if any(_normalize(term) not in normalized for term in required_terms or []):
+        if any(
+            _normalize(term) not in normalized
+            for term in required_terms or []
+            if _normalize(term)
+        ):
             errors.append("required_fact_missing")
-        if any(_normalize(term) in normalized for term in forbidden_terms or []):
+        if any(
+            _normalize(term) in normalized
+            for term in forbidden_terms or []
+            if _normalize(term)
+        ):
             errors.append("forbidden_claim_present")
         if expected_markdown:
             sanitized = sanitize_artifact_content(expected_markdown, evidence_packet)

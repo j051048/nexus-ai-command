@@ -2,14 +2,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/features/deliverables/artifactApi', () => ({
-  getArtifactPreview: vi.fn(), downloadArtifact: vi.fn(), reviseArtifact: vi.fn(),
+  getArtifactPreview: vi.fn(), downloadArtifact: vi.fn(), reviseArtifact: vi.fn(), reviewArtifact: vi.fn(),
 }));
 
 import { ArtifactPreviewButton } from '@/components/deliverables/ArtifactPreviewButton';
 import { parseDeliveryCriteria } from '@/components/deliverables/DeliveryRequirementsEditor';
-import { downloadArtifact, getArtifactPreview, reviseArtifact, type ArtifactPreview } from '@/features/deliverables/artifactApi';
+import { downloadArtifact, getArtifactPreview, reviseArtifact, reviewArtifact, type ArtifactPreview } from '@/features/deliverables/artifactApi';
 
 const fixture = {
+  version_id: 'version-1',
   id: 'artifact-1', title: '光谱客户方案', content_markdown: '# 正式方案\n\n| 配置 | 依据 |\n| --- | --- |\n| 光谱仪 | 企业资料 |\n\n![remote](https://example.invalid/tracker.png)',
   approval_status: 'pending', quality: { ready: false, findings: [{ code: 'missing', message: '补充售后条款' }], metrics: { character_count: 1200 } },
   requirements: { minimum_character_count: 3000 }, sources: [{ title: '产品手册', document_id: 'doc-1' }], usage: {},
@@ -20,6 +21,15 @@ beforeEach(() => { vi.mocked(getArtifactPreview).mockResolvedValue(fixture); });
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 describe('result-first artifact preview', () => {
+  it('approves only the reviewed version after explicit confirmation', async () => {
+    vi.mocked(getArtifactPreview).mockResolvedValue({ ...fixture, quality: { ...fixture.quality, ready: true } });
+    render(<ArtifactPreviewButton artifactId="artifact-1" />);
+    fireEvent.click(screen.getByRole('button', { name: '预览与修订' }));
+    expect(await screen.findByRole('button', { name: '批准本版本' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: '批准本版本' }));
+    await waitFor(() => expect(reviewArtifact).toHaveBeenCalledWith('artifact-1', 'version-1', 'approved', { facts: true, promises: true }));
+  });
   it('loads only when opened, renders safe content and downloads the selected format as draft', async () => {
     render(<ArtifactPreviewButton artifactId="artifact-1" />);
     expect(getArtifactPreview).not.toHaveBeenCalled();

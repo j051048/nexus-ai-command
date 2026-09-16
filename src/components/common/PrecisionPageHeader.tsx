@@ -47,8 +47,8 @@ export function PrecisionPageHeader({
 
   return (
     <header className={cn('border-b border-border/80 pb-5', className)}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0 flex-[1_1_24rem]">
           <div className="flex items-center gap-2 text-xs font-medium text-primary">
             {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
             <span>{eyebrow}</span>
@@ -62,7 +62,7 @@ export function PrecisionPageHeader({
         </div>
 
         {(actions || status) && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
             {status && (
               <div className="flex items-center gap-2">
                 <Badge indicator variant={STATUS_VARIANT[tone]}>{status.label}</Badge>
@@ -77,4 +77,3 @@ export function PrecisionPageHeader({
     </header>
   );
 }
-

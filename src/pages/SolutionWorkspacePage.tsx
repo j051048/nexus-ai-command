@@ -199,6 +199,17 @@ export default function SolutionWorkspacePage() {
   };
 
   const busy = saveWorkspace.isPending || generateSolution.isPending;
+  if (!selectedProjectId && !projectsQuery.data?.length) {
+    return <div className="mx-auto max-w-4xl space-y-6 pb-12" data-testid="solution-workspace">
+      <PrecisionPageHeader eyebrow="方案作战" title="客户解决方案" icon={FileStack} />
+      {projectsQuery.isLoading ? <p role="status" className="py-8 text-sm text-muted-foreground">正在读取方案…</p> : projectsQuery.isError ? <div role="alert" className="space-y-3 py-8"><p>暂时无法读取方案，请稍后重试。</p><Button variant="outline" onClick={() => void projectsQuery.refetch()}>重新加载</Button></div> : <section className="space-y-6 py-6">
+        <div><h2 className="text-xl font-semibold">第一份方案，从客户需求开始</h2><p className="mt-2 text-sm text-muted-foreground">选取企业资料，生成可审阅、可下载的客户方案。</p></div>
+        <ol className="grid gap-4 border-y py-5 sm:grid-cols-3">{['明确客户需求', '选择产品资料', '审阅并下载成果'].map((step, index) => <li key={step} className="flex items-center gap-3 text-sm"><span className="font-mono text-primary">0{index + 1}</span>{step}</li>)}</ol>
+        <div className="flex flex-wrap gap-3"><Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />新建客户方案</Button><Button variant="outline" onClick={() => navigate('/knowledge')}><BookOpenCheck className="mr-2 h-4 w-4" />企业资料</Button></div>
+      </section>}
+      <SolutionProjectDialog open={createOpen} options={contextQuery.data} initialCustomerId={initialCustomerId} isSubmitting={createProject.isPending} onOpenChange={setCreateOpen} onSubmit={handleCreate} />
+    </div>;
+  }
   return (
     <div className="mx-auto max-w-[1360px] space-y-5 pb-20" data-testid="solution-workspace">
       <PrecisionPageHeader

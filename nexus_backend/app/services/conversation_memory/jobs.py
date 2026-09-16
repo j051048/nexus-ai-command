@@ -64,7 +64,7 @@ async def enqueue_memory_persistence_job(
     plaintext = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     ciphertext = encryption_service.encrypt(plaintext)
     idempotency_key = hashlib.sha256(
-        f"{user_id}:{session_id}:{user_message}:{assistant_response}".encode()
+        f"{org_id}:{user_id}:{session_id}:{user_message}:{assistant_response}".encode()
     ).hexdigest()
     row = {
         "organization_id": org_id,
@@ -75,9 +75,17 @@ async def enqueue_memory_persistence_job(
         "status": "queued",
     }
     try:
-        result = await client.table("memory_persistence_jobs").insert(row).execute()
-        saved = result.data[0] if isinstance(result.data, list) else result.data
-        job_id = str(saved["id"])
+        if db is not None and db is not supabase:
+            result = await client.rpc(
+                "enqueue_memory_persistence_job", {"p_job": row}
+            ).execute()
+            if not result.data:
+                raise RuntimeError("Memory enqueue returned no job ID")
+            job_id = str(result.data)
+        else:
+            result = await client.table("memory_persistence_jobs").insert(row).execute()
+            saved = result.data[0] if isinstance(result.data, list) else result.data
+            job_id = str(saved["id"])
     except Exception as exc:
         if "duplicate" not in str(exc).lower() and "23505" not in str(exc):
             raise
@@ -120,6 +128,17 @@ async def run_claimed_memory_job(job: dict) -> None:
     try:
         ciphertext = (job.get("payload") or {}).get("ciphertext", "")
         payload = json.loads(encryption_service.decrypt(ciphertext))
+        if any(
+            str(payload.get(key) or "") != str(job.get(column) or "")
+            for key, column in (
+                ("user_id", "user_id"),
+                ("org_id", "organization_id"),
+                ("session_id", "session_id"),
+            )
+        ):
+            raise ValueError(
+                "Memory payload identity does not match its queue envelope"
+            )
         from app.agent.memory.persistence import persist_result
 
         await persist_result(

@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { useActivationState } from '@/hooks/useActivationState';
 import { httpClient } from '@/lib/httpClient';
 import { cn } from '@/lib/utils';
+import { KnowledgeDocumentDrawer } from './KnowledgeDocumentDrawer';
 
 const KNOWLEDGE_CATEGORIES = [
   { value: 'all', label: '全部资料' },
@@ -126,6 +127,7 @@ export default function KnowledgeAssetsPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [readiness, setReadiness] = useState<KnowledgeReadiness | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const loadDocuments = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -194,9 +196,7 @@ export default function KnowledgeAssetsPage() {
     try {
       const response = await httpClient.patch(`/api/documents/${document.id}/review`, {
         review_status: reviewStatus,
-        source_version: document.source_version || 'current',
         valid_until: document.valid_until || null,
-        quality_score: reviewStatus === 'verified' ? (document.quality_score ?? 1) : document.quality_score,
       }, { silentError: true });
       const updated = response.data?.data;
       setDocuments((current) => current.map((item) => item.id === document.id ? normalizeDocument({ ...item, ...updated }) : item));
@@ -362,7 +362,7 @@ export default function KnowledgeAssetsPage() {
                 <div className="flex min-w-0 gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-card"><FileText className="h-4 w-4 text-muted-foreground" /></div>
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-sm font-medium">{document.name}</h2><Badge variant="outline">{categoryLabel(type)}</Badge>{isReady ? <span className="flex items-center gap-1 text-xs text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />可检索</span> : isFailed ? <span className="flex items-center gap-1 text-xs text-destructive"><AlertCircle className="h-3.5 w-3.5" />整理失败</span> : <span className="text-xs text-amber-700">{ingestionStageLabel(document)} {progress}%</span>}{document.review_status === 'verified' && <Badge>可信</Badge>}</div>
+                    <div className="flex flex-wrap items-center gap-2"><h2 className="min-w-0 text-sm font-medium"><button type="button" onClick={() => setPreviewId(document.id)} className="max-w-full break-words text-left hover:text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">{document.name}</button></h2><Badge variant="outline">{categoryLabel(type)}</Badge>{isReady ? <span className="flex items-center gap-1 text-xs text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />可检索</span> : isFailed ? <span className="flex items-center gap-1 text-xs text-destructive"><AlertCircle className="h-3.5 w-3.5" />整理失败</span> : <span className="text-xs text-amber-700">{ingestionStageLabel(document)} {progress}%</span>}{document.review_status === 'verified' && <Badge>已核验</Badge>}</div>
                     <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{extracted?.summary || '等待 AI 提取摘要与可引用证据'}</p>
                     {!isReady && !isFailed && <div className="mt-2 h-1 max-w-md overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${Math.max(4, progress)}%` }} /></div>}
                     {isFailed && <p className="mt-1 text-xs text-muted-foreground">原文件已保留，可直接重新整理，无需再次上传。</p>}
@@ -382,6 +382,7 @@ export default function KnowledgeAssetsPage() {
       </div>
 
       {isDragging && <div className="pointer-events-none fixed inset-6 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-background/90 text-sm font-medium"><FolderUp className="mr-2 h-5 w-5 text-primary" />松开即可上传并自动分类</div>}
+      <KnowledgeDocumentDrawer documentId={previewId} onClose={() => setPreviewId(null)} />
     </main>
   );
 }

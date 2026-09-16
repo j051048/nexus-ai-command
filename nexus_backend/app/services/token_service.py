@@ -411,9 +411,9 @@ class UsageTracker:
             if not supabase:
                 return
 
-            # 1. Update daily aggregate (idempotent via RPC with org_id)
+            # Atomic additive update. The v2 name has one PostgREST signature.
             await supabase.rpc(
-                "upsert_daily_token_usage",
+                "upsert_daily_token_usage_v2",
                 {
                     "p_user_id": user_id,
                     "p_org_id": org_id,

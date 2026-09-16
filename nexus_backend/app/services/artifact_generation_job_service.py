@@ -410,6 +410,8 @@ async def run_generation_job(job_id: str) -> dict[str, Any]:
             review_confirmed=bool(payload.get("review_confirmed")),
             delivery_requirements=payload.get("delivery_requirements"),
             revision_of=payload.get("revision_of"),
+            revision_section=payload.get("revision_section"),
+            base_version_id=payload.get("base_version_id"),
             progress_callback=progress_callback,
             job_id=job_id,
             lease_token=lease_token,

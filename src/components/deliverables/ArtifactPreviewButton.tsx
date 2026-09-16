@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Eye, Loader2, RotateCcw, Send } from 'lucide-react';
+import { CheckCheck, Download, Eye, Loader2, RotateCcw, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { downloadArtifact, getArtifactPreview, reviseArtifact, type ArtifactPreview, type ArtifactOutputFormat } from '@/features/deliverables/artifactApi';
+import { downloadArtifact, getArtifactPreview, reviewArtifact, reviseArtifact, type ArtifactPreview, type ArtifactOutputFormat } from '@/features/deliverables/artifactApi';
 
 export function ArtifactPreviewButton({ artifactId, onQueued }: { artifactId: string; onQueued?: () => void }) {
   const [open, setOpen] = useState(false);
@@ -20,7 +20,9 @@ export function ArtifactPreviewButton({ artifactId, onQueued }: { artifactId: st
   const [reload, setReload] = useState(0);
   const [format, setFormat] = useState<ArtifactOutputFormat>('docx');
   const [instructions, setInstructions] = useState('');
+  const [sectionHeading, setSectionHeading] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const request = useRef({ text: '', key: '' });
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -28,7 +30,7 @@ export function ArtifactPreviewButton({ artifactId, onQueued }: { artifactId: st
   useEffect(() => {
     if (!open) return;
     let disposed = false;
-    setData(null); setPrevious(null); setError(false); setComparisonFailed(false);
+    setData(null); setPrevious(null); setError(false); setComparisonFailed(false); setConfirmed(false);
     void getArtifactPreview(artifactId).then(async (result) => {
       if (disposed) return;
       setData(result); setFormat(result.requested_formats[0] || 'docx');
@@ -42,18 +44,23 @@ export function ArtifactPreviewButton({ artifactId, onQueued }: { artifactId: st
     return () => { disposed = true; };
   }, [open, artifactId, reload]);
 
-  const act = async (action: 'download' | 'revise') => {
+  const act = async (action: 'download' | 'revise' | 'approve') => {
     if (!data || busy) return;
     setBusy(true);
     try {
       if (action === 'download') {
         const title = data.quality.ready && data.approval_status === 'approved' ? data.title : `审核草稿-${data.title}`;
         await downloadArtifact(data.id, format, title);
+      } else if (action === 'approve') {
+        if (!confirmed || !data.version_id) return;
+        await reviewArtifact(data.id, data.version_id, 'approved', { facts: true, promises: true });
+        if (alive.current) { setReload(value => value + 1); onQueued?.(); toast.success('本版本已审核'); }
       } else {
         const text = instructions.trim();
-        if (text.length < 2) return;
-        if (request.current.text !== text) request.current = { text, key: crypto.randomUUID() };
-        await reviseArtifact(data.id, text, request.current.key);
+        if (text.length < 2 || !data.version_id) return;
+        const fingerprint = JSON.stringify([text, sectionHeading, data.version_id]);
+        if (request.current.text !== fingerprint) request.current = { text: fingerprint, key: crypto.randomUUID() };
+        await reviseArtifact(data.id, text, request.current.key, data.version_id, sectionHeading);
         if (alive.current) { toast.success('修订任务已提交，原稿已保留'); onQueued?.(); setOpen(false); }
       }
     } catch { if (alive.current) toast.error('操作未完成，请检查资料权限或稍后重试'); }
@@ -83,7 +90,8 @@ export function ArtifactPreviewButton({ artifactId, onQueued }: { artifactId: st
           </div>
         </Tabs>
         <div className="shrink-0 space-y-3 border-t pt-3">
-          <details><summary className="cursor-pointer text-sm">修改要求</summary><label className="sr-only" htmlFor={`revision-${artifactId}`}>修订要求</label><Textarea id={`revision-${artifactId}`} value={instructions} maxLength={4000} onChange={(event) => setInstructions(event.target.value)} className="my-3 min-h-20" /><Button disabled={busy || instructions.trim().length < 2} onClick={() => void act('revise')}><Send className="mr-2 h-4 w-4" />生成修订稿</Button></details>
+          {data.quality.ready && data.approval_status !== 'approved' && <div className="flex flex-wrap items-center justify-between gap-3 text-sm"><label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />已核对本版本的事实、参数与对外承诺</label><Button variant="outline" disabled={busy || !confirmed || !data.version_id} onClick={() => void act('approve')}><CheckCheck className="mr-2 h-4 w-4" />批准本版本</Button></div>}
+          <details><summary className="cursor-pointer text-sm">修改要求</summary><select aria-label="修订范围" className="mt-3 h-9 max-w-full rounded-md border bg-background px-3 text-sm" value={sectionHeading} onChange={event => setSectionHeading(event.target.value)}><option value="">整体修订</option>{Array.from(data.content_markdown.matchAll(/^##\s+(.+?)\s*$/gm), match => match[1]).filter((title, index, all) => all.indexOf(title) === index).map(title => <option key={title} value={title}>仅修改：{title}</option>)}</select><label className="sr-only" htmlFor={`revision-${artifactId}`}>修订要求</label><Textarea id={`revision-${artifactId}`} value={instructions} maxLength={4000} onChange={(event) => setInstructions(event.target.value)} className="my-3 min-h-20" /><Button disabled={busy || !data.version_id || instructions.trim().length < 2} onClick={() => void act('revise')}><Send className="mr-2 h-4 w-4" />生成修订稿</Button></details>
           <div className="flex flex-wrap items-center justify-end gap-2"><label className="sr-only" htmlFor={`format-${artifactId}`}>文件格式</label><select id={`format-${artifactId}`} aria-label="文件格式" value={format} onChange={(event) => setFormat(event.target.value as ArtifactOutputFormat)} className="h-9 rounded-md border bg-background px-3 text-sm">{data.requested_formats.map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select><Button disabled={busy} onClick={() => void act('download')}><Download className="mr-2 h-4 w-4" />{data.quality.ready && data.approval_status === 'approved' ? '下载成果' : '下载审核草稿'}</Button></div>
         </div>
       </>}

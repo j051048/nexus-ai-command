@@ -78,22 +78,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPendingBoss, setIsPendingBoss] = useState(false);
   const [loading, setLoading] = useState(true);
   const hadSessionRef = useRef(false);
+  const identityRef = useRef<string | null>(null);
+  const requestGeneration = useRef(0);
+  const profileRequest = useRef<AbortController | null>(null);
 
   const fetchUserData = async (userId: string) => {
+    const generation = ++requestGeneration.current;
+    profileRequest.current?.abort();
+    const controller = new AbortController();
+    profileRequest.current = controller;
+    const isCurrent = () => generation === requestGeneration.current && identityRef.current === userId;
     try {
-      const response = await httpClient.get('/api/users/profile');
+      const response = await httpClient.get('/api/users/profile', { signal: controller.signal });
+      if (!isCurrent()) return;
       // 后端统一使用了 api_success 包装，数据在 data.user 中
       const profileData = response.data?.data?.user;
 
       if (profileData) {
         const newProfile = sanitizeProfile(profileData as Record<string, unknown>);
-        console.log('[AuthContext] Fetched new profile data:', newProfile);
-        setProfile(prev => {
-          console.log('[AuthContext] Current profile state before update:', prev);
-          console.log('[AuthContext] Setting next profile state:', newProfile);
-          // 强制返回新对象引用
-          return { ...newProfile };
-        });
+        if (newProfile.user_id !== userId) throw new Error('Profile identity mismatch');
+        setProfile(newProfile);
       }
 
       // Try to resolve role from profile data first (backend already returns it)
@@ -127,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data: roleData } = await supabase
             .rpc('get_user_role', { _user_id: userId });
+          if (!isCurrent()) return;
 
           if (roleData) {
             const roleStr = safeProfileStr(roleData, 'role');
@@ -141,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setRole('employee');
           }
         } catch {
+          if (!isCurrent()) return;
           setRole('employee');
         }
       }
@@ -148,26 +154,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Check super admin status (separate from role)
       try {
         const { data: saData } = await supabase.rpc('is_super_admin', { _user_id: userId });
+        if (!isCurrent()) return;
         setIsSuperAdmin(!!saData);
       } catch {
+        if (!isCurrent()) return;
         setIsSuperAdmin(false);
       }
     } catch (error) {
+      if (!isCurrent()) return;
+      setProfile(null);
+      setIsSuperAdmin(false);
       // Auth data fetch failed — default to employee role for safety
       setRole('employee');
     } finally {
       // Ensure loading state is turned off regardless of success/fail
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
   useEffect(() => {
+    let disposed = false;
+    let authEventReceived = false;
+    const updateIdentity = (newSession: Session | null) => {
+      const nextId = newSession?.user.id ?? null;
+      if (nextId !== identityRef.current) {
+        ++requestGeneration.current;
+        profileRequest.current?.abort();
+        identityRef.current = nextId;
+        setProfile(null);
+        setRole(null);
+        setIsSuperAdmin(false);
+        setIsPendingBoss(false);
+        setLoading(Boolean(nextId));
+      }
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+    };
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
+        if (disposed) return;
+        authEventReceived = true;
         if (import.meta.env.DEV) console.log('Auth state changed:', event);
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
+        updateIdentity(newSession);
 
         if (newSession?.user) {
           hadSessionRef.current = true;
@@ -188,8 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Then check for existing session
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      setSession(existingSession);
-      setUser(existingSession?.user ?? null);
+      if (disposed || authEventReceived) return;
+      updateIdentity(existingSession);
       if (existingSession?.user) {
         fetchUserData(existingSession.user.id);
       } else {
@@ -198,6 +227,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      disposed = true;
+      ++requestGeneration.current;
+      profileRequest.current?.abort();
       subscription.unsubscribe();
     };
   }, []);
@@ -232,13 +264,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    ++requestGeneration.current;
+    profileRequest.current?.abort();
+    identityRef.current = null;
+    hadSessionRef.current = false;
     setUser(null);
     setSession(null);
     setProfile(null);
     setRole(null);
     setIsSuperAdmin(false);
     setIsPendingBoss(false);
+    await supabase.auth.signOut();
   }, []);
 
   const refreshProfile = useCallback(async () => {

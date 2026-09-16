@@ -82,6 +82,7 @@ export interface ArtifactResult {
     };
   };
   version_number: number;
+  version_id?: string;
   requested_formats: ArtifactOutputFormat[];
   verification_items: string[];
   evidence: {
@@ -149,9 +150,9 @@ export async function getArtifactPreview(id: string) {
   return unwrap<ArtifactPreview>(await httpClient.get(`/api/artifacts/${id}/preview`, { silentError: true }));
 }
 
-export async function reviseArtifact(id: string, instructions: string, requestKey: string) {
+export async function reviseArtifact(id: string, instructions: string, requestKey: string, baseVersionId: string, sectionHeading?: string) {
   return unwrap<ArtifactGenerationJob>(await httpClient.post(`/api/artifacts/${id}/revisions`, {
-    instructions, request_key: requestKey,
+    instructions, request_key: requestKey, base_version_id: baseVersionId, section_heading: sectionHeading || null,
   }, { silentError: true }));
 }
 
@@ -257,12 +258,13 @@ export async function listArtifactSourceDocuments() {
 
 export async function reviewArtifact(
   artifactId: string,
+  versionId: string,
   decision: 'approved' | 'rejected',
   confirmations: Record<string, boolean>,
 ) {
   const response = await httpClient.post(
     `/api/artifacts/${artifactId}/review`,
-    { decision, confirmations },
+    { version_id: versionId, decision, confirmations },
     { silentError: true },
   );
   return unwrap<ArtifactResult>(response);

@@ -108,29 +108,67 @@ class TokenBudgetManager:
         self._memory_store = _InMemoryBudgetStore()
         self._redis_client = None
         self._redis_unavailable = False
+        self._redis_retry_at = 0.0
+        self._redis_probe_lock = asyncio.Lock()
+        self._fallback_log_at = 0.0
 
     async def _get_redis(self):
         """Lazily get Redis client from cache_service."""
         if settings.ENV == "test" or os.getenv("PYTEST_CURRENT_TEST"):
             return None
-        if self._redis_unavailable:
+        if time.monotonic() < self._redis_retry_at:
             return None
-        if self._redis_client is not None:
+        if self._redis_client is not None and not self._redis_unavailable:
             return self._redis_client
-        try:
-            from app.services.cache_service import cache_service
-
-            if cache_service._use_redis and cache_service._client:
-                self._redis_client = cache_service._client
+        async with self._redis_probe_lock:
+            if time.monotonic() < self._redis_retry_at:
+                return None
+            if self._redis_client is not None and not self._redis_unavailable:
                 return self._redis_client
-        except Exception as e:
-            self._redis_unavailable = True
-            logger.warning("[TokenBudget] Redis client init failed: %s", e)
+            candidate = None
+            owned = False
+            try:
+                from app.services.cache_service import cache_service
+
+                candidate = self._redis_client
+                if candidate is None and cache_service._use_redis:
+                    candidate = cache_service._client
+                if candidate is None:
+                    import redis.asyncio as redis
+
+                    candidate = redis.from_url(
+                        settings.REDIS_URL,
+                        socket_connect_timeout=1,
+                        socket_timeout=1,
+                    )
+                    owned = True
+                await asyncio.wait_for(candidate.ping(), timeout=1)
+                if self._redis_unavailable:
+                    logger.info(
+                        "[TokenBudget] Redis recovered; local usage retained until expiry"
+                    )
+                self._redis_client = candidate
+                self._redis_unavailable = False
+                return candidate
+            except (TimeoutError, OSError, RuntimeError, ConnectionError) as exc:
+                if owned and candidate is not None:
+                    await candidate.aclose()
+                self._disable_redis()
+                logger.warning(
+                    "[TokenBudget] Redis probe failed; retry in 30s: %s", exc
+                )
 
     def _disable_redis(self) -> None:
         """Stop reusing a Redis client after a connection or event-loop failure."""
-        self._redis_client = None
         self._redis_unavailable = True
+        self._redis_retry_at = time.monotonic() + 30
+
+    def _log_fallback(self) -> None:
+        if time.monotonic() >= self._fallback_log_at:
+            logger.warning(
+                "[TokenBudget] Redis unavailable; using process-local memory fallback"
+            )
+            self._fallback_log_at = time.monotonic() + 60
 
     def _allow_memory_fallback(self) -> bool:
         return (
@@ -153,7 +191,7 @@ class TokenBudgetManager:
                     pipe.incrby(key, int(amount))
                 pipe.expire(key, ttl)
                 results = await pipe.execute()
-                return float(results[0])
+                return float(results[0]) + float(await self._memory_store.get_val(key))
             except Exception as e:
                 self._disable_redis()
                 logger.warning("[TokenBudget] Redis incr failed: %s", e)
@@ -161,9 +199,7 @@ class TokenBudgetManager:
                     return float(await self._memory_store.incr_by(key, amount, ttl))
                 return float("inf")
         if self._allow_memory_fallback():
-            logger.warning(
-                "[TokenBudget] Redis unavailable; using process-local memory fallback"
-            )
+            self._log_fallback()
             return float(await self._memory_store.incr_by(key, amount, ttl))
         logger.error("[TokenBudget] Redis unavailable in production; fail-closed")
         return float("inf")
@@ -174,7 +210,7 @@ class TokenBudgetManager:
         if redis:
             try:
                 val = await redis.get(key)
-                return float(val) if val else 0
+                return float(val or 0) + float(await self._memory_store.get_val(key))
             except Exception as e:
                 self._disable_redis()
                 logger.warning("[TokenBudget] Redis get failed for %s: %s", key, e)
@@ -182,9 +218,7 @@ class TokenBudgetManager:
                     return float(await self._memory_store.get_val(key))
                 return float("inf")
         if self._allow_memory_fallback():
-            logger.warning(
-                "[TokenBudget] Redis unavailable; reading process-local memory fallback"
-            )
+            self._log_fallback()
             return float(await self._memory_store.get_val(key))
         logger.error("[TokenBudget] Redis unavailable in production; fail-closed")
         return float("inf")

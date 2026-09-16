@@ -10,6 +10,7 @@ from app.core.auth import get_current_org_id, get_current_user_id
 from app.core.dependencies import get_request_db, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import BatchDeleteRequest, StandardResponse
+from app.routers.document_inspection import router as inspection_router
 from app.services.audit_logger import audit_logger
 from app.services.etl_service import etl_service
 from app.services.knowledge_ingestion_service import (
@@ -22,6 +23,7 @@ from app.services.knowledge_ingestion_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
+router.include_router(inspection_router)
 require_kb_admin = require_role(["admin", "founder", "boss"])
 
 
@@ -779,7 +781,9 @@ async def review_knowledge_document(
     """Verify the version, validity and retrieval quality of a knowledge asset."""
     client = get_request_db(req)
     org_id = getattr(req.state, "org_id", None)
-    payload = body.model_dump(mode="json")
+    payload = body.model_dump(
+        mode="json", exclude_unset=True, exclude={"quality_score"}
+    )
     payload.update(
         {
             "reviewed_by": user_id,

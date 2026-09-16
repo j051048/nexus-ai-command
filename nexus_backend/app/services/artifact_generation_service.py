@@ -33,6 +33,7 @@ from app.services.artifact_quality_service import (
     evaluate_text_artifact,
     persist_artifact_quality_event,
 )
+from app.services.artifact_section_revision import revise_section
 from app.services.artifact_stage_cache import ArtifactStageCache, merge_delivery_usage
 from app.services.artifact_template_service import (
     build_template_system_prompt,
@@ -1093,8 +1094,28 @@ async def _generate_draft(
     organization_id: str,
     user_id: str,
     checkpoints: ArtifactStageCache | None = None,
+    revision_section: str | None = None,
+    revision_source: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     checkpoints = checkpoints or ArtifactStageCache()
+    if revision_section:
+        generated, response = await checkpoints.pair(
+            "targeted_section_revision",
+            revise_section,
+            markdown=revision_source or "",
+            heading=revision_section,
+            instructions=original_request,
+            evidence=evidence,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        generation = {
+            "stages": [],
+            "stage_count": 0,
+            "revision_section": revision_section,
+        }
+        _record_generation_stage(generation, "targeted_section_revision", response)
+        return generated, generation
     analysis, analysis_response = await checkpoints.pair(
         "evidence_analysis",
         _analyze_evidence,
@@ -1299,6 +1320,8 @@ async def generate_artifact(
     lease_token: str | None = None,
     delivery_requirements: dict[str, Any] | None = None,
     revision_of: str | None = None,
+    revision_section: str | None = None,
+    base_version_id: str | None = None,
 ) -> dict[str, Any]:
     """Run the deep delivery orchestration and persist one durable version."""
 
@@ -1309,7 +1332,11 @@ async def generate_artifact(
         await require_current_evidence_access(
             db, organization_id, user_id, previous_version
         )
+        if base_version_id and str(previous_version.get("id")) != str(base_version_id):
+            raise ValueError("Revision base changed; reload the artifact")
         source_content = str(previous_version.get("content_markdown") or "")
+    elif revision_section:
+        raise ValueError("Targeted revision requires a stored artifact")
 
     overrides: dict[str, Any] = {
         "audience": audience,
@@ -1357,13 +1384,17 @@ async def generate_artifact(
     safe_source = sanitize_artifact_content(
         source_content, keep_citations=False
     ).content
-    evidence = await compile_artifact_evidence(
-        query=original_request,
-        spec=spec,
-        organization_id=organization_id,
-        user_id=user_id,
-        db=db,
-        selected_document_ids=selected_document_ids,
+    evidence = (
+        EvidencePacket.model_validate(previous_version["evidence_snapshot"])
+        if revision_section
+        else await compile_artifact_evidence(
+            query=original_request,
+            spec=spec,
+            organization_id=organization_id,
+            user_id=user_id,
+            db=db,
+            selected_document_ids=selected_document_ids,
+        )
     )
     await _emit_progress(
         progress_callback,
@@ -1376,6 +1407,8 @@ async def generate_artifact(
         },
     )
     generated, generation = await _generate_draft(
+        revision_section=revision_section,
+        revision_source=source_content if revision_section else None,
         original_request=original_request,
         source_content=safe_source,
         customer_context=normalized_context,
@@ -1424,6 +1457,9 @@ async def generate_artifact(
         spec=spec,
         fallback_source=safe_source,
     )
+    if revision_section:
+        content = generated["preserved_content"]
+        verification_items = []
     deterministic_quality = evaluate_text_artifact(
         content, spec, evidence.model_dump(mode="json")
     )
@@ -1459,6 +1495,7 @@ async def generate_artifact(
     repair_count = 0
     while (
         repair_count < spec.max_repair_cycles
+        and not revision_section
         and evidence.sufficient
         and not quality.get("ready")
         and any(item.get("repairable") for item in quality.get("findings") or [])
@@ -1558,12 +1595,13 @@ async def generate_artifact(
     version_id = str(uuid4())
     now = datetime.now(UTC).isoformat()
     status = "review" if quality.get("ready") else "needs_revision"
-    approval_status = (
-        "approved" if review_confirmed and quality.get("ready") else "pending"
-    )
+    # Input consent cannot approve content that the reviewer has not seen yet.
+    approval_status = "pending"
     artifact_code = f"ART-{datetime.now(UTC):%Y%m%d}-{artifact_id[:8].upper()}"
     metadata = {
         "revision_of": revision_of,
+        "base_version_id": base_version_id,
+        "revision_section": revision_section,
         "pipeline_version": ARTIFACT_PIPELINE_VERSION,
         "generation_mode": generation_mode,
         "orchestration_version": DEEP_ORCHESTRATION_VERSION,

@@ -1,6 +1,6 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { IdentityQueryProvider } from "@/components/auth/IdentityQueryProvider";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthContext";
 import { GlobalCommandBar } from "@/components/layout/GlobalCommandBar";
@@ -11,7 +11,6 @@ import { LoginPage } from "@/components/auth/LoginPage";
 import { ResetPasswordPage } from "@/components/auth/ResetPasswordPage";
 import React, { Suspense } from "react";
 import * as Sentry from "@sentry/react";
-import { toast } from "sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DashboardLayout, NotFound, AdminPanel } from "@/routes/lazyImports";
 import { coreRoutes } from "@/routes/coreRoutes";
@@ -29,21 +28,6 @@ if (SENTRY_DSN && import.meta.env.PROD) {
     environment: import.meta.env.MODE,
   });
 }
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      retry: 2,
-      refetchOnWindowFocus: false,
-    },
-    mutations: {
-      onError: (error) => {
-        toast.error(error instanceof Error ? error.message : '操作失败，请重试');
-      },
-    },
-  },
-});
 
 function LoadingFallback() {
   return (
@@ -124,13 +108,13 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <ErrorBoundary>
-  <QueryClientProvider client={queryClient}>
     <I18nProvider>
     <EnhancedThemeProvider>
     <TooltipProvider>
       <Sonner position="top-right" expand={false} richColors closeButton />
       <BrowserRouter>
         <AuthProvider>
+          <IdentityQueryProvider>
           <PageContextProvider>
           <GlobalCommandBar />
           <Suspense fallback={<LoadingFallback />}>
@@ -151,12 +135,12 @@ const App = () => (
             </Routes>
           </Suspense>
           </PageContextProvider>
+          </IdentityQueryProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
     </EnhancedThemeProvider>
     </I18nProvider>
-  </QueryClientProvider>
   </ErrorBoundary>
 );
 

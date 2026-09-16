@@ -44,13 +44,13 @@ class TenantThrottle:
         self,
         max_concurrent: int | None = None,
         global_max: int | None = None,
+        queue_timeout: float = 120,
     ):
         self.max_concurrent = max_concurrent or settings.MAX_CONCURRENT_LLM_PER_TENANT
-        # P0: Global semaphore — hard cap on total concurrent LLM requests
-        self._global_semaphore = asyncio.Semaphore(
-            global_max or GLOBAL_MAX_CONCURRENT_LLM
-        )
         self._global_max = global_max or GLOBAL_MAX_CONCURRENT_LLM
+        if min(self.max_concurrent, self._global_max, queue_timeout) <= 0:
+            raise ValueError("Concurrency limits and queue timeout must be positive")
+        self.queue_timeout = queue_timeout
         # tenant_id -> current active count
         self._active: dict[str, int] = defaultdict(int)
         # tenant_id -> queue of asyncio.Event objects waiting for a slot
@@ -65,51 +65,51 @@ class TenantThrottle:
         Async context manager that acquires a concurrency slot for the tenant.
         Blocks if the global system limit OR per-tenant limit is reached.
 
-        P0: Two-layer throttle:
-        1. Global semaphore — prevents total LLM requests from exhausting workers
-        2. Per-tenant fair-share — prevents noisy-neighbor monopolization
+        Queued requests do not reserve global capacity before tenant admission.
         """
-        async with self._global_semaphore:  # Layer 1: global cap
-            await self._wait_for_slot(tenant_id)  # Layer 2: per-tenant cap
-            try:
-                yield
-            finally:
-                await self._release_slot(tenant_id)
+        await self._wait_for_slot(tenant_id)
+        try:
+            yield
+        finally:
+            await self._release_slot(tenant_id)
 
     async def _wait_for_slot(self, tenant_id: str) -> None:
         """Wait until a concurrency slot is available for this tenant."""
+        waiter = asyncio.Event()
         async with self._lock:
-            if self._active[tenant_id] < self.max_concurrent:
-                self._active[tenant_id] += 1
-                return
-
-            # Tenant is at capacity — create a waiter event
-            waiter = asyncio.Event()
             self._waiters[tenant_id].append(waiter)
-
-            # Register for round-robin if not already present
             if tenant_id not in self._rr_tenants:
                 self._rr_tenants.append(tenant_id)
-
-        # Wait outside the lock to avoid blocking other tenants
-        logger.debug(
-            f"[TenantThrottle] Tenant {tenant_id} queued "
-            f"(active={self._active[tenant_id]}, waiting={len(self._waiters[tenant_id])})"
-        )
-        await waiter.wait()
+            self._dispatch_next()
+        try:
+            async with asyncio.timeout(self.queue_timeout):
+                await waiter.wait()
+        except BaseException:
+            async with self._lock:
+                # Cancellation can race with admission: return an already granted slot.
+                if waiter.is_set():
+                    self._active[tenant_id] -= 1
+                else:
+                    self._waiters[tenant_id].remove(waiter)
+                self._prune(tenant_id)
+                self._dispatch_next()
+            raise
 
     async def _release_slot(self, tenant_id: str) -> None:
         """Release a concurrency slot and wake the next waiter (fair-share)."""
         async with self._lock:
             self._active[tenant_id] = max(0, self._active[tenant_id] - 1)
 
-            # Clean up empty entries
-            if self._active[tenant_id] == 0 and not self._waiters.get(tenant_id):
-                self._active.pop(tenant_id, None)
-                self._waiters.pop(tenant_id, None)
-
-            # Fair-share: try to wake a waiter using round-robin
+            self._prune(tenant_id)
             self._dispatch_next()
+
+    def _prune(self, tenant_id: str) -> None:
+        if not self._active.get(tenant_id):
+            self._active.pop(tenant_id, None)
+        if not self._waiters.get(tenant_id):
+            self._waiters.pop(tenant_id, None)
+            if tenant_id in self._rr_tenants:
+                self._rr_tenants.remove(tenant_id)
 
     def _dispatch_next(self) -> None:
         """
@@ -117,36 +117,19 @@ class TenantThrottle:
         and wake one waiter from the first eligible tenant.
         Must be called with self._lock held.
         """
-        if not self._rr_tenants:
-            return
-
-        # Try each tenant in round-robin order
-        tried = 0
-        while tried < len(self._rr_tenants):
-            tenant_id = self._rr_tenants[0]
-            self._rr_tenants.rotate(-1)  # Move to back of queue
-            tried += 1
-
-            waiters = self._waiters.get(tenant_id)
-            if not waiters:
-                # No more waiters — remove from round-robin
-                self._rr_tenants.remove(tenant_id)
-                continue
-
-            if self._active[tenant_id] < self.max_concurrent:
-                waiter = waiters.popleft()
+        while self._rr_tenants and sum(self._active.values()) < self._global_max:
+            for _ in range(len(self._rr_tenants)):
+                tenant_id = self._rr_tenants[0]
+                self._rr_tenants.rotate(-1)
+                if self._active.get(tenant_id, 0) >= self.max_concurrent:
+                    continue
+                waiter = self._waiters[tenant_id].popleft()
                 self._active[tenant_id] += 1
-                waiter.set()  # Wake the waiting coroutine
-                logger.debug(
-                    f"[TenantThrottle] Dispatched slot to tenant {tenant_id} "
-                    f"(active={self._active[tenant_id]})"
-                )
-
-                # Clean up empty waiter queue
-                if not waiters:
-                    self._rr_tenants.remove(tenant_id)
-                    del self._waiters[tenant_id]
-                return
+                waiter.set()
+                self._prune(tenant_id)
+                break
+            else:
+                break
 
     # ── Observability ─────────────────────────────────────────────────────
 
@@ -155,7 +138,7 @@ class TenantThrottle:
         return {
             "max_concurrent_per_tenant": self.max_concurrent,
             "global_max_concurrent": self._global_max,
-            "global_active": self._global_max - self._global_semaphore._value,
+            "global_active": sum(self._active.values()),
             "active_tenants": {k: v for k, v in self._active.items() if v > 0},
             "queued_tenants": {k: len(v) for k, v in self._waiters.items() if v},
             "total_active": sum(self._active.values()),

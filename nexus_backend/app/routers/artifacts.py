@@ -47,6 +47,8 @@ router = APIRouter(prefix="/api/artifacts", tags=["Agent Artifacts"])
 
 class ArtifactGenerateRequest(BaseModel):
     revision_of: UUID | None = None
+    revision_section: str | None = Field(default=None, max_length=300)
+    base_version_id: UUID | None = None
     original_request: str = Field(min_length=2, max_length=8000)
     source_content: str = Field(default="", max_length=40000)
     title: str | None = Field(default=None, max_length=300)
@@ -68,6 +70,7 @@ class ArtifactGenerateRequest(BaseModel):
 
 
 class ArtifactReviewRequest(BaseModel):
+    version_id: UUID
     decision: Literal["approved", "rejected"]
     notes: str | None = Field(default=None, max_length=2000)
     confirmations: dict[str, bool] = Field(default_factory=dict)
@@ -108,6 +111,7 @@ def _public_artifact(
         "updated_at": artifact.get("updated_at"),
     }
     if version:
+        result["version_id"] = version.get("id")
         quality = version.get("quality_snapshot") or {}
         result["quality"] = quality
         evidence = version.get("evidence_snapshot") or {}
@@ -159,6 +163,8 @@ async def create_artifact(
         review_confirmed=body.review_confirmed,
         delivery_requirements=body.delivery_requirements.model_dump(mode="json"),
         revision_of=str(body.revision_of) if body.revision_of else None,
+        revision_section=body.revision_section,
+        base_version_id=str(body.base_version_id) if body.base_version_id else None,
     )
     result["download_urls"] = {
         output_format: f"/api/artifacts/{result['id']}/download?format={output_format}"
@@ -360,12 +366,39 @@ async def download_artifact(
         media_type = (
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+    contract = (artifact.get("metadata") or {}).get("content_contract") or {}
+    final_quality = bool((version.get("quality_snapshot") or {}).get("ready"))
     validation = validate_export(
         content,
         format,
         title=str(artifact.get("title") or ""),
         expected_markdown=artifact_payload["content_markdown"],
         evidence_packet=evidence,
+        minimum_characters=(
+            int(contract.get("minimum_character_count") or 0) if final_quality else 0
+        ),
+        minimum_tables=(
+            int(contract.get("minimum_table_count") or 0)
+            if final_quality and format == "docx"
+            else 0
+        ),
+        minimum_headings=1 if final_quality and format == "docx" else 0,
+        required_terms=(
+            [
+                item["expected_text"]
+                for item in (contract.get("delivery_requirements") or {}).get(
+                    "required_facts", []
+                )
+                if item.get("expected_text")
+            ]
+            if final_quality
+            else []
+        ),
+        forbidden_terms=(
+            (contract.get("delivery_requirements") or {}).get("forbidden_claims", [])
+            if final_quality
+            else []
+        ),
     )
     if not validation["ok"]:
         raise api_error(
@@ -410,6 +443,13 @@ async def review_artifact(
     user_id: str = Depends(get_current_user_id),
 ):
     artifact, version = await _load_artifact(db, organization_id, artifact_id)
+    await require_current_evidence_access(db, organization_id, user_id, version)
+    if str(body.version_id) != str(version.get("id")):
+        raise api_error(ErrorCode.RESOURCE_CONFLICT, "成果版本已变化，请刷新预览后审核")
+    if body.decision == "approved" and not all(
+        body.confirmations.get(key) is True for key in ("facts", "promises")
+    ):
+        raise api_error(ErrorCode.RESOURCE_CONFLICT, "请确认本版本事实依据与对外承诺")
     quality = version.get("quality_snapshot") or {}
     if body.decision == "approved" and not quality.get("ready"):
         raise api_error(
@@ -418,26 +458,17 @@ async def review_artifact(
             details={"findings": quality.get("findings") or []},
         )
     now = datetime.now(UTC).isoformat()
-    await db.table("artifact_reviews").insert(
+    await db.rpc(
+        "review_artifact_version",
         {
-            "organization_id": organization_id,
-            "artifact_id": str(artifact_id),
-            "artifact_version_id": version.get("id"),
-            "reviewer_id": user_id,
-            "decision": body.decision,
-            "notes": body.notes,
-            "confirmations": body.confirmations,
-            "created_at": now,
-        }
+            "p_artifact_id": str(artifact_id),
+            "p_version_id": str(body.version_id),
+            "p_decision": body.decision,
+            "p_notes": body.notes,
+            "p_confirmations": body.confirmations,
+        },
     ).execute()
     next_status = "approved" if body.decision == "approved" else "needs_revision"
-    await db.table("artifacts").update(
-        {
-            "approval_status": body.decision,
-            "status": next_status,
-            "updated_at": now,
-        }
-    ).eq("organization_id", organization_id).eq("id", str(artifact_id)).execute()
     artifact.update(
         {"approval_status": body.decision, "status": next_status, "updated_at": now}
     )
@@ -518,6 +549,8 @@ async def record_artifact_feedback(
 
 
 class ArtifactRevisionRequest(BaseModel):
+    section_heading: str | None = Field(default=None, max_length=300)
+    base_version_id: UUID
     instructions: str = Field(min_length=2, max_length=4000)
     request_key: str = Field(min_length=8, max_length=120)
 
@@ -550,6 +583,17 @@ async def revise_artifact(
 ):
     artifact, version = await _load_artifact(db, organization_id, artifact_id)
     await require_current_evidence_access(db, organization_id, user_id, version)
+    if str(body.base_version_id) != str(version.get("id")):
+        raise api_error(ErrorCode.RESOURCE_CONFLICT, "原稿版本已变化，请重新打开预览")
+    if body.section_heading:
+        from app.services.artifact_section_revision import section_span
+
+        try:
+            section_span(version.get("content_markdown") or "", body.section_heading)
+        except ValueError:
+            raise api_error(
+                ErrorCode.RESOURCE_CONFLICT, "章节已变化或标题重复，请重新选择"
+            ) from None
     request = ArtifactGenerateRequest.model_validate(
         revision_payload(
             artifact,
@@ -558,6 +602,8 @@ async def revise_artifact(
             body.request_key,
         )
     )
+    request.revision_section = body.section_heading
+    request.base_version_id = body.base_version_id
     return await create_artifact_job(
         request, background_tasks, db, organization_id, user_id
     )

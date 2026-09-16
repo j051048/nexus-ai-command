@@ -456,7 +456,7 @@ async def test_generation_pipeline_persists_version_evidence_and_quality(monkeyp
     assert result["quality"]["metrics"]["semantic_score"] >= 90
     assert result["orchestration"]["mode"] == "deep"
     assert "semantic_quality_review" in result["orchestration"]["stages"]
-    assert result["approval_status"] == "approved"
+    assert result["approval_status"] == "pending"
     assert len(db.rows["artifacts"]) == 1
     assert len(db.rows["artifact_versions"]) == 1
     assert len(db.rows["artifact_evidence_links"]) == len(records)
