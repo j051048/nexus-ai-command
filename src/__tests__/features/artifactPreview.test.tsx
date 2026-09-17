@@ -21,6 +21,27 @@ beforeEach(() => { vi.mocked(getArtifactPreview).mockResolvedValue(fixture); });
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 describe('result-first artifact preview', () => {
+  it('blocks missing-version revisions and approval, then recovers after reloading', async () => {
+    const ready = { ...fixture, quality: { ...fixture.quality, ready: true } };
+    vi.mocked(getArtifactPreview).mockResolvedValueOnce({ ...ready, version_id: '' }).mockResolvedValue(ready);
+    render(<ArtifactPreviewButton artifactId="artifact-1" />);
+    fireEvent.click(screen.getByRole('button', { name: '预览与修订' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('版本信息缺失');
+    fireEvent.click(screen.getByText('修改要求'));
+    fireEvent.change(screen.getByLabelText('修订要求'), { target: { value: '完善售后条款' } });
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: '生成修订稿' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '批准本版本' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '下载审核草稿' })).toBeEnabled();
+    expect(reviseArtifact).not.toHaveBeenCalled();
+    expect(reviewArtifact).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '刷新版本信息' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    fireEvent.click(screen.getByText('修改要求'));
+    expect(screen.getByRole('button', { name: '生成修订稿' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '生成修订稿' }));
+    await waitFor(() => expect(reviseArtifact).toHaveBeenCalledWith('artifact-1', '完善售后条款', expect.any(String), 'version-1', ''));
+  });
   it('approves only the reviewed version after explicit confirmation', async () => {
     vi.mocked(getArtifactPreview).mockResolvedValue({ ...fixture, quality: { ...fixture.quality, ready: true } });
     render(<ArtifactPreviewButton artifactId="artifact-1" />);

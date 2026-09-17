@@ -138,6 +138,7 @@ function unwrap<T>(value: unknown): T {
 }
 
 export interface ArtifactPreview extends ArtifactResult {
+  version_id: string;
   content_markdown: string;
   requirements: { target_character_count?: number; minimum_character_count?: number };
   sources: { title: string; document_id: string; source_version?: string }[];
