@@ -14,13 +14,35 @@ The pipeline is deliberately read-mostly and recommendation-only:
 from __future__ import annotations
 
 import logging
-from datetime import UTC
+from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from typing import Any
 
 from app.services.artifact_feedback_service import build_artifact_feedback_candidate
 
 logger = logging.getLogger(__name__)
+
+# The generation pipeline may only ever write the *open* states.  ``approved``
+# and ``rejected`` are terminal and are writable exclusively through the human
+# review endpoint, which is what keeps a bad draft from promoting itself into
+# the golden-template library.
+LEARNING_OPEN_STATUSES = ("recorded", "review_candidate")
+LEARNING_TERMINAL_STATUSES = ("approved", "rejected")
+
+
+async def _best_effort(operation: str, work: Any) -> tuple[bool, Any]:
+    """Run a best-effort database operation behind one audited catch.
+
+    The review queue, the outcome write-back and the template metrics are all
+    derived telemetry: a database hiccup must degrade the report, never break
+    a delivered document.  Keeping a single catch here means the
+    broad-exception budget does not grow with every new derived metric.
+    """
+    try:
+        return True, await work()
+    except Exception as exc:  # broad-except: intentional
+        logger.warning("[FeedbackLoop] %s failed: %s", operation, exc)
+        return False, None
 
 
 def compute_artifact_diff(
@@ -113,24 +135,137 @@ async def record_learning_candidate(
         return {"ok": False, "learning_status": "recorded", "error": str(exc)}
 
 
+async def list_learning_candidates(
+    db: Any,
+    *,
+    organization_id: str,
+    status: str = "open",
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Return the human-review queue of artifact learning candidates."""
+    requested = str(status or "open").strip().lower()
+    if requested == "open":
+        statuses = list(LEARNING_OPEN_STATUSES)
+    elif requested in (*LEARNING_OPEN_STATUSES, *LEARNING_TERMINAL_STATUSES):
+        statuses = [requested]
+    else:
+        return {
+            "available": False,
+            "error": "unsupported_status",
+            "allowed": [
+                "open",
+                *LEARNING_OPEN_STATUSES,
+                *LEARNING_TERMINAL_STATUSES,
+            ],
+            "candidates": [],
+        }
+    ok, result = await _best_effort(
+        "learning queue read",
+        lambda: (
+            db.table("artifact_feedback_events")
+            .select(
+                "id,artifact_id,artifact_version_id,change_type,rating,comment,"
+                "learning_status,evidence_fingerprint,diff_summary,reviewed_by,"
+                "reviewed_at,created_at"
+            )
+            .eq("organization_id", organization_id)
+            .in_("learning_status", statuses)
+            .order("created_at", desc=True)
+            .limit(max(1, min(int(limit), 200)))
+            .execute()
+        ),
+    )
+    if not ok:
+        return {
+            "available": False,
+            "error": "learning_queue_unavailable",
+            "candidates": [],
+        }
+    candidates = result.data or []
+    return {
+        "available": True,
+        "statuses": statuses,
+        "count": len(candidates),
+        "candidates": candidates,
+    }
+
+
+async def review_learning_candidate(
+    db: Any,
+    *,
+    organization_id: str,
+    event_id: str,
+    status: str,
+    reviewer_id: str,
+    note: str | None = None,
+) -> dict[str, Any]:
+    """Record a human decision on a learning candidate.
+
+    ``approved`` marks the candidate eligible for expert template authoring;
+    it never writes to a production template by itself (``auto_apply`` stays
+    False so the decision is auditable and reversible).
+    """
+    decision = str(status or "").strip().lower()
+    if decision not in LEARNING_TERMINAL_STATUSES:
+        return {
+            "ok": False,
+            "error": "invalid_review_status",
+            "allowed": list(LEARNING_TERMINAL_STATUSES),
+        }
+    payload = {
+        "learning_status": decision,
+        "reviewed_by": reviewer_id,
+        "reviewed_at": datetime.now(UTC).isoformat(),
+        "review_note": note,
+    }
+    ok, result = await _best_effort(
+        "learning review write",
+        lambda: (
+            db.table("artifact_feedback_events")
+            .update(payload)
+            .eq("id", event_id)
+            .eq("organization_id", organization_id)
+            .in_("learning_status", list(LEARNING_OPEN_STATUSES))
+            .execute()
+        ),
+    )
+    if not ok:
+        return {"ok": False, "error": "review_write_failed", "auto_apply": False}
+    rows = result.data or []
+    if not rows:
+        return {
+            "ok": False,
+            "error": "candidate_not_found_or_already_reviewed",
+            "auto_apply": False,
+        }
+    return {
+        "ok": True,
+        "learning_status": decision,
+        "auto_apply": False,
+        "reviewer_id": reviewer_id,
+        "data": rows,
+    }
+
+
 async def summarize_failure_modes(
     db: Any, *, organization_id: str, days: int = 30
 ) -> dict[str, Any]:
     """Aggregate deterministic quality findings into a failure-mode ranking."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     since = (datetime.now(UTC) - timedelta(days=max(1, days))).isoformat()
-    try:
-        result = (
-            await db.table("agent_artifact_quality_events")
+    ok, result = await _best_effort(
+        "failure-mode scan",
+        lambda: (
+            db.table("agent_artifact_quality_events")
             .select("artifact_type,score,ready,findings,created_at")
             .eq("organization_id", organization_id)
             .gte("created_at", since)
             .limit(500)
             .execute()
-        )
-    except Exception as exc:  # broad-except: intentional
-        logger.warning("[FeedbackLoop] failure-mode scan failed: %s", exc)
+        ),
+    )
+    if not ok:
         return {"available": False, "sample_size": 0, "failure_modes": []}
 
     events = result.data or []
@@ -199,10 +334,56 @@ async def record_customer_outcome(
             event_type=outcome,
             metadata={"rating": rating, "source": "quality-platform"},
         )
+        template_key = await _resolve_artifact_template_key(
+            db, organization_id=organization_id, artifact_id=artifact_id
+        )
+        if template_key and outcome in {"won", "lost", "used", "edited"}:
+            from app.services.artifact_template_service import record_template_outcome
+
+            await record_template_outcome(
+                db,
+                organization_id=organization_id,
+                template_key=template_key,
+                outcome=outcome,
+            )
         return {"ok": True, "data": result.data}
     except Exception as exc:  # broad-except: intentional
         logger.warning("[FeedbackLoop] customer outcome not persisted: %s", exc)
         return {"ok": False, "error": str(exc)}
+
+
+async def _resolve_artifact_template_key(
+    db: Any, *, organization_id: str, artifact_id: str
+) -> str | None:
+    """Return the golden template a delivered artifact was generated from.
+
+    The generation pipeline stamps the winning template into
+    ``artifacts.metadata.template.template_key``; the commercial result is
+    folded back onto that template so the golden library learns from closed
+    deals, not only from quality scores.
+    """
+    ok, result = await _best_effort(
+        "template lookup for outcome",
+        lambda: (
+            db.table("artifacts")
+            .select("metadata")
+            .eq("organization_id", organization_id)
+            .eq("id", artifact_id)
+            .limit(1)
+            .execute()
+        ),
+    )
+    if not ok:
+        return None
+    row = (result.data or [None])[0]
+    if not row:
+        return None
+    metadata = row.get("metadata") or {}
+    template = metadata.get("template") if isinstance(metadata, dict) else None
+    if not isinstance(template, dict):
+        return None
+    key = str(template.get("template_key") or "").strip()
+    return key or None
 
 
 async def record_delivery_event(

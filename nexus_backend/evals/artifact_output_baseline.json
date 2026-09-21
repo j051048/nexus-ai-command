@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "source": "contract-fixture",
+  "recorded_at": "2026-09-21T04:23:28.915135+00:00",
+  "golden_dataset": "nexus_backend/evals/datasets/artifact_delivery_golden.json",
+  "minimum_pass_rate": 0.9,
+  "pass_rate": 1.0,
+  "models": [
+    "contract-fixture"
+  ],
+  "cases": {
+    "spectroscopy-solution": true,
+    "chromatography-tender": true,
+    "mass-spec-report": true,
+    "energy-spectrum-competitor": true,
+    "electronic-service": true
+  }
+}

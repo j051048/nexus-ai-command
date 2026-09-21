@@ -528,6 +528,34 @@ CHECKS = [
         ),
     ),
     ProofCheck(
+        "Tenant query scope gate",
+        "scripts/check_tenant_query_scope.py",
+        (
+            "TENANT_QUERY_SCOPE_OK",
+            "TENANT_QUERY_SCOPE_FAIL",
+            "get_org_filtered_client",
+            "organization_id",
+        ),
+    ),
+    ProofCheck(
+        "Deployment topology authority",
+        "scripts/check_deployment_topology.py",
+        (
+            "DEPLOYMENT_TOPOLOGY_GATE_OK",
+            "kustomization.yaml",
+            "imagePullPolicy",
+        ),
+    ),
+    ProofCheck(
+        "Environment configuration governance",
+        "scripts/check_config_governance.py",
+        (
+            "CONFIG_GOVERNANCE_OK",
+            "app/core/config.py",
+            "os.getenv",
+        ),
+    ),
+    ProofCheck(
         "Agent SLO and cost observability",
         "nexus_backend/app/services/agent_slo_cost_service.py",
         (
@@ -623,6 +651,50 @@ CHECKS = [
         ".github/workflows/ci.yml",
         ("production_proof_gate.py", "tests/production_proof"),
     ),
+    ProofCheck(
+        "artifact output eval regression gate",
+        "scripts/run_artifact_output_eval.py",
+        (
+            "ARTIFACT_OUTPUT_EVAL_REGRESSION",
+            "case_regressed",
+            "--update-baseline",
+        ),
+    ),
+    ProofCheck(
+        "artifact output eval baseline",
+        "nexus_backend/evals/artifact_output_baseline.json",
+        ("minimum_pass_rate", "pass_rate", "cases"),
+    ),
+    ProofCheck(
+        "artifact learning review gate",
+        "nexus_backend/app/services/artifact_feedback_loop.py",
+        (
+            "LEARNING_OPEN_STATUSES",
+            "LEARNING_TERMINAL_STATUSES",
+            "review_learning_candidate",
+            "reviewed_by",
+        ),
+    ),
+    ProofCheck(
+        "artifact feedback review migration",
+        "supabase/migrations/20260921_001_artifact_feedback_review_loop.sql",
+        (
+            "reviewed_by",
+            "reviewed_at",
+            "ALTER COLUMN rating DROP NOT NULL",
+            "change_type",
+        ),
+    ),
+    ProofCheck(
+        "golden template promotion gate",
+        "nexus_backend/app/services/artifact_template_service.py",
+        (
+            "evaluate_template_promotion",
+            "promote_template",
+            "customer_outcome_sample_too_small",
+            "record_template_outcome",
+        ),
+    ),
 ]
 
 
@@ -661,6 +733,20 @@ def validate_solution_eval_case_count() -> tuple[bool, str]:
     return True, ""
 
 
+def validate_artifact_output_baseline() -> tuple[bool, str]:
+    path = ROOT / "nexus_backend/evals/artifact_output_baseline.json"
+    if not path.exists():
+        return False, "artifact output eval baseline is missing"
+    baseline = json.loads(path.read_text(encoding="utf-8"))
+    pass_rate = float(baseline.get("pass_rate") or 0)
+    minimum = float(baseline.get("minimum_pass_rate") or 0)
+    if pass_rate < minimum:
+        return False, f"baseline pass_rate {pass_rate} below minimum {minimum}"
+    if not baseline.get("cases"):
+        return False, "baseline has no per-case record"
+    return True, ""
+
+
 def main() -> int:
     failures: list[str] = []
     print("Production proof gate")
@@ -682,6 +768,11 @@ def main() -> int:
 
     ok, reason = validate_solution_eval_case_count()
     print(f"{'OK' if ok else 'FAIL':<4} solution eval case count")
+    if not ok:
+        failures.append(reason)
+
+    ok, reason = validate_artifact_output_baseline()
+    print(f"{'OK' if ok else 'FAIL':<4} artifact output eval baseline")
     if not ok:
         failures.append(reason)
 

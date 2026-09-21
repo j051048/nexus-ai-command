@@ -2,7 +2,10 @@ import pytest
 
 from app.services.artifact_template_service import (
     build_template_system_prompt,
+    evaluate_template_promotion,
     get_optimal_template,
+    promote_template,
+    record_template_outcome,
     record_template_usage,
     save_template,
 )
@@ -162,3 +165,127 @@ def test_build_template_system_prompt_includes_skeleton():
 
 def test_build_template_system_prompt_empty_for_none():
     assert build_template_system_prompt(None, None) == ""
+
+
+@pytest.mark.asyncio
+async def test_record_template_outcome_tracks_win_rate():
+    db = _FakeDb(
+        [
+            {
+                "organization_id": "org-1",
+                "template_key": "t-1",
+                "status": "active",
+                "metrics": {"usage_count": 3, "won_count": 1, "lost_count": 0},
+            }
+        ]
+    )
+    result = await record_template_outcome(
+        db, organization_id="org-1", template_key="t-1", outcome="lost"
+    )
+    assert result["ok"] is True
+    metrics = result["metrics"]
+    assert metrics["won_count"] == 1
+    assert metrics["lost_count"] == 1
+    assert metrics["outcome_sample"] == 2
+    assert metrics["win_rate"] == 0.5
+
+
+def test_promotion_gate_requires_quality_and_commercial_record():
+    weak = evaluate_template_promotion({"metrics": {"usage_count": 0}})
+    assert weak["eligible"] is False
+    assert "no_usage_sample" in weak["blockers"]
+    assert "customer_outcome_sample_too_small" in weak["blockers"]
+
+    strong = evaluate_template_promotion(
+        {
+            "metrics": {
+                "usage_count": 12,
+                "avg_score": 91.0,
+                "ready_rate": 0.95,
+                "outcome_sample": 8,
+                "win_rate": 0.75,
+            }
+        }
+    )
+    assert strong["eligible"] is True
+    assert strong["blockers"] == []
+
+
+def test_win_rate_only_reranks_a_template_with_enough_outcomes():
+    from app.services.artifact_template_service import _metric_score
+
+    base = {"usage_count": 10, "avg_score": 90, "ready_rate": 0.9}
+    baseline = _metric_score({"metrics": base})
+    assert baseline > 0
+    no_signal = _metric_score(
+        {"metrics": {**base, "outcome_sample": 2, "win_rate": 0.0}}
+    )
+    assert no_signal == baseline
+    losing = _metric_score({"metrics": {**base, "outcome_sample": 10, "win_rate": 0.1}})
+    winning = _metric_score({"metrics": {**base, "outcome_sample": 10, "win_rate": 0.9}})
+    assert losing < baseline < winning
+
+
+@pytest.mark.asyncio
+async def test_promote_template_blocks_a_draft_that_fails_the_gate():
+    db = _FakeDb(
+        [
+            {
+                "organization_id": "org-1",
+                "template_key": "t-draft",
+                "status": "draft",
+                "metrics": {"usage_count": 2, "avg_score": 70, "ready_rate": 0.4},
+            }
+        ]
+    )
+    result = await promote_template(
+        db, organization_id="org-1", template_key="t-draft", actor_id="admin-1"
+    )
+    assert result["ok"] is False
+    assert result["error"] == "promotion_gate_failed"
+    assert "avg_score_below_target" in result["gate"]["blockers"]
+
+
+@pytest.mark.asyncio
+async def test_promote_template_activates_a_qualified_draft():
+    db = _FakeDb(
+        [
+            {
+                "organization_id": "org-1",
+                "template_key": "t-ready",
+                "status": "draft",
+                "metrics": {
+                    "usage_count": 12,
+                    "avg_score": 91.0,
+                    "ready_rate": 0.95,
+                    "outcome_sample": 8,
+                    "win_rate": 0.75,
+                },
+            }
+        ]
+    )
+    result = await promote_template(
+        db, organization_id="org-1", template_key="t-ready", actor_id="admin-1"
+    )
+    assert result["ok"] is True
+    assert result["gate"]["eligible"] is True
+    assert result["forced"] is False
+
+
+@pytest.mark.asyncio
+async def test_promote_template_is_idempotent_for_active_templates():
+    db = _FakeDb(
+        [
+            {
+                "organization_id": "org-1",
+                "template_key": "t-live",
+                "status": "active",
+                "metrics": {},
+            }
+        ]
+    )
+    result = await promote_template(
+        db, organization_id="org-1", template_key="t-live", actor_id="admin-1"
+    )
+    assert result["ok"] is True
+    assert result["already_active"] is True

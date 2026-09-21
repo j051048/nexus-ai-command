@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   AlertTriangle,
+  Brain,
   CheckCircle2,
   Download,
   FileCheck2,
@@ -18,6 +19,13 @@ const FAILURE_LABELS: Record<string, string> = {
   missing_required_section: '必需章节缺失',
   unsupported_claim: '存在无来源结论',
   semantic_quality_below_threshold: '语义审校未通过',
+};
+
+const JUDGE_DIMENSION_LABELS: Record<string, string> = {
+  evidence_fidelity: '证据忠实度',
+  customer_value: '客户价值',
+  logical_coherence: '逻辑连贯',
+  language_professionalism: '语言专业度',
 };
 
 function percent(value: number | undefined) {
@@ -43,6 +51,12 @@ export default function ArtifactQualityOperationsPage() {
       icon: CheckCircle2,
     },
     {
+      label: '平均质量分',
+      value: `${Math.round(data?.slo.metrics.avg_score || 0)}`,
+      note: '目标 85',
+      icon: Brain,
+    },
+    {
       label: '下载采用率',
       value: percent(data?.value.adoption_rate),
       note: `${data?.value.unique_artifacts || 0} 份成果`,
@@ -55,6 +69,11 @@ export default function ArtifactQualityOperationsPage() {
       icon: Trophy,
     },
   ];
+
+  const judgeDimensions = Object.entries(
+    data?.slo.metrics.avg_llm_dimensions || {}
+  ).filter(([name]) => name in JUDGE_DIMENSION_LABELS);
+  const floor = data?.slo.llm_dimension_floor ?? 70;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 lg:px-8">
@@ -87,7 +106,7 @@ export default function ArtifactQualityOperationsPage() {
         </div>
       )}
 
-      <section className="mt-6 grid border-y sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-6 grid border-y sm:grid-cols-2 lg:grid-cols-5">
         {metrics.map(({ label, value, note, icon: Icon }, index) => (
           <div key={label} className={cn('px-5 py-5', index > 0 && 'border-t sm:border-l sm:border-t-0')}>
             <div className="flex items-center gap-2 text-xs text-muted-foreground"><Icon className="h-4 w-4" />{label}</div>
@@ -96,6 +115,28 @@ export default function ArtifactQualityOperationsPage() {
           </div>
         ))}
       </section>
+
+      {judgeDimensions.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-3 flex items-end justify-between border-b pb-3">
+            <div>
+              <h2 className="font-semibold">双引擎评审</h2>
+              <p className="mt-1 text-xs text-muted-foreground">规则分与独立 LLM 评审委员会各占一半，评审维度低于 {floor} 分会直接触发返工。</p>
+            </div>
+            <span className="text-xs text-muted-foreground">{data?.slo.metrics.judge_sample_size || 0} 次评审</span>
+          </div>
+          <div className="grid border-y sm:grid-cols-2 lg:grid-cols-4">
+            {judgeDimensions.map(([name, value], index) => (
+              <div key={name} className={cn('px-5 py-4', index > 0 && 'border-t sm:border-l sm:border-t-0')}>
+                <div className="text-xs text-muted-foreground">{JUDGE_DIMENSION_LABELS[name]}</div>
+                <div className={cn('mt-1 text-xl font-semibold tabular-nums', value < floor && 'text-destructive')}>
+                  {Math.round(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-8 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
         <div>

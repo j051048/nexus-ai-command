@@ -9,18 +9,22 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_org_id, get_current_user_id
-from app.core.dependencies import get_request_db
+from app.core.dependencies import get_request_db, require_admin
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.artifact_feedback_loop import (
     build_artifact_value_report,
+    list_learning_candidates,
     record_customer_outcome,
     record_learning_candidate,
+    review_learning_candidate,
     summarize_failure_modes,
 )
 from app.services.artifact_quality_slo import build_monthly_report, evaluate_slo
 from app.services.artifact_template_service import (
+    evaluate_template_promotion,
     get_optimal_template,
     list_templates,
+    promote_template,
     record_template_usage,
     save_template,
 )
@@ -64,6 +68,16 @@ class CustomerOutcomeRequest(BaseModel):
     outcome: Literal["used", "edited", "discarded", "won", "lost"]
     rating: int | None = Field(default=None, ge=1, le=5)
     comment: str | None = Field(default=None, max_length=2000)
+
+
+class LearningReviewRequest(BaseModel):
+    status: Literal["approved", "rejected"]
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class TemplatePromotionRequest(BaseModel):
+    force: bool = False
+    reason: str | None = Field(default=None, max_length=500)
 
 
 @router.get("/slo")
@@ -198,6 +212,57 @@ async def post_template_usage(
     return api_success(result.get("metrics"), message="模板指标已更新")
 
 
+@router.get("/templates/promotion-gate")
+async def get_template_promotion_gate(
+    template_key: str = Query(min_length=2, max_length=120),
+    request_db: Any = Depends(get_request_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Report whether a template's quality and commercial record allow promotion."""
+    templates = await list_templates(request_db, organization_id=org_id, status="draft")
+    template = next(
+        (
+            item
+            for item in templates.get("templates") or []
+            if item.get("template_key") == template_key
+        ),
+        None,
+    )
+    if not template:
+        return api_success({"template": None}, message="未找到草稿模板")
+    return api_success(
+        {"template_key": template_key, "gate": evaluate_template_promotion(template)}
+    )
+
+
+@router.post("/templates/{template_key}/promote")
+async def post_template_promotion(
+    template_key: str,
+    body: TemplatePromotionRequest,
+    request_db: Any = Depends(get_request_db),
+    org_id: str = Depends(get_current_org_id),
+    actor_id: str = Depends(require_admin),
+):
+    result = await promote_template(
+        request_db,
+        organization_id=org_id,
+        template_key=template_key,
+        actor_id=actor_id,
+        force=body.force,
+    )
+    if not result.get("ok"):
+        if result.get("error") == "promotion_gate_failed":
+            raise api_error(
+                ErrorCode.VALIDATION_ERROR,
+                message="模板未通过晋升门槛",
+                details=result.get("gate"),
+            )
+        raise api_error(
+            ErrorCode.DB_QUERY_ERROR, message=result.get("error", "模板晋升失败")
+        )
+    return api_success(result, message="模板已晋升为黄金模板")
+
+
 @router.post("/learning-candidates")
 async def post_learning_candidate(
     body: LearningCandidateRequest,
@@ -221,6 +286,50 @@ async def post_learning_candidate(
         evidence_fingerprint=body.evidence_fingerprint,
     )
     return api_success(result, message="反馈已进入学习队列")
+
+
+@router.get("/learning-candidates")
+async def get_learning_candidates(
+    status: str = Query(default="open"),
+    limit: int = Query(default=50, ge=1, le=200),
+    request_db: Any = Depends(get_request_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    result = await list_learning_candidates(
+        request_db, organization_id=org_id, status=status, limit=limit
+    )
+    if not result.get("available"):
+        return api_success(result, message="学习队列暂不可用")
+    return api_success(result)
+
+
+@router.post("/learning-candidates/{event_id}/review")
+async def post_learning_candidate_review(
+    event_id: str,
+    body: LearningReviewRequest,
+    request_db: Any = Depends(get_request_db),
+    org_id: str = Depends(get_current_org_id),
+    reviewer_id: str = Depends(require_admin),
+):
+    """Human-only decision gate before a candidate can feed template authoring."""
+    result = await review_learning_candidate(
+        request_db,
+        organization_id=org_id,
+        event_id=event_id,
+        status=body.status,
+        reviewer_id=reviewer_id,
+        note=body.note,
+    )
+    if not result.get("ok"):
+        error = result.get("error")
+        if error == "invalid_review_status":
+            raise api_error(ErrorCode.VALIDATION_ERROR, message="审批结论无效")
+        if error == "candidate_not_found_or_already_reviewed":
+            raise api_error(ErrorCode.NOT_FOUND, message="候选不存在或已审批")
+        raise api_error(
+            ErrorCode.DB_QUERY_ERROR, message=result.get("error", "审批失败")
+        )
+    return api_success(result, message=f"学习候选已{body.status}")
 
 
 @router.post("/outcomes")

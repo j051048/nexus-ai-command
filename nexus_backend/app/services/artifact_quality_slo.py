@@ -24,6 +24,11 @@ SLO_CONFIG: dict[str, dict[str, float]] = {
     "evidence_coverage": {"target": 90.0, "description": "平均证据覆盖度"},
 }
 
+# Informational floor for the LLM-judge half of the hybrid score.  It is not
+# an SLO (the judge is best-effort and may be unavailable), but a dimension
+# sitting under this line is what drives rework, so the dashboard shows it.
+LLM_DIMENSION_FLOOR = 70.0
+
 _METRIC_KEY = {
     "ready_rate": "ready_rate",
     "avg_score": "avg_score",
@@ -40,6 +45,8 @@ def _aggregate(events: list[dict[str, Any]]) -> dict[str, Any]:
             "avg_score": 0.0,
             "avg_evidence_coverage": 0.0,
             "avg_repair_count": 0.0,
+            "judge_sample_size": 0,
+            "avg_llm_dimensions": {},
             "by_artifact_type": {},
             "by_template": {},
             "failure_modes": [],
@@ -49,6 +56,8 @@ def _aggregate(events: list[dict[str, Any]]) -> dict[str, Any]:
     coverage_sum = 0.0
     repair_sum = sum(int(event.get("repair_count") or 0) for event in events)
     coverage_count = 0
+    judge_dimension_totals: dict[str, float] = {}
+    judge_sample_size = 0
     by_type: dict[str, int] = {}
     by_template: dict[str, int] = {}
     failure_counts: dict[str, int] = {}
@@ -58,6 +67,16 @@ def _aggregate(events: list[dict[str, Any]]) -> dict[str, Any]:
         if coverage:
             coverage_sum += coverage
             coverage_count += 1
+        judge_dimensions = (event.get("judge_snapshot") or {}).get("dimensions") or {}
+        if isinstance(judge_dimensions, dict) and judge_dimensions:
+            judge_sample_size += 1
+            for name, raw in judge_dimensions.items():
+                try:
+                    judge_dimension_totals[str(name)] = judge_dimension_totals.get(
+                        str(name), 0.0
+                    ) + float(raw)
+                except (TypeError, ValueError):
+                    continue
         artifact_type = str(event.get("artifact_type") or "unknown")
         by_type[artifact_type] = by_type.get(artifact_type, 0) + 1
         template_key = event.get("template_key")
@@ -75,6 +94,15 @@ def _aggregate(events: list[dict[str, Any]]) -> dict[str, Any]:
             round(coverage_sum / coverage_count, 2) if coverage_count else 0.0
         ),
         "avg_repair_count": round(repair_sum / total, 2),
+        "judge_sample_size": judge_sample_size,
+        "avg_llm_dimensions": (
+            {
+                name: round(value / judge_sample_size, 2)
+                for name, value in sorted(judge_dimension_totals.items())
+            }
+            if judge_sample_size
+            else {}
+        ),
         "by_artifact_type": by_type,
         "by_template": by_template,
         "failure_modes": [
@@ -138,6 +166,12 @@ async def evaluate_slo(
         "overall": overall,
         "slo": slo,
         "metrics": metrics,
+        "llm_dimension_floor": LLM_DIMENSION_FLOOR,
+        "llm_dimensions_below_floor": [
+            name
+            for name, value in metrics["avg_llm_dimensions"].items()
+            if value < LLM_DIMENSION_FLOOR
+        ],
     }
 
 

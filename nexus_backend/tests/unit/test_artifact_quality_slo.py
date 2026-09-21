@@ -1,6 +1,7 @@
 import pytest
 
 from app.services.artifact_quality_slo import (
+    LLM_DIMENSION_FLOOR,
     SLO_CONFIG,
     build_monthly_report,
     evaluate_slo,
@@ -125,3 +126,65 @@ async def test_build_monthly_report_invalid_month():
         db, organization_id="org-1", year=2026, month=13
     )
     assert report["available"] is False
+
+
+def _judged_event(score, ready, dimensions):
+    event = _event(score, ready)
+    event["judge_snapshot"] = {"dimensions": dimensions}
+    return event
+
+
+@pytest.mark.asyncio
+async def test_evaluate_slo_surfaces_llm_judge_dimensions():
+    db = _FakeDb(
+        [
+            _judged_event(
+                92,
+                True,
+                {
+                    "evidence_fidelity": 95,
+                    "customer_value": 88,
+                    "logical_coherence": 90,
+                    "language_professionalism": 91,
+                },
+            ),
+            _judged_event(
+                70,
+                False,
+                {
+                    "evidence_fidelity": 65,
+                    "customer_value": 60,
+                    "logical_coherence": 80,
+                    "language_professionalism": 84,
+                },
+            ),
+            # Events without a judge snapshot must not skew the averages.
+            _event(95, True),
+        ]
+    )
+    result = await evaluate_slo(db, organization_id="org-1", days=30)
+    metrics = result["metrics"]
+    assert metrics["judge_sample_size"] == 2
+    assert metrics["avg_llm_dimensions"]["evidence_fidelity"] == 80.0
+    assert metrics["avg_llm_dimensions"]["customer_value"] == 74.0
+    assert result["llm_dimension_floor"] == LLM_DIMENSION_FLOOR
+    # The blended rule score still covers all three events.
+    assert metrics["sample_size"] == 3
+
+
+@pytest.mark.asyncio
+async def test_evaluate_slo_flags_dimensions_under_the_floor():
+    db = _FakeDb(
+        [_judged_event(90, True, {"evidence_fidelity": 68, "customer_value": 88})]
+    )
+    result = await evaluate_slo(db, organization_id="org-1", days=30)
+    assert result["llm_dimensions_below_floor"] == ["evidence_fidelity"]
+
+
+@pytest.mark.asyncio
+async def test_evaluate_slo_without_judge_snapshots_stays_available():
+    db = _FakeDb([_event(92, True), _event(88, True), _event(90, True)])
+    result = await evaluate_slo(db, organization_id="org-1", days=30)
+    assert result["metrics"]["judge_sample_size"] == 0
+    assert result["metrics"]["avg_llm_dimensions"] == {}
+    assert result["llm_dimensions_below_floor"] == []

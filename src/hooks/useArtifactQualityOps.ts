@@ -13,12 +13,16 @@ export interface ArtifactQualityOpsSnapshot {
   slo: {
     available: boolean;
     overall: 'ok' | 'warn';
+    llm_dimension_floor?: number;
+    llm_dimensions_below_floor?: string[];
     metrics: {
       sample_size: number;
       ready_rate: number;
       avg_score: number;
       avg_evidence_coverage: number;
       avg_repair_count: number;
+      judge_sample_size?: number;
+      avg_llm_dimensions?: Record<string, number>;
     };
     slo: Record<string, ArtifactQualityMetric>;
   };

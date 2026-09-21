@@ -44,10 +44,20 @@ Worker 使用租约和心跳领取任务；中断任务可恢复、取消或重�
 
 ### 模板和反馈闭环
 
-- `artifact_template_service.py`：按成果类型、仪器谱系和行业选择版本化模板，并根据通过率与质量分做 A/B 排序；
-- `artifact_feedback_loop.py`：记录采用、编辑、放弃、赢单和输单结果，提取人工修改差异；
+- `artifact_template_service.py`：按成果类型、仪器谱系和行业选择版本化模板；A/B 排序使用通过率与质量分，并在样本 ≥ 5 时叠加客户赢单率（±10 分重排序）；`promote_template` 是草稿晋升黄金模板的门禁，要求均分 ≥ 85、通过率 ≥ 90%、客户结果样本 ≥ 5 且赢率 ≥ 50%；
+- `artifact_feedback_loop.py`：记录采用、编辑、放弃、赢单和输单结果，提取人工修改差异；学习候选只有 `recorded`/`review_candidate` 两种开放态，`approved`/`rejected` 只能由管理员通过 `POST /api/artifact-quality/learning-candidates/{id}/review` 写入，且 `auto_apply` 恒为 false；
 - `artifact_quality_service.py`：保存模板、规则、语义评审和交付门禁快照；
-- `artifact_quality_slo.py`：输出一次通过率、平均质量分、证据覆盖率和失败模式。
+- `artifact_quality_slo.py`：输出一次通过率、平均质量分、证据覆盖率、LLM 评审四维度均值和失败模式。
+
+客户结果回流路径：`POST /api/artifact-quality/outcomes` → 写 `artifact_feedback_events` 与 `artifact_delivery_events` → 从 `artifacts.metadata.template.template_key` 反查模板 → 折算进模板指标。因此模板的 A/B 结论同时受质量分和真实赢单结果影响。
+
+### 人工审批与晋升门禁
+
+| 门 | 入口 | 规则 |
+|---|---|---|
+| 学习候选审批 | `POST /api/artifact-quality/learning-candidates/{event_id}/review` | 仅组织管理员；只能把开放态改成 `approved`/`rejected`；记录 `reviewed_by`/`reviewed_at`/`review_note`；重复审批返回“候选不存在或已审批” |
+| 模板晋升 | `POST /api/artifact-quality/templates/{template_key}/promote` | 只有组织管理员；未达标返回 422 与 `blockers`；`force=true` 可人工覆盖，但覆盖事实写入模板指标 |
+| 外发阻断 | 生成管线内的 `evaluate_delivery_package` | PII、内部标记、不当承诺或 DOCX 渲染异常直接令 `ready=false` |
 
 ## 数据迁移
 
@@ -57,8 +67,24 @@ Worker 使用租约和心跳领取任务；中断任务可恢复、取消或重�
 2. `supabase/migrations/20260810_001_artifact_generation_jobs.sql`
 3. `supabase/migrations/20260810_002_knowledge_activation.sql`
 4. `supabase/migrations/20260810_003_operational_closure.sql`
+5. `supabase/migrations/20260921_001_artifact_feedback_review_loop.sql`（补 `change_type`、审批审计字段，并放开未评分的编辑记录）
 
 这些迁移包含租户字段、索引、RLS、任务租约、入库恢复和交付事件。部署前必须通过 schema convergence 与 RLS coverage 检查。
+
+## 质量基线与回归
+
+`nexus_backend/evals/artifact_output_baseline.json` 是版本化的产物评测基线，由 `scripts/run_artifact_output_eval.py` 写入和比对：
+
+```bash
+# 用契约夹具跑一遍（CI 默认路径）
+python scripts/build_artifact_eval_contract_outputs.py --output /tmp/outputs.json
+python scripts/run_artifact_output_eval.py /tmp/outputs.json --label contract-fixture
+
+# 用真实模型录制输出后刷新基线（低于 golden 下限会被拒绝）
+python scripts/run_artifact_output_eval.py recorded/live-model.json --update-baseline --label live-model
+```
+
+脚本在 `pass_rate` 下降或任何用例由通过转为失败时以 `ARTIFACT_OUTPUT_EVAL_REGRESSION` 失败。当前基线的 `source` 为 `contract-fixture`，即验证的是评测器契约而非真实模型质量；真实模型基线需在具备模型凭据的环境录制后提交，替换前不得对外声明模型回归已覆盖。
 
 ## 运营原则
 
@@ -88,7 +114,16 @@ python scripts/run_customer_golden_acceptance.py --require-live
 
 ## 后续迭代
 
-1. 将已审核成果沉淀为可治理的 few-shot 样本，而不是自动学习全部人工修改；
-2. 扩充质量 SLO、失败模式和模板效果的真实客户基线；
-3. 用真实模型输出运行 `scripts/run_artifact_output_eval.py`，形成版本化回归基线；
-4. 将客户赢单、投标通过和方案采用结果纳入模板晋升门槛。
+已完成：
+
+- 学习候选的人工审批门与管理端入口；
+- 客户赢单/输单折入模板 A/B 与晋升门槛；
+- LLM 评审四维度落库并在运营看板呈现；
+- 产物评测的版本化基线与 CI 回归门禁。
+
+待办：
+
+1. 在具备模型凭据的环境录制真实模型输出，把 `artifact_output_baseline.json` 的 `source` 从 `contract-fixture` 升级为 `live-model`；
+2. 将已审核成果沉淀为可治理的 few-shot 样本，而不是自动学习全部人工修改；
+3. 为黄金模板库补充按行业 × 仪器线的真实客户样本量与赢单分布报表；
+4. 月度质量报告自动落库并推送，而不是只按需查询。

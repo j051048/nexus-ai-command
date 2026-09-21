@@ -248,6 +248,10 @@ def combine_rule_and_llm(
             "evaluator_version": llm_result.get("evaluator_version"),
             "score": llm_result.get("score"),
             "passed": llm_result.get("passed"),
+            # The four product dimensions are persisted so the SLO report and
+            # the operations dashboard can show *where* quality moved, not
+            # just the blended score.
+            "dimensions": dict(llm_result.get("dimensions") or {}),
             "strengths": llm_result.get("strengths", []),
         },
     }
