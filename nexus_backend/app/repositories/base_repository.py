@@ -43,14 +43,17 @@ class BaseRepository:
         self,
         table_name: str,
         *,
-        tenant_column: str = "tenant_id",
+        tenant_column: str = "organization_id",
         soft_delete: bool = True,
         id_column: str = "id",
     ):
         """
         Args:
             table_name: Supabase table name
-            tenant_column: Column name for tenant isolation (set to "" to disable)
+            tenant_column: Column name for tenant isolation (set to "" to disable).
+                Defaults to ``organization_id`` because that is the column the RLS
+                policies and ``get_org_filtered_client`` filter on; defaulting to
+                ``tenant_id`` silently produced unscoped queries.
             soft_delete: If True, filters out is_deleted=True by default
             id_column: Primary key column name
         """
