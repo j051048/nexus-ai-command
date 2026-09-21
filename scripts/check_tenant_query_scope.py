@@ -45,6 +45,10 @@ GLOBAL_TABLES = {
     "public_plans",
     "industry_benchmarks",
     "instrument_catalog",
+    # Platform operations ledger: records what a retention sweep deleted. It has
+    # no organization column by design (see 20260921_002 migration) so org
+    # admins cannot infer another tenant's volume.
+    "data_retention_runs",
 }
 
 ORG_TOKENS = ("organization_id", "org_id", "tenant_id", "p_org_id", "org_filtered")

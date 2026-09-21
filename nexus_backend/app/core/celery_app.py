@@ -31,6 +31,8 @@ celery_app = Celery(
         "app.tasks.memory_tasks",
         "app.tasks.artifact_tasks",
         "app.tasks.knowledge_tasks",
+        "app.tasks.backup_tasks",
+        "app.tasks.retention_tasks",
     ],
 )
 
@@ -186,6 +188,20 @@ celery_app.conf.beat_schedule = {
     "artifact-job-lease-recovery": {
         "task": "app.tasks.artifact_tasks.recover_stale_artifact_jobs",
         "schedule": 120.0,
+    },
+    # backup_schedules 的实际执行者：没有它，自动备份只是一行没人读的记录。
+    "backup-schedule-sweep": {
+        "task": "app.tasks.backup_tasks.run_due_backup_schedules",
+        "schedule": 900.0,  # 每15分钟
+    },
+    "backup-expiry-sweep": {
+        "task": "app.tasks.backup_tasks.expire_backup_records",
+        "schedule": crontab(hour=4, minute=30),
+    },
+    # 数据保留窗口的实际执行者；未开启 DATA_RETENTION_ENFORCEMENT_ENABLED 时为空转。
+    "data-retention-enforcement": {
+        "task": "app.tasks.retention_tasks.enforce_data_retention",
+        "schedule": crontab(hour=5, minute=0),
     },
     "knowledge-ingestion-recovery": {
         "task": "app.tasks.knowledge_tasks.recover_stale_knowledge_documents",

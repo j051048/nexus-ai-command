@@ -50,6 +50,8 @@ $env:DATABASE_URL="postgresql://..."
 
 恢复到隔离数据库后，先执行较新的正向迁移，再验证登录、租户隔离、CRM、企业资料、检索、成果、审批和审计。数据库能打开但业务不变量失效，不算恢复成功。
 
+应用级备份（`/api/backups`）由 `app/tasks/backup_tasks.py` 每 15 分钟按计划执行，到期记录由同一模块在每天 04:30 清理。生产部署必须设置 `BACKUP_STORAGE_BACKEND`（`filesystem` 或 `s3`），否则备份负载会留在主库里。数据保留窗口默认不执行，需要显式开启 `DATA_RETENTION_ENFORCEMENT_ENABLED`，开启后每天 05:00 按组织清理并把结果写入 `data_retention_runs`。
+
 ## 模块策略
 
 默认首发：`approval`、`battlecards`、`crm`、`documents`、`knowledge`、`projects`、`reports`、`sales`、`tender`、`vmd`。

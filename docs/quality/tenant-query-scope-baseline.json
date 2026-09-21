@@ -1,7 +1,7 @@
 {
   "generated_by": "scripts/check_tenant_query_scope.py",
   "note": "Managed debt: unscoped service-role table access per file. May only decrease.",
-  "total": 752,
+  "total": 751,
   "files": {
     "nexus_backend/app/agent/async_approval.py": 1,
     "nexus_backend/app/agent/context_engine.py": 3,
@@ -157,7 +157,6 @@
     "nexus_backend/app/services/work_order_service.py": 6,
     "nexus_backend/app/services/workflow_definition_service.py": 6,
     "nexus_backend/app/services/workflow_template_service.py": 4,
-    "nexus_backend/app/tasks/backup.py": 1,
     "nexus_backend/app/tasks/dlq.py": 2,
     "nexus_backend/app/tasks/event_sensors.py": 7,
     "nexus_backend/app/tools/agent_task_tools.py": 2,

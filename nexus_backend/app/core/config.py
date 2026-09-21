@@ -21,10 +21,12 @@ except ImportError:
 
 from pydantic import Field, field_validator
 
+from app.core.backup_settings import BackupRetentionSettings
+
 FORCED_CHAT_MODEL = "deepseek-v4.1-flash"
 
 
-class Settings(BaseSettings):
+class Settings(BackupRetentionSettings, BaseSettings):
     """
     Application settings with automatic environment variable loading.
 

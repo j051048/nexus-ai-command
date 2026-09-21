@@ -2,7 +2,8 @@
 数据备份与恢复服务
 
 提供组织级别的数据备份、恢复、自动备份调度和过期清理功能。
-备份数据以 JSON 格式存储在 backup_records 表中。
+备份负载默认存放在 backup_records.data；配置 BACKUP_STORAGE_BACKEND 后
+改为写入文件系统或 S3 兼容对象存储，数据库里只保留清单、校验和与引用。
 """
 
 import asyncio
@@ -10,7 +11,38 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 
+import httpx
+from postgrest.exceptions import APIError as PostgrestAPIError
+
+from app.core.config import settings
+from app.services.backup_storage import (
+    BackupStorageError,
+    build_backup_storage,
+    canonical_payload,
+    checksum_for,
+)
+
 logger = logging.getLogger(__name__)
+
+#: Failures that must be attributed to one schedule/organization and must not
+#: abort the whole batch. Exported so the lifecycle sweeps can attribute a
+#: failure - while still refusing to catch everything.
+RECOVERABLE_BACKUP_ERRORS = (
+    BackupStorageError,
+    PostgrestAPIError,
+    httpx.HTTPError,
+    TimeoutError,
+    OSError,
+    RuntimeError,
+)
+
+
+def service_client():
+    """Service-role client for background runs (no request context)."""
+    from app.core.database import supabase
+
+    return supabase
+
 
 # 默认备份表
 DEFAULT_BACKUP_TABLES = [
@@ -78,23 +110,40 @@ class BackupService:
                     backup_data[table_name] = {"error": str(error), "rows": []}
                 else:
                     backup_data[table_name] = table_data
-                total_size += len(
-                    json.dumps(backup_data[table_name], default=str).encode("utf-8")
-                )
 
-            # 设置过期时间（默认30天）
-            expires_at = (datetime.now(UTC) + timedelta(days=30)).isoformat()
+            payload_bytes = canonical_payload(backup_data)
+            checksum = checksum_for(payload_bytes)
+            total_size = len(payload_bytes)
+
+            storage = build_backup_storage(settings)
+            storage_ref = storage.store(
+                org_id=org_id,
+                label=backup_type,
+                payload=payload_bytes,
+                checksum=checksum,
+            )
+
+            now = datetime.now(UTC)
+            expires_at = (
+                now
+                + timedelta(days=int(getattr(settings, "BACKUP_RETENTION_DAYS", 30)))
+            ).isoformat()
 
             # 写入备份记录
             record = {
                 "organization_id": org_id,
                 "backup_type": backup_type,
                 "tables_included": tables_to_backup,
-                "data": backup_data,
+                # External backends keep only a manifest here: a backup that
+                # shares fate with the primary database is not a backup.
+                "data": backup_data if storage.backend == "database" else {},
                 "size_bytes": total_size,
                 "status": "completed",
                 "created_by": created_by,
                 "expires_at": expires_at,
+                "storage_backend": storage.backend,
+                "storage_ref": storage_ref,
+                "checksum": checksum,
             }
 
             result = await db.table("backup_records").insert(record).execute()
@@ -103,9 +152,10 @@ class BackupService:
                 backup_record = result.data[0]
                 logger.info(
                     f"备份创建成功: org={org_id}, type={backup_type}, "
-                    f"tables={len(tables_to_backup)}, size={total_size}B"
+                    f"tables={len(tables_to_backup)}, size={total_size}B, "
+                    f"storage={storage.backend}"
                 )
-                return {
+                created = {
                     "id": backup_record.get("id"),
                     "backup_type": backup_type,
                     "tables_included": tables_to_backup,
@@ -113,11 +163,19 @@ class BackupService:
                     "status": "completed",
                     "created_at": backup_record.get("created_at"),
                     "expires_at": expires_at,
+                    "storage_backend": storage.backend,
+                    "storage_ref": storage_ref,
+                    "checksum": checksum,
                     "table_row_counts": {
                         t: len(d) if isinstance(d, list) else 0
                         for t, d in backup_data.items()
                     },
                 }
+                if getattr(settings, "BACKUP_VERIFY_AFTER_WRITE", True):
+                    created["verification"] = await self.verify_backup(
+                        backup_record.get("id"), db=db
+                    )
+                return created
 
             raise RuntimeError("备份记录写入失败")
 
@@ -143,7 +201,8 @@ class BackupService:
             result = await (
                 db.table("backup_records")
                 .select(
-                    "id, backup_type, tables_included, size_bytes, status, created_by, created_at, expires_at"
+                    "id, backup_type, tables_included, size_bytes, status, created_by, "
+                    "created_at, expires_at, storage_backend, checksum, verified_at"
                 )
                 .eq("organization_id", org_id)
                 .order("created_at", desc=True)
@@ -183,7 +242,7 @@ class BackupService:
                 return None
 
             record = result.data
-            data = record.get("data", {})
+            data = await self._payload_dict(record)
 
             # 返回统计信息，不返回原始数据（避免传输过大）
             return {
@@ -196,6 +255,10 @@ class BackupService:
                 "created_by": record.get("created_by"),
                 "created_at": record.get("created_at"),
                 "expires_at": record.get("expires_at"),
+                "storage_backend": record.get("storage_backend") or "database",
+                "storage_ref": record.get("storage_ref"),
+                "checksum": record.get("checksum"),
+                "verified_at": record.get("verified_at"),
                 "table_row_counts": {
                     t: len(d) if isinstance(d, list) else 0 for t, d in data.items()
                 },
@@ -204,6 +267,98 @@ class BackupService:
         except Exception as e:
             logger.error(f"获取备份详情失败: {e}")
             raise
+
+    async def _load_payload_bytes(self, record: dict) -> bytes:
+        """Return the stored payload, wherever the record points."""
+        backend = record.get("storage_backend") or "database"
+        ref = record.get("storage_ref")
+        if backend != "database" and ref:
+            storage = build_backup_storage(settings)
+            return storage.load(ref)
+        return canonical_payload(record.get("data") or {})
+
+    async def _payload_dict(self, record: dict) -> dict:
+        payload = json.loads((await self._load_payload_bytes(record)) or b"{}")
+        return payload if isinstance(payload, dict) else {}
+
+    async def verify_backup(self, backup_id: str, db=None) -> dict:
+        """Prove a stored backup can be read back and matches its manifest.
+
+        External backends store the exact bytes, so the checksum comparison is
+        authoritative there. The ``database`` backend lives in JSONB, which
+        normalises numbers and key order, so it is verified structurally
+        (table set + row counts) instead of by bytes.
+        """
+        client = db or service_client()
+        if not client:
+            raise RuntimeError("数据库连接不可用")
+
+        result = (
+            await client.table("backup_records")
+            # organization_id is read explicitly: verification must be able to
+            # bind its write-back to the owning tenant, not just to the row id.
+            .select(
+                "id, organization_id, backup_type, tables_included, data, "
+                "checksum, storage_backend, storage_ref"
+            )
+            .eq("id", backup_id)
+            .single()
+            .execute()
+        )
+        record = result.data
+        if not record:
+            return {"backup_id": backup_id, "verified": False, "reason": "not_found"}
+
+        backend = record.get("storage_backend") or "database"
+        expected = record.get("checksum")
+        payload_bytes = await self._load_payload_bytes(record)
+        payload = json.loads(payload_bytes or b"{}")
+        payload = payload if isinstance(payload, dict) else {}
+        tables_included = record.get("tables_included") or []
+        row_counts = {
+            name: len(value) if isinstance(value, list) else 0
+            for name, value in payload.items()
+        }
+
+        if backend == "database":
+            missing = [name for name in tables_included if name not in payload]
+            verified = not missing
+            method = "structure"
+            reason = f"missing tables: {missing}" if missing else None
+        else:
+            actual = checksum_for(payload_bytes)
+            verified = bool(expected) and actual == expected
+            method = "checksum"
+            reason = None if verified else f"checksum {actual} != manifest {expected}"
+
+        verified_at = datetime.now(UTC).isoformat()
+        outcome = {
+            "backup_id": backup_id,
+            "verified": verified,
+            "method": method,
+            "storage_backend": backend,
+            "checksum": expected,
+            "row_counts": row_counts,
+            "verified_at": verified_at,
+        }
+        if reason:
+            outcome["reason"] = reason
+        if verified:
+            await (
+                client.table("backup_records")
+                .update({"verified_at": verified_at})
+                .eq("id", backup_id)
+                .eq("organization_id", record.get("organization_id"))
+                .execute()
+            )
+        else:
+            logger.error(
+                "[Backup] verification failed backup=%s backend=%s reason=%s",
+                backup_id,
+                backend,
+                reason,
+            )
+        return outcome
 
     async def restore_preview(self, backup_id: str, db=None) -> dict:
         """
@@ -232,7 +387,7 @@ class BackupService:
                 return {"error": "备份记录不存在"}
 
             record = result.data
-            data = record.get("data", {})
+            data = await self._payload_dict(record)
             tables = record.get("tables_included", [])
 
             preview = {
@@ -292,7 +447,7 @@ class BackupService:
                 return {"error": "备份记录不存在"}
 
             record = result.data
-            data = record.get("data", {})
+            data = await self._payload_dict(record)
             org_id = record.get("organization_id")
             tables_to_restore = tables or record.get("tables_included", [])
 
@@ -427,21 +582,47 @@ class BackupService:
         cutoff = (datetime.now(UTC) - timedelta(days=keep_days)).isoformat()
 
         try:
-            result = await (
+            expired = await (
                 db.table("backup_records")
-                .delete()
+                .select("id, organization_id, storage_backend, storage_ref")
                 .eq("organization_id", org_id)
                 .lt("created_at", cutoff)
                 .execute()
             )
-
-            deleted_count = len(result.data) if result.data else 0
+            rows = expired.data or []
+            deleted_count = await self.delete_records(db, rows)
             logger.info(f"清理过期备份: org={org_id}, deleted={deleted_count}")
             return deleted_count
 
         except Exception as e:
             logger.error(f"清理过期备份失败: {e}")
             raise
+
+    async def delete_records(self, db, rows: list[dict]) -> int:
+        """Delete backup rows, removing their off-site objects first.
+
+        Object deletion is best-effort: an unreachable bucket must not keep
+        expired rows (and their metadata) alive in the primary database.
+        """
+        deleted = 0
+        for row in rows:
+            ref = row.get("storage_ref")
+            if ref:
+                try:
+                    build_backup_storage(settings).delete(ref)
+                except BackupStorageError as exc:
+                    logger.warning(
+                        "[Backup] could not delete off-site object %s: %s", ref, exc
+                    )
+            result = (
+                await db.table("backup_records")
+                .delete()
+                .eq("id", row["id"])
+                .eq("organization_id", row["organization_id"])
+                .execute()
+            )
+            deleted += len(result.data) if result.data else 1
+        return deleted
 
 
 backup_service = BackupService()

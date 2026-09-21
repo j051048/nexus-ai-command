@@ -147,30 +147,29 @@ async def data_retention_policy(
     user_id: str = Depends(get_current_user_id),
 ):
     """Get current data retention policy information."""
+    from app.services.data_retention_service import (
+        enforcement_enabled,
+        last_retention_runs,
+        policy_snapshot,
+    )
+
+    policies = policy_snapshot()
+    policies.append(
+        {
+            "data_type": "documents",
+            "retention_days": None,
+            "table": "documents",
+            "description": "文档保留至手动删除",
+            "enforced": False,
+        }
+    )
     return api_success(
         data={
-            "policies": [
-                {
-                    "data_type": "audit_logs",
-                    "retention_days": 365,
-                    "description": "Audit logs are retained for 1 year",
-                },
-                {
-                    "data_type": "chat_history",
-                    "retention_days": 90,
-                    "description": "Chat history is retained for 90 days",
-                },
-                {
-                    "data_type": "documents",
-                    "retention_days": None,
-                    "description": "Documents are retained until manually deleted",
-                },
-                {
-                    "data_type": "token_usage",
-                    "retention_days": 180,
-                    "description": "Usage data is retained for 6 months",
-                },
-            ],
+            "policies": policies,
+            # 之前这里直接写 gdpr_supported=true，而保留期没有任何执行者。
+            # 现在报告真实状态：未开启执行时明确说明，并回传最近一次清理。
+            "enforcement_enabled": enforcement_enabled(),
+            "last_runs": await last_retention_runs(),
             "gdpr_supported": True,
             "dsar_endpoint": "/api/compliance/dsar/{user_id}",
         }

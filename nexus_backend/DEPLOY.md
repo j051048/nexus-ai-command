@@ -25,6 +25,13 @@
 - `HEALTH_CHECK_TOKEN`，至少 24 个字符
 - 精确的 `CORS_ORIGINS`/`ADDITIONAL_ALLOWED_ORIGINS`
 
+备份与数据保留（可选，默认值即安全默认）：
+
+- `BACKUP_STORAGE_BACKEND`：`database`（默认，负载写在主库 `backup_records`）、`filesystem`（写 `BACKUP_STORAGE_PATH`，需挂载持久卷）、`s3`（S3 兼容对象存储，需要额外安装 `boto3`）。生产建议不要用默认值，否则备份与主库同生共死。
+- `BACKUP_STORAGE_PATH`、`BACKUP_S3_BUCKET`、`BACKUP_S3_PREFIX`、`BACKUP_S3_REGION`、`BACKUP_S3_ENDPOINT_URL`、`BACKUP_S3_ACCESS_KEY_ID`、`BACKUP_S3_SECRET_ACCESS_KEY`：对应后端配置，只填被选中的那个。
+- `BACKUP_RETENTION_DAYS`（默认 30）、`BACKUP_VERIFY_AFTER_WRITE`（默认 true）：备份保留期与写后校验。
+- `DATA_RETENTION_ENFORCEMENT_ENABLED`（默认 false）：开启后按 `DATA_RETENTION_AUDIT_LOG_DAYS`=365、`DATA_RETENTION_CHAT_MESSAGE_DAYS`=90、`DATA_RETENTION_TOKEN_USAGE_DAYS`=180 执行删除；未开启时 `/api/compliance/retention` 会明确返回 `enforcement_enabled=false`。
+
 完整模板见 `.env.example` 和仓库根 `.env.production.example`。聊天模型由 `app/core/config.py` 强制为 `deepseek-v4.1-flash`，其他环境覆盖会被忽略并记录警告。
 
 ## 数据库迁移

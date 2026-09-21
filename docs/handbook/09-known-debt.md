@@ -17,6 +17,8 @@
 ## 已在本轮关闭
 
 - 环境隔离：非生产构建缺少 `VITE_API_BASE_URL` 时直接失败，catch-all 路由补齐 CSP 与安全头。
+- 备份执行者：`backup_schedules` 过去只写不读（`app/tasks/backup.py` 是纯日志占位且未注册），现在由 `app/tasks/backup_tasks.py` 每 15 分钟按 `next_backup_at` 比较并交换领取并执行，失败写回 `last_status`/`last_error`；`BACKUP_STORAGE_BACKEND` 可把负载放到文件系统或 S3 兼容对象存储，数据库只留清单与校验和。
+- 数据保留执行：`/api/compliance/retention` 曾硬编码 365/90/180 天且无执行者。现在窗口来自配置，`DATA_RETENTION_ENFORCEMENT_ENABLED` 开启后按组织逐个清理并写入 `data_retention_runs`；未开启时接口明确返回 `enforcement_enabled=false`。
 - 部署拓扑：四套部署面边界写入 `docs/adr/005-deployment-topology-authority.md`，k8s 镜像禁止 `:latest`。
 - 租户默认列：`base_repository` 的 `tenant_column` 默认值从 `tenant_id` 修正为 `organization_id`，此前默认值会让查询静默不带租户过滤。
 - 反馈闭环：补齐 `change_type` 与审批审计字段，学习候选的 `approved`/`rejected` 只能由管理员写入。
@@ -25,6 +27,9 @@
 - `maybe_single()` 契约回归：`app/core/postgrest_compat.py` 把 postgrest-py ≥0.16 的"零行返回 `None`"（并在其他错误上伪造 `code=204`）恢复成空响应对象。**这个模块是修复而非兼容包袱，删除会同时复活约 150 处调用点的崩溃与错误类别丢失**；升级 postgrest 前先读它的 docstring。
 - Redis URL 归一化：`app/core/redis_url.py` 统一补 `redis://` 前缀、拒绝 `http(s)://` 等非法 scheme。生产环境 `REDIS_URL` 写错时，启动期打 CRITICAL、令牌预算降级为进程内计数并登记 degradation，而不是把成本护栏变成全量 AI 中断。真正的修复仍是运维侧改对 `REDIS_URL`。
 - `llm_model_config` 数据缺口：`FORCED_CHAT_MODEL=deepseek-v4.1-flash` 在库中没有 enabled 行，网关每次都走 env fallback 并打一条 WARN。补齐需要确认该模型的 base_url/密钥后再写入种子迁移，不能只插空行。
+- 备份的异地存储默认关闭：`BACKUP_STORAGE_BACKEND` 不显式设置时仍是 `database`，备份与主库同生共死。生产环境必须在部署清单里选定 `filesystem` 或 `s3`，否则只有数据库快照那一层保护。
+- S3 后端依赖可选包 `boto3`：未安装时 `BACKUP_STORAGE_BACKEND=s3` 会让备份任务失败并写回 `last_status='failed'`（设计如此，不静默回落到主库）。
+- `audit_logs` 中 `org_id IS NULL` 的平台级审计行不参与按组织的保留清理，需要平台 owner 单独处理。
 
 ## 偿还原则
 
