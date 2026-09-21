@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.core.database import supabase
+from app.core.redis_url import normalize_redis_url
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ class SemanticCacheService:
         if self._redis_init_attempted:
             return self._redis
         self._redis_init_attempted = True
-        redis_url = os.getenv("REDIS_URL")
+        redis_url = normalize_redis_url(os.getenv("REDIS_URL"))
         if not redis_url:
             return None
         try:

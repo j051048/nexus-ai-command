@@ -11,6 +11,7 @@ import os
 from urllib.parse import urlparse
 
 from app.core.metrics import observe_celery_queue_depth
+from app.core.redis_url import normalize_redis_url
 
 DEFAULT_QUEUES = (
     "default",
@@ -22,7 +23,8 @@ DEFAULT_QUEUES = (
 
 
 def _broker_url() -> str:
-    return os.getenv("CELERY_BROKER_URL") or os.getenv("REDIS_URL") or ""
+    raw = os.getenv("CELERY_BROKER_URL") or os.getenv("REDIS_URL") or ""
+    return normalize_redis_url(raw) or ""
 
 
 def _queue_names() -> list[str]:

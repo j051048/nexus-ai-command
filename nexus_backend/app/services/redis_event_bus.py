@@ -12,11 +12,14 @@ import logging
 import os
 from collections.abc import Callable
 
+from app.core.redis_url import normalize_redis_url
 from app.services.event_bus import Event, InMemoryEventBus
 
 logger = logging.getLogger(__name__)
 
-REDIS_URL = os.getenv("REDIS_URL")
+# Normalize here so the event-bus connection matches every other Redis client:
+# a bare host:port in REDIS_URL must not silently disable pub/sub.
+REDIS_URL = normalize_redis_url(os.getenv("REDIS_URL"))
 REDIS_CHANNEL_PREFIX = "nexus:events:"
 
 

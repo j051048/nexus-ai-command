@@ -20,9 +20,14 @@ import time
 from collections.abc import Callable, Coroutine
 from typing import Any
 
+from app.core.redis_url import normalize_redis_url
+
 logger = logging.getLogger(__name__)
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = (
+    normalize_redis_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+    or "redis://localhost:6379/0"
+)
 CHANNEL_PREFIX = "ws:user:"
 BROADCAST_CHANNEL = "ws:broadcast"
 HEALTH_CHECK_INTERVAL = int(os.getenv("WS_REDIS_HEALTH_INTERVAL", "30"))
@@ -48,7 +53,7 @@ class RedisWebSocketBridge:
     """
 
     def __init__(self, redis_url: str | None = None):
-        self._redis_url = redis_url or REDIS_URL
+        self._redis_url = normalize_redis_url(redis_url or REDIS_URL)
         self._redis = None  # redis.asyncio.Redis
         self._pubsub = None  # redis.asyncio.PubSub
         self._listener_task: asyncio.Task | None = None

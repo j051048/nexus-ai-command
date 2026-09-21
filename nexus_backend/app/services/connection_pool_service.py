@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from app.core.redis_url import normalize_redis_url
+
 logger = logging.getLogger(__name__)
 
 
@@ -144,7 +146,7 @@ class ConnectionPoolService:
         """
         Initialize Redis connection pool.
         """
-        redis_url = redis_url or os.getenv("REDIS_URL")
+        redis_url = normalize_redis_url(redis_url or os.getenv("REDIS_URL"))
         if not redis_url:
             logger.info("REDIS_URL not set, skipping Redis pool init")
             return

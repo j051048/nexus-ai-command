@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from functools import wraps
 
 from app.core.celery_app import NexusTask, celery_app
+from app.core.redis_url import normalize_redis_url
 from app.services.crawler_service import crawler_service
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ def _with_redis_lock(task_name: str, lock_ttl: int = 300):
             try:
                 import redis as _redis
 
-                redis_url = os.getenv("REDIS_URL")
+                redis_url = normalize_redis_url(os.getenv("REDIS_URL"))
                 if redis_url:
                     redis_client = _redis.from_url(redis_url)
                     if not redis_client.set(lock_key, "1", nx=True, ex=lock_ttl):
