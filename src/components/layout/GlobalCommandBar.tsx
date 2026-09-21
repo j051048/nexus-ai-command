@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, MessageSquare, PlusCircle, Sparkles, SunMoon, Users } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -17,6 +16,12 @@ import {
 import { usePageContext } from '@/hooks/usePageContext';
 
 import {
+  COMMAND_BAR_CHAT_EVENT,
+  COMMAND_BAR_NEW_CHAT_EVENT,
+  dispatchAIChatMessage,
+  dispatchNewChat,
+} from './commandBarEvents';
+import {
   AI_QUICK_ACTIONS,
   COMMAND_ITEMS,
   COMMAND_ITEM_VALUES,
@@ -31,17 +36,6 @@ interface CustomerResult {
   id: string;
   name: string;
   company?: string;
-}
-
-export const COMMAND_BAR_CHAT_EVENT = 'nexus:command-bar-chat';
-export const COMMAND_BAR_NEW_CHAT_EVENT = 'nexus:command-bar-new-chat';
-
-export function dispatchAIChatMessage(message: string) {
-  window.dispatchEvent(new CustomEvent(COMMAND_BAR_CHAT_EVENT, { detail: { message } }));
-}
-
-export function dispatchNewChat() {
-  window.dispatchEvent(new CustomEvent(COMMAND_BAR_NEW_CHAT_EVENT));
 }
 
 export function GlobalCommandBar() {

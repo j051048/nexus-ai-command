@@ -10,6 +10,11 @@ on:
         required: false
         default: false
         type: boolean
+      strict_visual:
+        description: "Fail on visual diffs instead of generating missing Linux baselines"
+        required: false
+        default: false
+        type: boolean
 
 env:
   PYTHON_VERSION: "3.11"
@@ -79,3 +84,63 @@ jobs:
             dist/soc2-evidence.json
             dist/customer-golden-acceptance.json
           retention-days: 30
+
+  visual-regression-baselines:
+    name: Visual Regression (Linux baselines)
+    runs-on: ubuntu-latest
+    needs: [replay-and-release-evidence]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_BUILD_PROFILE: ci
+          VITE_API_BASE_URL: ${{ secrets.STAGING_API_URL || 'https://placeholder.invalid' }}
+          VITE_APP_ENV: preview
+          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
+
+      # Committed snapshots are Windows-generated (`*-win32.png`) and only usable
+      # on a developer workstation. CI runs on Linux, so it either generates the
+      # missing Linux baselines as evidence for a maintainer to commit, or (when
+      # strict_visual is set) compares against already-committed Linux baselines.
+      - name: Run visual regression suite
+        run: |
+          if [[ "${{ inputs.strict_visual }}" == "true" ]]; then
+            npx playwright test e2e/visual-regression.spec.ts --project=chromium
+          else
+            npx playwright test e2e/visual-regression.spec.ts --project=chromium --update-snapshots=missing
+          fi
+        env:
+          RUN_VISUAL_REGRESSION: "1"
+
+      - name: Upload generated baselines
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-snapshots-linux
+          path: e2e/visual-regression.spec.ts-snapshots/
+          retention-days: 14
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-report
+          path: playwright-report/
+          retention-days: 7

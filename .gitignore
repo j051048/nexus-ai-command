@@ -73,6 +73,10 @@ coverage/
 htmlcov/
 *.lcov
 **/.coverage
+coverage.json
+nexus_backend/coverage.json
+nexus_backend/test-retries.json
+test-retries.json
 
 # Python caches
 .pytest_cache/

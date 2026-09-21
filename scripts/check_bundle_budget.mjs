@@ -97,6 +97,9 @@ const requiredDedicatedChunks = [
   "vendor-motion-",
   "vendor-charts-",
   "vendor-flow-",
+  // The command bar (cmdk + pinyin matching + customer search) must stay out of
+  // the entry chunk; it is only needed once the user opens it.
+  "GlobalCommandBar-",
 ];
 
 for (const prefix of requiredDedicatedChunks) {
@@ -105,5 +108,22 @@ for (const prefix of requiredDedicatedChunks) {
     ok(`dedicated chunk present: ${prefix}`);
   } else {
     fail(`dedicated chunk missing: ${prefix}`);
+  }
+}
+
+// Early-warning headroom: the entry chunk historically sat within 3% of the
+// budget, which makes any feature addition a hard failure instead of a review
+// signal. Warn well before the wall is hit.
+const entryChunk = [...jsFiles]
+  .filter((file) => file.name.startsWith("index-"))
+  .sort((a, b) => b.bytes - a.bytes)[0];
+if (entryChunk) {
+  const headroomRatio = 1 - entryChunk.bytes / budgets.maxJsChunkBytes;
+  if (headroomRatio < 0.15) {
+    console.log(
+      `WARN entry chunk ${entryChunk.name} leaves only ${(headroomRatio * 100).toFixed(1)}% headroom under the largest-chunk budget`,
+    );
+  } else {
+    ok(`entry chunk headroom ${(headroomRatio * 100).toFixed(1)}%`);
   }
 }

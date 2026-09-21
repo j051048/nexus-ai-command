@@ -23,7 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/components/auth/AuthContext';
-import { dispatchAIChatMessage } from '@/components/layout/GlobalCommandBar';
+import { dispatchAIChatMessage } from '@/components/layout/commandBarEvents';
 import { Button } from '@/components/ui/button';
 import {
   ACTIVATION_OPEN_EVENT,

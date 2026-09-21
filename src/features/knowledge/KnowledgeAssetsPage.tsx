@@ -23,7 +23,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { OperationalMetricStrip } from '@/components/common/OperationalMetricStrip';
 import { PrecisionPageHeader } from '@/components/common/PrecisionPageHeader';
 import { WorkEmptyState, WorkErrorState } from '@/components/common/WorkState';
-import { dispatchAIChatMessage } from '@/components/layout/GlobalCommandBar';
+import { dispatchAIChatMessage } from '@/components/layout/commandBarEvents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useActivationState } from '@/hooks/useActivationState';

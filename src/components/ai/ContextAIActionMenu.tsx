@@ -1,6 +1,6 @@
 import { ChevronDown, Sparkles } from 'lucide-react';
 
-import { dispatchAIChatMessage } from '@/components/layout/GlobalCommandBar';
+import { dispatchAIChatMessage } from '@/components/layout/commandBarEvents';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,

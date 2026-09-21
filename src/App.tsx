@@ -3,13 +3,19 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { IdentityQueryProvider } from "@/components/auth/IdentityQueryProvider";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthContext";
-import { GlobalCommandBar } from "@/components/layout/GlobalCommandBar";
+// The command bar carries cmdk, pinyin matching tables and customer search; it
+// is only needed once the user opens it (Ctrl+K or the launcher), so keep it out
+// of the entry chunk.
+const GlobalCommandBar = lazy(() =>
+  import("@/components/layout/GlobalCommandBar").then((module) => ({
+    default: module.GlobalCommandBar,
+  })),
+);
 import { EnhancedThemeProvider } from "@/contexts/EnhancedThemeContext";
-import { I18nProvider } from "@/lib/i18n";
 import { PageContextProvider } from "@/hooks/usePageContext";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { ResetPasswordPage } from "@/components/auth/ResetPasswordPage";
-import React, { Suspense } from "react";
+import React, { lazy, Suspense } from "react";
 import * as Sentry from "@sentry/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DashboardLayout, NotFound, AdminPanel } from "@/routes/lazyImports";
@@ -108,7 +114,6 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <ErrorBoundary>
-    <I18nProvider>
     <EnhancedThemeProvider>
     <TooltipProvider>
       <Sonner position="top-right" expand={false} richColors closeButton />
@@ -116,7 +121,9 @@ const App = () => (
         <AuthProvider>
           <IdentityQueryProvider>
           <PageContextProvider>
-          <GlobalCommandBar />
+          <Suspense fallback={null}>
+            <GlobalCommandBar />
+          </Suspense>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
@@ -140,7 +147,6 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
     </EnhancedThemeProvider>
-    </I18nProvider>
   </ErrorBoundary>
 );
 
