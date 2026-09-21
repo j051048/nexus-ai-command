@@ -29,6 +29,13 @@ try:
 
     from postgrest import AsyncPostgrestClient
 
+    # Every client this module hands out is a postgrest builder, so installing
+    # the maybe_single() shim here covers the whole application: a query that
+    # matches no row must yield an empty response instead of None.
+    from app.core.postgrest_compat import install_maybe_single_compat
+
+    install_maybe_single_compat()
+
     # P1-3修复: 使用ContextVar替代全局字典,避免线程安全问题
     _request_scoped_clients: ContextVar[dict | None] = ContextVar(
         "scoped_clients", default=None
