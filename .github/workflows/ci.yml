@@ -87,6 +87,11 @@ jobs:
       - name: Source size guard
         run: npm run check:size
 
+      - name: Environment contract guard
+        run: |
+          npm run check:env
+          npm run check:isolation
+
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
@@ -198,6 +203,18 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: python scripts/check_migration_governance.py
 
+      - name: Prevent unscoped tenant query growth
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_tenant_query_scope.py
+
+      - name: Verify deployment topology authority
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_deployment_topology.py
+
+      - name: Freeze direct environment access growth
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_config_governance.py
+
       - name: Check cross-table transaction contracts
         working-directory: ${{ github.workspace }}
         run: python scripts/check_transaction_contracts.py
@@ -225,6 +242,16 @@ jobs:
       - name: Enforce AI execution quality and cost policy
         working-directory: ${{ github.workspace }}
         run: python scripts/ai_execution_policy_gate.py
+
+      - name: Run offline agent eval regression gate
+        working-directory: ${{ github.workspace }}
+        run: python scripts/agent_eval_regression_gate.py
+
+      - name: Run artifact output eval regression gate
+        working-directory: ${{ github.workspace }}
+        run: |
+          python scripts/build_artifact_eval_contract_outputs.py --output /tmp/artifact_eval_outputs.json
+          python scripts/run_artifact_output_eval.py /tmp/artifact_eval_outputs.json --label contract-fixture
 
       - name: Audit schema convergence
         working-directory: ${{ github.workspace }}
@@ -259,7 +286,12 @@ jobs:
         run: pytest tests/production_proof -q
 
       - name: Run tests with coverage
-        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-report=json --retries 2 --retry-delay 1
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-report=json --retries 1 --retry-delay 1
+
+      - name: Budget flaky test retries
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_test_retry_budget.py
 
       - name: Check coverage threshold
         if: always()
@@ -669,7 +701,7 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [frontend-build, backend-test, backend-integration, security-scan, dependency-security, performance-test]
+    needs: [frontend-build, backend-test, backend-integration, security-scan, dependency-security, performance-test, e2e-test]
     if: always()
     steps:
       - name: Check all jobs status
@@ -680,6 +712,7 @@ jobs:
           echo "Security Scan: ${{ needs.security-scan.result }}"
           echo "Dependency Security: ${{ needs.dependency-security.result }}"
           echo "Performance Test: ${{ needs.performance-test.result }}"
+          echo "E2E Tests: ${{ needs.e2e-test.result }}"
 
           if [[ "${{ needs.frontend-build.result }}" != "success" ]]; then
             echo "::error::Frontend build result is ${{ needs.frontend-build.result }}"
@@ -708,6 +741,13 @@ jobs:
 
           if [[ "${{ needs.performance-test.result }}" != "success" ]]; then
             echo "::error::Performance test result is ${{ needs.performance-test.result }}"
+            exit 1
+          fi
+
+          # E2E only runs on main pushes; "skipped" is expected on pull requests.
+          # When it does run, a failure must block deployment.
+          if [[ "${{ needs.e2e-test.result }}" != "success" && "${{ needs.e2e-test.result }}" != "skipped" ]]; then
+            echo "::error::E2E test result is ${{ needs.e2e-test.result }}"
             exit 1
           fi
 
@@ -787,6 +827,9 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           VITE_BUILD_PROFILE: ci
+          # Required: staging must never reuse the production /api rewrite.
+          VITE_APP_ENV: staging
+          VITE_API_BASE_URL: ${{ secrets.STAGING_API_URL }}
           VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
 
