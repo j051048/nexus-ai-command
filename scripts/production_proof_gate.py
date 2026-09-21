@@ -747,6 +747,27 @@ def validate_artifact_output_baseline() -> tuple[bool, str]:
     return True, ""
 
 
+def validate_artifact_eval_provenance() -> tuple[bool, str]:
+    """The baseline must not overstate what it proves."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from check_artifact_eval_provenance import FIXTURE_SOURCE, check, LIVE_SOURCE
+
+    path = ROOT / "nexus_backend/evals/artifact_output_baseline.json"
+    if not path.exists():
+        return False, "artifact output eval baseline is missing"
+    baseline = json.loads(path.read_text(encoding="utf-8"))
+    failures = check(baseline)
+    if failures:
+        return False, "; ".join(failures)
+    source = str(baseline.get("source") or "")
+    if source not in {FIXTURE_SOURCE, LIVE_SOURCE}:
+        return False, f"unknown baseline source {source!r}"
+    if source == FIXTURE_SOURCE:
+        # Honest state today: the contract is proven, model quality is not.
+        return True, "contract-fixture only (live-model recording still required)"
+    return True, ""
+
+
 def main() -> int:
     failures: list[str] = []
     print("Production proof gate")
@@ -773,6 +794,13 @@ def main() -> int:
 
     ok, reason = validate_artifact_output_baseline()
     print(f"{'OK' if ok else 'FAIL':<4} artifact output eval baseline")
+    if not ok:
+        failures.append(reason)
+
+    ok, reason = validate_artifact_eval_provenance()
+    print(f"{'OK' if ok else 'FAIL':<4} artifact eval provenance")
+    if reason:
+        print(f"     {reason}")
     if not ok:
         failures.append(reason)
 

@@ -253,6 +253,10 @@ jobs:
           python scripts/build_artifact_eval_contract_outputs.py --output /tmp/artifact_eval_outputs.json
           python scripts/run_artifact_output_eval.py /tmp/artifact_eval_outputs.json --label contract-fixture
 
+      - name: Verify artifact eval provenance honesty
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_artifact_eval_provenance.py
+
       - name: Audit schema convergence
         working-directory: ${{ github.workspace }}
         run: python scripts/audit_schema_convergence.py

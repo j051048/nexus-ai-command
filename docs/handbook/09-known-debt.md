@@ -19,6 +19,7 @@
 - 环境隔离：非生产构建缺少 `VITE_API_BASE_URL` 时直接失败，catch-all 路由补齐 CSP 与安全头。
 - 备份执行者：`backup_schedules` 过去只写不读（`app/tasks/backup.py` 是纯日志占位且未注册），现在由 `app/tasks/backup_tasks.py` 每 15 分钟按 `next_backup_at` 比较并交换领取并执行，失败写回 `last_status`/`last_error`；`BACKUP_STORAGE_BACKEND` 可把负载放到文件系统或 S3 兼容对象存储，数据库只留清单与校验和。
 - 数据保留执行：`/api/compliance/retention` 曾硬编码 365/90/180 天且无执行者。现在窗口来自配置，`DATA_RETENTION_ENFORCEMENT_ENABLED` 开启后按组织逐个清理并写入 `data_retention_runs`；未开启时接口明确返回 `enforcement_enabled=false`。
+- 产物质量证据诚实化：基线 `source` 只允许 `contract-fixture` 或 `live-model`，`--label live-model` 必须带 manifest（模型 id、时延、成本、证据文档、输出 sha256、环境），`scripts/check_artifact_eval_provenance.py` 已接入 CI；质量 SLO 返回值新增 `evidence` 字段，`claims_live_quality=false` 时不得对外承诺模型质量。
 - 部署拓扑：四套部署面边界写入 `docs/adr/005-deployment-topology-authority.md`，k8s 镜像禁止 `:latest`。
 - 租户默认列：`base_repository` 的 `tenant_column` 默认值从 `tenant_id` 修正为 `organization_id`，此前默认值会让查询静默不带租户过滤。
 - 反馈闭环：补齐 `change_type` 与审批审计字段，学习候选的 `approved`/`rejected` 只能由管理员写入。

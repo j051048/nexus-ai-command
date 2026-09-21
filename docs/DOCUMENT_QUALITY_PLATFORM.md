@@ -12,6 +12,39 @@ Nexus 的方案、标书和通用成果文件共用同一套交付内核。平�
 
 ## 已接入能力
 
+### 质量证据的可信来源
+
+`nexus_backend/evals/artifact_output_baseline.json` 是产物质量声明的证据文件，它的 `source` 只有两种合法取值：
+
+| source | 含义 | 能支撑的声明 |
+|---|---|---|
+| `contract-fixture` | 确定性构造的输出，用于验证评测器契约 | 只能证明"评测器工作正常"，不能宣称模型质量 |
+| `live-model` | 真实管线在真实资料上生成，带模型 id、时延、成本与证据文档 | 只有它能支撑"一次通过率 ≥90%、平均分 ≥85" |
+
+当前提交的基线是 `contract-fixture`，`scripts/production_proof_gate.py` 会打印 `contract-fixture only (live-model recording still required)`，即质量 SLO 目前只有口径、没有真实模型证据。
+
+录制真实证据的流程：
+
+```bash
+# 1) 先确认凭据与模型可用（1 次调用，不写库）
+python scripts/record_artifact_outputs.py --smoke
+
+# 2) 在 staging 上跑完整管线并录制（会真实创建成果）
+python scripts/record_artifact_outputs.py --from-pipeline --confirm-live \
+    --organization-id <uuid> --user-id <uuid> --document-ids <doc-uuid>,<doc-uuid>
+
+# 3) 用录制结果更新基线（低于 golden 下限会被拒绝）
+python scripts/run_artifact_output_eval.py nexus_backend/evals/recorded/live-model.jsonl \
+    --label live-model --update-baseline
+
+# 4) 校验诚实性（默认模式；发布/验收用 --require-live）
+python scripts/check_artifact_eval_provenance.py [--require-live]
+```
+
+`--label live-model` 不是自由文本：没有 manifest、缺模型 id/时延/成本、没有证据文档或环境信息时，评测脚本直接以 `ARTIFACT_EVAL_PROVENANCE_FAIL` 拒绝，避免把夹具改个名字当成真实模型证据。`--require-live` 还要求基线在 90 天内录制（`ARTIFACT_EVAL_MAX_EVIDENCE_AGE_DAYS` 可调）。
+
+质量 SLO 接口（`evaluate_slo` / `build_monthly_report`）的返回里带 `evidence` 字段，直接说明当前结论站在哪种证据上，`claims_live_quality=false` 时不得对外承诺模型质量。
+
 ### 统一质量门
 
 `app/services/artifact_llm_judge.py` 的 `evaluate_delivery_package` 是统一入口，组合以下检查：

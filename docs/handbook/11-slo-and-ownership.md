@@ -35,6 +35,7 @@ SLO 是初始值，应在获得真实流量后按场景拆分。错误预算耗�
 - 三项 SLO 中任一项低于目标即整体 `warn`，不隐藏失败原因；
 - LLM 评审为 best-effort，不可用时降级为确定性结论，因此维度下限不是 SLO，只用于定位质量是在哪个维度下滑；
 - 样本量为 0 时返回 `available=false`，不得当作达标；
+- 返回里的 `evidence` 说明 SLO 结论站在哪种证据上：`source=contract-fixture` 只证明评测器契约，`claims_live_quality=false` 时不得对外承诺模型质量；只有 `live-model` 基线（真实管线、真实资料、带模型/时延/成本/证据文档）才能支撑对外质量承诺。录制与校验流程见 `docs/DOCUMENT_QUALITY_PLATFORM.md`；
 - 客户赢单/输单通过 `POST /api/artifact-quality/outcomes` 回流，并折算进模板 A/B 排序与晋升门槛。
 
 ## 责任矩阵

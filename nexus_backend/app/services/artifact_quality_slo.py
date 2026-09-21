@@ -140,12 +140,16 @@ async def evaluate_slo(
         db, organization_id=organization_id, since=since
     )
     metrics = _aggregate(events)
+    from app.services.artifact_eval_provenance import load_artifact_eval_provenance
+
+    evidence = load_artifact_eval_provenance()
     if not metrics["sample_size"]:
         return {
             "available": False,
             "window_days": days,
             "slo": {},
             "metrics": metrics,
+            "evidence": evidence,
         }
     slo: dict[str, Any] = {}
     overall = "ok"
@@ -166,6 +170,10 @@ async def evaluate_slo(
         "overall": overall,
         "slo": slo,
         "metrics": metrics,
+        # Which recorded evidence the targets may stand on: contract-fixture
+        # only proves the evaluator works, live-model is required to claim
+        # real document quality.
+        "evidence": evidence,
         "llm_dimension_floor": LLM_DIMENSION_FLOOR,
         "llm_dimensions_below_floor": [
             name
@@ -205,8 +213,11 @@ async def build_monthly_report(
             "ok": bool(metrics["sample_size"]) and value >= config["target"],
         }
     metrics["slo"] = slo
+    from app.services.artifact_eval_provenance import load_artifact_eval_provenance
+
     return {
         "available": bool(metrics["sample_size"]),
         "period": f"{year:04d}-{month:02d}",
         "report": metrics,
+        "evidence": load_artifact_eval_provenance(),
     }

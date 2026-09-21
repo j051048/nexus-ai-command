@@ -11,6 +11,11 @@ Two modes:
 Once a baseline exists the script also fails on per-case regressions
 (pass -> fail), which is what catches a prompt or model change that trades one
 document type for another.
+
+Provenance is enforced, not decorative: ``--label live-model`` is refused
+unless the recording carries a manifest proving it came from the real pipeline
+(model id per case, latency, cost, evidence documents, output hash). Fixture
+outputs stay ``contract-fixture`` and can never claim model quality.
 """
 
 # ruff: noqa: E402
@@ -29,14 +34,12 @@ BASELINE = BACKEND / "evals/artifact_output_baseline.json"
 sys.path.insert(0, str(BACKEND))
 
 from app.services.artifact_output_eval_service import evaluate_artifact_output_run
-
-
-def _load_outputs(path: Path) -> list[dict]:
-    content = path.read_text(encoding="utf-8")
-    if path.suffix.lower() == ".jsonl":
-        return [json.loads(line) for line in content.splitlines() if line.strip()]
-    parsed = json.loads(content)
-    return parsed.get("outputs", parsed) if isinstance(parsed, dict) else parsed
+from app.services.artifact_output_recorder import (
+    FIXTURE_SOURCE,
+    LIVE_SOURCE,
+    live_evidence_problems,
+    load_recording,
+)
 
 
 def _load_baseline(path: Path) -> dict | None:
@@ -67,7 +70,9 @@ def _compare_with_baseline(report: dict, baseline: dict) -> list[str]:
     return regressions
 
 
-def _baseline_payload(report: dict, golden: dict, label: str) -> dict:
+def _baseline_payload(
+    report: dict, golden: dict, label: str, manifest: dict | None
+) -> dict:
     models = sorted(
         {
             str(item.get("model") or "unknown")
@@ -75,7 +80,7 @@ def _baseline_payload(report: dict, golden: dict, label: str) -> dict:
             if item.get("model")
         }
     )
-    return {
+    payload = {
         "version": int((_load_baseline(BASELINE) or {}).get("version") or 0) + 1,
         "source": label,
         "recorded_at": datetime.now(UTC).isoformat(),
@@ -88,6 +93,13 @@ def _baseline_payload(report: dict, golden: dict, label: str) -> dict:
             for item in report.get("results") or []
         },
     }
+    if manifest:
+        payload["recorded_outputs_sha256"] = manifest.get("records_sha256")
+        payload["environment"] = manifest.get("environment")
+        payload["evidence_document_ids"] = manifest.get("evidence_document_ids") or []
+        payload["git_sha"] = manifest.get("git_sha")
+        payload["orchestration_version"] = manifest.get("orchestration_version")
+    return payload
 
 
 def main() -> int:
@@ -106,13 +118,37 @@ def main() -> int:
     )
     parser.add_argument(
         "--label",
-        default="contract-fixture",
+        default=None,
         help="Honest provenance of the outputs: contract-fixture or live-model",
     )
     args = parser.parse_args()
     golden_path = BACKEND / "evals/datasets/artifact_delivery_golden.json"
     golden = json.loads(golden_path.read_text(encoding="utf-8"))
-    report = evaluate_artifact_output_run(golden["cases"], _load_outputs(args.outputs))
+    case_ids = [str(case.get("id")) for case in golden["cases"]]
+    outputs, manifest = load_recording(args.outputs)
+    label = args.label
+    if label is None:
+        # Infer honestly: only a manifest that proves a real pipeline run may
+        # be called live-model, everything else stays a fixture.
+        label = (
+            LIVE_SOURCE
+            if manifest and str(manifest.get("source")) == LIVE_SOURCE
+            else FIXTURE_SOURCE
+        )
+
+    if label == LIVE_SOURCE:
+        problems = live_evidence_problems(outputs, manifest, case_ids)
+        if problems:
+            print("ARTIFACT_EVAL_PROVENANCE_FAIL")
+            for problem in problems:
+                print(f" - {problem}")
+            print(
+                "live-model evidence must come from scripts/record_artifact_outputs.py "
+                "with real evidence documents"
+            )
+            return 1
+
+    report = evaluate_artifact_output_run(golden["cases"], outputs)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     minimum = float(golden["minimum_pass_rate"])
     if report["pass_rate"] < minimum:
@@ -122,7 +158,7 @@ def main() -> int:
         )
         return 1
     if args.update_baseline:
-        payload = _baseline_payload(report, golden, args.label)
+        payload = _baseline_payload(report, golden, label, manifest)
         args.baseline.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
