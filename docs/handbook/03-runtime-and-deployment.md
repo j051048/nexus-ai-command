@@ -20,3 +20,16 @@
 6. 观察错误率、P95、队列最老任务、成果失败模式和 LLM 成本。
 
 容器必须以健康检查而非“进程存在”判定就绪。多副本环境禁止在 Web startup 中启动重复调度器。生产迁移应在部署流水线中从仓库根目录 `supabase/migrations` 执行，不依赖运行镜像内自动迁移。
+
+## 部署面权威边界
+
+四套部署面的权威边界见 `docs/adr/005-deployment-topology-authority.md`；`scripts/check_deployment_topology.py` 在 CI 中强制以下不变量：
+
+| 部署面 | 定位 | 强制项 |
+|---|---|---|
+| Vercel | 前端生产与预览 | catch-all 必须带 CSP 与安全头；非生产构建缺少 `VITE_API_BASE_URL` 时直接失败 |
+| `docker-compose` | 单机自托管 | 必须使用仓库根 `Dockerfile` |
+| `k8s/` | 集群私有化 | 镜像禁止 `:latest`，必须显式 tag 且设置 `imagePullPolicy`；统一在 `kustomization.yaml` 的 `images:` 覆盖 |
+| Zeabur | 内部演示 | 不承载生产流量 |
+
+前端环境隔离契约（`ISOLATED_ENVIRONMENTS`）与安全头由 `scripts/check_env_isolation.mjs`、`scripts/check_env_contract.mjs` 守护；新增前端环境变量必须同步 `.env.example`。

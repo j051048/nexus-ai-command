@@ -18,6 +18,25 @@
 
 SLO 是初始值，应在获得真实流量后按场景拆分。错误预算耗尽时暂停非必要功能发布，优先处理可靠性。
 
+## 文档交付质量 SLO
+
+成果文件（方案、标书、报告）的验收口径由 `app/services/artifact_quality_slo.py` 固化，看板在 `/artifact-quality`（管理员），月度报告接口为 `GET /api/artifact-quality/monthly-report`。
+
+| 指标 | 目标 | 计算口径 | Owner |
+|---|---:|---|---|
+| 一次通过率 `ready_rate` | ≥ 90% | 近 N 天 `agent_artifact_quality_events` 中 `ready=true` 占比 | Delivery + Domain |
+| 平均质量分 `avg_score` | ≥ 85 | 规则分与 LLM 评审分的加权平均（外发 0.5/0.5，内部 0.6/0.4） | Agent + Domain |
+| 平均证据覆盖 `avg_evidence_coverage` | ≥ 90% | 已声明关键事实中可溯源的比例 | Knowledge + Domain |
+| LLM 评审维度下限 | ≥ 70（参考线） | 证据忠实度、客户价值、逻辑连贯、语言专业度 | Agent + Domain |
+| 返工次数 `avg_repair_count` | 只降不升 | 每次交付的平均自动修复轮次 | Agent |
+
+口径说明：
+
+- 三项 SLO 中任一项低于目标即整体 `warn`，不隐藏失败原因；
+- LLM 评审为 best-effort，不可用时降级为确定性结论，因此维度下限不是 SLO，只用于定位质量是在哪个维度下滑；
+- 样本量为 0 时返回 `available=false`，不得当作达标；
+- 客户赢单/输单通过 `POST /api/artifact-quality/outcomes` 回流，并折算进模板 A/B 排序与晋升门槛。
+
 ## 责任矩阵
 
 - **Frontend**：页面、设计系统、Web Vitals、SSE 消费与无障碍。

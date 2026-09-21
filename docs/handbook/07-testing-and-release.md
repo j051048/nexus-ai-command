@@ -40,6 +40,24 @@ python scripts/production_proof_gate.py
 
 交接时可统一执行 `python scripts/run_handover_proof.py`；加 `--full` 会进一步运行前端测试、构建和后端领域契约。
 
+### CI 中的工程健康门禁
+
+这些门禁只冻结存量债务，任何一处增长都会让 PR 失败：
+
+| 门禁 | 脚本 | 冻结对象 |
+|---|---|---|
+| 租户查询范围 | `check_tenant_query_scope.py` | 未带组织条件的 `.table()` 调用（752 / 186 文件） |
+| 配置访问 | `check_config_governance.py` | `app/core` 之外的直接环境变量读取（111 / 36 文件） |
+| 宽泛异常 | `check_exception_governance.py` | 宽泛捕获总数（1850）与显式豁免（35） |
+| 源码体积 | `check_source_size.mjs` | 前端 500 行、后端 700 行以上的逐文件上限 |
+| 部署拓扑 | `check_deployment_topology.py` | k8s 镜像 tag 与 `imagePullPolicy`、compose 构建入口 |
+| 环境隔离 | `check_env_isolation.mjs` / `check_env_contract.mjs` | 非生产构建的 API 基址、CSP、`.env.example` 契约 |
+| Agent 评测 | `agent_eval_regression_gate.py` | 离线 agent eval 低于发布下限 |
+| 产物评测 | `run_artifact_output_eval.py` | `artifact_output_baseline.json` 的通过率与逐用例回归 |
+| 测试重试预算 | `check_test_retry_budget.py` | CI 中 flaky 重试次数 |
+
+更新任何基线只允许在**债务真实下降**后执行；不得为了让 PR 通过而重写基线。
+
 前端完整本地门禁：
 
 ```bash
