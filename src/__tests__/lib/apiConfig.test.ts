@@ -59,4 +59,33 @@ describe('getApiBaseUrl', () => {
     const { getApiBaseUrl } = await import('@/lib/apiConfig');
     expect(getApiBaseUrl()).toBe('https://app.nexus.com');
   });
+
+  it('preview 环境未配置 VITE_API_BASE_URL 时显式失败，避免写到生产', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.stubEnv('VITE_APP_ENV', 'preview');
+    Object.defineProperty(window, 'location', {
+      value: { hostname: 'pr-42.nexus.preview', origin: 'https://pr-42.nexus.preview' },
+      writable: true,
+    });
+    const { getApiBaseUrl } = await import('@/lib/apiConfig');
+    expect(() => getApiBaseUrl()).toThrow(/VITE_API_BASE_URL is required/);
+  });
+
+  it('staging 环境未配置 VITE_API_BASE_URL 时显式失败', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.stubEnv('VITE_APP_ENV', 'staging');
+    Object.defineProperty(window, 'location', {
+      value: { hostname: 'staging.nexus.com', origin: 'https://staging.nexus.com' },
+      writable: true,
+    });
+    const { getApiBaseUrl } = await import('@/lib/apiConfig');
+    expect(() => getApiBaseUrl()).toThrow(/VITE_API_BASE_URL is required/);
+  });
+
+  it('preview 环境配置了 VITE_API_BASE_URL 时使用配置值', async () => {
+    vi.stubEnv('VITE_APP_ENV', 'preview');
+    vi.stubEnv('VITE_API_BASE_URL', 'https://staging-api.nexus.com');
+    const { getApiBaseUrl } = await import('@/lib/apiConfig');
+    expect(getApiBaseUrl()).toBe('https://staging-api.nexus.com');
+  });
 });

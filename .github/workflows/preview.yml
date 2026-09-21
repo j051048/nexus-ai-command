@@ -38,6 +38,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
           VITE_APP_ENV: preview
+          # Required: without an explicit API base the preview would inherit the
+          # production /api rewrite in vercel.json and write to production data.
+          VITE_API_BASE_URL: ${{ secrets.STAGING_API_URL || secrets.VITE_API_BASE_URL }}
           VITE_PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Deploy to Vercel preview

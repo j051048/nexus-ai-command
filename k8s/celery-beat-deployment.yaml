@@ -25,7 +25,8 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: celery-beat
-          image: nexus-ai-command/backend:latest
+          image: nexus-ai-command/backend:0.0.0
+          imagePullPolicy: IfNotPresent
           command:
             - celery
             - -A

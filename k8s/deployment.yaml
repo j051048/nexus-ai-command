@@ -27,7 +27,11 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nexus-backend
-          image: nexus-ai-command/backend:latest
+          # Pinned placeholder: kustomization.yaml overrides the tag/digest per
+          # environment. Never use a floating ":latest" tag here, otherwise a
+          # rollback cannot be tied to an immutable artifact.
+          image: nexus-ai-command/backend:0.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
           envFrom:

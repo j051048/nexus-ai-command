@@ -13,3 +13,10 @@ resources:
   - pdb.yaml
   - hpa.yaml
   - network-policy.yaml
+
+# Single override point for the backend image. Deploy with an immutable tag or
+# digest, for example:
+#   kustomize edit set image nexus-ai-command/backend=REGISTRY/nexus-backend@sha256:<digest>
+images:
+  - name: nexus-ai-command/backend
+    newTag: "0.0.0"
