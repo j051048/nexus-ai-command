@@ -1,0 +1,90 @@
+# Prometheus rules for the SLO table in docs/handbook/11-slo-and-ownership.md.
+#
+# Every metric referenced here is exported by the backend (/metrics,
+# prometheus_client). Shops without Prometheus use the in-app sweep instead:
+# app/tasks/alert_tasks.py posts the same breaches to ALERT_WEBHOOK_URL.
+groups:
+  - name: nexus-slo
+    rules:
+      - alert: NexusApiAvailabilityBelowSlo
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.001
+        for: 10m
+        labels:
+          severity: critical
+          slo: availability-99.9
+        annotations:
+          summary: "核心 API 5xx 比例超过 0.1%"
+          runbook: docs/RUNBOOK_SMALL_COMPANY.md
+
+      - alert: NexusApiLatencyP95AboveSlo
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          slo: latency-p95-800ms
+        annotations:
+          summary: "核心 API P95 超过 800ms"
+
+      - alert: NexusAgentSuccessRateBelowSlo
+        expr: |
+          (
+            sum(rate(agent_node_failure_total[15m]))
+            /
+            (sum(rate(agent_node_success_total[15m])) + sum(rate(agent_node_failure_total[15m])))
+          ) > 0.05
+        for: 15m
+        labels:
+          severity: critical
+          slo: agent-completion-95
+        annotations:
+          summary: "Agent 完成率低于 95%"
+
+      - alert: NexusLlmErrorRatioHigh
+        expr: |
+          (
+            sum(rate(llm_requests_total{status!="success"}[10m]))
+            /
+            sum(rate(llm_requests_total[10m]))
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+          slo: llm-reliability
+        annotations:
+          summary: "LLM 调用失败率超过 10%"
+
+      - alert: NexusLlmLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(llm_request_duration_seconds_bucket[10m]))
+          ) > 10
+        for: 15m
+        labels:
+          severity: warning
+          slo: llm-latency
+        annotations:
+          summary: "LLM P95 超过 10s（用户可感知的等待）"
+
+      - alert: NexusCeleryQueueBacklog
+        expr: max by (queue) (celery_queue_depth) > 50
+        for: 10m
+        labels:
+          severity: warning
+          slo: queue-oldest-task-5m
+        annotations:
+          summary: "Celery 队列积压超过 50，最老任务将超过 5 分钟"
+
+# 备份、数据保留与文档质量 SLO 没有对应的 Prometheus 计数器，因此不在这里
+# 写"永远不会触发"的规则：它们由 app/tasks/alert_tasks.py 直接在数据库里
+# 读取 backup_schedules.last_status / data_retention_runs.status /
+# agent_artifact_quality_events 判定，并投递到 ALERT_WEBHOOK_URL。

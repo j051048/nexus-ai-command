@@ -1,0 +1,27 @@
+# Example Alertmanager wiring for the rules in nexus-slo.rules.yml.
+#
+# Two supported delivery paths:
+#   1. Alertmanager -> Slack/邮件（有 Prometheus 时用这条）
+#   2. 应用内 sweep -> ALERT_WEBHOOK_URL（没有 Prometheus 时用这条，
+#      见 app/tasks/alert_tasks.py）
+# 两条可以同时开；告警 key 不同，不会互相去重。
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: ops-webhook
+  group_by: ["alertname", "slo"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: ops-webhook
+      repeat_interval: 30m
+
+receivers:
+  - name: ops-webhook
+    webhook_configs:
+      - url: "https://example.invalid/alertmanager"
+        send_resolved: true

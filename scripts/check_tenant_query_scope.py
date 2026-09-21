@@ -49,6 +49,10 @@ GLOBAL_TABLES = {
     # no organization column by design (see 20260921_002 migration) so org
     # admins cannot infer another tenant's volume.
     "data_retention_runs",
+    # Ops alert ledger for the SLO alerting sweep. Same reasoning: the dedupe
+    # key is global, RLS restricts the table to service_role, and no tenant
+    # facing request can read it.
+    "ops_alert_events",
 }
 
 ORG_TOKENS = ("organization_id", "org_id", "tenant_id", "p_org_id", "org_filtered")

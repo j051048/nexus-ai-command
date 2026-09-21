@@ -20,6 +20,7 @@
 - 备份执行者：`backup_schedules` 过去只写不读（`app/tasks/backup.py` 是纯日志占位且未注册），现在由 `app/tasks/backup_tasks.py` 每 15 分钟按 `next_backup_at` 比较并交换领取并执行，失败写回 `last_status`/`last_error`；`BACKUP_STORAGE_BACKEND` 可把负载放到文件系统或 S3 兼容对象存储，数据库只留清单与校验和。
 - 数据保留执行：`/api/compliance/retention` 曾硬编码 365/90/180 天且无执行者。现在窗口来自配置，`DATA_RETENTION_ENFORCEMENT_ENABLED` 开启后按组织逐个清理并写入 `data_retention_runs`；未开启时接口明确返回 `enforcement_enabled=false`。
 - 产物质量证据诚实化：基线 `source` 只允许 `contract-fixture` 或 `live-model`，`--label live-model` 必须带 manifest（模型 id、时延、成本、证据文档、输出 sha256、环境），`scripts/check_artifact_eval_provenance.py` 已接入 CI；质量 SLO 返回值新增 `evidence` 字段，`claims_live_quality=false` 时不得对外承诺模型质量。
+- SLO 告警落地：SLO 此前只有目标表和指标埋点，越界只写一行日志。现在 `app/tasks/alert_tasks.py` 每 5 分钟收集降级、Agent 成功率、备份失败、保留清理失败与文档质量 SLO，按 key 去重后投递到 `ALERT_WEBHOOK_URL`，投递与恢复记录在 `ops_alert_events`；有 Prometheus 的环境使用 `ops/alerts/nexus-slo.rules.yml`。
 - 部署拓扑：四套部署面边界写入 `docs/adr/005-deployment-topology-authority.md`，k8s 镜像禁止 `:latest`。
 - 租户默认列：`base_repository` 的 `tenant_column` 默认值从 `tenant_id` 修正为 `organization_id`，此前默认值会让查询静默不带租户过滤。
 - 反馈闭环：补齐 `change_type` 与审批审计字段，学习候选的 `approved`/`rejected` 只能由管理员写入。
@@ -31,6 +32,8 @@
 - 备份的异地存储默认关闭：`BACKUP_STORAGE_BACKEND` 不显式设置时仍是 `database`，备份与主库同生共死。生产环境必须在部署清单里选定 `filesystem` 或 `s3`，否则只有数据库快照那一层保护。
 - S3 后端依赖可选包 `boto3`：未安装时 `BACKUP_STORAGE_BACKEND=s3` 会让备份任务失败并写回 `last_status='failed'`（设计如此，不静默回落到主库）。
 - `audit_logs` 中 `org_id IS NULL` 的平台级审计行不参与按组织的保留清理，需要平台 owner 单独处理。
+- 告警通道依赖 `ALERT_WEBHOOK_URL`：未配置时 sweep 只写台账并记日志，不会有人收到通知；这是"明确未配置"而不是静默失效。
+- 文档质量 SLO 告警按组织抽样（默认 25 个/轮），组织数量很大时需要按 owner 分批或改用 Prometheus 规则。
 
 ## 偿还原则
 

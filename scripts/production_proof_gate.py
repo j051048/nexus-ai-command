@@ -666,6 +666,20 @@ CHECKS = [
         ("minimum_pass_rate", "pass_rate", "cases"),
     ),
     ProofCheck(
+        "slo alert delivery",
+        "nexus_backend/app/services/slo_alert_service.py",
+        (
+            "ALERT_WEBHOOK_URL",
+            "ops_alert_events",
+            "build_webhook_payload",
+        ),
+    ),
+    ProofCheck(
+        "slo alert wiring",
+        "nexus_backend/app/core/celery_app.py",
+        ("app.tasks.alert_tasks.evaluate_slo_alerts",),
+    ),
+    ProofCheck(
         "artifact learning review gate",
         "nexus_backend/app/services/artifact_feedback_loop.py",
         (

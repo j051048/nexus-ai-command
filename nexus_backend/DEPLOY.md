@@ -32,6 +32,14 @@
 - `BACKUP_RETENTION_DAYS`（默认 30）、`BACKUP_VERIFY_AFTER_WRITE`（默认 true）：备份保留期与写后校验。
 - `DATA_RETENTION_ENFORCEMENT_ENABLED`（默认 false）：开启后按 `DATA_RETENTION_AUDIT_LOG_DAYS`=365、`DATA_RETENTION_CHAT_MESSAGE_DAYS`=90、`DATA_RETENTION_TOKEN_USAGE_DAYS`=180 执行删除；未开启时 `/api/compliance/retention` 会明确返回 `enforcement_enabled=false`。
 
+SLO 告警（可选，但生产建议配置）：
+
+- `ALERT_WEBHOOK_URL`：接收告警的 webhook；留空时告警只写台账并打日志，不会有人收到。
+- `ALERT_WEBHOOK_FORMAT`：`generic`（默认，发送结构化 JSON）、`slack`、`feishu`。
+- `ALERT_MIN_INTERVAL_SECONDS`（默认 1800）、`ALERTING_ENABLED`（默认 true）：同一 key 的去重窗口与总开关。
+- 阈值：`ALERT_AGENT_SUCCESS_RATE_THRESHOLD`、`ALERT_AGENT_MIN_SAMPLES`、`ALERT_BACKUP_FAILURE_LOOKBACK_HOURS`、`ALERT_RETENTION_FAILURE_LOOKBACK_HOURS`、`ALERT_ORG_SAMPLE_LIMIT`。
+- 有 Prometheus 时改用 `ops/alerts/nexus-slo.rules.yml` 与 `ops/alerts/alertmanager.example.yml`，与应用内 sweep 并存不冲突。
+
 完整模板见 `.env.example` 和仓库根 `.env.production.example`。聊天模型由 `app/core/config.py` 强制为 `deepseek-v4.1-flash`，其他环境覆盖会被忽略并记录警告。
 
 ## 数据库迁移

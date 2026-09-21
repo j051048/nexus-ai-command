@@ -254,3 +254,24 @@ def check_agent_success_rate(success: bool) -> bool:
         )
         return True
     return False
+
+
+def agent_success_snapshot(window_s: float | None = None) -> dict:
+    """Read-only view of tracked agent outcomes.
+
+    ``check_agent_success_rate`` mutates state on every call, so alert rules and
+    dashboards need a pure read: this never appends, trims or logs.
+    """
+    now = _time.time()
+    window = float(_AGENT_ALERT_WINDOW_S if window_s is None else window_s)
+    cutoff = now - window
+    samples = [
+        (timestamp, ok) for timestamp, ok in _agent_outcomes if timestamp >= cutoff
+    ]
+    successes = sum(1 for _, ok in samples if ok)
+    return {
+        "sample_size": len(samples),
+        "successes": successes,
+        "success_rate": (successes / len(samples)) if samples else None,
+        "window_seconds": window,
+    }

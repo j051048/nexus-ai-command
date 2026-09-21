@@ -33,6 +33,8 @@ def _matches(row: dict, filters: list[tuple[str, str, Any, bool]]) -> bool:
             hit = actual is not None and str(actual) < str(value)
         elif operator == "lte":
             hit = actual is not None and str(actual) <= str(value)
+        elif operator == "gte":
+            hit = actual is not None and str(actual) >= str(value)
         else:  # pragma: no cover - unknown operator is a test bug
             raise AssertionError(f"unsupported operator {operator}")
         if negate:
@@ -103,6 +105,9 @@ class FakeQuery:
 
     def lte(self, column: str, value: Any) -> FakeQuery:
         return self._filter("lte", column, value)
+
+    def gte(self, column: str, value: Any) -> FakeQuery:
+        return self._filter("gte", column, value)
 
     def order(self, column: str, desc: bool = False) -> FakeQuery:
         self._order = (column, desc)

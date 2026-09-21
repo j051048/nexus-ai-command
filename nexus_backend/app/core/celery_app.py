@@ -33,6 +33,7 @@ celery_app = Celery(
         "app.tasks.knowledge_tasks",
         "app.tasks.backup_tasks",
         "app.tasks.retention_tasks",
+        "app.tasks.alert_tasks",
     ],
 )
 
@@ -202,6 +203,11 @@ celery_app.conf.beat_schedule = {
     "data-retention-enforcement": {
         "task": "app.tasks.retention_tasks.enforce_data_retention",
         "schedule": crontab(hour=5, minute=0),
+    },
+    # SLO 越界必须有人收到，而不是只写一行日志。
+    "slo-alert-sweep": {
+        "task": "app.tasks.alert_tasks.evaluate_slo_alerts",
+        "schedule": 300.0,  # 每5分钟
     },
     "knowledge-ingestion-recovery": {
         "task": "app.tasks.knowledge_tasks.recover_stale_knowledge_documents",

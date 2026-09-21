@@ -18,6 +18,19 @@
 
 SLO 是初始值，应在获得真实流量后按场景拆分。错误预算耗尽时暂停非必要功能发布，优先处理可靠性。
 
+## 告警落地
+
+只有目标和指标不构成告警：越界必须有人收到。两条投递路径同时可用：
+
+| 路径 | 触发方式 | 覆盖的规则 |
+|---|---|---|
+| 应用内 sweep | `app/tasks/alert_tasks.py`，Celery Beat 每 5 分钟 | 降级事件（Redis/缓存/checkpointer）、Agent 成功率、计划备份失败、数据保留清理失败、文档质量 SLO `warn` |
+| Prometheus + Alertmanager | `ops/alerts/nexus-slo.rules.yml`、`ops/alerts/alertmanager.example.yml` | 5xx 比例、P95 时延、Agent 失败率、LLM 失败率与 P95、队列积压 |
+
+应用内 sweep 投递到 `ALERT_WEBHOOK_URL`（支持 `generic`/`slack`/`feishu` 三种负载），相同告警 key 在 `ALERT_MIN_INTERVAL_SECONDS`（默认 30 分钟）内只发一次，投递与恢复都记录在 `ops_alert_events`，重启后不会重复打扰。告警恢复时该行写入 `resolved_at`。
+
+`ALERT_WEBHOOK_URL` 为空时，sweep 仍会运行并把这些告警记录在台账里，只是日志会明确提示"仅记录未投递"——没有任何渠道时不会误以为已经通知到人。
+
 ## 文档交付质量 SLO
 
 成果文件（方案、标书、报告）的验收口径由 `app/services/artifact_quality_slo.py` 固化，看板在 `/artifact-quality`（管理员），月度报告接口为 `GET /api/artifact-quality/monthly-report`。
