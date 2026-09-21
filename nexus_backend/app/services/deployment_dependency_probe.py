@@ -27,7 +27,11 @@ async def probe_deployment_dependencies() -> list[dict]:
     async def redis():
         import redis.asyncio as aioredis
 
-        url = os.getenv("REDIS_URL")
+        from app.core.redis_url import normalize_redis_url
+
+        # A malformed REDIS_URL must report "unhealthy", not raise: redis-py
+        # validates the scheme while constructing the client.
+        url = normalize_redis_url(os.getenv("REDIS_URL"))
         if not url:
             return False
         client = aioredis.from_url(url, socket_connect_timeout=2, socket_timeout=2)

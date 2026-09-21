@@ -20,6 +20,8 @@ import os
 import threading
 import uuid
 
+from app.core.redis_url import normalize_redis_url
+
 logger = logging.getLogger(__name__)
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -43,7 +45,9 @@ class BeatDistributedLock:
         lock_key: str = LOCK_KEY,
         ttl: int = LOCK_TTL,
     ):
-        self._redis_url = redis_url or REDIS_URL
+        # redis.from_url() raises while building the client, which would
+        # escape the acquire() handler; normalize up front instead.
+        self._redis_url = normalize_redis_url(redis_url or REDIS_URL)
         self._lock_key = lock_key
         self._ttl = ttl
         self._renew_interval = ttl // 2
@@ -56,6 +60,8 @@ class BeatDistributedLock:
     def _get_redis(self):
         """Lazy-init synchronous Redis client."""
         if self._redis is None:
+            if not self._redis_url:
+                raise RuntimeError("REDIS_URL is not a usable redis:// URL")
             import redis
 
             self._redis = redis.from_url(

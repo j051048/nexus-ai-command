@@ -5,9 +5,16 @@ from celery import Celery
 from celery.schedules import crontab
 from kombu import Exchange, Queue
 
+from app.core.redis_url import normalize_redis_url
+
 logger = logging.getLogger(__name__)
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+# Normalize once: a bare host:port (or a quoted paste from a dashboard) would
+# otherwise be handed to Celery/kombu verbatim and fail deep inside the worker.
+REDIS_URL = (
+    normalize_redis_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+    or "redis://localhost:6379/0"
+)
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
 CELERY_WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "4"))

@@ -31,6 +31,20 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Environment configuration validated")
 
+    # A set-but-unusable REDIS_URL is worse than a missing one: redis.from_url()
+    # validates the scheme while building the client, so the first Redis call
+    # inside a request raised ``ValueError: Redis URL must specify one of the
+    # following schemes...`` instead of degrading. Report it here, at startup.
+    from app.core.redis_url import describe_redis_url_problem, normalize_redis_url
+
+    if settings.REDIS_URL and normalize_redis_url(settings.REDIS_URL) is None:
+        logger.critical(
+            "CONFIG ERROR: %s. Redis-backed rate limiting, token budgets and "
+            "caching stay degraded until the value is fixed (expected "
+            "redis://, rediss:// or unix://).",
+            describe_redis_url_problem(settings.REDIS_URL),
+        )
+
     await cache_service.init()
     await event_bus.start()
     logger.info("Event Bus started")

@@ -12,6 +12,7 @@ G5: Token 燃烧秒级熔断 — 单会话成本上限
 
 import asyncio
 import logging
+import math
 import os
 import time
 from dataclasses import dataclass
@@ -21,8 +22,27 @@ from app.core.config import settings
 from app.core.model_pricing import (
     estimate_cost,
 )  # noqa: F401 — re-exported for backwards compat
+from app.core.redis_url import describe_redis_url_problem, normalize_redis_url
 
 logger = logging.getLogger(__name__)
+
+
+def _finite_tokens(value: float) -> int:
+    """Render a token counter for a human.
+
+    Fail-closed probes report ``inf`` to block the request; ``int(inf)``
+    raises ``OverflowError``, which used to escape ``check_budget``. Report
+    ``-1`` ("unknown") instead so the verdict survives formatting.
+    """
+    return int(value) if math.isfinite(value) else -1
+
+
+def _configured_redis_url() -> str:
+    """Return ``settings.REDIS_URL`` when it is a non-empty string, else ``""``."""
+    value = getattr(settings, "REDIS_URL", None)
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
 
 
 # ─── Budget Status ─────────────────────────────────────────────────────────
@@ -111,9 +131,14 @@ class TokenBudgetManager:
         self._redis_retry_at = 0.0
         self._redis_probe_lock = asyncio.Lock()
         self._fallback_log_at = 0.0
+        self._redis_config_problem: str | None = None
 
     async def _get_redis(self):
         """Lazily get Redis client from cache_service."""
+        # Resolve the URL first: a malformed REDIS_URL is a configuration
+        # defect worth reporting regardless of how the probe is short-circuited
+        # below.
+        redis_url = self._resolve_redis_url()
         if settings.ENV == "test" or os.getenv("PYTEST_CURRENT_TEST"):
             return None
         if time.monotonic() < self._redis_retry_at:
@@ -127,6 +152,14 @@ class TokenBudgetManager:
                 return self._redis_client
             candidate = None
             owned = False
+            if not redis_url:
+                # redis.from_url() raises on an unusable URL *while building*
+                # the client, i.e. outside the connection handling below. That
+                # used to escape and surface as a per-request warning:
+                #   "Token budget check failed (non-blocking): Redis URL must
+                #    specify one of the following schemes ..."
+                self._disable_redis()
+                return None
             try:
                 from app.services.cache_service import cache_service
 
@@ -137,7 +170,7 @@ class TokenBudgetManager:
                     import redis.asyncio as redis
 
                     candidate = redis.from_url(
-                        settings.REDIS_URL,
+                        redis_url,
                         socket_connect_timeout=1,
                         socket_timeout=1,
                     )
@@ -150,7 +183,13 @@ class TokenBudgetManager:
                 self._redis_client = candidate
                 self._redis_unavailable = False
                 return candidate
-            except (TimeoutError, OSError, RuntimeError, ConnectionError) as exc:
+            except (
+                TimeoutError,
+                OSError,
+                RuntimeError,
+                ConnectionError,
+                ValueError,  # redis-py rejects some deep URL shapes here
+            ) as exc:
                 if owned and candidate is not None:
                     await candidate.aclose()
                 self._disable_redis()
@@ -163,6 +202,37 @@ class TokenBudgetManager:
         self._redis_unavailable = True
         self._redis_retry_at = time.monotonic() + 30
 
+    def _resolve_redis_url(self) -> str | None:
+        """Normalize ``settings.REDIS_URL``, reporting an unusable value once."""
+        url = normalize_redis_url(settings.REDIS_URL)
+        if url is None:
+            self._note_redis_config_problem()
+        return url
+
+    def _note_redis_config_problem(self) -> None:
+        """Record an unusable ``REDIS_URL`` once, with an actionable message."""
+        if self._redis_config_problem is not None:
+            return
+        self._redis_config_problem = describe_redis_url_problem(settings.REDIS_URL)
+        if not _configured_redis_url():
+            # Redis is not configured at all: keep the existing contract where
+            # production fails closed instead of trusting per-process counters.
+            return
+        logger.critical(
+            "[TokenBudget] %s; Redis-backed budget enforcement is disabled "
+            "until the env var is fixed (see DEPLOY.md)",
+            self._redis_config_problem,
+        )
+        try:
+            from app.core.degradation_registry import degradation_registry
+        except ImportError:  # pragma: no cover - core module is always present
+            return
+        degradation_registry.register(
+            "token_budget_redis",
+            self._redis_config_problem,
+            fallback="InMemoryBudgetStore",
+        )
+
     def _log_fallback(self) -> None:
         if time.monotonic() >= self._fallback_log_at:
             logger.warning(
@@ -171,6 +241,12 @@ class TokenBudgetManager:
             self._fallback_log_at = time.monotonic() + 60
 
     def _allow_memory_fallback(self) -> bool:
+        if self._redis_config_problem and _configured_redis_url():
+            # A typo in REDIS_URL must not turn a cost guard-rail into a full
+            # AI outage. Enforcement degrades to per-process counters, a
+            # CRITICAL log line and a degradation event that health checks
+            # surface - the operator fixes the env var, availability holds.
+            return True
         return (
             settings.ENV != "production"
             or settings.TOKEN_BUDGET_MEMORY_FALLBACK_ENABLED
@@ -235,11 +311,23 @@ class TokenBudgetManager:
         """
         # 1. Session token check
         sess_tokens = await self._get(self._key("sess_tok", session_id))
+        if not math.isfinite(sess_tokens):
+            # Redis is unavailable and the deployment refuses memory fallback.
+            # Report the block explicitly: formatting an infinite counter with
+            # int() used to raise OverflowError, which escaped this method and
+            # made the caller treat the request as unguarded.
+            return BudgetStatus(
+                verdict=BudgetVerdict.EXCEEDED,
+                message=(
+                    "预算服务暂时不可用，无法核算本次会话用量。"
+                    "已按安全策略暂停 AI 调用，请稍后重试或联系管理员。"
+                ),
+            )
         if sess_tokens >= settings.TOKEN_BUDGET_MAX_PER_SESSION:
             return BudgetStatus(
                 verdict=BudgetVerdict.EXCEEDED,
-                message=f"本次会话已使用 {int(sess_tokens)} tokens，超过单会话上限 {settings.TOKEN_BUDGET_MAX_PER_SESSION}。请开启新会话继续对话。",
-                session_tokens=int(sess_tokens),
+                message=f"本次会话已使用 {_finite_tokens(sess_tokens)} tokens，超过单会话上限 {settings.TOKEN_BUDGET_MAX_PER_SESSION}。请开启新会话继续对话。",
+                session_tokens=_finite_tokens(sess_tokens),
             )
 
         # 2. User hourly token check
@@ -248,8 +336,8 @@ class TokenBudgetManager:
         if user_hour_tokens >= settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER:
             return BudgetStatus(
                 verdict=BudgetVerdict.EXCEEDED,
-                message=f"您在过去一小时内已使用 {int(user_hour_tokens)} tokens，超过每小时上限 {settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER}。请稍后再试。",
-                user_hour_tokens=int(user_hour_tokens),
+                message=f"您在过去一小时内已使用 {_finite_tokens(user_hour_tokens)} tokens，超过每小时上限 {settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER}。请稍后再试。",
+                user_hour_tokens=_finite_tokens(user_hour_tokens),
             )
 
         # 3. Session cost check
@@ -291,14 +379,14 @@ class TokenBudgetManager:
         warnings = []
         if sess_tokens >= settings.TOKEN_BUDGET_MAX_PER_SESSION * warning_threshold:
             warnings.append(
-                f"会话 token 已使用 {int(sess_tokens)}/{settings.TOKEN_BUDGET_MAX_PER_SESSION}"
+                f"会话 token 已使用 {_finite_tokens(sess_tokens)}/{settings.TOKEN_BUDGET_MAX_PER_SESSION}"
             )
         if (
             user_hour_tokens
             >= settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER * warning_threshold
         ):
             warnings.append(
-                f"小时 token 已使用 {int(user_hour_tokens)}/{settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER}"
+                f"小时 token 已使用 {_finite_tokens(user_hour_tokens)}/{settings.TOKEN_BUDGET_MAX_PER_HOUR_PER_USER}"
             )
         if sess_cost >= settings.TOKEN_BUDGET_MAX_COST_PER_SESSION * warning_threshold:
             warnings.append(
@@ -309,16 +397,16 @@ class TokenBudgetManager:
             return BudgetStatus(
                 verdict=BudgetVerdict.WARNING,
                 message="接近预算上限: " + "; ".join(warnings),
-                session_tokens=int(sess_tokens),
+                session_tokens=_finite_tokens(sess_tokens),
                 session_cost_usd=sess_cost,
-                user_hour_tokens=int(user_hour_tokens),
+                user_hour_tokens=_finite_tokens(user_hour_tokens),
             )
 
         return BudgetStatus(
             verdict=BudgetVerdict.OK,
-            session_tokens=int(sess_tokens),
+            session_tokens=_finite_tokens(sess_tokens),
             session_cost_usd=sess_cost,
-            user_hour_tokens=int(user_hour_tokens),
+            user_hour_tokens=_finite_tokens(user_hour_tokens),
         )
 
     async def record_usage(
@@ -371,7 +459,7 @@ class TokenBudgetManager:
         sess_tokens = await self._get(self._key("sess_tok", session_id))
         sess_cost = await self._get(self._key("sess_cost", session_id))
         return UsageSummary(
-            session_total_tokens=int(sess_tokens),
+            session_total_tokens=_finite_tokens(sess_tokens),
             session_cost_usd=sess_cost,
         )
 

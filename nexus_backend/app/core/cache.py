@@ -12,6 +12,8 @@ from typing import Any
 
 import redis
 
+from app.core.redis_url import describe_redis_url_problem, normalize_redis_url
+
 logger = logging.getLogger(__name__)
 
 # 延迟初始化 Redis 客户端
@@ -29,7 +31,15 @@ def _init_redis():
     try:
         from app.core.config import settings
 
-        _redis_url = settings.REDIS_URL or "redis://localhost:6379/0"
+        _redis_url = normalize_redis_url(settings.REDIS_URL)
+        if not _redis_url:
+            # A malformed URL raises inside redis.from_url(); skip the client
+            # entirely so the decorator falls back to direct DB queries.
+            logger.info(
+                "Redis cache decorator disabled: %s",
+                describe_redis_url_problem(settings.REDIS_URL),
+            )
+            return
 
         # P1: 支持 Redis Sentinel 高可用
         if settings.REDIS_SENTINEL_HOSTS:

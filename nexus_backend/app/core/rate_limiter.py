@@ -18,6 +18,7 @@ from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
+from app.core.redis_url import describe_redis_url_problem, normalize_redis_url
 from app.core.responses import UTF8JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ SENSITIVE_ENDPOINT_LIMITS: dict[str, int] = {
 
 # Check for Redis availability for distributed rate limiting
 REDIS_URL = os.getenv("REDIS_URL")
+_REDIS_URL_NORMALIZED = normalize_redis_url(REDIS_URL)
 redis_client = None
 
 
@@ -92,11 +94,11 @@ def _rate_limit_backend_unavailable_meta(limit: int, window: int = 60) -> dict:
     }
 
 
-if REDIS_URL:
+if _REDIS_URL_NORMALIZED:
     try:
         import redis.asyncio as aioredis
 
-        redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
+        redis_client = aioredis.from_url(_REDIS_URL_NORMALIZED, decode_responses=True)
         logger.info("[RateLimiter] Redis backend enabled for distributed rate limiting")
     except ImportError:
         message = "[RateLimiter] redis package not installed"
@@ -119,6 +121,19 @@ if REDIS_URL:
                 "ALLOW_MEMORY_RATE_LIMIT=1 only for a private single-node deployment."
             ) from e
         logger.warning(f"[RateLimiter] Redis connection failed: {e}", exc_info=True)
+elif REDIS_URL:
+    # Set but unusable (a bare host:port is repaired above, so this is a real
+    # mistake - typically an http(s):// URL copied from another service).
+    _malformed_msg = (
+        f"[RateLimiter] {describe_redis_url_problem(REDIS_URL)}; "
+        "distributed rate limiting is unavailable"
+    )
+    logger.critical(_malformed_msg)
+    if _redis_is_required():
+        raise RuntimeError(
+            f"{_malformed_msg}. Fix REDIS_URL or set ALLOW_MEMORY_RATE_LIMIT=1 "
+            "only for a private single-node deployment."
+        )
 elif _IS_PRODUCTION:
     # P0 安全加固：生产环境必须配置 Redis，否则多副本部署下内存限流形同虚设
     _msg = (

@@ -19,6 +19,8 @@ from typing import Any
 
 import numpy as np
 
+from app.core.redis_url import describe_redis_url_problem, normalize_redis_url
+
 logger = logging.getLogger(__name__)
 
 # Try to import redis, fall back to in-memory if unavailable
@@ -108,7 +110,8 @@ class CacheService:
         if self._initialized:
             return
 
-        redis_url = os.getenv("REDIS_URL")
+        configured_redis_url = os.getenv("REDIS_URL")
+        redis_url = normalize_redis_url(configured_redis_url)
 
         if redis_url and REDIS_AVAILABLE:
             try:
@@ -130,8 +133,11 @@ class CacheService:
         else:
             self._client = InMemoryCache()
             self._use_redis = False
-            if not redis_url:
-                logger.info("REDIS_URL not configured. Using in-memory cache.")
+            problem = describe_redis_url_problem(configured_redis_url)
+            if problem:
+                logger.info(
+                    "Redis cache disabled (%s). Using in-memory cache.", problem
+                )
 
         self._initialized = True
 
