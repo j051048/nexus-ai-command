@@ -22,6 +22,9 @@
 - 反馈闭环：补齐 `change_type` 与审批审计字段，学习候选的 `approved`/`rejected` 只能由管理员写入。
 - 模板晋升：客户赢单/输单真正折入模板 A/B 与晋升门槛。
 - 产物评测：`scripts/run_artifact_output_eval.py` 增加版本化基线与逐用例回归判定，并接入 CI。
+- `maybe_single()` 契约回归：`app/core/postgrest_compat.py` 把 postgrest-py ≥0.16 的"零行返回 `None`"（并在其他错误上伪造 `code=204`）恢复成空响应对象。**这个模块是修复而非兼容包袱，删除会同时复活约 150 处调用点的崩溃与错误类别丢失**；升级 postgrest 前先读它的 docstring。
+- Redis URL 归一化：`app/core/redis_url.py` 统一补 `redis://` 前缀、拒绝 `http(s)://` 等非法 scheme。生产环境 `REDIS_URL` 写错时，启动期打 CRITICAL、令牌预算降级为进程内计数并登记 degradation，而不是把成本护栏变成全量 AI 中断。真正的修复仍是运维侧改对 `REDIS_URL`。
+- `llm_model_config` 数据缺口：`FORCED_CHAT_MODEL=deepseek-v4.1-flash` 在库中没有 enabled 行，网关每次都走 env fallback 并打一条 WARN。补齐需要确认该模型的 base_url/密钥后再写入种子迁移，不能只插空行。
 
 ## 偿还原则
 

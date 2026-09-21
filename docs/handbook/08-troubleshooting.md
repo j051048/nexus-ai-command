@@ -11,6 +11,10 @@
 | 自动任务重复执行 | Beat、分布式锁、任务幂等键 | 多 Pod 各自调度 |
 | 跨租户异常 | auth context、RLS policy | service key 误用、缺少对象归属校验 |
 | LLM 成本突增 | 模型成本看板、scene/agent | 绕过网关、反思循环、上下文膨胀 |
+| `获取配置失败: 'NoneType' object has no attribute 'data'` | `app/core/postgrest_compat.py` 是否被删 | `maybe_single()` 零行契约回归：postgrest-py ≥0.16 命中零行时返回 `None` 而不是空响应，约 150 处调用点会崩 |
+| `AI execution policy unavailable; using safe defaults` | 上面那一行是否同时出现 | 同源：策略行不存在时 `get_config` 崩溃被上层吞掉，租户静默降级到安全默认策略 |
+| `Token budget check failed ... Redis URL must specify one of the following schemes` | `REDIS_URL` 取值（不要贴密码） | 值不是 `redis://` / `rediss://` / `unix://`；云端控制台常只给 `host:port`。`app/core/redis_url.py` 会补前缀，其余非法值按"未配置 Redis"降级 |
+| `No DB config found for model=..., using env fallback config` | `llm_model_config` 是否有该 `model_code` 的行 | 数据缺口而非代码缺陷：`FORCED_CHAT_MODEL` 指向的模型在库里没有 enabled 行，网关按设计退回 env 配置 |
 
 排查顺序：确认影响范围 -> 关联 `trace_id` -> 检查最近发布/迁移 -> 降级或回滚 -> 保留证据 -> 复盘并增加回归测试。不要在事故中直接修改历史迁移。
 

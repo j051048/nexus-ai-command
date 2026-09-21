@@ -19,7 +19,7 @@
 - `SUPABASE_JWT_SECRET` 或受支持的 JWT/JWKS 配置
 - `OPENAI_API_KEY`
 - `AI_BASE_URL`，目标网关必须提供 `deepseek-v4.1-flash`
-- `REDIS_URL`、`CELERY_BROKER_URL`、`CELERY_RESULT_BACKEND`
+- `REDIS_URL`、`CELERY_BROKER_URL`、`CELERY_RESULT_BACKEND`：必须是 `redis://`、`rediss://` 或 `unix://` 形式的完整 URL，例如 `redis://default:<password>@<host>:<port>`。只填 `host:port` 会被自动补上 `redis://`；填成 `https://...` 会在启动日志里报 `CONFIG ERROR`，并让限流、令牌预算与缓存退化为单进程实现。
 - `LANGGRAPH_CHECKPOINTER=postgres`
 - `ENCRYPTION_KEY`
 - `HEALTH_CHECK_TOKEN`，至少 24 个字符
