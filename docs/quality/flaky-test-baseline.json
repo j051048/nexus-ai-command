@@ -1,0 +1,5 @@
+{
+  "generated_by": "scripts/check_test_retry_budget.py",
+  "note": "Reviewed rerun budget per test. Empty means no flaky test is tolerated; add an entry only with a linked fix plan.",
+  "tests": {}
+}

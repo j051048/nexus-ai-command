@@ -7,6 +7,8 @@ router quality from silently drifting below the checked-in baseline.
 
 from __future__ import annotations
 
+import argparse
+import datetime as dt
 import json
 import sys
 from pathlib import Path
@@ -27,7 +29,18 @@ def _pct(value: float) -> str:
     return f"{value * 100:.2f}%"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help=(
+            "Write the measured router accuracy back to baseline_scores.json. "
+            "This is a deliberate monthly review action, not a way to silence a regression."
+        ),
+    )
+    args = parser.parse_args(argv)
+
     from app.services.agent_eval_baseline_service import agent_eval_baseline_service
     from app.services.scientific_artifact_eval_service import (
         scientific_artifact_eval_service,
@@ -82,6 +95,30 @@ def main() -> int:
     baseline = float(baselines["router_accuracy"])
     regression_tolerance = 0.02
     instrument_min = float(thresholds.get("instrument_policy_accuracy_min", 0.95))
+
+    if args.update_baseline:
+        if accuracy < release_min:
+            print(
+                "AGENT_EVAL_BASELINE_REFUSED"
+                f" current accuracy {_pct(accuracy)} is below release minimum {_pct(release_min)}"
+            )
+            return 1
+        payload = _load_json(baselines_path)
+        previous = float(payload["baselines"].get("router_accuracy", 0.0))
+        payload["baselines"]["router_accuracy"] = round(accuracy, 4)
+        payload["updated_at"] = dt.date.today().isoformat()
+        payload["update_note"] = (
+            f"router_accuracy refreshed from {previous:.4f} to {accuracy:.4f} "
+            f"over {result['case_count']} cases"
+        )
+        baselines_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(
+            "AGENT_EVAL_BASELINE_UPDATED"
+            f" router_accuracy {previous:.4f} -> {accuracy:.4f}"
+        )
+        return 0
 
     failures: list[str] = []
     if result["case_count"] < 70:

@@ -1,7 +1,9 @@
 """测试基础设施"""
 
+import json
 import os
 import socket
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -9,6 +11,31 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app as _fastapi_app
+
+RETRY_REPORT_PATH = Path(__file__).resolve().parents[1] / "test-retries.json"
+_RETRY_COUNTS: dict[str, int] = {}
+
+
+def pytest_runtest_logreport(report):
+    """Record reruns so flakiness is visible instead of silently retried."""
+    # pytest-retry reports "retried"; pytest-rerunfailures reports "rerun".
+    if getattr(report, "outcome", None) not in {"rerun", "retried"}:
+        return
+    nodeid = getattr(report, "nodeid", "unknown")
+    _RETRY_COUNTS[nodeid] = _RETRY_COUNTS.get(nodeid, 0) + 1
+
+
+def pytest_sessionfinish(session, exitstatus):
+    payload = {
+        "total_reruns": sum(_RETRY_COUNTS.values()),
+        "flaky_tests": dict(sorted(_RETRY_COUNTS.items())),
+    }
+    try:
+        RETRY_REPORT_PATH.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+    except OSError:  # pragma: no cover - reporting must never break a test run
+        pass
 
 
 @pytest.fixture(autouse=True)

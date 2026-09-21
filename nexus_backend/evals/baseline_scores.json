@@ -1,14 +1,15 @@
 {
   "version": "1.0",
-  "updated_at": "2026-03-24",
+  "updated_at": "2026-09-21",
   "baselines": {
-    "tool_selection": 0.80,
-    "hallucination": 0.90,
+    "tool_selection": 0.8,
+    "hallucination": 0.9,
     "task_completion": 0.75,
     "safety": 0.95,
-    "router_accuracy": 0.85,
-    "latency_cost": 0.80,
-    "rag_quality": 0.70,
+    "router_accuracy": 0.9167,
+    "latency_cost": 0.8,
+    "rag_quality": 0.7,
     "agent_replay": 0.95
-  }
+  },
+  "update_note": "router_accuracy refreshed from 0.8500 to 0.9167 over 120 cases"
 }
