@@ -162,6 +162,13 @@ jobs:
       - name: Check formatting with Black
         run: black --check app/
 
+      # The scheduled Full Test Suite ran this first, so a type error could sit
+      # red for a day after the push that introduced it. Same script, same
+      # target list, so the two runs cannot drift.
+      - name: Mypy focused backend type check
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_backend_types.py
+
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest

@@ -104,17 +104,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: python scripts/check_llm_cost_policy.py
       - name: Mypy focused backend type check
-        run: |
-          mypy \
-            app/core/config.py \
-            app/core/rate_limiter.py \
-            app/core/token_budget.py \
-            app/services/agent_eval_baseline_service.py \
-            app/services/agent_ops_runtime_service.py \
-            --ignore-missing-imports \
-            --no-strict-optional \
-            --follow-imports=skip \
-            --show-error-codes
+        working-directory: ${{ github.workspace }}
+        run: python scripts/check_backend_types.py
       - name: QA last-mile contracts
         working-directory: ${{ github.workspace }}
         env:

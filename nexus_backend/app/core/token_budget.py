@@ -204,7 +204,7 @@ class TokenBudgetManager:
 
     def _resolve_redis_url(self) -> str | None:
         """Normalize ``settings.REDIS_URL``, reporting an unusable value once."""
-        url = normalize_redis_url(settings.REDIS_URL)
+        url: str | None = normalize_redis_url(settings.REDIS_URL)
         if url is None:
             self._note_redis_config_problem()
         return url
