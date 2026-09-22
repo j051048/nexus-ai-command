@@ -10,8 +10,8 @@ on:
         required: false
         default: false
         type: boolean
-      strict_visual:
-        description: "Fail on visual diffs instead of generating missing Linux baselines"
+      update_visual_baselines:
+        description: "Regenerate Linux visual baselines and upload them for review (use after an intentional UI change)"
         required: false
         default: false
         type: boolean
@@ -115,19 +115,30 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
 
-      # Committed snapshots are Windows-generated (`*-win32.png`) and only usable
-      # on a developer workstation. CI runs on Linux, so it either generates the
-      # missing Linux baselines as evidence for a maintainer to commit, or (when
-      # strict_visual is set) compares against already-committed Linux baselines.
+      # Playwright resolves snapshots per platform, so both `*-chromium-linux.png`
+      # and `*-chromium-win32.png` are committed (see scripts/check_visual_baselines.mjs).
+      # This step verifies by default. `--update-snapshots=missing` is deliberately
+      # NOT used: Playwright fails the run in that mode (toMatchSnapshot.js
+      # handleMissing), which made this job permanently red. Re-baselining is an
+      # explicit dispatch input instead, and its output must be reviewed and
+      # committed by a maintainer.
       - name: Run visual regression suite
         run: |
-          if [[ "${{ inputs.strict_visual }}" == "true" ]]; then
-            npx playwright test e2e/visual-regression.spec.ts --project=chromium
+          if [[ "${{ inputs.update_visual_baselines }}" == "true" ]]; then
+            echo "::notice::Re-baseline mode: regenerating Linux snapshots for review before commit."
+            npx playwright test e2e/visual-regression.spec.ts --project=chromium --update-snapshots=all
           else
-            npx playwright test e2e/visual-regression.spec.ts --project=chromium --update-snapshots=missing
+            npx playwright test e2e/visual-regression.spec.ts --project=chromium
           fi
         env:
           RUN_VISUAL_REGRESSION: "1"
+
+      - name: Explain a visual failure
+        if: failure()
+        run: |
+          echo "::error::Visual regression failed: a baseline is missing or differs."
+          echo "::error::Intentional UI change? Dispatch this workflow with update_visual_baselines=true, review the uploaded PNGs, then commit them."
+          echo "::error::A missing baseline means the snapshot was never committed, not that the UI is correct."
 
       - name: Upload generated baselines
         if: always()

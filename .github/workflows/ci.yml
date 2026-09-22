@@ -82,7 +82,9 @@ jobs:
         run: npm ci
 
       - name: Run TypeScript type check
-        run: npm run typecheck
+        run: |
+          npm run typecheck
+          npm run typecheck:e2e
 
       - name: Source size guard
         run: npm run check:size
@@ -91,6 +93,9 @@ jobs:
         run: |
           npm run check:env
           npm run check:isolation
+
+      - name: Visual baseline guard
+        run: npm run check:visual-baselines
 
   frontend-build:
     name: Frontend Build

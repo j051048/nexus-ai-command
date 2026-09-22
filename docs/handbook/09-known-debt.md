@@ -11,6 +11,7 @@
 - **全量真实黄金路径依赖 staging Supabase、Redis 和 LLM**，普通 PR 主要运行离线契约。`nexus_backend/evals/artifact_output_baseline.json` 的 `source` 目前是 `contract-fixture`，验证的是评测器契约而不是真实模型质量；升级为 `live-model` 需要凭据环境录制。
 - **测试覆盖率仍是阶段基线**，不应把整体百分比当作关键路径质量的替代品；2026-09-21 快照为行 15.50%、分支 11.28%，其中一部分提升来自删除死代码而非新增测试。
 - **E2E 套件结构重叠未消除**：`business-flows`、`core-business`、`comprehensive`、`top10-critical-flows`、`authenticated-flows` 语义重叠，单 chromium project、`workers=1`，合并需要一轮专门的测试资产整理。
+- **视觉基线仍需人工审阅**：Linux 基线由 nightly 重新基线模式生成，Windows 基线由本机生成，两者都需要维护者看图确认没有把错误页面固化成"正确"；工具无法替代这一步。
 - **前端智能层路线未完成**：命令栏语义路由强化、GenUI 扩展、页面级 proactive AI 仍在路线中，尚未进入 P0-P2 范围。
 - `knowledge_graph_triples` 同时存在细粒度 owner/role 策略和后续同组织 `FOR ALL` 策略；宽松策略按 OR 组合，生产前需用新迁移收敛为明确的按操作授权并补越权回归测试。
 
@@ -21,6 +22,7 @@
 - 数据保留执行：`/api/compliance/retention` 曾硬编码 365/90/180 天且无执行者。现在窗口来自配置，`DATA_RETENTION_ENFORCEMENT_ENABLED` 开启后按组织逐个清理并写入 `data_retention_runs`；未开启时接口明确返回 `enforcement_enabled=false`。
 - 产物质量证据诚实化：基线 `source` 只允许 `contract-fixture` 或 `live-model`，`--label live-model` 必须带 manifest（模型 id、时延、成本、证据文档、输出 sha256、环境），`scripts/check_artifact_eval_provenance.py` 已接入 CI；质量 SLO 返回值新增 `evidence` 字段，`claims_live_quality=false` 时不得对外承诺模型质量。
 - SLO 告警落地：SLO 此前只有目标表和指标埋点，越界只写一行日志。现在 `app/tasks/alert_tasks.py` 每 5 分钟收集降级、Agent 成功率、备份失败、保留清理失败与文档质量 SLO，按 key 去重后投递到 `ALERT_WEBHOOK_URL`，投递与恢复记录在 `ops_alert_events`；有 Prometheus 的环境使用 `ops/alerts/nexus-slo.rules.yml`。
+- 视觉回归基线：仓库此前只提交 Windows 基线，Linux CI 上 8 个用例全红；而 nightly 用的 `--update-snapshots=missing` 在 Playwright 里是"写入并失败"，所以生成路径永远不可能变绿。现在 8 个 Linux 基线已提交，nightly 默认改为严格比对，重新基线改成显式输入 `update_visual_baselines=true`，并新增 `npm run check:visual-baselines` 在 PR 阶段拦截单平台提交与孤儿基线。
 - 部署拓扑：四套部署面边界写入 `docs/adr/005-deployment-topology-authority.md`，k8s 镜像禁止 `:latest`。
 - 租户默认列：`base_repository` 的 `tenant_column` 默认值从 `tenant_id` 修正为 `organization_id`，此前默认值会让查询静默不带租户过滤。
 - 反馈闭环：补齐 `change_type` 与审批审计字段，学习候选的 `approved`/`rejected` 只能由管理员写入。

@@ -1,5 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { mockLoggedInState, setupBusinessMocks } from './fixtures/business-mocks';
+import {
+  freezeMockClock,
+  mockLoggedInState,
+  setupBusinessMocks,
+} from './fixtures/business-mocks';
+
+// Deterministic data clock: mock payloads carry timestamps that the inbox and
+// AI workspace render, so an unfrozen clock would bake the run date into every
+// baseline and hide changes in that region behind the diff threshold.
+const VISUAL_DATA_CLOCK = '2026-09-01T09:00:00.000Z';
 
 const CORE_VISUAL_ROUTES = [
   { name: 'dashboard', path: '/dashboard' },
@@ -10,6 +19,7 @@ const CORE_VISUAL_ROUTES = [
 ];
 
 async function prepareVisualPage(page: Page) {
+  freezeMockClock(VISUAL_DATA_CLOCK);
   await page.route('**/api/crm/stats**', async (route) => {
     await route.fulfill({
       status: 200,

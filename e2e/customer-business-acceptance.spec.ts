@@ -603,8 +603,13 @@ test.describe('Customer business acceptance flows', () => {
 
   test('10. chat artifact delivery regenerates, reviews, and downloads a durable file', async ({ page }) => {
     await setupAcceptanceMocks(page, 'boss');
-    let artifactPayload: Record<string, unknown> | null = null;
-    let feedbackPayload: Record<string, unknown> | null = null;
+    // Captured in a holder object: assigning to a `let` inside a route handler
+    // is invisible to TypeScript's narrowing, which collapses the declared
+    // union to `null` and hides the real payload shape from the assertions.
+    const captured: {
+      artifact?: Record<string, unknown>;
+      feedback?: Record<string, unknown>;
+    } = {};
     await page.route('**/api/chat', async (route: Route) => {
       await route.fulfill({
         status: 200,
@@ -620,7 +625,7 @@ test.describe('Customer business acceptance flows', () => {
     });
     await page.route('**/api/artifacts?*', (route) => fulfillJson(route, { success: true, data: { artifacts: [] } }));
     await page.route('**/api/artifacts/jobs', async (route) => {
-      artifactPayload = JSON.parse(route.request().postData() || '{}');
+      captured.artifact = JSON.parse(route.request().postData() || '{}');
       await fulfillJson(route, {
         success: true,
         data: {
@@ -660,7 +665,7 @@ test.describe('Customer business acceptance flows', () => {
       });
     });
     await page.route('**/api/artifacts/11111111-1111-4111-8111-111111111111/feedback', async (route) => {
-      feedbackPayload = JSON.parse(route.request().postData() || '{}');
+      captured.feedback = JSON.parse(route.request().postData() || '{}');
       await fulfillJson(route, {
         success: true,
         data: { artifact_id: '11111111-1111-4111-8111-111111111111', recorded: true },
@@ -682,13 +687,13 @@ test.describe('Customer business acceptance flows', () => {
     await page.getByRole('button', { name: '开始制作' }).click();
     await download;
 
-    await expect.poll(() => artifactPayload).not.toBeNull();
-    expect(artifactPayload?.original_request).toContain('食品安全检测仪升级解决方案');
-    expect(artifactPayload?.source_content).toContain('正式成果需要重新检索企业产品资料');
+    await expect.poll(() => captured.artifact).toBeTruthy();
+    expect(captured.artifact?.original_request).toContain('食品安全检测仪升级解决方案');
+    expect(captured.artifact?.source_content).toContain('正式成果需要重新检索企业产品资料');
     await expect(page.getByText('ART-20260722-E2E')).toBeVisible();
     await expect(page.getByText('质量 93')).toBeVisible();
     await page.getByRole('button', { name: '可直接使用' }).click();
-    await expect.poll(() => feedbackPayload).not.toBeNull();
-    expect(feedbackPayload?.outcome).toBe('used');
+    await expect.poll(() => captured.feedback).toBeTruthy();
+    expect(captured.feedback?.outcome).toBe('used');
   });
 });

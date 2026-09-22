@@ -13,6 +13,33 @@ const corsHeaders = {
   'access-control-allow-headers': 'authorization,content-type,x-client-info,apikey,x-requested-with,x-org-id,x-csrf-token,x-idempotency-key',
 };
 
+/**
+ * Mutable clock used by every mocked payload.
+ *
+ * The visual regression suite freezes it (see `freezeMockClock`) so a baseline
+ * never embeds the date of the run that produced it: the inbox card rendered
+ * "09/21 22:09" from `new Date()`, which drifts daily and was only tolerated
+ * because the changed region stayed under the diff threshold.
+ */
+let mockClock: Date | null = null;
+
+/** Freeze the mocked "now"; pass `null` to go back to the real clock. */
+export function freezeMockClock(iso: string | null = null): void {
+  mockClock = iso ? new Date(iso) : null;
+}
+
+function mockNow(): Date {
+  return mockClock ? new Date(mockClock) : new Date();
+}
+
+function mockNowIso(): string {
+  return mockNow().toISOString();
+}
+
+function mockNowSeconds(): number {
+  return Math.floor(mockNow().getTime() / 1000);
+}
+
 export async function fulfillJson(route: Route, body: unknown, status = 200) {
   if (route.request().method() === 'OPTIONS') {
     await route.fulfill({ status: 204, headers: corsHeaders, body: '' });
@@ -29,7 +56,7 @@ export async function fulfillJson(route: Route, body: unknown, status = 200) {
 }
 
 export function createFakeJwt(role = 'boss') {
-  const now = Math.floor(Date.now() / 1000);
+  const now = mockNowSeconds();
   const email = role === 'boss' ? 'test-admin@nexus-ai.com' : `${role}@nexus-ai.com`;
   const name = role === 'boss' ? 'E2E Admin' : `E2E ${role}`;
   const encode = (value: unknown) =>
@@ -139,8 +166,8 @@ export async function setupBusinessMocks(page: Page) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([
-        { id: 'wf-1', name: '入职审批流程', status: 'active', created_at: new Date().toISOString() },
-        { id: 'wf-2', name: '报销自动处理', status: 'draft', created_at: new Date().toISOString() }
+        { id: 'wf-1', name: '入职审批流程', status: 'active', created_at: mockNowIso() },
+        { id: 'wf-2', name: '报销自动处理', status: 'draft', created_at: mockNowIso() }
       ])
     });
   });
@@ -241,7 +268,7 @@ export async function setupBusinessMocks(page: Page) {
             reason: 'AI 规则：机会客户 30 天无更新',
             priority: 'high',
             status: 'open',
-            created_at: new Date().toISOString(),
+            created_at: mockNowIso(),
             action_url: '/crm?customer=c-1',
             actions: [],
             metadata: {},
@@ -253,7 +280,7 @@ export async function setupBusinessMocks(page: Page) {
             action_id: 'approval:ap-1',
             source: 'approval',
             event_type: 'accepted',
-            created_at: new Date().toISOString(),
+            created_at: mockNowIso(),
             metadata: {},
           },
         ],
@@ -269,7 +296,7 @@ export async function setupBusinessMocks(page: Page) {
           recorded: true,
           event: {
             id: 'evt-1',
-            created_at: new Date().toISOString(),
+            created_at: mockNowIso(),
           },
         },
       });
@@ -290,7 +317,7 @@ export async function setupBusinessMocks(page: Page) {
             reason: '等待你处理的审批事项',
             priority: 'high',
             status: 'open',
-            created_at: new Date().toISOString(),
+            created_at: mockNowIso(),
             action_url: '/approval',
             actions: [
               {
@@ -373,7 +400,7 @@ export async function setupBusinessMocks(page: Page) {
             run_id: 'run-1',
             status: 'completed',
             input_summary: '查询高价值客户跟进风险',
-            updated_at: new Date().toISOString(),
+            updated_at: mockNowIso(),
           },
         ],
           operating_metrics: {
@@ -499,7 +526,7 @@ export async function setupBusinessMocks(page: Page) {
     await fulfillJson(route, {
       success: true,
       data: {
-        generated_at: new Date().toISOString(),
+        generated_at: mockNowIso(),
         persistence: {
           migration: '20260525_agent_evolution_ops.sql',
           tables: ['agent_prompt_versions', 'agent_improvement_proposals', 'agent_eval_cases', 'agent_redteam_findings'],

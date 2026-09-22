@@ -46,15 +46,16 @@ python scripts/production_proof_gate.py
 
 | 门禁 | 脚本 | 冻结对象 |
 |---|---|---|
-| 租户查询范围 | `check_tenant_query_scope.py` | 未带组织条件的 `.table()` 调用（752 / 186 文件） |
+| 租户查询范围 | `check_tenant_query_scope.py` | 未带组织条件的 `.table()` 调用（751 / 185 文件） |
 | 配置访问 | `check_config_governance.py` | `app/core` 之外的直接环境变量读取（111 / 36 文件） |
-| 宽泛异常 | `check_exception_governance.py` | 宽泛捕获总数（1850）与显式豁免（35） |
+| 宽泛异常 | `check_exception_governance.py` | 宽泛捕获总数（1848）与显式豁免（35） |
 | 源码体积 | `check_source_size.mjs` | 前端 500 行、后端 700 行以上的逐文件上限 |
 | 部署拓扑 | `check_deployment_topology.py` | k8s 镜像 tag 与 `imagePullPolicy`、compose 构建入口 |
 | 环境隔离 | `check_env_isolation.mjs` / `check_env_contract.mjs` | 非生产构建的 API 基址、CSP、`.env.example` 契约 |
 | Agent 评测 | `agent_eval_regression_gate.py` | 离线 agent eval 低于发布下限 |
 | 产物评测 | `run_artifact_output_eval.py` | `artifact_output_baseline.json` 的通过率与逐用例回归 |
 | 测试重试预算 | `check_test_retry_budget.py` | CI 中 flaky 重试次数 |
+| 视觉基线 | `check_visual_baselines.mjs` | `e2e/visual-regression.spec.ts` 每个用例的 linux 与 win32 基线缺失或成为孤儿 |
 
 更新任何基线只允许在**债务真实下降**后执行；不得为了让 PR 通过而重写基线。
 
@@ -68,6 +69,16 @@ npx playwright test --project=chromium
 ```
 
 客户成果在线验收使用 `python scripts/run_customer_golden_acceptance.py --require-live`，覆盖上传、入库、成果任务和 DOCX/PDF 下载。没有 `GOLDEN_ACCEPTANCE_*` 凭据时只能证明静态契约，不能作为在线交付通过证据。
+
+### 视觉回归基线的平台规则
+
+Playwright 按平台解析快照名（CI 是 `*-chromium-linux.png`，开发者工作站是 `*-chromium-win32.png`），所以两个平台的基线都必须提交，否则另一个平台等于没有回归保护。2026-09-21 的 nightly 失败正是这个原因：仓库只有 win32 基线，CI 在 Linux 上找不到基线而全红。
+
+- 校验模式（nightly 默认，也是 `test-full.yml` 打开 `RUN_VISUAL_REGRESSION` 后的行为）：直接比较，缺基线或超阈值即失败。这是真实的回归门。
+- 重新基线模式：手动触发 Nightly Agent Quality 并勾选 `update_visual_baselines=true`，用 `--update-snapshots=all` 生成 Linux 基线并作为构件上传，**必须人工审阅 PNG 后提交**，作业本身不因生成而失败。
+- 不要用 `--update-snapshots=missing`：Playwright 在该模式下仍会判定用例失败（`toMatchSnapshot.js` 的 `handleMissing` 会 `_failWithError`），这正是之前 nightly 长期无法变绿的原因。
+- Windows 基线在本机生成：`RUN_VISUAL_REGRESSION=1 npx playwright test e2e/visual-regression.spec.ts --project=chromium --update-snapshots=all`，同样需要审阅后提交。
+- `npm run check:visual-baselines` 在 PR 阶段拦截"只提交了一个平台"或"删了用例但留着基线"的情况，并打印对应的修复命令。
 
 成果交付的验收要求、步骤检查点、预览修订与文件级评测，以及 2026-09-10 的 RLS/移动端修复，见[交付质量记录](../quality/delivery-hardening-20260909.md)。新增迁移必须经过 RLS 覆盖和策略字段检查；后端专用表只能给后端角色策略，不得为通过扫描而向普通用户开放。
 
